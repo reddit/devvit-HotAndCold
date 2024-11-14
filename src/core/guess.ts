@@ -8,6 +8,9 @@ import {
 } from "../utils/zoddy";
 import { Challenge } from "./challenge";
 import { API } from "./api";
+import { Streaks } from "./streaks";
+import { ChallengeLeaderboard } from "./challengeLeaderboard";
+import { Score } from "./score";
 
 export * as Guess from "./guess";
 
@@ -33,10 +36,10 @@ export const getChallengeUserGuessesTimestampKey = (
   }:guesses_by_timestamp` as const;
 
 const challengeUserInfoSchema = z.object({
-  startedPlayingAt: z.number().optional(),
-  solvedAt: z.number().optional(),
+  startedPlayingAtMs: z.number().optional(),
+  solvedAtMs: z.number().optional(),
   totalGuesses: z.number().optional(),
-  gaveUpAt: z.number().optional(),
+  gaveUpAtMs: z.number().optional(),
   hints: z.array(
     // TODO: Also include the rank 0-1000? Otherwise we need the client to see the word list to
     // calc and someone will hack us
@@ -60,10 +63,10 @@ export const getChallengeUserInfo = zoddy(
     }
 
     return challengeUserInfoSchema.parse({
-      startedPlayingAt: parseInt(result.startedPlayingAt, 10),
-      solvedAt: parseInt(result.startedPlayingAt, 10),
+      startedPlayingAtMs: parseInt(result.startedPlayingAtMs, 10),
+      solvedAtMs: parseInt(result.solvedAtMs, 10),
       totalGuesses: parseInt(result.totalGuesses, 10),
-      gaveUpAt: parseInt(result.gaveUpAt, 10),
+      gaveUpAtMs: parseInt(result.gaveUpAtMs, 10),
       hints: JSON.parse(result.hints),
     });
   },
@@ -74,10 +77,11 @@ export const markChallengeSolvedForUser = zoddy(
     redis: z.union([zodRedis, zodTransaction]),
     username: zodRedditUsername,
     challenge: z.number().gt(0),
+    completedAt: z.number().optional(),
   }),
-  async ({ redis, username, challenge }) => {
+  async ({ redis, username, challenge, completedAt }) => {
     await redis.hSet(getChallengeUserKey(challenge, username), {
-      solvedAt: Date.now().toString(),
+      solvedAtMs: completedAt.toString(),
     });
   },
 );
@@ -90,7 +94,7 @@ export const markChallengePlayedForUser = zoddy(
   }),
   async ({ redis, username, challenge }) => {
     await redis.hSet(getChallengeUserKey(challenge, username), {
-      startedPlayingAt: Date.now().toString(),
+      startedPlayingAtMs: Date.now().toString(),
     });
   },
 );
@@ -233,10 +237,8 @@ export const makeUserGuess = zoddy(
       challenge,
     });
 
-    if (challengeUserInfo.startedPlayingAt == null) {
+    if (challengeUserInfo.startedPlayingAtMs == null) {
       await Challenge.incrementChallengeTotalPlayers({ redis: txn, challenge });
-
-      // sorta wasteful, but it works!
       await markChallengePlayedForUser({ challenge, redis: txn, username });
     }
 
@@ -265,21 +267,58 @@ export const makeUserGuess = zoddy(
       username,
     });
     await Challenge.incrementChallengeTotalGuesses({ redis: txn, challenge });
-    await txn.zAdd(getChallengeUserGuessesTimestampKey(challenge, username), {
+    const guessToAdd = {
       member: guess,
       score: Date.now(),
-    });
+    };
+    await txn.zAdd(
+      getChallengeUserGuessesTimestampKey(challenge, username),
+      guessToAdd,
+    );
 
     const hasSolved = distance.similarity === 1;
-    if (distance.similarity === 1) {
-      await markChallengeSolvedForUser({ challenge, redis: txn, username });
+    let score: number | undefined = undefined;
+    if (hasSolved) {
+      const completedAt = Date.now();
+      const solveTimeMs = completedAt - challengeUserInfo.startedPlayingAtMs;
+      score = Score.calculateScore({
+        solveTimeMs,
+        // Need to manually add guess here since this runs in a transaction
+        // and the guess has not been added to the user's guesses yet
+        guesses: [
+          ...await getUserGuessesByDistance({
+            start: 0,
+            stop: -1,
+            redis: context.redis,
+            username,
+            challenge,
+          }),
+          guessToAdd,
+        ],
+        totalHints: challengeUserInfo.hints.length,
+      });
+      await markChallengeSolvedForUser({
+        challenge,
+        redis: txn,
+        username,
+        completedAt,
+      });
+      await Streaks.incrementEntry({ redis: txn, username });
       await Challenge.incrementChallengeTotalSolves({ redis: txn, challenge });
+      await ChallengeLeaderboard.addEntry({
+        redis: txn,
+        challenge,
+        username,
+        score,
+        timeToCompleteMs: solveTimeMs,
+      });
     }
 
     await txn.exec();
 
     return {
       hasSolved,
+      score,
     };
   },
 );
@@ -302,7 +341,7 @@ export const giveUp = zoddy(
       challenge,
     });
 
-    if (challengeUserInfo.startedPlayingAt == null) {
+    if (challengeUserInfo.startedPlayingAtMs == null) {
       throw new Error(`User ${username} has not started playing yet`);
     }
 
@@ -316,7 +355,7 @@ export const giveUp = zoddy(
     }
 
     await txn.hSet(getChallengeUserKey(challenge, username), {
-      gaveUpAt: Date.now().toString(),
+      gaveUpAtMs: Date.now().toString(),
     });
 
     // Add the guess even though they gave up so they can see the word later

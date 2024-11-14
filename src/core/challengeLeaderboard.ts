@@ -1,16 +1,20 @@
 import { z } from "zod";
-import { zoddy, zodRedditUsername, zodRedis } from "../utils/zoddy";
+import {
+  zoddy,
+  zodRedditUsername,
+  zodRedis,
+  zodTransaction,
+} from "../utils/zoddy";
 
-export * as ChallengeLeaderboard from "./challenge";
+export * as ChallengeLeaderboard from "./challengeLeaderboard";
 
-export const getChallengeLeaderboardKey = (challenge: number) =>
-  `challenge:${challenge}:leaderboard` as const;
+export const getChallengeLeaderboardScoreKey = (challenge: number) =>
+  `challenge:${challenge}:leaderboard:score` as const;
 
-const challengeSchema = z.object({
-  word: z.string().trim().toLowerCase(),
-});
+export const getChallengeLeaderboardFastestKey = (challenge: number) =>
+  `challenge:${challenge}:leaderboard:fastest` as const;
 
-export const getLeaderboard = zoddy(
+export const getLeaderboardByScore = zoddy(
   z.object({
     redis: zodRedis,
     challenge: z.number().gt(0),
@@ -21,7 +25,31 @@ export const getLeaderboard = zoddy(
   async ({ redis, challenge, sort, start, stop }) => {
     // TODO: Total yolo
     const result = await redis.zRange(
-      getChallengeLeaderboardKey(challenge),
+      getChallengeLeaderboardScoreKey(challenge),
+      start,
+      stop,
+      { by: "score", reverse: sort === "DESC" },
+    );
+
+    if (!result) {
+      throw new Error(`No leaderboard found challenge ${challenge}`);
+    }
+    return result;
+  },
+);
+
+export const getLeaderboardByFastest = zoddy(
+  z.object({
+    redis: zodRedis,
+    challenge: z.number().gt(0),
+    start: z.number().gte(0).optional().default(0),
+    stop: z.number().gte(-1).optional().default(10),
+    sort: z.enum(["ASC", "DESC"]).optional().default("DESC"),
+  }),
+  async ({ redis, challenge, sort, start, stop }) => {
+    // TODO: Total yolo
+    const result = await redis.zRange(
+      getChallengeLeaderboardFastestKey(challenge),
       start,
       stop,
       { by: "score", reverse: sort === "DESC" },
@@ -36,16 +64,43 @@ export const getLeaderboard = zoddy(
 
 export const addEntry = zoddy(
   z.object({
-    redis: zodRedis,
+    redis: z.union([zodRedis, zodTransaction]),
     challenge: z.number().gt(0),
-    config: challengeSchema,
     username: zodRedditUsername,
     score: z.number().gte(0),
+    timeToCompleteMs: z.number().gte(0),
   }),
-  async ({ redis, challenge, username, score }) => {
-    await redis.zAdd(getChallengeLeaderboardKey(challenge), {
+  async ({ redis, challenge, username, score, timeToCompleteMs }) => {
+    await redis.zAdd(getChallengeLeaderboardScoreKey(challenge), {
       member: username,
       score,
     });
+    await redis.zAdd(getChallengeLeaderboardFastestKey(challenge), {
+      member: username,
+      score: timeToCompleteMs,
+    });
+  },
+);
+
+export const getStatsForMember = zoddy(
+  z.object({
+    redis: zodRedis,
+    challenge: z.number().gt(0),
+    username: zodRedditUsername,
+  }),
+  async ({ redis, challenge, username }) => {
+    const score = await redis.zScore(
+      getChallengeLeaderboardScoreKey(challenge),
+      username,
+    );
+    const fastest = await redis.zScore(
+      getChallengeLeaderboardFastestKey(challenge),
+      username,
+    );
+
+    return {
+      score: score ?? 0,
+      timeToSolve: fastest ?? 0,
+    };
   },
 );

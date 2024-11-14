@@ -6,6 +6,7 @@ import { WordList } from './wordList';
 import { ChallengeToPost } from './challengeToPost';
 import { Preview } from '../components/Preview';
 import { coerceValues, stringifyValues } from '../utils/utils';
+import { Streaks } from './streaks';
 
 export * as Challenge from './challenge';
 
@@ -187,6 +188,12 @@ export const makeNewChallenge = zoddy(
       challenge: newChallengeNumber,
       postId: post.id,
       redis: txn,
+    });
+
+    await Streaks.expireStreaks({
+      redis: context.redis,
+      txn,
+      challengeNumberBeforeTheNewestChallenge: currentChallengeNumber,
     });
 
     await txn.exec();

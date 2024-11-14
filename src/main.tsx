@@ -43,7 +43,7 @@ Devvit.addMenuItem({
 Devvit.addCustomPostType({
   name: 'Experience Post',
   height: 'regular',
-  render: () => {
+  render: (context) => {
     useAsync(async () => {
       return '';
     });
@@ -57,6 +57,8 @@ Devvit.addCustomPostType({
           height={'100%'}
           onMessage={(event) => {
             console.log('Received message', event);
+
+            context.ui.showToast({ text: `Received message: ${JSON.stringify(event)}` });
           }}
         />
       </vstack>
