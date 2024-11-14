@@ -2,8 +2,8 @@
   "compilerOptions": {
     "lib": ["esnext", "dom", "DOM.Iterable"],
     "target": "esnext",
-    "outDir": "./webroot"
+    "esModuleInterop": true
   },
-  "include": ["./game/**/*"],
+  "include": ["./src/**/*"],
   "extends": "@devvit/public-api/devvit.tsconfig.json"
 }

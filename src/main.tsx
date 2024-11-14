@@ -45,18 +45,27 @@ Devvit.addCustomPostType({
   height: 'regular',
   render: (context) => {
     useAsync(async () => {
+      context.ui.webView.postMessage('webview', { hello: 'world' });
+
       return '';
     });
 
     return (
       <vstack height="100%" width="100%" alignment="center middle">
         <webview
+          id="webview"
           url="index.html"
-          state={{ hello: 'world' }}
           width={'100%'}
           height={'100%'}
           onMessage={(event) => {
             console.log('Received message', event);
+
+            context.ui.webView.postMessage('webview', {
+              type: 'UI_EVENT',
+              loading: false,
+              error: false,
+              navigate: 'foo',
+            });
 
             context.ui.showToast({ text: `Received message: ${JSON.stringify(event)}` });
           }}

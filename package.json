@@ -8,27 +8,36 @@
     "import": "tsx ./import.ts",
     "cosine": "tsx ./cosine.ts",
     "supabase": "supabase",
-    "build": "tsc -p ./tsconfig.json",
     "dev:webview": "browser-sync start --server 'webroot' --files 'webroot/**/*'",
-    "dev:game": "tsc -w",
+    "dev:game": "vite build --watch",
     "dev:devvit": "MY_PORTAL=0 mydevvit playtest huckleberrydevcorner3 --employee-update",
     "dev:all": "concurrently -p \"[{name}]\" -n \"DEVVIT,GAME,WEB\" -c \"bgBlue.bold,bgMagenta.bold,bgGreen.bold\" \"npm run dev:devvit\" \"npm run dev:game\" \"npm run dev:webview\" --restart-tries 30"
   },
   "dependencies": {
     "@devvit/public-api": "0.11.3-next-2024-11-13-3641e33a1.0",
     "compute-cosine-similarity": "1.1.0",
+    "motion": "11.11.15",
     "openai": "4.71.0",
     "pg": "8.13.1",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
     "tsx": "4.19.2",
     "zod": "3.23.8"
   },
   "devDependencies": {
-    "concurrently": "9.1.0",
-    "browser-sync": "3.0.3",
-    "vitest": "2.0.5",
     "@types/node": "22.8.7",
     "@types/pg": "8.11.10",
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "@vitejs/plugin-react": "^4.3.3",
+    "autoprefixer": "^10.4.20",
+    "browser-sync": "3.0.3",
+    "concurrently": "9.1.0",
+    "postcss": "^8.4.49",
     "supabase": "^1.215.0",
-    "typescript": "5.3.2"
+    "tailwindcss": "^3.4.14",
+    "typescript": "5.3.2",
+    "vite": "^5.4.10",
+    "vitest": "2.0.5"
   }
 }
