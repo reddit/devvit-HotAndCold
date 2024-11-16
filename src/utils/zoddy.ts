@@ -1,4 +1,4 @@
-import { Devvit, TxClientLike } from "@devvit/public-api";
+import { Devvit, JobContext, TxClientLike } from "@devvit/public-api";
 import { z } from "zod";
 
 export const zodRedis = z.custom<Devvit.Context["redis"]>((redis) => redis);
@@ -7,6 +7,7 @@ export const zodTransaction = z.custom<TxClientLike>((transaction) =>
 );
 
 export const zodContext = z.custom<Devvit.Context>((context) => context);
+export const zodJobContext = z.custom<JobContext>((context) => context);
 /** Context you get when rendering an app. This is different from schedule functions. */
 export const zodUIContext = z.custom<Devvit.Context>((context) => context);
 

@@ -1,4 +1,4 @@
-export * as Score from "./score";
+export * as Score from "./score.js";
 
 export function calculateScore(
   { solveTimeMs, totalHints, guesses }: {

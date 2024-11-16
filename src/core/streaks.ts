@@ -4,10 +4,10 @@ import {
   zodRedditUsername,
   zodRedis,
   zodTransaction,
-} from "../utils/zoddy";
-import { ChallengeLeaderboard } from "./challengeLeaderboard";
+} from "../utils/zoddy.js";
+import { ChallengeLeaderboard } from "./challengeLeaderboard.js";
 
-export * as Streaks from "./streaks";
+export * as Streaks from "./streaks.js";
 
 export const getStreakKey = () => `streaks` as const;
 

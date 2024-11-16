@@ -1,14 +1,15 @@
 import { number, z } from 'zod';
-import { zodContext, zoddy, zodRedis, zodTransaction } from '../utils/zoddy';
-import { API } from '../core/api';
-import { ChallengeToWord } from './challengeToWord';
-import { WordList } from './wordList';
-import { ChallengeToPost } from './challengeToPost';
-import { Preview } from '../components/Preview';
-import { coerceValues, stringifyValues } from '../utils/utils';
-import { Streaks } from './streaks';
+import { zodContext, zoddy, zodJobContext, zodRedis, zodTransaction } from '../utils/zoddy.js';
+import { API } from '../core/api.js';
+import { ChallengeToWord } from './challengeToWord.js';
+import { WordList } from './wordList.js';
+import { ChallengeToPost } from './challengeToPost.js';
+import { Preview } from '../components/Preview.js';
+import { coerceValues, stringifyValues } from '../utils/utils.js';
+import { Streaks } from './streaks.js';
+import { Devvit } from '@devvit/public-api';
 
-export * as Challenge from './challenge';
+export * as Challenge from './challenge.js';
 
 export const getCurrentChallengeNumberKey = () => 'current_challenge_number' as const;
 
@@ -63,12 +64,21 @@ export const getChallenge = zoddy(
     challenge: z.number().gt(0),
   }),
   async ({ redis, challenge }) => {
-    const result = await redis.get(getChallengeKey(challenge));
+    const result = await redis.hGetAll(getChallengeKey(challenge));
 
     if (!result) {
       throw new Error('No challenge found');
     }
-    return challengeSchema.parse(coerceValues(JSON.parse(result)));
+    return challengeSchema.parse(
+      coerceValues({
+        word: result.word,
+        totalPlayers: result.totalPlayers ? parseInt(result.totalPlayers) : undefined,
+        totalSolves: result.totalSolves ? parseInt(result.totalSolves) : undefined,
+        totalGuesses: result.totalGuesses ? parseInt(result.totalGuesses) : undefined,
+        totalHints: result.totalHints ? parseInt(result.totalHints) : undefined,
+        totalGiveUps: result.totalGiveUps ? parseInt(result.totalGiveUps) : undefined,
+      })
+    );
   }
 );
 
@@ -80,6 +90,20 @@ export const setChallenge = zoddy(
   }),
   async ({ redis, challenge, config }) => {
     await redis.hSet(getChallengeKey(challenge), stringifyValues(config));
+  }
+);
+
+export const initialize = zoddy(
+  z.object({
+    redis: zodRedis,
+  }),
+  async ({ redis }) => {
+    const result = await redis.get(getChallengeKey(0));
+    if (!result) {
+      await redis.set(getCurrentChallengeNumberKey(), '0');
+    } else {
+      console.log('Challenge key already initialized');
+    }
   }
 );
 
@@ -135,7 +159,7 @@ export const incrementChallengeTotalGiveUps = zoddy(
 
 export const makeNewChallenge = zoddy(
   z.object({
-    context: zodContext,
+    context: z.union([zodJobContext, zodContext]),
   }),
   async ({ context }) => {
     const [wordList, usedWords, currentChallengeNumber, currentSubreddit] = await Promise.all([
@@ -150,7 +174,7 @@ export const makeNewChallenge = zoddy(
     ]);
 
     // Find index of first unused word
-    const unusedWordIndex = wordList.findIndex((word) => !usedWords.includes(word));
+    const unusedWordIndex = wordList.findIndex((word: string) => !usedWords.includes(word));
 
     if (unusedWordIndex === -1) {
       throw new Error('No unused words available in the word list');
@@ -178,6 +202,18 @@ export const makeNewChallenge = zoddy(
       preview: <Preview />,
     });
 
+    await setChallenge({
+      redis: txn,
+      challenge: newChallengeNumber,
+      config: {
+        word: newWord,
+        totalPlayers: 0,
+        totalSolves: 0,
+        totalGuesses: 0,
+        totalHints: 0,
+        totalGiveUps: 0,
+      },
+    });
     await setCurrentChallengeNumber({ number: newChallengeNumber, redis: txn });
     await ChallengeToWord.setChallengeNumberForWord({
       challenge: newChallengeNumber,
@@ -190,12 +226,20 @@ export const makeNewChallenge = zoddy(
       redis: txn,
     });
 
-    await Streaks.expireStreaks({
-      redis: context.redis,
-      txn,
-      challengeNumberBeforeTheNewestChallenge: currentChallengeNumber,
-    });
+    // Edge case handling for the first time
+    if (currentChallengeNumber > 0) {
+      await Streaks.expireStreaks({
+        redis: context.redis,
+        txn,
+        challengeNumberBeforeTheNewestChallenge: currentChallengeNumber,
+      });
+    }
 
     await txn.exec();
+
+    return {
+      postId: post.id,
+      postUrl: post.url,
+    };
   }
 );

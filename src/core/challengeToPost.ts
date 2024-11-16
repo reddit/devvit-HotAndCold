@@ -1,7 +1,7 @@
 import { z } from "zod";
-import { zoddy, zodRedis, zodTransaction } from "../utils/zoddy";
+import { zoddy, zodRedis, zodTransaction } from "../utils/zoddy.js";
 
-export * as ChallengeToPost from "./challengeToPost";
+export * as ChallengeToPost from "./challengeToPost.js";
 
 // Original to make it super explicit since we might let people play the archive on any postId
 export const getChallengeToOriginalPostKey = () =>

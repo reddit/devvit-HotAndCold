@@ -1,13 +1,14 @@
 import { z } from "zod";
-import { zodContext, zoddy } from "../utils/zoddy";
-import { toMilliseconds } from "../utils/toMilliseconds";
-import { DEVVIT_SETTINGS_KEYS } from "../constants";
+import { zodContext, zoddy, zodJobContext } from "../utils/zoddy.js";
+import { toMilliseconds } from "../utils/toMilliseconds.js";
+import { DEVVIT_SETTINGS_KEYS } from "../constants.js";
 
-export * as API from "./api";
+export * as API from "./api.js";
 
 const API_URL = "https://jbbhyxtpholdwrxencjx.supabase.co/functions/v1/";
 
-export const getWordConfigCacheKey = (word) => `word_config:${word}` as const;
+export const getWordConfigCacheKey = (word: string) =>
+  `word_config:${word}` as const;
 
 /**
  * Generates a cache key for word comparisons in a deterministic order.
@@ -45,12 +46,12 @@ const wordConfigSchema = z.object({
 const wordComparisonSchema = z.object({
   wordA: z.string(),
   wordB: z.string(),
-  similarity: z.number().gte(-1).lte(1),
+  similarity: z.number().gte(-1).lte(1).nullable(),
 });
 
 export const getWordConfig = zoddy(
   z.object({
-    context: zodContext,
+    context: z.union([zodJobContext, zodContext]),
     word: z.string().trim().toLowerCase(),
   }),
   async ({ context, word }) => {
@@ -65,6 +66,7 @@ export const getWordConfig = zoddy(
     // We heavily cache because this is a very expensive/slow operation
     // and I'm too lazy to build a cache on the API side
     const cached = await context.cache(async () => {
+      console.log("Fetching word config for from API, cache miss", word);
       const response = await fetch(API_URL + "nearest-words", {
         method: "POST",
         headers: {
@@ -84,13 +86,13 @@ export const getWordConfig = zoddy(
       ttl: toMilliseconds({ days: 30 }),
     });
 
-    return wordConfigSchema.parse(cached);
+    return wordConfigSchema.parse(JSON.parse(cached));
   },
 );
 
 export const compareWords = zoddy(
   z.object({
-    context: zodContext,
+    context: z.union([zodJobContext, zodContext]),
     wordA: z.string().trim().toLowerCase(),
     wordB: z.string().trim().toLowerCase(),
   }),
@@ -106,6 +108,14 @@ export const compareWords = zoddy(
     // We heavily cache because this is a very expensive/slow operation
     // and I'm too lazy to build a cache on the API side
     const cached = await context.cache(async () => {
+      console.log(
+        "Fetching word config for from API, cache miss",
+        "wordA:",
+        wordA,
+        "wordB:",
+        wordB,
+      );
+
       const response = await fetch(API_URL + "compare-words", {
         method: "POST",
         headers: {
@@ -125,6 +135,8 @@ export const compareWords = zoddy(
       ttl: toMilliseconds({ days: 30 }),
     });
 
-    return wordComparisonSchema.parse(cached);
+    console.log("cached", cached);
+
+    return wordComparisonSchema.parse(JSON.parse(cached));
   },
 );

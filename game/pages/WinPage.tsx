@@ -1,3 +1,3 @@
 export const WinPage = () => {
-  return <div>Win</div>;
+  return <div className="text-white">Good work!</div>;
 };

@@ -4,9 +4,9 @@ import {
   zodRedditUsername,
   zodRedis,
   zodTransaction,
-} from "../utils/zoddy";
+} from "../utils/zoddy.js";
 
-export * as ChallengeLeaderboard from "./challengeLeaderboard";
+export * as ChallengeLeaderboard from "./challengeLeaderboard.js";
 
 export const getChallengeLeaderboardScoreKey = (challenge: number) =>
   `challenge:${challenge}:leaderboard:score` as const;

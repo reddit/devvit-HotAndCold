@@ -1,3 +1,13 @@
+import { Devvit } from "@devvit/public-api";
+import { BlocksToWebviewMessage } from "../../game/shared.js";
+
+export const sendMessageToWebview = (
+  context: Devvit.Context,
+  message: BlocksToWebviewMessage,
+) => {
+  context.ui.webView.postMessage("webview", message);
+};
+
 export const stringifyValues = <T extends Record<string, any>>(
   obj: T,
 ): Record<keyof T, string> => {
@@ -69,4 +79,8 @@ export const coerceValues = <T extends Record<string, any>>(obj: T) => {
 
     return { ...acc, [key]: coercedValue };
   }, {} as Record<string, any>);
+};
+
+export const isEmptyObject = <T extends object>(obj: T): boolean => {
+  return Object.keys(obj).length === 0;
 };

@@ -1,7 +1,8 @@
 import { z } from "zod";
-import { zoddy, zodRedis } from "../utils/zoddy";
+import { zoddy, zodRedis } from "../utils/zoddy.js";
+import { DEFAULT_WORD_LIST } from "../constants.js";
 
-export * as WordList from "./wordList";
+export * as WordList from "./wordList.js";
 
 /**
  * NOTE: Word lists a mutable! There is no way to know what the original word list was.
@@ -39,6 +40,20 @@ export const setCurrentWordListWords = zoddy(
   },
 );
 
+export const initialize = zoddy(
+  z.object({
+    redis: zodRedis,
+  }),
+  async ({ redis }) => {
+    const wordList = await redis.get(getWordListKey());
+    if (!wordList) {
+      await redis.set(getWordListKey(), JSON.stringify(DEFAULT_WORD_LIST));
+    } else {
+      console.log("Word list already exists. Skipping initialization.");
+    }
+  },
+);
+
 /**
  * Use if you want to add the next word that will be chosen.
  */
@@ -57,7 +72,10 @@ export const addToCurrentWordList = zoddy(
 
     if (newWords.length === 0) {
       console.log("All words already in list. Nothing to add.");
-      return;
+      return {
+        wordsAdded: 0,
+        wordsSkipped: words.length,
+      };
     }
 
     // Log skipped words
@@ -74,5 +92,10 @@ export const addToCurrentWordList = zoddy(
           : [...wordList, ...newWords],
       ),
     );
+
+    return {
+      wordsAdded: newWords.length,
+      wordsSkipped: skippedWords.length,
+    };
   },
 );

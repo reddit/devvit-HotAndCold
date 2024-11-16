@@ -5,14 +5,15 @@ import {
   zodRedditUsername,
   zodRedis,
   zodTransaction,
-} from "../utils/zoddy";
-import { Challenge } from "./challenge";
-import { API } from "./api";
-import { Streaks } from "./streaks";
-import { ChallengeLeaderboard } from "./challengeLeaderboard";
-import { Score } from "./score";
+} from "../utils/zoddy.js";
+import { Challenge } from "./challenge.js";
+import { API } from "./api.js";
+import { Streaks } from "./streaks.js";
+import { ChallengeLeaderboard } from "./challengeLeaderboard.js";
+import { Score } from "./score.js";
+import { isEmptyObject } from "../utils/utils.js";
 
-export * as Guess from "./guess";
+export * as Guess from "./guess.js";
 
 export const getChallengeUserKey = (
   challengeNumber: number,
@@ -63,12 +64,46 @@ export const getChallengeUserInfo = zoddy(
     }
 
     return challengeUserInfoSchema.parse({
-      startedPlayingAtMs: parseInt(result.startedPlayingAtMs, 10),
-      solvedAtMs: parseInt(result.solvedAtMs, 10),
-      totalGuesses: parseInt(result.totalGuesses, 10),
-      gaveUpAtMs: parseInt(result.gaveUpAtMs, 10),
-      hints: JSON.parse(result.hints),
+      startedPlayingAtMs: result.startedPlayingAtMs
+        ? parseInt(result.startedPlayingAtMs, 10)
+        : undefined,
+      solvedAtMs: result.solvedAtMs
+        ? parseInt(result.solvedAtMs, 10)
+        : undefined,
+      totalGuesses: result.totalGuesses
+        ? parseInt(result.totalGuesses, 10)
+        : undefined,
+      gaveUpAtMs: result.gaveUpAtMs
+        ? parseInt(result.gaveUpAtMs, 10)
+        : undefined,
+      hints: JSON.parse(result.hints ?? "[]"),
     });
+  },
+);
+
+const maybeInitForUser = zoddy(
+  z.object({
+    redis: zodRedis,
+    username: zodRedditUsername,
+    challenge: z.number().gt(0),
+  }),
+  async ({ redis, username, challenge }) => {
+    const result = await redis.hGetAll(
+      getChallengeUserKey(challenge, username),
+    );
+
+    if (!result || isEmptyObject(result)) {
+      await redis.hSet(
+        getChallengeUserKey(challenge, username),
+        {
+          totalGuesses: "0",
+          gaveUpAtMs: "0",
+          hints: "[]",
+          solvedAtMs: "0",
+          startedPlayingAtMs: "0",
+        } satisfies Record<keyof z.infer<typeof challengeUserInfoSchema>, any>,
+      );
+    }
   },
 );
 
@@ -77,7 +112,7 @@ export const markChallengeSolvedForUser = zoddy(
     redis: z.union([zodRedis, zodTransaction]),
     username: zodRedditUsername,
     challenge: z.number().gt(0),
-    completedAt: z.number().optional(),
+    completedAt: z.number(),
   }),
   async ({ redis, username, challenge, completedAt }) => {
     await redis.hSet(getChallengeUserKey(challenge, username), {
@@ -156,7 +191,7 @@ export const getHintForUser = zoddy(
     await Challenge.incrementChallengeTotalHints({ redis: txn, challenge });
 
     await txn.hSet(getChallengeUserKey(challenge, username), {
-      hints: JSON.stringify([...challengeUserInfo.hints, newHint]),
+      hints: JSON.stringify([...challengeUserInfo.hints ?? [], newHint]),
     });
 
     await txn.exec();
@@ -219,7 +254,7 @@ export const getUserGuessesByTimestamp = zoddy(
   },
 );
 
-export const makeUserGuess = zoddy(
+export const submitGuess = zoddy(
   z.object({
     context: zodContext,
     username: zodRedditUsername,
@@ -227,29 +262,37 @@ export const makeUserGuess = zoddy(
     guess: z.string().trim().toLowerCase(),
   }),
   async ({ context, username, challenge, guess }) => {
+    console.log("1");
+    await maybeInitForUser({ redis: context.redis, username, challenge });
+
     // TODO: Maybe I need to watch something here?
     const txn = await context.redis.watch();
     await txn.multi();
 
+    console.log("2");
     const challengeUserInfo = await getChallengeUserInfo({
       redis: context.redis,
       username,
       challenge,
     });
 
+    console.log("3");
     if (challengeUserInfo.startedPlayingAtMs == null) {
       await Challenge.incrementChallengeTotalPlayers({ redis: txn, challenge });
       await markChallengePlayedForUser({ challenge, redis: txn, username });
     }
 
+    console.log("4");
     const challengeInfo = await Challenge.getChallenge({
       redis: context.redis,
       challenge,
     });
+    console.log("5");
 
     if (!challengeInfo) {
       throw new Error(`Challenge ${challenge} not found`);
     }
+    console.log("6");
 
     const distance = await API.compareWords({
       context,
@@ -257,28 +300,42 @@ export const makeUserGuess = zoddy(
       wordB: challengeInfo.word,
     });
 
+    if (distance.similarity == null) {
+      throw new Error(`Sorry, I'm not familiar with that word.`);
+    }
+    console.log("7");
+
     await txn.zAdd(getChallengeUserGuessesDistanceKey(challenge, username), {
       member: guess,
       score: distance.similarity,
     });
+    console.log("8");
     await incrementGuessesForChallengeForUser({
       challenge,
       redis: txn,
       username,
     });
+    console.log("9");
     await Challenge.incrementChallengeTotalGuesses({ redis: txn, challenge });
     const guessToAdd = {
       member: guess,
       score: Date.now(),
     };
+    console.log("10");
     await txn.zAdd(
       getChallengeUserGuessesTimestampKey(challenge, username),
       guessToAdd,
     );
 
+    console.log("11");
     const hasSolved = distance.similarity === 1;
     let score: number | undefined = undefined;
     if (hasSolved) {
+      if (!challengeUserInfo.startedPlayingAtMs) {
+        throw new Error(
+          `User ${username} has not started playing yet but solved?`,
+        );
+      }
       const completedAt = Date.now();
       const solveTimeMs = completedAt - challengeUserInfo.startedPlayingAtMs;
       score = Score.calculateScore({
@@ -292,19 +349,24 @@ export const makeUserGuess = zoddy(
             redis: context.redis,
             username,
             challenge,
+            sort: "DESC",
           }),
           guessToAdd,
         ],
-        totalHints: challengeUserInfo.hints.length,
+        totalHints: challengeUserInfo.hints?.length ?? 0,
       });
+      console.log("12");
       await markChallengeSolvedForUser({
         challenge,
         redis: txn,
         username,
         completedAt,
       });
+      console.log("13");
       await Streaks.incrementEntry({ redis: txn, username });
+      console.log("14");
       await Challenge.incrementChallengeTotalSolves({ redis: txn, challenge });
+      console.log("15");
       await ChallengeLeaderboard.addEntry({
         redis: txn,
         challenge,
@@ -316,9 +378,12 @@ export const makeUserGuess = zoddy(
 
     await txn.exec();
 
+    console.log("16");
     return {
       hasSolved,
-      score,
+      finalScore: score,
+      similarity: distance.similarity,
+      word: guess,
     };
   },
 );

@@ -1,4 +1,3 @@
-import { useEffect } from 'react';
 import { Page } from './shared';
 import { SplashPage } from './pages/SplashPage';
 import { PlayPage } from './pages/PlayPage';
@@ -24,12 +23,6 @@ const getPage = (page: Page) => {
 
 export const App = () => {
   const page = usePage();
-
-  useEffect(() => {
-    window.onmessage = (ev) => {
-      console.log('Received message:', ev.data);
-    };
-  }, []);
 
   return <div>{getPage(page)}</div>;
 };

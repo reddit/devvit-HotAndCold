@@ -1,7 +1,7 @@
 import { z } from "zod";
-import { zoddy, zodRedis, zodTransaction } from "../utils/zoddy";
+import { zoddy, zodRedis, zodTransaction } from "../utils/zoddy.js";
 
-export * as User from "./user";
+export * as User from "./user.js";
 
 export const getUserKey = (username: string) => `user:${username}` as const;
 

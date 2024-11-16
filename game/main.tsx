@@ -1,3 +1,4 @@
+// @ts-expect-error
 import './index.css';
 
 import { StrictMode } from 'react';
