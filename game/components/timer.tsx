@@ -1,9 +1,15 @@
 import { MotionValue, motion, useSpring, useTransform } from 'framer-motion';
 import { useEffect, useRef, useState } from 'react';
 
-const fontSize = 30;
-const padding = 15;
-const height = fontSize + padding;
+function getTimerConfig(size: number = 18) {
+  return {
+    fontSize: size,
+    padding: size * 0.22,
+    height: size * 1.22,
+    digitWidth: size * 0.7,
+    spacing: size * 0.3,
+  };
+}
 
 const useElapsedTime = (startTime: number, maxValue?: number) => {
   const initialElapsed = useRef<number | null>(null);
@@ -36,51 +42,77 @@ const useElapsedTime = (startTime: number, maxValue?: number) => {
   return elapsed;
 };
 
-export function Timer({ startTime, maxValue }: { startTime: number; maxValue?: number }) {
+interface TimerProps {
+  startTime: number;
+  maxValue?: number;
+  size?: number;
+  className?: string;
+}
+
+export function Timer({ startTime, maxValue, size = 18, className = '' }: TimerProps) {
   const value = useElapsedTime(startTime, maxValue);
+  const config = getTimerConfig(size);
 
   return (
-    <div style={{ fontSize }} className="flex space-x-3 overflow-hidden rounded px-2 leading-none">
-      <Digit place={1000} value={value} />
-      <Digit place={100} value={value} />
-      <Digit place={10} value={value} />
-      <Digit place={1} value={value} />
+    <div
+      style={{
+        fontSize: config.fontSize,
+      }}
+      className={`flex overflow-hidden rounded px-2 leading-none ${className}`}
+    >
+      <div className="flex" style={{ gap: config.spacing }}>
+        <Digit place={1000} value={value} config={config} />
+        <Digit place={100} value={value} config={config} />
+        <Digit place={10} value={value} config={config} />
+        <Digit place={1} value={value} config={config} />
+      </div>
     </div>
   );
 }
 
-function getDigitAtPlace(value: number, place: number) {
-  return Math.floor((value % (place * 10)) / place);
+interface DigitProps {
+  place: number;
+  value: number;
+  config: ReturnType<typeof getTimerConfig>;
 }
 
-function Digit({ place, value }: { place: number; value: number }) {
-  // Extract the digit at the current place value
-  const digit = getDigitAtPlace(value, place);
-  const animatedValue = useSpring(digit);
+function Digit({ place, value, config }: DigitProps) {
+  let valueRoundedToPlace = Math.floor(value / place);
+  let animatedValue = useSpring(valueRoundedToPlace);
 
   useEffect(() => {
-    animatedValue.set(digit);
-  }, [animatedValue, digit]);
+    animatedValue.set(valueRoundedToPlace);
+  }, [animatedValue, valueRoundedToPlace]);
 
   return (
-    <div style={{ height }} className="relative w-[1ch] tabular-nums text-white">
+    <div
+      style={{
+        height: config.height,
+        width: config.digitWidth,
+      }}
+      className="relative tabular-nums"
+    >
       {[...Array(10).keys()].map((i) => (
-        <Number key={i} mv={animatedValue} number={i} />
+        <Number key={i} mv={animatedValue} number={i} config={config} />
       ))}
     </div>
   );
 }
 
-function Number({ mv, number }: { mv: MotionValue; number: number }) {
+interface NumberProps {
+  mv: MotionValue;
+  number: number;
+  config: ReturnType<typeof getTimerConfig>;
+}
+
+function Number({ mv, number, config }: NumberProps) {
   let y = useTransform(mv, (latest) => {
-    // Calculate the offset based on the current number and target number
-    let offset = (10 + number - latest) % 10;
+    let placeValue = latest % 10;
+    let offset = (10 + number - placeValue) % 10;
+    let memo = offset * config.height;
 
-    let memo = offset * height;
-
-    // Optimize the animation path by taking the shorter route
     if (offset > 5) {
-      memo -= 10 * height;
+      memo -= 10 * config.height;
     }
 
     return memo;

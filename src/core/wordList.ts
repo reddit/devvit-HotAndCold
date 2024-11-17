@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { zoddy, zodRedis } from "../utils/zoddy.js";
+import { zoddy, zodRedis, zodTransaction } from "../utils/zoddy.js";
 import { DEFAULT_WORD_LIST } from "../constants.js";
 
 export * as WordList from "./wordList.js";
@@ -32,7 +32,7 @@ export const getCurrentWordList = zoddy(
 
 export const setCurrentWordListWords = zoddy(
   z.object({
-    redis: zodRedis,
+    redis: z.union([zodRedis, zodTransaction]),
     words: z.array(z.string().trim().toLowerCase()),
   }),
   async ({ redis, words }) => {

@@ -6,7 +6,6 @@ Devvit.addMenuItem({
   location: "subreddit",
   onPress: async (_event, context) => {
     try {
-      console.log("Making new challenge...");
       const { postUrl } = await Challenge.makeNewChallenge({ context });
 
       context.ui.navigateTo(postUrl);

@@ -1,5 +1,6 @@
 {
   "singleQuote": true,
   "trailingComma": "es5",
-  "quoteProps": "preserve"
+  "quoteProps": "preserve",
+  "plugins": ["prettier-plugin-tailwindcss"]
 }

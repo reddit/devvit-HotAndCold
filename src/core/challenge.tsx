@@ -7,7 +7,7 @@ import { ChallengeToPost } from './challengeToPost.js';
 import { Preview } from '../components/Preview.js';
 import { coerceValues, stringifyValues } from '../utils/utils.js';
 import { Streaks } from './streaks.js';
-import { Devvit } from '@devvit/public-api';
+import { Devvit, Post } from '@devvit/public-api';
 
 export * as Challenge from './challenge.js';
 
@@ -162,6 +162,7 @@ export const makeNewChallenge = zoddy(
     context: z.union([zodJobContext, zodContext]),
   }),
   async ({ context }) => {
+    console.log('Making new challenge...');
     const [wordList, usedWords, currentChallengeNumber, currentSubreddit] = await Promise.all([
       WordList.getCurrentWordList({
         redis: context.redis,
@@ -173,6 +174,8 @@ export const makeNewChallenge = zoddy(
       context.reddit.getCurrentSubreddit(),
     ]);
 
+    console.log('Current challenge number:', currentChallengeNumber);
+
     // Find index of first unused word
     const unusedWordIndex = wordList.findIndex((word: string) => !usedWords.includes(word));
 
@@ -183,74 +186,90 @@ export const makeNewChallenge = zoddy(
     const newWord = wordList[unusedWordIndex];
     const newChallengeNumber = currentChallengeNumber + 1;
 
-    // Clean up the word list while we have the data to do so
-    await WordList.setCurrentWordListWords({
-      redis: context.redis,
-      // Remove all words up to and including the found word
-      words: wordList.slice(unusedWordIndex + 1),
-    });
+    console.log('Current challenge number:', currentChallengeNumber);
 
     // Get it once to warm the cache in our system
     await API.getWordConfig({ context, word: newWord });
 
-    const txn = await context.redis.watch();
-    await txn.multi();
+    let post: Post | undefined;
 
-    const post = await context.reddit.submitPost({
-      subredditName: currentSubreddit.name,
-      title: `Hot and cold #${newChallengeNumber}`,
-      preview: <Preview />,
-    });
+    try {
+      const txn = await context.redis.watch();
+      await txn.multi();
 
-    await setChallenge({
-      redis: txn,
-      challenge: newChallengeNumber,
-      config: {
-        word: newWord,
-        totalPlayers: 0,
-        totalSolves: 0,
-        totalGuesses: 0,
-        totalHints: 0,
-        totalGiveUps: 0,
-      },
-    });
-
-    await setCurrentChallengeNumber({ number: newChallengeNumber, redis: txn });
-    await ChallengeToWord.setChallengeNumberForWord({
-      challenge: newChallengeNumber,
-      redis: txn,
-      word: newWord,
-    });
-    await ChallengeToPost.setChallengeNumberForPost({
-      challenge: newChallengeNumber,
-      postId: post.id,
-      redis: txn,
-    });
-
-    // Edge case handling for the first time
-    if (currentChallengeNumber > 0) {
-      await Streaks.expireStreaks({
-        redis: context.redis,
-        txn,
-        challengeNumberBeforeTheNewestChallenge: currentChallengeNumber,
+      // Clean up the word list while we have the data to do so
+      await WordList.setCurrentWordListWords({
+        redis: txn,
+        // Remove all words up to and including the found word
+        words: wordList.slice(unusedWordIndex + 1),
       });
+
+      post = await context.reddit.submitPost({
+        subredditName: currentSubreddit.name,
+        title: `Hot and cold #${newChallengeNumber}`,
+        preview: <Preview />,
+      });
+
+      await setChallenge({
+        redis: txn,
+        challenge: newChallengeNumber,
+        config: {
+          word: newWord,
+          totalPlayers: 0,
+          totalSolves: 0,
+          totalGuesses: 0,
+          totalHints: 0,
+          totalGiveUps: 0,
+        },
+      });
+
+      await setCurrentChallengeNumber({ number: newChallengeNumber, redis: txn });
+      await ChallengeToWord.setChallengeNumberForWord({
+        challenge: newChallengeNumber,
+        redis: txn,
+        word: newWord,
+      });
+      await ChallengeToPost.setChallengeNumberForPost({
+        challenge: newChallengeNumber,
+        postId: post.id,
+        redis: txn,
+      });
+
+      // Edge case handling for the first time
+      if (currentChallengeNumber > 0) {
+        await Streaks.expireStreaks({
+          redis: context.redis,
+          txn,
+          challengeNumberBeforeTheNewestChallenge: currentChallengeNumber,
+        });
+      }
+
+      await txn.exec();
+
+      console.log(
+        'New challenge created:',
+        'New Challenge Number:',
+        newChallengeNumber,
+        'New word:',
+        newWord,
+        'Post ID:',
+        post.id
+      );
+
+      return {
+        postId: post.id,
+        postUrl: post.url,
+      };
+    } catch (error) {
+      console.error('Error making new challenge:', error);
+
+      // If the transaction fails, remove the post if created
+      if (post) {
+        console.log(`Removing post ${post.id} due to new challenge error`);
+        await context.reddit.remove(post.id, false);
+      }
+
+      throw error;
     }
-
-    await txn.exec();
-
-    console.log(
-      'New challenge created:',
-      'New Challenge Number:',
-      newChallengeNumber,
-      'New word:',
-      newWord,
-      'Post ID:',
-      post.id
-    );
-
-    return {
-      postId: post.id,
-      postUrl: post.url,
-    };
   }
 );

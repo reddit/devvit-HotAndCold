@@ -28,5 +28,5 @@ const getPage = (page: Page) => {
 export const App = () => {
   const page = usePage();
 
-  return <div>{getPage(page)}</div>;
+  return <div className="p-2">{getPage(page)}</div>;
 };

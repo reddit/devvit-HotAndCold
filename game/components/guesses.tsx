@@ -14,8 +14,8 @@ export const Guesses = ({ items }: { items: Guess[] }) => {
   });
 
   return (
-    <div className="flex flex-col gap-4 p-4 relative z-10 items-start">
-      <div className="flex flex-col gap-2 w-48">
+    <div className="relative z-10 flex flex-col items-start gap-4 p-4">
+      <div className="flex w-48 flex-col gap-2">
         <AnimatePresence mode="popLayout">
           {sortedItems.map((item) => (
             <motion.div
@@ -24,7 +24,7 @@ export const Guesses = ({ items }: { items: Guess[] }) => {
               initial={{ opacity: 0, height: 0 }}
               animate={{ opacity: 1, height: 'auto' }}
               exit={{ opacity: 0, height: 0 }}
-              className="rounded cursor-pointer text-white flex text-xs"
+              className="flex cursor-pointer rounded text-xs text-white"
             >
               <span>{item.word}</span>: <span>{item.similarity}</span>
             </motion.div>
