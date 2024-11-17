@@ -58,7 +58,7 @@ export function Timer({ startTime, maxValue, size = 18, className = '' }: TimerP
       style={{
         fontSize: config.fontSize,
       }}
-      className={`flex overflow-hidden rounded px-2 leading-none ${className}`}
+      className={`flex overflow-hidden rounded leading-none ${className}`}
     >
       <div className="flex" style={{ gap: config.spacing }}>
         <Digit place={1000} value={value} config={config} />
