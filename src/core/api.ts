@@ -135,8 +135,6 @@ export const compareWords = zoddy(
       ttl: toMilliseconds({ days: 30 }),
     });
 
-    console.log("cached", cached);
-
     return wordComparisonSchema.parse(JSON.parse(cached));
   },
 );

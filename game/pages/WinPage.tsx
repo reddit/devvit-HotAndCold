@@ -1,3 +1,5 @@
-export const WinPage = () => {
-  return <div className="text-white">Good work!</div>;
+export const WinPage = ({ variant }: { variant: 'WIN' | 'GIVE_UP' }) => {
+  return (
+    <div className="text-white">{variant === 'WIN' ? 'Good work!' : 'Try again tomorrow?'}</div>
+  );
 };

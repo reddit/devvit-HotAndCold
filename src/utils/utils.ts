@@ -84,3 +84,29 @@ export const coerceValues = <T extends Record<string, any>>(obj: T) => {
 export const isEmptyObject = <T extends object>(obj: T): boolean => {
   return Object.keys(obj).length === 0;
 };
+
+/**
+ * Devvit throws when there is an event/function invocation that has to be ran on the
+ * server. There are currently limitations of our system with using try catch (but we
+ * like try catch). This function checks if the error thrown in a catch block is a
+ * circuit breaker. If so, it throws immediately!
+ */
+export const isServerCall = (e: unknown) => {
+  if (e instanceof Error && e.message === "ServerCallRequired") {
+    // console.log(`Throwing circuit breaker!`);
+    throw e;
+  }
+};
+
+type CustomOmit<T, K extends keyof T> = {
+  [P in Exclude<keyof T, K>]: T[P];
+};
+
+export function omit<T extends object, K extends keyof T>(
+  obj: T,
+  keys: K[],
+): CustomOmit<T, K> {
+  const result = { ...obj };
+  keys.forEach((key) => delete result[key]);
+  return result as CustomOmit<T, K>;
+}

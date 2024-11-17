@@ -3,7 +3,7 @@ import { WordList } from "../core/wordList.js";
 import { Challenge } from "../core/challenge.js";
 
 Devvit.addSchedulerJob({
-  name: "DAILY_CHALLENGE_DROP",
+  name: "DAILY_GAME_DROP",
   onRun: async (_, context) => {
     await Challenge.makeNewChallenge({ context });
   },
@@ -23,7 +23,7 @@ export const initialize = async (context: TriggerContext) => {
 
   await context.scheduler.runJob({
     cron: "0 22 * * *",
-    name: "DAILY_CHALLENGE_DROP",
+    name: "DAILY_GAME_DROP",
     data: {},
   });
 };

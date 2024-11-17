@@ -1,45 +1,19 @@
-import { useEffect, useState } from 'react';
-import { useSetPage } from '../hooks/usePage';
+import { useState } from 'react';
 import { sendMessageToDevvit } from '../utils';
-import { useDevvitListener } from '../hooks/useDevvitListener';
 import { WordInput } from '../components/wordInput';
-import { Guess, Guesses } from '../components/guesses';
+import { Guesses } from '../components/guesses';
+import { Timer } from '../components/timer';
+import { useGame } from '../hooks/useGame';
+import { SecondaryButton } from '../components/button';
 
 export const SplashPage = () => {
   const [loading, setLoading] = useState(false);
-  const [guesses, setGuesses] = useState<Guess[]>([]);
   const [word, setWord] = useState('');
-  const setPage = useSetPage();
-
-  const wordSubmittedResponse = useDevvitListener('WORD_SUBMITTED_RESPONSE');
-
-  useEffect(() => {
-    if (!wordSubmittedResponse) return;
-
-    // TODO: Handle duplicate
-
-    if (wordSubmittedResponse.success) {
-      if (wordSubmittedResponse.hasSolved) {
-        setPage('win');
-        // TODO: Need to handle solved
-      } else {
-        setGuesses((prev) => [
-          ...prev,
-          { similarity: wordSubmittedResponse.similarity, word: wordSubmittedResponse.word },
-        ]);
-      }
-    } else {
-      sendMessageToDevvit({
-        type: 'SHOW_TOAST',
-        string: wordSubmittedResponse.error,
-      });
-    }
-  }, [wordSubmittedResponse]);
-
-  console.log(guesses);
+  const { challengeUserInfo } = useGame();
 
   return (
     <div className="flex flex-col gap-4 justify-center p-4">
+      <Timer startTime={challengeUserInfo?.startedPlayingAtMs ?? Date.now()} maxValue={9999} />
       <h1 className="text-white">Hot And Cold</h1>
       <p className="text-white">Guess the secret word by meaning</p>
       <WordInput
@@ -55,7 +29,27 @@ export const SplashPage = () => {
         }}
         placeholders={['Can you guess the word?', 'Try banana', 'Try dog']}
       />
-      <Guesses items={guesses} />
+      <div className="flex items-center justify-center gap-4">
+        <SecondaryButton
+          onClick={() => {
+            sendMessageToDevvit({
+              type: 'HINT_REQUEST',
+            });
+          }}
+        >
+          Hint
+        </SecondaryButton>
+        <SecondaryButton
+          onClick={() => {
+            sendMessageToDevvit({
+              type: 'GIVE_UP_REQUEST',
+            });
+          }}
+        >
+          Give Up
+        </SecondaryButton>
+      </div>
+      <Guesses items={challengeUserInfo?.guesses ?? []} />
     </div>
   );
 };

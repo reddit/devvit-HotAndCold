@@ -1,10 +1,13 @@
+import { z } from "zod";
+import { guessSchema } from "./guess.js";
+
 export * as Score from "./score.js";
 
 export function calculateScore(
   { solveTimeMs, totalHints, guesses }: {
     solveTimeMs: number;
     totalHints: number;
-    guesses: { member: string; score: number }[];
+    guesses: z.infer<typeof guessSchema>[];
   },
 ): number {
   // Base time bonus (max 400 points)
@@ -35,7 +38,7 @@ export function calculateScore(
 
   // Average heat bonus (max 200 points)
   // Rewards players who made "hot" guesses throughout
-  const avgHeat = guesses.reduce((acc, curr) => acc + curr.score, 0) /
+  const avgHeat = guesses.reduce((acc, curr) => acc + curr.similarity, 0) /
     numGuesses;
   const heatBonus = Math.round((avgHeat / 100) * 200);
 

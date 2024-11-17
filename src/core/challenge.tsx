@@ -1,4 +1,4 @@
-import { number, z } from 'zod';
+import { z } from 'zod';
 import { zodContext, zoddy, zodJobContext, zodRedis, zodTransaction } from '../utils/zoddy.js';
 import { API } from '../core/api.js';
 import { ChallengeToWord } from './challengeToWord.js';
@@ -53,7 +53,7 @@ export const setCurrentChallengeNumber = zoddy(
     redis: z.union([zodRedis, zodTransaction]),
     number: z.number().gt(0),
   }),
-  async ({ redis }) => {
+  async ({ redis, number }) => {
     await redis.set(getCurrentChallengeNumberKey(), number.toString());
   }
 );
@@ -214,6 +214,7 @@ export const makeNewChallenge = zoddy(
         totalGiveUps: 0,
       },
     });
+
     await setCurrentChallengeNumber({ number: newChallengeNumber, redis: txn });
     await ChallengeToWord.setChallengeNumberForWord({
       challenge: newChallengeNumber,
@@ -236,6 +237,16 @@ export const makeNewChallenge = zoddy(
     }
 
     await txn.exec();
+
+    console.log(
+      'New challenge created:',
+      'New Challenge Number:',
+      newChallengeNumber,
+      'New word:',
+      newWord,
+      'Post ID:',
+      post.id
+    );
 
     return {
       postId: post.id,

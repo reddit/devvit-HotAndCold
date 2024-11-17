@@ -6,11 +6,12 @@ import './menu-actions/addWordToDictionary.js';
 
 import { Devvit, useAsync, useState } from '@devvit/public-api';
 import { DEVVIT_SETTINGS_KEYS } from './constants.js';
-import { sendMessageToWebview } from './utils/utils.js';
-import { WebviewToBlockMessage } from '../game/shared.js';
+import { isServerCall, omit, sendMessageToWebview } from './utils/utils.js';
+import { WebviewToBlocksMessage } from '../game/shared.js';
 import { Guess } from './core/guess.js';
 import { ChallengeToPost } from './core/challengeToPost.js';
 import { Preview } from './components/Preview.js';
+import { Challenge } from './core/challenge.js';
 
 Devvit.configure({
   redditAPI: true,
@@ -44,15 +45,17 @@ Devvit.addCustomPostType({
       ] as const);
     });
 
-    useAsync(async () => {
-      context.ui.webView.postMessage('webview', { hello: 'world' });
-
-      return '';
-    });
-
     if (!username) {
       return <Preview text="Please login to play." />;
     }
+
+    // const challengeUserInfo = useState(async () => {
+    //   return await Guess.getChallengeUserInfo({
+    //     challenge,
+    //     redis: context.redis,
+    //     username,
+    //   });
+    // });
 
     return (
       <vstack height="100%" width="100%" alignment="center middle">
@@ -63,51 +66,100 @@ Devvit.addCustomPostType({
           height={'100%'}
           onMessage={async (event) => {
             console.log('Received message', event);
-            const data = event as unknown as WebviewToBlockMessage;
+            const data = event as unknown as WebviewToBlocksMessage;
 
             switch (data.type) {
+              case 'GAME_INIT':
+                const challengeNumber = await ChallengeToPost.getChallengeNumberForPost({
+                  postId: context.postId!,
+                  redis: context.redis,
+                });
+                const [challengeInfo, challengeUserInfo] = await Promise.all([
+                  await Challenge.getChallenge({
+                    challenge: challengeNumber,
+                    redis: context.redis,
+                  }),
+                  await Guess.getChallengeUserInfo({
+                    challenge: challengeNumber,
+                    redis: context.redis,
+                    username,
+                  }),
+                ]);
+
+                sendMessageToWebview(context, {
+                  type: 'GAME_INIT_RESPONSE',
+                  payload: {
+                    challengeInfo: omit(challengeInfo, ['word']),
+                    challengeUserInfo,
+                    number: challengeNumber,
+                  },
+                });
+                break;
               case 'WORD_SUBMITTED':
                 try {
-                  const result = await Guess.submitGuess({
-                    context,
-                    challenge,
-                    guess: data.value,
-                    username,
-                  });
                   sendMessageToWebview(context, {
                     type: 'WORD_SUBMITTED_RESPONSE',
-                    payload: {
-                      success: true,
-                      hasSolved: result.hasSolved,
-                      finalScore: result.finalScore,
-                      similarity: result.similarity,
-                      word: result.word,
-                      // TODO: Normalized score?
-                    },
+                    payload: await Guess.submitGuess({
+                      context,
+                      challenge,
+                      guess: data.value,
+                      username,
+                    }),
                   });
                 } catch (error) {
+                  isServerCall(error);
+
                   console.error('Error submitting guess:', error);
                   if (error instanceof Error) {
-                    sendMessageToWebview(context, {
-                      type: 'WORD_SUBMITTED_RESPONSE',
-                      payload: {
-                        success: false,
-                        error: error.message,
-                      },
-                    });
+                    context.ui.showToast(error.message);
+                    return;
                   }
-                  sendMessageToWebview(context, {
-                    type: 'WORD_SUBMITTED_RESPONSE',
-                    payload: {
-                      success: false,
-                      error: `I'm not sure what happened. Please try again.`,
-                    },
-                  });
+                  context.ui.showToast(`I'm not sure what happened. Please try again.`);
                 }
                 break;
               case 'SHOW_TOAST':
                 context.ui.showToast(data.string);
                 break;
+              case 'HINT_REQUEST':
+                try {
+                  sendMessageToWebview(context, {
+                    type: 'HINT_RESPONSE',
+                    payload: await Guess.getHintForUser({
+                      context,
+                      challenge,
+                      username,
+                    }),
+                  });
+                } catch (error) {
+                  isServerCall(error);
+
+                  console.error('Error getting hint:', error);
+                  if (error instanceof Error) {
+                    context.ui.showToast(error.message);
+                    return;
+                  }
+                  context.ui.showToast(`I'm not sure what happened. Please try again.`);
+                }
+                break;
+              case 'GIVE_UP_REQUEST':
+                try {
+                  sendMessageToWebview(context, {
+                    type: 'GIVE_UP_RESPONSE',
+                    payload: await Guess.giveUp({
+                      context,
+                      challenge,
+                      username,
+                    }),
+                  });
+                } catch (error) {
+                  if (error instanceof Error) {
+                    context.ui.showToast(error.message);
+                    return;
+                  }
+                  context.ui.showToast(`I'm not sure what happened. Please try again.`);
+                }
+                break;
+
               default:
                 throw new Error(`Unknown message type: ${data satisfies never}`);
             }

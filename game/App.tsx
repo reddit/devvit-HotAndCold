@@ -17,7 +17,11 @@ const getPage = (page: Page) => {
     case 'stats':
       return <StatsPage />;
     case 'win':
-      return <WinPage />;
+      return <WinPage variant="WIN" />;
+    case 'lose':
+      return <WinPage variant="GIVE_UP" />;
+    default:
+      throw new Error(`Unknown page: ${page satisfies never}`);
   }
 };
 

@@ -19,7 +19,7 @@ export const getChallengeNumberForWord = zoddy(
 
     if (!challengeNumber) {
       throw new Error(
-        "No challenge number found for post. Did you mean to create one?",
+        "No challenge number found for word. Did you mean to create one?",
       );
     }
     return challengeNumber;
