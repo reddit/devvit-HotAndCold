@@ -71,7 +71,6 @@ export const getChallengeUserInfo = zoddy(
         ? parseInt(result.gaveUpAtMs, 10)
         : undefined,
       guesses: JSON.parse(result.guesses ?? "[]"),
-      hints: JSON.parse(result.hints ?? "[]"),
     });
   },
 );
