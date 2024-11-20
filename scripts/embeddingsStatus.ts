@@ -78,7 +78,6 @@ const CHECK_CONFIG: CheckConfig = {
   failedOnly: false, // Show all statuses
 };
 
-// Initialize OpenAI client
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY || "",
 });
