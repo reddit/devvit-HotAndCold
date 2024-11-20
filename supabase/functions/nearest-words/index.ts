@@ -32,6 +32,27 @@ Deno.serve(async (req) => {
       },
     );
 
+    const cached = await supabase.from("cache").select("*").filter(
+      "cache_key",
+      "eq",
+      word,
+    ).single();
+
+    if (cached.data) {
+      console.debug(
+        `Returning cached data for word "${word}"`,
+      );
+
+      return new Response(cached.data.data, {
+        headers: {
+          "Content-Type": "application/json",
+          "x-hacky-cache-hit": "true",
+          ...corsHeaders,
+        },
+        status: 200,
+      });
+    }
+
     const { data, error } = await supabase
       .rpc("get_similar_words", { target_word: word });
 
@@ -40,9 +61,22 @@ Deno.serve(async (req) => {
       throw error;
     }
 
+    if (data) {
+      console.debug(`Caching data for word "${word}"`);
+      const foo = await supabase.from("cache").insert([{
+        cache_key: word,
+        data: JSON.stringify(data[0]),
+      }]).select();
+
+      if (foo.error) {
+        console.error(foo.error);
+      }
+    }
+
     return new Response(JSON.stringify(data[0]), {
       headers: {
         "Content-Type": "application/json",
+        "x-hacky-cache-hit": "false",
         ...corsHeaders,
       },
       status: 200,

@@ -1,6 +1,13 @@
 import { z } from "zod";
-import { zoddy, zodRedis, zodTransaction } from "../utils/zoddy.js";
+import {
+  zodContext,
+  zoddy,
+  zodRedis,
+  zodTransaction,
+  zodTriggerContext,
+} from "../utils/zoddy.js";
 import { DEFAULT_WORD_LIST } from "../constants.js";
+import { API } from "./api.js";
 
 export * as WordList from "./wordList.js";
 
@@ -42,12 +49,19 @@ export const setCurrentWordListWords = zoddy(
 
 export const initialize = zoddy(
   z.object({
-    redis: zodRedis,
+    context: z.union([zodContext, zodTriggerContext]),
   }),
-  async ({ redis }) => {
-    const wordList = await redis.get(getWordListKey());
+  async ({ context }) => {
+    const wordList = await context.redis.get(getWordListKey());
     if (!wordList) {
-      await redis.set(getWordListKey(), JSON.stringify(DEFAULT_WORD_LIST));
+      DEFAULT_WORD_LIST.forEach((word) => {
+        // Don't wait, this just heats up the cache for the third party API
+        API.getWordConfig({ context, word });
+      });
+      await context.redis.set(
+        getWordListKey(),
+        JSON.stringify(DEFAULT_WORD_LIST),
+      );
     } else {
       console.log("Word list already exists. Skipping initialization.");
     }

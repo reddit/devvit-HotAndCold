@@ -26,7 +26,7 @@ export const Guesses = ({ items }: { items: Guess[] }) => {
               exit={{ opacity: 0, height: 0 }}
               className="flex cursor-pointer rounded text-xs text-white"
             >
-              <span>{item.word}</span>: <span>{item.similarity}</span>
+              <span>{item.word}</span>: <span>{item.normalizedSimilarity} ({item.similarity})</span>
             </motion.div>
           ))}
         </AnimatePresence>

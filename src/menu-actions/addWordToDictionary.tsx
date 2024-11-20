@@ -1,5 +1,6 @@
 import { Devvit } from '@devvit/public-api';
 import { WordList } from '../core/wordList.js';
+import { API } from '../core/api.js';
 
 const addWordsToDictionaryFormId = Devvit.createForm(
   {
@@ -25,6 +26,11 @@ const addWordsToDictionaryFormId = Devvit.createForm(
   },
   async ({ values: { prepend, words } }, context) => {
     const wordsToAdd = words.split(',').map((word: string) => word.trim());
+
+    wordsToAdd.forEach((word) => {
+      // Don't wait, this just heats up the cache for the third party API
+      API.getWordConfig({ context, word });
+    })
 
     const resp = await WordList.addToCurrentWordList({
       mode: prepend ? 'prepend' : 'append',

@@ -15,7 +15,7 @@ Devvit.addSchedulerJob({
 
 export const initialize = async (context: TriggerContext) => {
   // Certain things need to be initialized in Redis to run correctly
-  await WordList.initialize({ redis: context.redis });
+  await WordList.initialize({ context });
   await Challenge.initialize({
     redis: context.redis,
   });

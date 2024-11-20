@@ -10,6 +10,7 @@ export type Guess = {
   word: string;
   timestamp: number;
   similarity: number;
+  normalizedSimilarity: number;
   rank: number;
   isHint: boolean;
 };
@@ -31,10 +32,6 @@ export type Game = {
     solvedAtMs?: number | undefined;
     totalGuesses?: number | undefined;
     gaveUpAtMs?: number | undefined;
-    hints?: {
-      similarity: number;
-      word: string;
-    }[] | undefined;
     guesses?: Guess[] | undefined;
   };
 };

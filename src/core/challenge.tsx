@@ -188,8 +188,8 @@ export const makeNewChallenge = zoddy(
 
     console.log('Current challenge number:', currentChallengeNumber);
 
-    // Get it once to warm the cache in our system
-    await API.getWordConfig({ context, word: newWord });
+    // Get it once to warm the Devvit cache in our system
+    await API.getWordConfigCached({ context, word: newWord });
 
     let post: Post | undefined;
 

@@ -46,6 +46,7 @@ const wordConfigSchema = z.object({
 const wordComparisonSchema = z.object({
   wordA: z.string(),
   wordB: z.string(),
+  wordBLemma: z.string().trim().toLowerCase(),
   similarity: z.number().gte(-1).lte(1).nullable(),
 });
 
@@ -63,25 +64,45 @@ export const getWordConfig = zoddy(
       throw new Error("No API key found for word service in Devvit.settings");
     }
 
+    const response = await fetch(API_URL + "nearest-words", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${secret}`,
+      },
+      body: JSON.stringify({ word }),
+    });
+
+    // Do a quick check in case API is down or changes
+    return wordConfigSchema.parse(await response.json());
+  },
+);
+
+export const getWordConfigCached = zoddy(
+  z.object({
+    context: z.union([zodJobContext, zodContext]),
+    word: z.string().trim().toLowerCase(),
+  }),
+  async ({ context, word }) => {
+    const secret = await context.settings.get(
+      DEVVIT_SETTINGS_KEYS.WORD_SERVICE_API_KEY,
+    );
+
+    if (!secret) {
+      throw new Error("No API key found for word service in Devvit.settings");
+    }
+
+    const cacheKey = getWordConfigCacheKey(word);
+
     // We heavily cache because this is a very expensive/slow operation
     // and I'm too lazy to build a cache on the API side
     const cached = await context.cache(async () => {
-      console.log("Fetching word config for from API, cache miss", word);
-      const response = await fetch(API_URL + "nearest-words", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${secret}`,
-        },
-        body: JSON.stringify({ word }),
-      });
+      console.log("Fetching word config for from API, cache miss:", word);
+      const response = await getWordConfig({ context, word });
 
-      // Do a quick check in case API is down or changes
-      const data = wordConfigSchema.parse(await response.json());
-
-      return JSON.stringify(data);
+      return JSON.stringify(response);
     }, {
-      key: getWordConfigCacheKey(word),
+      key: cacheKey,
       // Not doing forever because I'm worried I'll blow out our Redis
       ttl: toMilliseconds({ days: 30 }),
     });
@@ -93,10 +114,10 @@ export const getWordConfig = zoddy(
 export const compareWords = zoddy(
   z.object({
     context: z.union([zodJobContext, zodContext]),
-    wordA: z.string().trim().toLowerCase(),
-    wordB: z.string().trim().toLowerCase(),
+    secretWord: z.string().trim().toLowerCase(),
+    guessWord: z.string().trim().toLowerCase(),
   }),
-  async ({ context, wordA, wordB }) => {
+  async ({ context, secretWord: wordA, guessWord: wordB }) => {
     const secret = await context.settings.get(
       DEVVIT_SETTINGS_KEYS.WORD_SERVICE_API_KEY,
     );
@@ -104,9 +125,11 @@ export const compareWords = zoddy(
     if (!secret) {
       throw new Error("No API key found for word service in Devvit.settings");
     }
+    const cacheKey = getWordComparisonCacheKey(wordA, wordB);
 
     // We heavily cache because this is a very expensive/slow operation
     // and I'm too lazy to build a cache on the API side
+
     const cached = await context.cache(async () => {
       console.log(
         "Fetching word config for from API, cache miss",
@@ -130,7 +153,7 @@ export const compareWords = zoddy(
 
       return JSON.stringify(data);
     }, {
-      key: getWordComparisonCacheKey(wordA, wordB),
+      key: cacheKey,
       // Not doing forever because I'm worried I'll blow out our Redis
       ttl: toMilliseconds({ days: 30 }),
     });

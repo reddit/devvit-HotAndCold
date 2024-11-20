@@ -1,4 +1,4 @@
-import { ComponentProps, useState } from 'react';
+import { ComponentProps, useEffect, useState } from 'react';
 import { sendMessageToDevvit } from '../utils';
 import { WordInput } from '../components/wordInput';
 import { Guesses } from '../components/guesses';
@@ -65,7 +65,6 @@ const HowToPlayModal = (props: Omit<ComponentProps<typeof Modal>, 'children'>) =
 
 export const SplashPage = () => {
   const [howToPlayOpen, setHowToPlayOpen] = useState(false);
-  const [loading, setLoading] = useState(false);
   const [word, setWord] = useState('');
   const { challengeUserInfo } = useGame();
 
@@ -92,7 +91,6 @@ export const SplashPage = () => {
           });
           // TODO Store previous in case we need to replenish due to errors
           setWord('');
-          setLoading(true);
         }}
         placeholders={['Can you guess the word?', 'Try banana', 'Try dog']}
       />

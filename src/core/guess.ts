@@ -13,6 +13,7 @@ import { ChallengeLeaderboard } from "./challengeLeaderboard.js";
 import { Score } from "./score.js";
 import { isEmptyObject, omit } from "../utils/utils.js";
 import { GameResponse } from "../../game/shared.js";
+import { Similarity } from "./similarity.js";
 
 export * as Guess from "./guess.js";
 
@@ -24,6 +25,7 @@ export const getChallengeUserKey = (
 export const guessSchema = z.object({
   word: z.string(),
   similarity: z.number().gte(-1).lte(1),
+  normalizedSimilarity: z.number().gte(0).lte(100),
   timestamp: z.number(),
   // Only for top 1,000 similar words
   rank: z.number().gte(-1),
@@ -158,7 +160,7 @@ export const getHintForUser = zoddy(
       redis: context.redis,
       challenge,
     });
-    const wordConfig = await API.getWordConfig({
+    const wordConfig = await API.getWordConfigCached({
       context,
       word: challengeInfo.word,
     });
@@ -189,6 +191,11 @@ export const getHintForUser = zoddy(
       word: newHint.word,
       timestamp: Date.now(),
       similarity: newHint.similarity,
+      normalizedSimilarity: Similarity.normalizeSimilarity({
+        closestWordSimilarity: wordConfig.closest_similarity,
+        furthestWordSimilarity: wordConfig.furthest_similarity,
+        targetWordSimilarity: newHint.similarity,
+      }),
       rank: wordConfig.similar_words.findIndex((x) => x.word === newHint.word),
       isHint: true,
     };
@@ -229,7 +236,9 @@ export const submitGuess = zoddy(
     challenge: z.number().gt(0),
     guess: z.string().trim().toLowerCase(),
   }),
-  async ({ context, username, challenge, guess }): Promise<GameResponse> => {
+  async (
+    { context, username, challenge, guess: rawGuess },
+  ): Promise<GameResponse> => {
     await maybeInitForUser({ redis: context.redis, username, challenge });
 
     // TODO: Maybe I need to watch something here?
@@ -248,13 +257,6 @@ export const submitGuess = zoddy(
       await markChallengePlayedForUser({ challenge, redis: txn, username });
     }
 
-    if (
-      challengeUserInfo.guesses && challengeUserInfo.guesses.length > 0 &&
-      challengeUserInfo.guesses.find((x) => x.word === guess)
-    ) {
-      throw new Error(`You've already guessed ${guess}.`);
-    }
-
     const challengeInfo = await Challenge.getChallenge({
       redis: context.redis,
       challenge,
@@ -266,15 +268,24 @@ export const submitGuess = zoddy(
 
     const distance = await API.compareWords({
       context,
-      wordA: guess,
-      wordB: challengeInfo.word,
+      secretWord: challengeInfo.word,
+      guessWord: rawGuess,
     });
+
+    if (
+      challengeUserInfo.guesses && challengeUserInfo.guesses.length > 0 &&
+      challengeUserInfo.guesses.find((x) => x.word === distance.wordBLemma)
+    ) {
+      throw new Error(`You've already guessed ${distance.wordBLemma}.`);
+    }
+
+    console.log(distance);
 
     if (distance.similarity == null) {
       throw new Error(`Sorry, I'm not familiar with that word.`);
     }
 
-    const wordConfig = await API.getWordConfig({
+    const wordConfig = await API.getWordConfigCached({
       context,
       word: challengeInfo.word,
     });
@@ -287,10 +298,17 @@ export const submitGuess = zoddy(
 
     await Challenge.incrementChallengeTotalGuesses({ redis: txn, challenge });
     const guessToAdd: z.infer<typeof guessSchema> = {
-      word: guess,
+      word: distance.wordBLemma,
       timestamp: Date.now(),
       similarity: distance.similarity,
-      rank: wordConfig.similar_words.findIndex((x) => x.word === guess),
+      normalizedSimilarity: Similarity.normalizeSimilarity({
+        closestWordSimilarity: wordConfig.closest_similarity,
+        furthestWordSimilarity: wordConfig.furthest_similarity,
+        targetWordSimilarity: distance.similarity,
+      }),
+      rank: wordConfig.similar_words.findIndex((x) =>
+        x.word === distance.wordBLemma
+      ),
       isHint: false,
     };
 
@@ -303,6 +321,7 @@ export const submitGuess = zoddy(
     const hasSolved = distance.similarity === 1;
     let score: number | undefined = undefined;
     if (hasSolved) {
+      console.log(`User ${username} solved challenge ${challenge}!`);
       if (!challengeUserInfo.startedPlayingAtMs) {
         throw new Error(
           `User ${username} has not started playing yet but solved?`,
@@ -392,6 +411,7 @@ export const giveUp = zoddy(
       word: challengeInfo.word,
       timestamp: Date.now(),
       similarity: 1,
+      normalizedSimilarity: 100,
       rank: 0,
       isHint: true,
     };
