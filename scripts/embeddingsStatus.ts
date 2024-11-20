@@ -1,83 +1,183 @@
-import OpenAI from "openai";
 import dotenv from "dotenv";
 dotenv.config();
+
+import OpenAI from "openai";
+
+// Batch information from previous run
+const BATCH_INFO = [
+  {
+    "dimension": 50,
+    "batchNumber": 1,
+    "batchId": "batch_673d30c76130819080ca1fe4f2c90f21",
+    "fileId": "file-LSsWMocbOORXPScoWiOWwqXP",
+    "requestCount": 45000,
+    "filePath":
+      "/Users/marcus.wood/community-apps/hotandcold/words/output/openai/batches/batch_text-embedding-3-large_50d_1.jsonl",
+    "model": "text-embedding-3-large",
+  },
+  {
+    "dimension": 50,
+    "batchNumber": 2,
+    "batchId": "batch_673d30cc84e0819083ca965634acdd99",
+    "fileId": "file-mGxdYcHWn8JuTeRADPFDfrXE",
+    "requestCount": 30591,
+    "filePath":
+      "/Users/marcus.wood/community-apps/hotandcold/words/output/openai/batches/batch_text-embedding-3-large_50d_2.jsonl",
+    "model": "text-embedding-3-large",
+  },
+  {
+    "dimension": 100,
+    "batchNumber": 1,
+    "batchId": "batch_673d30d06aac8190abf77835ebc3963e",
+    "fileId": "file-cSxZsLczUERN6Rr1zD212gIU",
+    "requestCount": 45000,
+    "filePath":
+      "/Users/marcus.wood/community-apps/hotandcold/words/output/openai/batches/batch_text-embedding-3-large_100d_1.jsonl",
+    "model": "text-embedding-3-large",
+  },
+  {
+    "dimension": 100,
+    "batchNumber": 2,
+    "batchId": "batch_673d30d43be48190ab15afeeaa005f21",
+    "fileId": "file-0M786jnMxwME9mOgAcNIpkzB",
+    "requestCount": 30591,
+    "filePath":
+      "/Users/marcus.wood/community-apps/hotandcold/words/output/openai/batches/batch_text-embedding-3-large_100d_2.jsonl",
+    "model": "text-embedding-3-large",
+  },
+  {
+    "dimension": 1536,
+    "batchNumber": 1,
+    "batchId": "batch_673d30d7885481909c89f34bb04fc6ff",
+    "fileId": "file-ostJ3WInOKdbsvdB1hw9lkLj",
+    "requestCount": 45000,
+    "filePath":
+      "/Users/marcus.wood/community-apps/hotandcold/words/output/openai/batches/batch_text-embedding-3-large_1536d_1.jsonl",
+    "model": "text-embedding-3-large",
+  },
+  {
+    "dimension": 1536,
+    "batchNumber": 2,
+    "batchId": "batch_673d30dd92248190a77a5f5e673a19aa",
+    "fileId": "file-I7Pm6HmX1E6ujs1S93qvqLAR",
+    "requestCount": 30591,
+    "filePath":
+      "/Users/marcus.wood/community-apps/hotandcold/words/output/openai/batches/batch_text-embedding-3-large_1536d_2.jsonl",
+    "model": "text-embedding-3-large",
+  },
+];
+
+// Configuration for which batches to check
+interface CheckConfig {
+  dimensions?: number[]; // Only check specific dimensions
+  batchNumbers?: number[]; // Only check specific batch numbers
+  failedOnly?: boolean; // Only show failed or incomplete batches
+}
+
+const CHECK_CONFIG: CheckConfig = {
+  failedOnly: false, // Show all statuses
+};
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY || "",
 });
 
-async function checkBatches() {
+interface BatchStatus {
+  dimension: number;
+  batchNumber: number;
+  batchId: string;
+  status:
+    | "validating"
+    | "failed"
+    | "in_progress"
+    | "finalizing"
+    | "completed"
+    | "expired"
+    | "cancelling"
+    | "cancelled";
+  request_counts?: {
+    completed: number;
+    failed: number;
+    total: number;
+  };
+  error_file_id?: string;
+  output_file_id?: string;
+}
+
+async function checkBatchStatus(
+  batchInfo: typeof BATCH_INFO[0],
+): Promise<BatchStatus> {
+  const batch = await openai.batches.retrieve(batchInfo.batchId);
+
+  return {
+    dimension: batchInfo.dimension,
+    batchNumber: batchInfo.batchNumber,
+    batchId: batchInfo.batchId,
+    status: batch.status,
+    request_counts: batch.request_counts,
+    error_file_id: batch.error_file_id,
+    output_file_id: batch.output_file_id,
+  };
+}
+
+async function main() {
   try {
-    console.log("Fetching all batches...\n");
+    // Filter batches based on configuration
+    let batchesToCheck = BATCH_INFO;
 
-    const batchList = await openai.batches.list();
-    const batches = [];
+    console.log(`\nChecking status for ${batchesToCheck.length} batches...`);
+    console.log("Configuration:", CHECK_CONFIG);
 
-    // Collect all batches
-    for await (const batch of batchList) {
-      batches.push(batch);
-    }
+    // Check all filtered batches
+    const statuses = await Promise.all(
+      batchesToCheck.map(checkBatchStatus),
+    );
 
-    // Group batches by status
-    const statusGroups: Record<string, typeof batches> = {};
-    batches.forEach((batch) => {
-      if (!statusGroups[batch.status]) {
-        statusGroups[batch.status] = [];
-      }
-      statusGroups[batch.status].push(batch);
-    });
+    // Filter for failed only if configured
+    const displayStatuses = CHECK_CONFIG.failedOnly
+      ? statuses.filter((s) =>
+        s.status !== "completed" ||
+        (s.request_counts?.failed && s.request_counts.failed > 0)
+      )
+      : statuses;
 
-    // Print summary
-    console.log("=== BATCH STATUS SUMMARY ===");
-    console.log(`Total batches: ${batches.length}\n`);
+    // Display results
+    console.log("\n=== BATCH STATUS SUMMARY ===");
+    console.table(displayStatuses.map((status) => ({
+      dimension: `${status.dimension}d`,
+      batch: status.batchNumber,
+      status: status.status,
+      progress: status.request_counts
+        ? `${
+          ((status.request_counts.completed + status.request_counts.failed) /
+            status.request_counts.total * 100).toFixed(1)
+        }%`
+        : "N/A",
+      completed: status.request_counts?.completed || 0,
+      failed: status.request_counts?.failed || 0,
+      total: status.request_counts?.total || 0,
+      output_file: status.output_file_id || "None",
+      error_file: status.error_file_id || "None",
+    })));
 
-    // Print status groups
-    for (const [status, batchGroup] of Object.entries(statusGroups)) {
-      console.log(`${status.toUpperCase()} (${batchGroup.length})`);
-
-      for (const batch of batchGroup) {
-        const created = new Date(batch.created_at * 1000).toLocaleString();
-        const completed = batch.completed_at
-          ? new Date(batch.completed_at * 1000).toLocaleString()
-          : "N/A";
-
-        console.log(`  Batch ID: ${batch.id}`);
-        console.log(`  - Created: ${created}`);
-        console.log(`  - Completed: ${completed}`);
-        console.log(`  - Status: ${batch.status}`);
-        console.log(
-          `  - Requests: ${batch.request_counts?.completed}/${batch.request_counts?.total} completed`,
-        );
-
-        if (batch.errors) {
-          console.log("Found errors:", JSON.stringify(batch.errors, null, 2));
-        }
-
-        // Show output file if completed
-        if (batch.output_file_id) {
-          console.log(`  - Output file: ${batch.output_file_id}`);
-        }
-
-        console.log(""); // Empty line between batches
-      }
-      console.log(""); // Empty line between status groups
-    }
-
-    // Print instructions for completed batches
-    const completedBatches = statusGroups["completed"] || [];
-    if (completedBatches.length > 0) {
-      console.log("=== DOWNLOAD INSTRUCTIONS ===");
-      console.log("To download results for completed batches, use:");
-      console.log(
-        'const fileResponse = await openai.files.content("file-id");',
-      );
-      console.log("const fileContents = await fileResponse.text();\n");
+    // Display any failed batches separately
+    const failedBatches = displayStatuses.filter((s) =>
+      s.request_counts?.failed && s.request_counts.failed > 0
+    );
+    if (failedBatches.length > 0) {
+      console.log("\n=== FAILED BATCHES ===");
+      console.table(failedBatches.map((status) => ({
+        dimension: `${status.dimension}d`,
+        batch: status.batchNumber,
+        batchId: status.batchId,
+        failed: status.request_counts?.failed || 0,
+        error_file: status.error_file_id || "None",
+      })));
     }
   } catch (error) {
-    console.error("Error checking batches:", error);
+    console.error("Error checking batch status:", error);
     process.exit(1);
   }
 }
 
-// Run the check
-checkBatches();
+main();

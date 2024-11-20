@@ -1,4 +1,8 @@
-import { Devvit, TriggerContext } from "@devvit/public-api";
+import {
+  Devvit,
+  MultiTriggerDefinition,
+  TriggerContext,
+} from "@devvit/public-api";
 import { WordList } from "../core/wordList.js";
 import { Challenge } from "../core/challenge.js";
 
@@ -28,8 +32,13 @@ export const initialize = async (context: TriggerContext) => {
   });
 };
 
+type AppUpgrade = MultiTriggerDefinition<"AppUpgrade">["onEvent"];
+const functionSomething: AppUpgrade = (e, context) => {
+  console.log(e.installer, context.appName);
+};
+
 Devvit.addTrigger({
-  events: ["AppInstall"],
+  events: ["AppUpgrade"],
   onEvent: async (_, context) => {
     await initialize(context);
   },
