@@ -54,6 +54,8 @@ const client = new pg.Client({
   connectionString: process.env.PG_CONNECTION_STRING,
 });
 
+const missingEmbeddingsCount = new Map<number, number>();
+
 async function createSchema(): Promise<void> {
   if (config.truncateMode) {
     console.log('Truncate mode enabled. Dropping existing "words" table...');
@@ -154,6 +156,7 @@ async function importWords(): Promise<void> {
 
   let batch: WordRow[] = [];
   let count = 0;
+  let skippedCount = 0;
 
   for await (const line of rl) {
     if (line.startsWith("word,")) continue;
@@ -171,12 +174,28 @@ async function importWords(): Promise<void> {
       is_hint,
     ] = line.split(",");
 
+    let hasMissingEmbedding = false;
     const embeddings = new Map<number, string>();
+
     for (const { dimension, map } of embeddingMaps) {
-      embeddings.set(
-        dimension,
-        map.get(word) || `[${Array(dimension).fill(0).join(",")}]`,
-      );
+      const embedding = map.get(word);
+      if (!embedding) {
+        console.log(
+          `Missing ${dimension}d embedding for word: "${word}" (${pos}, ${synset_type}, sense_count: ${sense_count})`,
+        );
+        missingEmbeddingsCount.set(
+          dimension,
+          (missingEmbeddingsCount.get(dimension) || 0) + 1,
+        );
+        hasMissingEmbedding = true;
+        break;
+      }
+      embeddings.set(dimension, embedding);
+    }
+
+    if (hasMissingEmbedding) {
+      skippedCount++;
+      continue;
     }
 
     batch.push({
@@ -193,7 +212,7 @@ async function importWords(): Promise<void> {
     if (batch.length >= config.batchSize) {
       await insertBatch(batch);
       count += batch.length;
-      console.log(`Processed ${count} words`);
+      console.log(`Processed ${count} words (${skippedCount} skipped)`);
       batch = [];
     }
   }
@@ -201,8 +220,14 @@ async function importWords(): Promise<void> {
   if (batch.length > 0) {
     await insertBatch(batch);
     count += batch.length;
-    console.log(`Processed ${count} words`);
+    console.log(`Processed ${count} words (${skippedCount} skipped)`);
   }
+
+  console.log("\nMissing Embeddings Summary:");
+  for (const [dimension, count] of missingEmbeddingsCount.entries()) {
+    console.log(`${dimension}d: ${count} missing embeddings`);
+  }
+  console.log(`Total words skipped due to missing embeddings: ${skippedCount}`);
 }
 
 async function insertBatch(batch: WordRow[]): Promise<void> {
@@ -230,9 +255,9 @@ async function insertBatch(batch: WordRow[]): Promise<void> {
     VALUES ${values.join(", ")}
     ON CONFLICT (word) DO UPDATE SET
       ${
-    config.embedDimensions.map((dim) =>
-      `embedding_${dim} = EXCLUDED.embedding_${dim}`
-    ).join(",\n      ")
+    config.embedDimensions
+      .map((dim) => `embedding_${dim} = EXCLUDED.embedding_${dim}`)
+      .join(",\n      ")
   },
       synset_type = EXCLUDED.synset_type,
       sense_count = EXCLUDED.sense_count,

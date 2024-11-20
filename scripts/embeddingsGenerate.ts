@@ -19,7 +19,7 @@ const CONFIG = {
 
   // OpenAI configuration
   openaiApiKey: process.env.OPENAI_API_KEY || "",
-  modelDimensions: [50, 100, 1536], // Dimensions to request embeddings for
+  modelDimensions: [50, 100, 200, 300, 500, 1536, 3072], // Dimensions to request embeddings for
 
   // Batch configuration
   maxRequestsPerBatch: 45000, // Keep under OpenAI's 50k limit to be safe

@@ -108,7 +108,7 @@ function isNumber(word: string): boolean {
   return /\d/.test(word);
 }
 
-const profanityRoots = new Set([
+const profanityList = new Set([
   "anal",
   "anus",
   "arse",
@@ -211,9 +211,7 @@ const profanityRoots = new Set([
 
 function isProfane(word: string): boolean {
   const lowercaseWord = word.toLowerCase();
-  return Array.from(profanityRoots).some((root) =>
-    lowercaseWord.includes(root)
-  );
+  return profanityList.has(lowercaseWord);
 }
 
 const hasNonLetters = (word: string) => {

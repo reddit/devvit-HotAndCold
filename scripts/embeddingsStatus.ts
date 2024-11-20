@@ -8,8 +8,8 @@ const BATCH_INFO = [
   {
     "dimension": 50,
     "batchNumber": 1,
-    "batchId": "batch_673d30c76130819080ca1fe4f2c90f21",
-    "fileId": "file-LSsWMocbOORXPScoWiOWwqXP",
+    "batchId": "batch_673e559c07888190911774daf17f326f",
+    "fileId": "file-21aedNXioVE27TauRqYePy8j",
     "requestCount": 45000,
     "filePath":
       "/Users/marcus.wood/community-apps/hotandcold/words/output/openai/batches/batch_text-embedding-3-large_50d_1.jsonl",
@@ -18,9 +18,9 @@ const BATCH_INFO = [
   {
     "dimension": 50,
     "batchNumber": 2,
-    "batchId": "batch_673d30cc84e0819083ca965634acdd99",
-    "fileId": "file-mGxdYcHWn8JuTeRADPFDfrXE",
-    "requestCount": 30591,
+    "batchId": "batch_673e55a0da7881908d067c882de5b478",
+    "fileId": "file-UFWGjkcKlj18RHHsePyyFxyX",
+    "requestCount": 32427,
     "filePath":
       "/Users/marcus.wood/community-apps/hotandcold/words/output/openai/batches/batch_text-embedding-3-large_50d_2.jsonl",
     "model": "text-embedding-3-large",
@@ -28,8 +28,8 @@ const BATCH_INFO = [
   {
     "dimension": 100,
     "batchNumber": 1,
-    "batchId": "batch_673d30d06aac8190abf77835ebc3963e",
-    "fileId": "file-cSxZsLczUERN6Rr1zD212gIU",
+    "batchId": "batch_673e55a4dc68819085da30ed3f31a76e",
+    "fileId": "file-ppFRt7QobpGwNxGQrBLXxF13",
     "requestCount": 45000,
     "filePath":
       "/Users/marcus.wood/community-apps/hotandcold/words/output/openai/batches/batch_text-embedding-3-large_100d_1.jsonl",
@@ -38,18 +38,78 @@ const BATCH_INFO = [
   {
     "dimension": 100,
     "batchNumber": 2,
-    "batchId": "batch_673d30d43be48190ab15afeeaa005f21",
-    "fileId": "file-0M786jnMxwME9mOgAcNIpkzB",
-    "requestCount": 30591,
+    "batchId": "batch_673e55a9bde0819099880653eef1e4bf",
+    "fileId": "file-szYLSZ5i0LfXghl2WaVMqCPh",
+    "requestCount": 32427,
     "filePath":
       "/Users/marcus.wood/community-apps/hotandcold/words/output/openai/batches/batch_text-embedding-3-large_100d_2.jsonl",
     "model": "text-embedding-3-large",
   },
   {
+    "dimension": 200,
+    "batchNumber": 1,
+    "batchId": "batch_673e55ae2e988190bc90bc4901f90453",
+    "fileId": "file-1kXV40fMjO23V8TcpJ60GtwE",
+    "requestCount": 45000,
+    "filePath":
+      "/Users/marcus.wood/community-apps/hotandcold/words/output/openai/batches/batch_text-embedding-3-large_200d_1.jsonl",
+    "model": "text-embedding-3-large",
+  },
+  {
+    "dimension": 200,
+    "batchNumber": 2,
+    "batchId": "batch_673e55b2434481909fa0144d13dd800c",
+    "fileId": "file-Im2a1a8txzKxayo7EK13Rk9T",
+    "requestCount": 32427,
+    "filePath":
+      "/Users/marcus.wood/community-apps/hotandcold/words/output/openai/batches/batch_text-embedding-3-large_200d_2.jsonl",
+    "model": "text-embedding-3-large",
+  },
+  {
+    "dimension": 300,
+    "batchNumber": 1,
+    "batchId": "batch_673e55b7560481908a7b9d5798ad9850",
+    "fileId": "file-ThYqUU6pdD0QmbillUzXVA4K",
+    "requestCount": 45000,
+    "filePath":
+      "/Users/marcus.wood/community-apps/hotandcold/words/output/openai/batches/batch_text-embedding-3-large_300d_1.jsonl",
+    "model": "text-embedding-3-large",
+  },
+  {
+    "dimension": 300,
+    "batchNumber": 2,
+    "batchId": "batch_673e55bb90348190a035062f964dc13c",
+    "fileId": "file-dVbCdALZB6mW69PeFMytVvb3",
+    "requestCount": 32427,
+    "filePath":
+      "/Users/marcus.wood/community-apps/hotandcold/words/output/openai/batches/batch_text-embedding-3-large_300d_2.jsonl",
+    "model": "text-embedding-3-large",
+  },
+  {
+    "dimension": 500,
+    "batchNumber": 1,
+    "batchId": "batch_673e55c04124819081fc9f8ac518c3d0",
+    "fileId": "file-OlVY39YrnIJdhjDjw6Qz1OB1",
+    "requestCount": 45000,
+    "filePath":
+      "/Users/marcus.wood/community-apps/hotandcold/words/output/openai/batches/batch_text-embedding-3-large_500d_1.jsonl",
+    "model": "text-embedding-3-large",
+  },
+  {
+    "dimension": 500,
+    "batchNumber": 2,
+    "batchId": "batch_673e55c4464c819090428a7008cc67c0",
+    "fileId": "file-6Muh6RSNfWsLpCYGwWTcZQep",
+    "requestCount": 32427,
+    "filePath":
+      "/Users/marcus.wood/community-apps/hotandcold/words/output/openai/batches/batch_text-embedding-3-large_500d_2.jsonl",
+    "model": "text-embedding-3-large",
+  },
+  {
     "dimension": 1536,
     "batchNumber": 1,
-    "batchId": "batch_673d30d7885481909c89f34bb04fc6ff",
-    "fileId": "file-ostJ3WInOKdbsvdB1hw9lkLj",
+    "batchId": "batch_673e55c980e081908529a7fac7dbcbf8",
+    "fileId": "file-hJfipvQs9PLjGsv962nxh5Tg",
     "requestCount": 45000,
     "filePath":
       "/Users/marcus.wood/community-apps/hotandcold/words/output/openai/batches/batch_text-embedding-3-large_1536d_1.jsonl",
@@ -58,11 +118,31 @@ const BATCH_INFO = [
   {
     "dimension": 1536,
     "batchNumber": 2,
-    "batchId": "batch_673d30dd92248190a77a5f5e673a19aa",
-    "fileId": "file-I7Pm6HmX1E6ujs1S93qvqLAR",
-    "requestCount": 30591,
+    "batchId": "batch_673e55cd66b88190b00c14da8cc60b9b",
+    "fileId": "file-ydF98BesTeyTKIoxa2MX6DH6",
+    "requestCount": 32427,
     "filePath":
       "/Users/marcus.wood/community-apps/hotandcold/words/output/openai/batches/batch_text-embedding-3-large_1536d_2.jsonl",
+    "model": "text-embedding-3-large",
+  },
+  {
+    "dimension": 3072,
+    "batchNumber": 1,
+    "batchId": "batch_673e55d136948190b52d06828cbcfef0",
+    "fileId": "file-MH2UqAwYEK6MOjx7uNHOmgxz",
+    "requestCount": 45000,
+    "filePath":
+      "/Users/marcus.wood/community-apps/hotandcold/words/output/openai/batches/batch_text-embedding-3-large_3072d_1.jsonl",
+    "model": "text-embedding-3-large",
+  },
+  {
+    "dimension": 3072,
+    "batchNumber": 2,
+    "batchId": "batch_673e55d527b88190a7ea8115df9f26c1",
+    "fileId": "file-bLAGRsnoL0yy5R7CZBTqLrhJ",
+    "requestCount": 32427,
+    "filePath":
+      "/Users/marcus.wood/community-apps/hotandcold/words/output/openai/batches/batch_text-embedding-3-large_3072d_2.jsonl",
     "model": "text-embedding-3-large",
   },
 ];
@@ -100,6 +180,7 @@ interface BatchStatus {
     failed: number;
     total: number;
   };
+  errors: any;
   error_file_id?: string;
   output_file_id?: string;
 }
@@ -109,12 +190,15 @@ async function checkBatchStatus(
 ): Promise<BatchStatus> {
   const batch = await openai.batches.retrieve(batchInfo.batchId);
 
+  console.log(JSON.stringify(batch, null, 2));
+
   return {
     dimension: batchInfo.dimension,
     batchNumber: batchInfo.batchNumber,
     batchId: batchInfo.batchId,
     status: batch.status,
     request_counts: batch.request_counts,
+    errors: batch.errors,
     error_file_id: batch.error_file_id,
     output_file_id: batch.output_file_id,
   };
@@ -171,6 +255,7 @@ async function main() {
         batch: status.batchNumber,
         batchId: status.batchId,
         failed: status.request_counts?.failed || 0,
+        errors: JSON.stringify(status.errors),
         error_file: status.error_file_id || "None",
       })));
     }
