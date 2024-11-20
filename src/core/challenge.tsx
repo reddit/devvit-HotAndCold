@@ -98,7 +98,7 @@ export const initialize = zoddy(
     redis: zodRedis,
   }),
   async ({ redis }) => {
-    const result = await redis.get(getChallengeKey(0));
+    const result = await redis.get(getCurrentChallengeNumberKey());
     if (!result) {
       await redis.set(getCurrentChallengeNumberKey(), '0');
     } else {
