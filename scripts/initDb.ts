@@ -16,6 +16,7 @@ interface Config {
   wordlistPath: string;
   embeddingDirBasePath: string;
   truncateMode: boolean;
+  model: string;
 }
 
 interface WordRow {
@@ -48,18 +49,18 @@ const config: Config = {
     "embeddings",
   ),
   truncateMode: process.argv.includes("--truncate"),
+  model: "text-embedding-3-large",
 };
 
 const client = new pg.Client({
   connectionString: process.env.PG_CONNECTION_STRING,
 });
 
-const missingEmbeddingsCount = new Map<number, number>();
-
 async function createSchema(): Promise<void> {
   if (config.truncateMode) {
     console.log('Truncate mode enabled. Dropping existing "words" table...');
     await client.query("DROP TABLE IF EXISTS words CASCADE");
+    await client.query("DROP TABLE IF EXISTS cache CASCADE");
     await client.query("DROP TYPE IF EXISTS part_of_speech_enum CASCADE");
   }
 
@@ -96,6 +97,12 @@ async function createSchema(): Promise<void> {
     CREATE INDEX IF NOT EXISTS idx_word ON words(word);
     CREATE INDEX IF NOT EXISTS idx_pos ON words(part_of_speech);
     CREATE INDEX IF NOT EXISTS idx_hint ON words(is_hint);
+
+    CREATE TABLE IF NOT EXISTS cache (
+      id SERIAL PRIMARY KEY,
+      key VARCHAR(255) UNIQUE,
+      data JSONB
+    );
   `;
 
   await client.query(createTableQuery);
@@ -109,7 +116,7 @@ async function loadEmbeddings(dimension: number): Promise<Map<string, string>> {
     try {
       const filePath = path.join(
         config.embeddingDirBasePath,
-        `embeddings_${dimension}d_${fileNum}.jsonl`,
+        `embeddings_${config.model}_${dimension}d_${fileNum}.jsonl`,
       );
 
       const fileStream = await fs.open(filePath);
@@ -156,7 +163,6 @@ async function importWords(): Promise<void> {
 
   let batch: WordRow[] = [];
   let count = 0;
-  let skippedCount = 0;
 
   for await (const line of rl) {
     if (line.startsWith("word,")) continue;
@@ -174,28 +180,13 @@ async function importWords(): Promise<void> {
       is_hint,
     ] = line.split(",");
 
-    let hasMissingEmbedding = false;
     const embeddings = new Map<number, string>();
 
     for (const { dimension, map } of embeddingMaps) {
-      const embedding = map.get(word);
-      if (!embedding) {
-        console.log(
-          `Missing ${dimension}d embedding for word: "${word}" (${pos}, ${synset_type}, sense_count: ${sense_count})`,
-        );
-        missingEmbeddingsCount.set(
-          dimension,
-          (missingEmbeddingsCount.get(dimension) || 0) + 1,
-        );
-        hasMissingEmbedding = true;
-        break;
-      }
-      embeddings.set(dimension, embedding);
-    }
-
-    if (hasMissingEmbedding) {
-      skippedCount++;
-      continue;
+      embeddings.set(
+        dimension,
+        map.get(word) || `[${Array(dimension).fill(0).join(",")}]`,
+      );
     }
 
     batch.push({
@@ -212,7 +203,7 @@ async function importWords(): Promise<void> {
     if (batch.length >= config.batchSize) {
       await insertBatch(batch);
       count += batch.length;
-      console.log(`Processed ${count} words (${skippedCount} skipped)`);
+      console.log(`Processed ${count} words`);
       batch = [];
     }
   }
@@ -220,14 +211,8 @@ async function importWords(): Promise<void> {
   if (batch.length > 0) {
     await insertBatch(batch);
     count += batch.length;
-    console.log(`Processed ${count} words (${skippedCount} skipped)`);
+    console.log(`Processed ${count} words`);
   }
-
-  console.log("\nMissing Embeddings Summary:");
-  for (const [dimension, count] of missingEmbeddingsCount.entries()) {
-    console.log(`${dimension}d: ${count} missing embeddings`);
-  }
-  console.log(`Total words skipped due to missing embeddings: ${skippedCount}`);
 }
 
 async function insertBatch(batch: WordRow[]): Promise<void> {
@@ -255,9 +240,9 @@ async function insertBatch(batch: WordRow[]): Promise<void> {
     VALUES ${values.join(", ")}
     ON CONFLICT (word) DO UPDATE SET
       ${
-    config.embedDimensions
-      .map((dim) => `embedding_${dim} = EXCLUDED.embedding_${dim}`)
-      .join(",\n      ")
+    config.embedDimensions.map((dim) =>
+      `embedding_${dim} = EXCLUDED.embedding_${dim}`
+    ).join(",\n      ")
   },
       synset_type = EXCLUDED.synset_type,
       sense_count = EXCLUDED.sense_count,

@@ -39,6 +39,8 @@ const wordConfigSchema = z.object({
     z.object({
       word: z.string(),
       similarity: z.number(),
+      hint: z.boolean(),
+      definition: z.string(),
     }),
   ),
 });

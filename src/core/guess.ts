@@ -174,9 +174,9 @@ export const getHintForUser = zoddy(
       challengeUserInfo.guesses?.map((x) => x.word) ?? [],
     );
 
-    // Filter out hints that have already been given
-    const remainingHints = wordConfig.similar_words.filter((hint) =>
-      !givenSet.has(hint.word)
+    // Filter to hints and hints that have already been given
+    const remainingHints = wordConfig.similar_words.filter((entry) =>
+      entry.hint && !givenSet.has(entry.word)
     );
 
     if (remainingHints.length === 0) {
