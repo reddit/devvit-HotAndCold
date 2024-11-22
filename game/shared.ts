@@ -92,6 +92,8 @@ export type BlocksToWebviewMessage =
   | {
     type: "CHALLENGE_LEADERBOARD_RESPONSE";
     payload: {
+      // TODO: Community streak to see if the entire community can keep a solve per day going?
+      userStreak: number;
       userRank: {
         score: number;
         timeToSolve: number;

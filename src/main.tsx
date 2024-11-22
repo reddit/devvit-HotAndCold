@@ -14,6 +14,7 @@ import { Preview } from './components/Preview.js';
 import { Challenge } from './core/challenge.js';
 import { ChallengeProgress } from './core/challengeProgress.js';
 import { ChallengeLeaderboard } from './core/challengeLeaderboard.js';
+import { Streaks } from './core/streaks.js';
 
 Devvit.configure({
   redditAPI: true,
@@ -221,9 +222,14 @@ Devvit.addCustomPostType({
                   redis: context.redis,
                   username: initialState.user?.username!,
                 });
+                const userStreak = await Streaks.getStreakForMember({
+                  redis: context.redis,
+                  username: initialState.user?.username!,
+                });
                 sendMessageToWebview(context, {
                   type: 'CHALLENGE_LEADERBOARD_RESPONSE',
                   payload: {
+                    userStreak,
                     leaderboardByScore,
                     leaderboardByFastest,
                     userRank,

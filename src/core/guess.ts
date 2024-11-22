@@ -297,8 +297,6 @@ export const submitGuess = zoddy(
       word: challengeInfo.word,
     });
 
-    console.log(`Username: ${username}:`, "word config", wordConfig);
-
     await Challenge.incrementChallengeTotalGuesses({ redis: txn, challenge });
 
     console.log(`Username: ${username}:`, "increment total guess complete");
@@ -377,7 +375,21 @@ export const submitGuess = zoddy(
 
       console.log(`Incrementing streak for user ${username}`);
 
-      await Streaks.incrementEntry({ redis: txn, username });
+      const currentChallengeNumber = await Challenge.getCurrentChallengeNumber({
+        redis: txn,
+      });
+
+      // Only increment streak if the user solved the current day's challenge
+      if (currentChallengeNumber === challenge) {
+        console.log(
+          `User ${username} solved today's challenge, incrementing streak`,
+        );
+        await Streaks.incrementEntry({ redis: txn, username });
+      } else {
+        console.log(
+          `User ${username} solved a past challenge, skipping streak increment`,
+        );
+      }
 
       console.log(`Incrementing total solves for challenge ${challenge}`);
 

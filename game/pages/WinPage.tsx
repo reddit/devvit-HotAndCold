@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useGame } from '../hooks/useGame';
 import { getPrettyDuration, sendMessageToDevvit } from '../utils';
 import { useDevvitListener } from '../hooks/useDevvitListener';
@@ -74,17 +74,26 @@ export const WinPage = () => {
           })}
         </div>
       </div>
-      <div>
-        <p>Challenge Metrics:</p>
-        <p>Total players: {challengeInfo?.totalPlayers ?? '0'}</p>
-        <p>Total solves: {challengeInfo?.totalSolves ?? '0'}</p>
-        <p>
-          Solve rate:{' '}
-          {prettyPercentage((challengeInfo?.totalSolves ?? 0) / (challengeInfo.totalPlayers ?? 0))}
-        </p>
-        <p>Total guesses: {challengeInfo?.totalGuesses ?? '0'}</p>
-        <p>Total give ups: {challengeInfo?.totalGiveUps ?? '0'}</p>
-        <p>Total hints: {challengeInfo?.totalHints ?? '0'}</p>
+      <div className="flex gap-6">
+        <div>
+          <p>Challenge Metrics:</p>
+          <p>Total players: {challengeInfo?.totalPlayers ?? '0'}</p>
+          <p>Total solves: {challengeInfo?.totalSolves ?? '0'}</p>
+          <p>
+            Solve rate:{' '}
+            {prettyPercentage(
+              (challengeInfo?.totalSolves ?? 0) / (challengeInfo.totalPlayers ?? 0)
+            )}
+          </p>
+          <p>Total guesses: {challengeInfo?.totalGuesses ?? '0'}</p>
+          <p>Total give ups: {challengeInfo?.totalGiveUps ?? '0'}</p>
+          <p>Total hints: {challengeInfo?.totalHints ?? '0'}</p>
+        </div>
+        <div>
+          <p>Your streak</p>
+          <p>Current streak:{leaderboardData?.userStreak ?? 0} </p>
+          <p>Play tomorrow's challenge to keep it going!</p>
+        </div>
       </div>
     </div>
   );
