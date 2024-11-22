@@ -21,7 +21,8 @@ export const normalizeSimilarity = zoddy(
         (closestWordSimilarity - furthestWordSimilarity)) * 100,
     );
 
-    // Clamp the result between 0 and 100
-    return Math.max(0, Math.min(100, normalizedScore));
+    // Clamp the result between 0 and 99
+    // 100 is guessing the actual word!
+    return Math.max(0, Math.min(99, normalizedScore));
   },
 );

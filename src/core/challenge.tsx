@@ -194,8 +194,10 @@ export const makeNewChallenge = zoddy(
     let post: Post | undefined;
 
     try {
-      const txn = await context.redis.watch();
-      await txn.multi();
+      // TODO: Transactions are broken
+      const txn = context.redis;
+      // const txn = await context.redis.watch();
+      // await txn.multi();
 
       // Clean up the word list while we have the data to do so
       await WordList.setCurrentWordListWords({
@@ -239,12 +241,13 @@ export const makeNewChallenge = zoddy(
       if (currentChallengeNumber > 0) {
         await Streaks.expireStreaks({
           redis: context.redis,
+          // @ts-expect-error THis is due to the workaround
           txn,
           challengeNumberBeforeTheNewestChallenge: currentChallengeNumber,
         });
       }
 
-      await txn.exec();
+      // await txn.exec();
 
       console.log(
         'New challenge created:',

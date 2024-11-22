@@ -16,24 +16,21 @@ export const Modal = ({
   const previousActiveElement = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
+    if (!isOpen) return;
+
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape' && isOpen) {
+      if (event.key === 'Escape') {
         onClose();
       }
     };
 
-    // Save current active element and focus the modal
-    if (isOpen) {
-      previousActiveElement.current = document.activeElement as HTMLElement;
-      modalRef.current?.focus();
-      document.addEventListener('keydown', handleKeyDown);
-    } else {
-      // Restore focus when modal closes
-      previousActiveElement.current?.focus();
-    }
+    previousActiveElement.current = document.activeElement as HTMLElement;
+    modalRef.current?.focus();
+    document.addEventListener('keydown', handleKeyDown);
 
     return () => {
       document.removeEventListener('keydown', handleKeyDown);
+      previousActiveElement.current?.focus();
     };
   }, [isOpen, onClose]);
 
@@ -51,7 +48,7 @@ export const Modal = ({
           exit={{
             opacity: 0,
           }}
-          className="fixed inset-0 z-[100] flex h-full w-full items-center justify-center outline-none backdrop-blur-2xl"
+          className="fixed inset-0 z-[1500] flex h-full w-full items-center justify-center outline-none backdrop-blur-2xl"
           onClick={(e) => {
             if (clickAnywhereToClose && e.target === e.currentTarget) {
               onClose();

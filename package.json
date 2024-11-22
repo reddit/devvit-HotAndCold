@@ -19,7 +19,7 @@
     "scripts:initDb": "NODE_OPTIONS=\"--max-old-space-size=8192\" tsx ./scripts/initDb.ts",
     "supabase": "supabase",
     "dev:game": "vite build --watch",
-    "dev:devvit": "MY_PORTAL=0 mydevvit playtest huckleberrydevcorner3 --employee-update",
+    "dev:devvit": "MY_PORTAL=0 mydevvit playtest huckleberrydevcorner4 --employee-update",
     "dev:all": "concurrently -p \"[{name}]\" -n \"DEVVIT,GAME\" -c \"bgBlue.bold,bgMagenta.bold\" \"npm run dev:devvit\" \"npm run dev:game\" --restart-tries 30",
     "vite": "vite",
     "test": "vitest"

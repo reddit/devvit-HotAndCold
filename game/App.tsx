@@ -17,9 +17,9 @@ const getPage = (page: Page) => {
     case 'stats':
       return <StatsPage />;
     case 'win':
-      return <WinPage variant="WIN" />;
+      return <WinPage />;
     case 'lose':
-      return <WinPage variant="GIVE_UP" />;
+      return <WinPage />;
     default:
       throw new Error(`Unknown page: ${page satisfies never}`);
   }
@@ -28,5 +28,5 @@ const getPage = (page: Page) => {
 export const App = () => {
   const page = usePage();
 
-  return <div className="p-2">{getPage(page)}</div>;
+  return <div className="h-full p-2">{getPage(page)}</div>;
 };

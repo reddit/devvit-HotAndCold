@@ -39,7 +39,7 @@ const wordConfigSchema = z.object({
     z.object({
       word: z.string(),
       similarity: z.number(),
-      hint: z.boolean(),
+      is_hint: z.boolean(),
       definition: z.string(),
     }),
   ),
@@ -86,30 +86,32 @@ export const getWordConfigCached = zoddy(
     word: z.string().trim().toLowerCase(),
   }),
   async ({ context, word }) => {
-    const secret = await context.settings.get(
-      DEVVIT_SETTINGS_KEYS.WORD_SERVICE_API_KEY,
-    );
+    try {
+      const cacheKey = getWordConfigCacheKey(word);
 
-    if (!secret) {
-      throw new Error("No API key found for word service in Devvit.settings");
-    }
+      // We heavily cache because this is a very expensive/slow operation
+      // and I'm too lazy to build a cache on the API side
+      const cached = await context.cache(async () => {
+        console.log("Fetching word config for from API, cache miss:", word);
+        const response = await getWordConfig({ context, word });
 
-    const cacheKey = getWordConfigCacheKey(word);
+        return JSON.stringify(response);
+      }, {
+        key: cacheKey,
+        // Not doing forever because I'm worried I'll blow out our Redis
+        ttl: toMilliseconds({ days: 30 }),
+      });
 
-    // We heavily cache because this is a very expensive/slow operation
-    // and I'm too lazy to build a cache on the API side
-    const cached = await context.cache(async () => {
-      console.log("Fetching word config for from API, cache miss:", word);
+      return wordConfigSchema.parse(JSON.parse(cached));
+    } catch (error) {
+      console.error(`Error getting cached word config:`, error);
+
       const response = await getWordConfig({ context, word });
 
-      return JSON.stringify(response);
-    }, {
-      key: cacheKey,
-      // Not doing forever because I'm worried I'll blow out our Redis
-      ttl: toMilliseconds({ days: 30 }),
-    });
+      console.log(`I got a response live from the API doe so returning that.`);
 
-    return wordConfigSchema.parse(JSON.parse(cached));
+      return response;
+    }
   },
 );
 
@@ -123,43 +125,71 @@ export const compareWords = zoddy(
     const secret = await context.settings.get(
       DEVVIT_SETTINGS_KEYS.WORD_SERVICE_API_KEY,
     );
-
     if (!secret) {
       throw new Error("No API key found for word service in Devvit.settings");
     }
-    const cacheKey = getWordComparisonCacheKey(wordA, wordB);
+    const response = await fetch(API_URL + "compare-words", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${secret}`,
+      },
+      body: JSON.stringify({ wordA, wordB }),
+    });
+    return wordComparisonSchema.parse(await response.json());
+  },
+);
 
-    // We heavily cache because this is a very expensive/slow operation
-    // and I'm too lazy to build a cache on the API side
+export const compareWordsCached = zoddy(
+  z.object({
+    context: z.union([zodJobContext, zodContext]),
+    secretWord: z.string().trim().toLowerCase(),
+    guessWord: z.string().trim().toLowerCase(),
+  }),
+  async ({ context, secretWord: wordA, guessWord: wordB }) => {
+    try {
+      const cacheKey = getWordComparisonCacheKey(wordA, wordB);
 
-    const cached = await context.cache(async () => {
-      console.log(
-        "Fetching word config for from API, cache miss",
-        "wordA:",
-        wordA,
-        "wordB:",
-        wordB,
-      );
+      // We heavily cache because this is a very expensive/slow operation
+      // and I'm too lazy to build a cache on the API side
+      const cached = await context.cache(async () => {
+        console.log(
+          "Fetching word config for from API, cache miss",
+          "wordA:",
+          wordA,
+          "wordB:",
+          wordB,
+        );
 
-      const response = await fetch(API_URL + "compare-words", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${secret}`,
-        },
-        body: JSON.stringify({ wordA, wordB }),
+        const response = await compareWords({
+          context,
+          secretWord: wordA,
+          guessWord: wordB,
+        });
+
+        // Do a quick check in case API is down or changes
+        const data = wordComparisonSchema.parse(response);
+
+        return JSON.stringify(data);
+      }, {
+        key: cacheKey,
+        // Not doing forever because I'm worried I'll blow out our Redis
+        ttl: toMilliseconds({ days: 30 }),
       });
 
-      // Do a quick check in case API is down or changes
-      const data = wordComparisonSchema.parse(await response.json());
+      return wordComparisonSchema.parse(JSON.parse(cached));
+    } catch (error) {
+      console.error(`Error getting cached word comparison:`, error);
 
-      return JSON.stringify(data);
-    }, {
-      key: cacheKey,
-      // Not doing forever because I'm worried I'll blow out our Redis
-      ttl: toMilliseconds({ days: 30 }),
-    });
+      const response = await compareWords({
+        context,
+        secretWord: wordA,
+        guessWord: wordB,
+      });
 
-    return wordComparisonSchema.parse(JSON.parse(cached));
+      console.log(`I got a response live from the API doe so returning that.`);
+
+      return response;
+    }
   },
 );

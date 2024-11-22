@@ -23,12 +23,11 @@ export const getLeaderboardByScore = zoddy(
     sort: z.enum(["ASC", "DESC"]).optional().default("DESC"),
   }),
   async ({ redis, challenge, sort, start, stop }) => {
-    // TODO: Total yolo
     const result = await redis.zRange(
       getChallengeLeaderboardScoreKey(challenge),
       start,
       stop,
-      { by: "score", reverse: sort === "DESC" },
+      { by: "rank", reverse: sort === "DESC" },
     );
 
     if (!result) {
@@ -52,7 +51,7 @@ export const getLeaderboardByFastest = zoddy(
       getChallengeLeaderboardFastestKey(challenge),
       start,
       stop,
-      { by: "score", reverse: sort === "DESC" },
+      { by: "rank", reverse: sort === "DESC" },
     );
 
     if (!result) {
@@ -82,25 +81,35 @@ export const addEntry = zoddy(
   },
 );
 
-export const getStatsForMember = zoddy(
+/**
+ * Return 0 based! (0 is the best)
+ *
+ * I d
+ */
+export const getRankingsForMember = zoddy(
   z.object({
     redis: zodRedis,
     challenge: z.number().gt(0),
     username: zodRedditUsername,
   }),
   async ({ redis, challenge, username }) => {
-    const score = await redis.zScore(
+    // TODO: Workaround because we don't have zRevRank
+    const totalPlayersOnLeaderboard = await redis.zCard(
+      getChallengeLeaderboardScoreKey(challenge),
+    );
+
+    const score = await redis.zRank(
       getChallengeLeaderboardScoreKey(challenge),
       username,
     );
-    const fastest = await redis.zScore(
+    const fastest = await redis.zRank(
       getChallengeLeaderboardFastestKey(challenge),
       username,
     );
 
     return {
-      score: score ?? 0,
-      timeToSolve: fastest ?? 0,
+      score: totalPlayersOnLeaderboard - (score ?? 0),
+      timeToSolve: totalPlayersOnLeaderboard - (fastest ?? 0),
     };
   },
 );

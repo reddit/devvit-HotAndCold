@@ -24,24 +24,28 @@ export const GameContextProvider = ({ children }: { children: React.ReactNode })
   }, []);
 
   useEffect(() => {
+    console.log('Init response: ', initResponse);
     if (initResponse) {
       setGame(initResponse);
     }
   }, [initResponse]);
 
   useEffect(() => {
+    console.log('Submission response: ', submissionResponse);
     if (submissionResponse) {
       setGame(submissionResponse);
     }
   }, [submissionResponse]);
 
   useEffect(() => {
+    console.log('Hint response: ', hintResponse);
     if (hintResponse) {
       setGame(hintResponse);
     }
   }, [hintResponse]);
 
   useEffect(() => {
+    console.log('Give up response: ', giveUpResponse);
     if (giveUpResponse) {
       setGame(giveUpResponse);
     }
@@ -51,10 +55,6 @@ export const GameContextProvider = ({ children }: { children: React.ReactNode })
     console.log('New game info: ', game);
     if (game.challengeUserInfo?.solvedAtMs) {
       setPage('win');
-      return;
-    }
-    if (game.challengeUserInfo?.gaveUpAtMs) {
-      setPage('lose');
       return;
     }
   }, [game, setPage]);

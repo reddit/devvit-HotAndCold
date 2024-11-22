@@ -15,8 +15,18 @@ export type Guess = {
   isHint: boolean;
 };
 
+export type PlayerProgress = {
+  progress: number;
+  avatar: string | null;
+  username: string;
+  isPlayer: boolean;
+}[];
+
 export type Game = {
   number: number;
+  // TODO: Need to get this
+  // userStreak: number;
+  // latestChallengeNumber: number;
   challengeInfo: {
     // DO NOT SEND THE WORD HERE!
     // THAT WOULD BE SILLY
@@ -30,10 +40,10 @@ export type Game = {
     finalScore?: number | undefined;
     startedPlayingAtMs?: number | undefined;
     solvedAtMs?: number | undefined;
-    totalGuesses?: number | undefined;
     gaveUpAtMs?: number | undefined;
     guesses?: Guess[] | undefined;
   };
+  challengeProgress: PlayerProgress;
 };
 
 export type GameResponse = Game;
@@ -54,7 +64,8 @@ export type WebviewToBlocksMessage =
   | {
     type: "SHOW_TOAST";
     string: string;
-  };
+  }
+  | { type: "LEADERBOARD_FOR_CHALLENGE" };
 
 export type BlocksToWebviewMessage =
   // TODO: Just make `GAME_RESPONSE`?
@@ -73,6 +84,21 @@ export type BlocksToWebviewMessage =
   | {
     type: "GAME_INIT_RESPONSE";
     payload: GameResponse;
+  }
+  | {
+    type: "PLAYER_PROGRESS_UPDATE";
+    payload: { challengeProgress: GameResponse["challengeProgress"] };
+  }
+  | {
+    type: "CHALLENGE_LEADERBOARD_RESPONSE";
+    payload: {
+      userRank: {
+        score: number;
+        timeToSolve: number;
+      };
+      leaderboardByScore: { member: string; score: number }[];
+      leaderboardByFastest: { member: string; score: number }[];
+    };
   };
 
 export type DevvitMessage = {

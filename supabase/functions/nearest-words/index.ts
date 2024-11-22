@@ -33,7 +33,7 @@ Deno.serve(async (req) => {
     );
 
     const cached = await supabase.from("cache").select("*").filter(
-      "cache_key",
+      "key",
       "eq",
       word,
     ).single();
@@ -64,7 +64,7 @@ Deno.serve(async (req) => {
     if (data) {
       console.debug(`Caching data for word "${word}"`);
       const foo = await supabase.from("cache").insert([{
-        cache_key: word,
+        key: word,
         data: JSON.stringify(data[0]),
       }]).select();
 

@@ -1,6 +1,7 @@
-import { AnimatePresence, motion } from "motion/react";
+import { AnimatePresence, motion } from 'motion/react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { cn } from '../utils';
+import { PrimaryButton } from './button';
 
 export function WordInput({
   placeholders,
@@ -220,13 +221,12 @@ export function WordInput({
   return (
     <div
       className={cn(
-        'relative mx-auto h-12 w-full max-w-xl overflow-hidden rounded-full bg-white shadow-[0px_2px_3px_-1px_rgba(0,0,0,0.1),_0px_1px_0px_0px_rgba(25,28,33,0.02),_0px_0px_0px_1px_rgba(25,28,33,0.08)] transition duration-200 dark:bg-zinc-800',
-        internalValue && 'bg-gray-50'
+        'relative mx-auto flex h-12 w-full max-w-xl items-center gap-4 overflow-hidden'
       )}
     >
       <canvas
         className={cn(
-          'pointer-events-none absolute left-2 top-[20%] origin-top-left scale-50 transform pr-20 text-base invert filter sm:left-8 dark:invert-0',
+          'pointer-events-none absolute left-2 top-[20%] z-[1000] origin-top-left scale-50 transform pr-20 text-base invert filter dark:invert-0',
           !animating ? 'opacity-0' : 'opacity-100'
         )}
         ref={canvasRef}
@@ -243,15 +243,16 @@ export function WordInput({
         type="text"
         autoCorrect="off"
         className={cn(
-          'relative z-50 h-full w-full rounded-full border-none bg-transparent pl-4 pr-20 text-sm text-black focus:outline-none focus:ring-0 sm:pl-10 sm:text-base dark:text-white',
-          animating && 'text-transparent dark:text-transparent'
+          'text-md relative z-50 h-full w-full rounded-3xl border-none bg-transparent px-4 text-black shadow-[0px_2px_3px_-1px_rgba(0,0,0,0.1),_0px_1px_0px_0px_rgba(25,28,33,0.02),_0px_0px_0px_1px_rgba(25,28,33,0.08)] transition duration-200 focus:outline-none focus:ring-0 dark:bg-gray-800 dark:text-white',
+          animating && 'text-transparent dark:text-transparent',
+          internalValue && 'bg-gray-50'
         )}
       />
 
-      <button
+      <PrimaryButton
         disabled={!internalValue}
         type="submit"
-        className="absolute right-2 top-1/2 z-50 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full bg-black transition duration-200 disabled:bg-gray-100 dark:bg-zinc-900 dark:disabled:bg-zinc-800"
+        className="z-50 flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full bg-black transition duration-200 disabled:bg-gray-100 dark:bg-zinc-900 dark:disabled:bg-zinc-800"
         onClick={handleSubmit}
       >
         <motion.svg
@@ -264,7 +265,7 @@ export function WordInput({
           strokeWidth="2"
           strokeLinecap="round"
           strokeLinejoin="round"
-          className="h-4 w-4 text-gray-300"
+          className="h-5 w-5 text-gray-300"
         >
           <path stroke="none" d="M0 0h24v24H0z" fill="none" />
           <motion.path
@@ -284,9 +285,9 @@ export function WordInput({
           <path d="M13 18l6 -6" />
           <path d="M13 6l6 6" />
         </motion.svg>
-      </button>
+      </PrimaryButton>
 
-      <div className="pointer-events-none absolute inset-0 flex items-center rounded-full">
+      <div className="pointer-events-none absolute inset-0 z-[1010] flex items-center rounded-full">
         <AnimatePresence mode="wait">
           {!internalValue && (
             <motion.p
@@ -300,14 +301,14 @@ export function WordInput({
                 opacity: 1,
               }}
               exit={{
-                y: -15,
+                y: -10,
                 opacity: 0,
               }}
               transition={{
-                duration: 0.3,
+                duration: 0.2,
                 ease: 'linear',
               }}
-              className="w-[calc(100%-2rem)] truncate pl-4 text-left text-sm font-normal text-neutral-500 sm:pl-12 sm:text-base dark:text-zinc-500"
+              className="text-md w-[calc(100%-2rem)] truncate pl-4 text-left font-normal text-neutral-500 dark:text-zinc-500"
             >
               {placeholders[currentPlaceholder]}
             </motion.p>

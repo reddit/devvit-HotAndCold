@@ -14,6 +14,8 @@ import { Score } from "./score.js";
 import { isEmptyObject, omit } from "../utils/utils.js";
 import { GameResponse } from "../../game/shared.js";
 import { Similarity } from "./similarity.js";
+import { Players } from "./players.js";
+import { ChallengeProgress } from "./challengeProgress.js";
 
 export * as Guess from "./guess.js";
 
@@ -36,7 +38,6 @@ const challengeUserInfoSchema = z.object({
   finalScore: z.number().optional(),
   startedPlayingAtMs: z.number().optional(),
   solvedAtMs: z.number().optional(),
-  totalGuesses: z.number().optional(),
   gaveUpAtMs: z.number().optional(),
   guesses: z.array(guessSchema).optional(),
 });
@@ -66,9 +67,6 @@ export const getChallengeUserInfo = zoddy(
       solvedAtMs: result.solvedAtMs
         ? parseInt(result.solvedAtMs, 10)
         : undefined,
-      totalGuesses: result.totalGuesses
-        ? parseInt(result.totalGuesses, 10)
-        : undefined,
       gaveUpAtMs: result.gaveUpAtMs
         ? parseInt(result.gaveUpAtMs, 10)
         : undefined,
@@ -92,7 +90,6 @@ const maybeInitForUser = zoddy(
       await redis.hSet(
         getChallengeUserKey(challenge, username),
         {
-          totalGuesses: "0",
           finalScore: "0",
           guesses: "[]",
           // These will be set as dates!
@@ -134,21 +131,6 @@ export const markChallengePlayedForUser = zoddy(
   },
 );
 
-export const incrementGuessesForChallengeForUser = zoddy(
-  z.object({
-    redis: z.union([zodRedis, zodTransaction]),
-    username: zodRedditUsername,
-    challenge: z.number().gt(0),
-  }),
-  async ({ redis, username, challenge }) => {
-    await redis.hIncrBy(
-      getChallengeUserKey(challenge, username),
-      "totalGuesses",
-      1,
-    );
-  },
-);
-
 export const getHintForUser = zoddy(
   z.object({
     context: zodContext,
@@ -176,7 +158,7 @@ export const getHintForUser = zoddy(
 
     // Filter to hints and hints that have already been given
     const remainingHints = wordConfig.similar_words.filter((entry) =>
-      entry.hint && !givenSet.has(entry.word)
+      entry.is_hint && !givenSet.has(entry.word)
     );
 
     if (remainingHints.length === 0) {
@@ -200,23 +182,36 @@ export const getHintForUser = zoddy(
       isHint: true,
     };
 
-    const txn = await context.redis.watch();
-    await txn.multi();
+    // const txn = await context.redis.watch();
+    // await txn.multi();
+    const txn = context.redis;
 
     await Challenge.incrementChallengeTotalHints({ redis: txn, challenge });
-
-    // Hints count as guesses
-    await incrementGuessesForChallengeForUser({
-      challenge,
-      redis: txn,
-      username,
-    });
 
     await txn.hSet(getChallengeUserKey(challenge, username), {
       guesses: JSON.stringify([...challengeUserInfo.guesses ?? [], hintToAdd]),
     });
 
-    await txn.exec();
+    await ChallengeProgress.upsertEntry({
+      redis: txn,
+      challenge,
+      username,
+      progress: Math.max(
+        hintToAdd.normalizedSimilarity,
+        ...challengeUserInfo.guesses?.map((x) => x.normalizedSimilarity) ?? [],
+      ),
+    });
+
+    // await txn.exec();
+
+    const challengeProgress = await ChallengeProgress.getPlayerProgress({
+      challenge,
+      redis: context.redis,
+      sort: "DESC",
+      start: 0,
+      stop: 10_000,
+      username,
+    });
 
     return {
       number: challenge,
@@ -224,7 +219,11 @@ export const getHintForUser = zoddy(
         ...challengeUserInfo,
         guesses: [...challengeUserInfo.guesses ?? [], hintToAdd],
       },
-      challengeInfo: omit(challengeInfo, ["word"]),
+      challengeInfo: {
+        ...omit(challengeInfo, ["word"]),
+        totalHints: (challengeInfo.totalHints ?? 0) + 1,
+      },
+      challengeProgress,
     };
   },
 );
@@ -233,17 +232,18 @@ export const submitGuess = zoddy(
   z.object({
     context: zodContext,
     username: zodRedditUsername,
+    avatar: z.string().nullable(),
     challenge: z.number().gt(0),
     guess: z.string().trim().toLowerCase(),
   }),
   async (
-    { context, username, challenge, guess: rawGuess },
+    { context, username, challenge, guess: rawGuess, avatar },
   ): Promise<GameResponse> => {
     await maybeInitForUser({ redis: context.redis, username, challenge });
 
-    // TODO: Maybe I need to watch something here?
-    const txn = await context.redis.watch();
-    await txn.multi();
+    // const txn = await context.redis.watch();
+    // await txn.multi();
+    const txn = context.redis;
 
     const challengeUserInfo = await getChallengeUserInfo({
       redis: context.redis,
@@ -252,7 +252,14 @@ export const submitGuess = zoddy(
     });
 
     // Empty string check since we initially set it! Added other falsies just in case
+    let startedPlayingAtMs = challengeUserInfo.startedPlayingAtMs;
     if (!challengeUserInfo.startedPlayingAtMs) {
+      startedPlayingAtMs = Date.now();
+      await Players.setPlayer({
+        redis: txn,
+        username,
+        avatar,
+      });
       await Challenge.incrementChallengeTotalPlayers({ redis: txn, challenge });
       await markChallengePlayedForUser({ challenge, redis: txn, username });
     }
@@ -266,11 +273,13 @@ export const submitGuess = zoddy(
       throw new Error(`Challenge ${challenge} not found`);
     }
 
-    const distance = await API.compareWords({
+    const distance = await API.compareWordsCached({
       context,
       secretWord: challengeInfo.word,
       guessWord: rawGuess,
     });
+
+    console.log(`Username: ${username}:`, "distance", distance);
 
     if (
       challengeUserInfo.guesses && challengeUserInfo.guesses.length > 0 &&
@@ -278,8 +287,6 @@ export const submitGuess = zoddy(
     ) {
       throw new Error(`You've already guessed ${distance.wordBLemma}.`);
     }
-
-    console.log(distance);
 
     if (distance.similarity == null) {
       throw new Error(`Sorry, I'm not familiar with that word.`);
@@ -290,13 +297,31 @@ export const submitGuess = zoddy(
       word: challengeInfo.word,
     });
 
-    await incrementGuessesForChallengeForUser({
-      challenge,
-      redis: txn,
-      username,
-    });
+    console.log(`Username: ${username}:`, "word config", wordConfig);
 
     await Challenge.incrementChallengeTotalGuesses({ redis: txn, challenge });
+
+    console.log(`Username: ${username}:`, "increment total guess complete");
+
+    let rankOfWord: number | undefined = undefined;
+    const indexOfGuess = wordConfig.similar_words.findIndex((x) =>
+      x.word === distance.wordBLemma
+    );
+    if (indexOfGuess === -1) {
+      // The word was found!
+      if (distance.similarity === 1) {
+        rankOfWord = 0;
+      }
+
+      // If the word is in the most similar words, rank it -1 meaning
+      // it's not close!
+      rankOfWord = -1;
+    } else {
+      // Plus one because similar words does not have the target word
+      // So the closest you can ever guess is the 1st closest word
+      rankOfWord = indexOfGuess + 1;
+    }
+
     const guessToAdd: z.infer<typeof guessSchema> = {
       word: distance.wordBLemma,
       timestamp: Date.now(),
@@ -306,9 +331,7 @@ export const submitGuess = zoddy(
         furthestWordSimilarity: wordConfig.furthest_similarity,
         targetWordSimilarity: distance.similarity,
       }),
-      rank: wordConfig.similar_words.findIndex((x) =>
-        x.word === distance.wordBLemma
-      ),
+      rank: rankOfWord,
       isHint: false,
     };
 
@@ -322,13 +345,14 @@ export const submitGuess = zoddy(
     let score: number | undefined = undefined;
     if (hasSolved) {
       console.log(`User ${username} solved challenge ${challenge}!`);
-      if (!challengeUserInfo.startedPlayingAtMs) {
+      if (!startedPlayingAtMs) {
         throw new Error(
           `User ${username} has not started playing yet but solved?`,
         );
       }
       const completedAt = Date.now();
-      const solveTimeMs = completedAt - challengeUserInfo.startedPlayingAtMs;
+      const solveTimeMs = completedAt - startedPlayingAtMs;
+      console.log("Calculating score...");
       score = Score.calculateScore({
         solveTimeMs,
         // Need to manually add guess here since this runs in a transaction
@@ -339,6 +363,10 @@ export const submitGuess = zoddy(
         )?.length ?? 0,
       });
 
+      console.log(`Score for user ${username} is ${score}`);
+
+      console.log(`Marking challenge as solved for user ${username}`);
+
       await markChallengeSolvedForUser({
         challenge,
         redis: txn,
@@ -347,9 +375,15 @@ export const submitGuess = zoddy(
         finalScore: score,
       });
 
+      console.log(`Incrementing streak for user ${username}`);
+
       await Streaks.incrementEntry({ redis: txn, username });
 
+      console.log(`Incrementing total solves for challenge ${challenge}`);
+
       await Challenge.incrementChallengeTotalSolves({ redis: txn, challenge });
+
+      console.log(`Adding entry to leaderboard for user ${username}`);
 
       await ChallengeLeaderboard.addEntry({
         redis: txn,
@@ -358,17 +392,46 @@ export const submitGuess = zoddy(
         score,
         timeToCompleteMs: solveTimeMs,
       });
+
+      console.log(`End of winning logic for user ${username}`);
     }
 
-    await txn.exec();
+    await ChallengeProgress.upsertEntry({
+      redis: txn,
+      challenge,
+      username,
+      progress: Math.max(
+        guessToAdd.normalizedSimilarity,
+        ...challengeUserInfo.guesses?.map((x) => x.normalizedSimilarity) ?? [],
+      ),
+    });
+
+    // await txn.exec();
+
+    const challengeProgress = await ChallengeProgress.getPlayerProgress({
+      challenge,
+      redis: context.redis,
+      sort: "DESC",
+      start: 0,
+      stop: 10_000,
+      username,
+    });
 
     return {
       number: challenge,
       challengeUserInfo: {
         ...challengeUserInfo,
         guesses: newGuesses,
+        solvedAtMs: hasSolved ? Date.now() : undefined,
+        finalScore: score,
       },
-      challengeInfo: omit(challengeInfo, ["word"]),
+      challengeInfo: {
+        ...omit(challengeInfo, ["word"]),
+        totalGuesses: (challengeInfo.totalGuesses ?? 0) + 1,
+        totalPlayers: (challengeInfo.totalPlayers ?? 0) + 1,
+        totalSolves: hasSolved ? (challengeInfo.totalSolves ?? 0) + 1 : 0,
+      },
+      challengeProgress,
     };
   },
 );
@@ -380,9 +443,10 @@ export const giveUp = zoddy(
     challenge: z.number().gt(0),
   }),
   async ({ context, username, challenge }): Promise<GameResponse> => {
-    // TODO: Maybe I need to watch something here?
-    const txn = await context.redis.watch();
-    await txn.multi();
+    // TODO: Transactions are broken
+    // const txn = await context.redis.watch();
+    // await txn.multi();
+    const txn = context.redis;
 
     const challengeUserInfo = await getChallengeUserInfo({
       redis: context.redis,
@@ -424,12 +488,36 @@ export const giveUp = zoddy(
 
     await Challenge.incrementChallengeTotalGiveUps({ redis: txn, challenge });
 
-    await txn.exec();
+    await ChallengeProgress.upsertEntry({
+      redis: txn,
+      challenge,
+      username,
+      // Giving up doesn't count!
+      progress: -1,
+    });
+
+    // await txn.exec();
+
+    const challengeProgress = await ChallengeProgress.getPlayerProgress({
+      challenge,
+      redis: context.redis,
+      sort: "DESC",
+      start: 0,
+      stop: 10_000,
+      username,
+    });
 
     return {
       number: challenge,
-      challengeUserInfo,
-      challengeInfo: omit(challengeInfo, ["word"]),
+      challengeUserInfo: {
+        ...challengeUserInfo,
+        gaveUpAtMs: Date.now(),
+      },
+      challengeInfo: {
+        ...omit(challengeInfo, ["word"]),
+        totalGiveUps: (challengeInfo.totalGiveUps ?? 0) + 1,
+      },
+      challengeProgress,
     };
   },
 );

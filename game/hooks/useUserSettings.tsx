@@ -2,7 +2,7 @@ import { createContext, useContext, useState } from 'react';
 import { UserSettings } from '../shared';
 
 const defaultUserSettings: UserSettings = {
-  sortDirection: 'ASC',
+  sortDirection: 'DESC',
   sortType: 'SIMILARITY',
 };
 

@@ -1,13 +1,13 @@
 import { MotionValue, motion, useSpring, useTransform } from 'framer-motion';
 import { useEffect, useRef, useState } from 'react';
 
-function getTimerConfig(size: number = 18) {
+function getConfig(size = 18) {
   return {
     fontSize: size,
     padding: size * 0.22,
     height: size * 1.22,
-    digitWidth: size * 0.7,
-    spacing: size * 0.3,
+    digitWidth: size * 0.62,
+    spacing: Math.max(size * 0.08, 1),
   };
 }
 
@@ -51,7 +51,7 @@ interface TimerProps {
 
 export function Timer({ startTime, maxValue, size = 18, className = '' }: TimerProps) {
   const value = useElapsedTime(startTime, maxValue);
-  const config = getTimerConfig(size);
+  const config = getConfig(size);
 
   return (
     <div
@@ -70,10 +70,40 @@ export function Timer({ startTime, maxValue, size = 18, className = '' }: TimerP
   );
 }
 
+interface AnimatedNumberProps {
+  value: number;
+  size?: number;
+  className?: string;
+}
+
+export const AnimatedNumber = ({ value, size = 18, className = '' }: AnimatedNumberProps) => {
+  // Get number of digits needed
+  const numDigits = Math.max(Math.floor(Math.log10(Math.abs(value))) + 1, 1);
+  const config = getConfig(size);
+
+  // Create array of place values (e.g., [100, 10, 1] for a 3-digit number)
+  const places = Array.from({ length: numDigits }, (_, i) => Math.pow(10, numDigits - 1 - i));
+
+  return (
+    <div
+      style={{
+        fontSize: config.fontSize,
+      }}
+      className={`flex overflow-hidden rounded leading-none ${className}`}
+    >
+      <div className="flex" style={{ gap: config.spacing }}>
+        {places.map((place, index) => (
+          <Digit key={index} place={place} value={value} config={config} />
+        ))}
+      </div>
+    </div>
+  );
+};
+
 interface DigitProps {
   place: number;
   value: number;
-  config: ReturnType<typeof getTimerConfig>;
+  config: ReturnType<typeof getConfig>;
 }
 
 function Digit({ place, value, config }: DigitProps) {
@@ -102,7 +132,7 @@ function Digit({ place, value, config }: DigitProps) {
 interface NumberProps {
   mv: MotionValue;
   number: number;
-  config: ReturnType<typeof getTimerConfig>;
+  config: ReturnType<typeof getConfig>;
 }
 
 function Number({ mv, number, config }: NumberProps) {
