@@ -74,7 +74,7 @@ Devvit.addCustomPostType({
     useInterval(async () => {
       const challengeProgress = await ChallengeProgress.getPlayerProgress({
         challenge: initialState.challenge,
-        redis: context.redis,
+        context,
         sort: 'DESC',
         start: 0,
         stop: 10_000,
@@ -118,7 +118,7 @@ Devvit.addCustomPostType({
                   }),
                   ChallengeProgress.getPlayerProgress({
                     challenge: initialState.challenge,
-                    redis: context.redis,
+                    context,
                     sort: 'DESC',
                     start: 0,
                     stop: 10_000,

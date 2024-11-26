@@ -29,6 +29,7 @@
     "@react-three/fiber": "^8.17.10",
     "@types/fast-levenshtein": "^0.0.4",
     "clsx": "^2.1.1",
+    "zod-validation-error": "3.4.0",
     "compute-cosine-similarity": "1.1.0",
     "csv-parse": "^5.5.6",
     "csv-stringify": "^6.5.1",

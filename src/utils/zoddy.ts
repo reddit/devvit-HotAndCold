@@ -5,6 +5,7 @@ import {
   TxClientLike,
 } from "@devvit/public-api";
 import { z } from "zod";
+import { fromError } from "zod-validation-error";
 
 export const zodRedis = z.custom<Devvit.Context["redis"]>((redis) => redis);
 export const zodTransaction = z.custom<TxClientLike>((transaction) =>
@@ -68,12 +69,18 @@ export const redisNumberString = z.string().transform((val, ctx) => {
  */
 export function zoddy<
   Schema extends z.ZodSchema<any, any, any>,
-  // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-constraint
   Return extends any,
 >(schema: Schema, func: (value: z.infer<Schema>) => Return) {
-  const result = (input: z.infer<Schema>) => {
-    const parsed = schema.parse(input);
-    return func(parsed);
+  const result = (input: z.input<Schema>) => {
+    try {
+      schema.parse(input); // Validate but don't transform
+      return func(input); // Pass the original input
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        throw fromError(error);
+      }
+      throw error;
+    }
   };
   return result;
 }

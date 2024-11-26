@@ -50,7 +50,7 @@ const challengeUserInfoSchema = z.object({
 
     return maybeArray.map((x) => guessSchema.parse(x));
   }).optional(),
-});
+}).strict();
 
 export const getChallengeUserInfo = zoddy(
   z.object({
@@ -69,7 +69,7 @@ export const getChallengeUserInfo = zoddy(
 
     return challengeUserInfoSchema.parse({
       username,
-      result,
+      ...result,
     });
   },
 );
@@ -203,7 +203,7 @@ export const getHintForUser = zoddy(
 
     const challengeProgress = await ChallengeProgress.getPlayerProgress({
       challenge,
-      redis: context.redis,
+      context,
       sort: "DESC",
       start: 0,
       stop: 10_000,
@@ -250,7 +250,9 @@ export const submitGuess = zoddy(
 
     // Empty string check since we initially set it! Added other falsies just in case
     let startedPlayingAtMs = challengeUserInfo.startedPlayingAtMs;
+    let isFirstGuess = false;
     if (!challengeUserInfo.startedPlayingAtMs) {
+      isFirstGuess = true;
       startedPlayingAtMs = Date.now();
       await ChallengePlayers.setPlayer({
         redis: txn,
@@ -420,7 +422,7 @@ export const submitGuess = zoddy(
 
     const challengeProgress = await ChallengeProgress.getPlayerProgress({
       challenge,
-      redis: context.redis,
+      context,
       sort: "DESC",
       start: 0,
       stop: 10_000,
@@ -438,7 +440,10 @@ export const submitGuess = zoddy(
       challengeInfo: {
         ...omit(challengeInfo, ["word"]),
         totalGuesses: (challengeInfo.totalGuesses ?? 0) + 1,
-        totalPlayers: (challengeInfo.totalPlayers ?? 0) + 1,
+        // Only optimistically increment on their first guess
+        totalPlayers: isFirstGuess
+          ? (challengeInfo.totalPlayers ?? 0) + 1
+          : challengeInfo.totalPlayers,
         totalSolves: hasSolved ? (challengeInfo.totalSolves ?? 0) + 1 : 0,
       },
       challengeProgress,
@@ -510,7 +515,7 @@ export const giveUp = zoddy(
 
     const challengeProgress = await ChallengeProgress.getPlayerProgress({
       challenge,
-      redis: context.redis,
+      context,
       sort: "DESC",
       start: 0,
       stop: 10_000,

@@ -53,6 +53,7 @@ export const useDevvitListener = <T extends BlocksToWebviewMessage['type']>(even
     const messageHandler = (ev: MessageEvent<DevvitMessage>) => {
       // Only process messages from external sources (parent window)
       if (ev.source !== window.parent) {
+        logger.warn(`Skipping message since it was not sent by the parent window`);
         return;
       }
 

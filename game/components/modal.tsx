@@ -48,7 +48,7 @@ export const Modal = ({
           exit={{
             opacity: 0,
           }}
-          className="fixed inset-0 z-[1500] flex h-full w-full items-center justify-center outline-none backdrop-blur-2xl"
+          className="fixed inset-0 z-[15000] flex h-full w-full items-center justify-center outline-none backdrop-blur-2xl"
           onClick={(e) => {
             if (clickAnywhereToClose && e.target === e.currentTarget) {
               onClose();

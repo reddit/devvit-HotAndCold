@@ -1,5 +1,6 @@
 import { z } from "zod";
 import {
+  zodContext,
   zoddy,
   zodRedditUsername,
   zodRedis,
@@ -15,18 +16,21 @@ export const getChallengePlayerProgressKey = (challenge: number) =>
 
 export const getPlayerProgress = zoddy(
   z.object({
-    redis: zodRedis,
+    context: zodContext,
     challenge: z.number().gt(0),
     username: zodRedditUsername,
     start: z.number().gte(0).optional().default(0),
     stop: z.number().gte(-1).optional().default(10),
     sort: z.enum(["ASC", "DESC"]).optional().default("DESC"),
   }),
-  async ({ redis, challenge, sort, start, stop, username }) => {
-    const players = await ChallengePlayers.getAll({ redis, challenge });
+  async ({ context, challenge, sort, start, stop, username }) => {
+    const players = await ChallengePlayers.getAll({
+      redis: context.redis,
+      challenge,
+    });
 
     // TODO: Total yolo
-    const result = await redis.zRange(
+    const result = await context.redis.zRange(
       getChallengePlayerProgressKey(challenge),
       start,
       stop,
@@ -37,7 +41,7 @@ export const getPlayerProgress = zoddy(
       throw new Error(`No leaderboard found challenge ${challenge}`);
     }
 
-    return result.map((x) => {
+    const results = result.map((x) => {
       const player = players[x.member];
 
       return {
@@ -47,6 +51,21 @@ export const getPlayerProgress = zoddy(
         progress: x.score,
       };
     });
+
+    // If the user hasn't guessed yet, append it so they see themselves on the
+    // meter. Don't save it because that will happen when they save and we
+    // only want to see it in the UI.
+    if (results.some((x) => x.isPlayer) === false) {
+      const snoovator = await context.reddit.getSnoovatarUrl(username);
+      results.push({
+        avatar: snoovator ?? null,
+        username: username,
+        isPlayer: true,
+        progress: 0,
+      });
+    }
+
+    return results;
   },
 );
 

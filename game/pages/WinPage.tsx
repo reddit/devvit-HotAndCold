@@ -70,7 +70,8 @@ const GuessIcon = () => (
 const ThermometerIcon = () => (
   <svg
     xmlns="http://www.w3.org/2000/svg"
-    className="h-5 w-5"
+    width="18"
+    height="18"
     viewBox="0 0 24 24"
     fill="none"
     stroke="currentColor"
@@ -79,18 +80,10 @@ const ThermometerIcon = () => (
     stroke-linejoin="round"
   >
     <path stroke="none" d="M0 0h24v24H0z" fill="none" />
-    <path d="M10 4l2 1l2 -1" />
-    <path d="M12 2v6.5l3 1.72" />
-    <path d="M17.928 6.268l.134 2.232l1.866 1.232" />
-    <path d="M20.66 7l-5.629 3.25l.01 3.458" />
-    <path d="M19.928 14.268l-1.866 1.232l-.134 2.232" />
-    <path d="M20.66 17l-5.629 -3.25l-2.99 1.738" />
-    <path d="M14 20l-2 -1l-2 1" />
-    <path d="M12 22v-6.5l-3 -1.72" />
-    <path d="M6.072 17.732l-.134 -2.232l-1.866 -1.232" />
-    <path d="M3.34 17l5.629 -3.25l-.01 -3.458" />
-    <path d="M4.072 9.732l1.866 -1.232l.134 -2.232" />
-    <path d="M3.34 7l5.629 3.25l2.99 -1.738" />
+    <path d="M18 7v12a2 2 0 0 1 -2 2h-8a2 2 0 0 1 -2 -2v-12l6 -4z" />
+    <path d="M10 13l2 -1l2 1" />
+    <path d="M10 17l2 -1l2 1" />
+    <path d="M10 9l2 -1l2 1" />
   </svg>
 );
 
@@ -160,7 +153,7 @@ export const WinPage = () => {
               )}
 
               <p className="text-gray-400">
-                {percentile ? (
+                {percentile && didWin ? (
                   <span>That's better than {percentile}% of players!</span>
                 ) : (
                   <span>Play again tomorrow!</span>
@@ -181,7 +174,7 @@ export const WinPage = () => {
               />
               <StatCard
                 title="Rank"
-                value={`#${leaderboardData?.userRank.score ?? '--'}`}
+                value={didWin ? `#${leaderboardData?.userRank.score ?? '--'}` : '--'}
                 icon={ThermometerIcon}
               />
             </div>
@@ -289,63 +282,69 @@ export const WinPage = () => {
               {leaderboardData?.userRank && (
                 <p className="text-gray-400">
                   Your Rank:{' '}
-                  <span className="font-bold text-blue-400">#{leaderboardData.userRank.score}</span>
+                  <span className="font-bold text-blue-400">
+                    {didWin ? `#${leaderboardData.userRank.score}` : '--'}
+                  </span>
                 </p>
               )}
             </div>
 
-            <div className="overflow-hidden rounded-lg border border-gray-700 bg-gray-900">
-              {leaderboardData?.leaderboardByScore.map((entry, index, entries) => {
-                const isCurrentUser = entry.member === challengeUserInfo.username;
+            {leaderboardData?.leaderboardByScore.length ? (
+              <div className="overflow-hidden rounded-lg border border-gray-700 bg-gray-900">
+                {leaderboardData?.leaderboardByScore.map((entry, index, entries) => {
+                  const isCurrentUser = entry.member === challengeUserInfo.username;
 
-                // Find the rank by looking at previous scores
-                let rank = 1;
-                if (index > 0) {
-                  const prevScore = entries[index - 1].score;
-                  if (entry.score === prevScore) {
-                    // If this score matches previous score, use the same rank
-                    rank = entries.findIndex((e) => e.score === entry.score) + 1;
-                  } else {
-                    // If score is different, rank is current position + 1
-                    rank = index + 1;
+                  // Find the rank by looking at previous scores
+                  let rank = 1;
+                  if (index > 0) {
+                    const prevScore = entries[index - 1].score;
+                    if (entry.score === prevScore) {
+                      // If this score matches previous score, use the same rank
+                      rank = entries.findIndex((e) => e.score === entry.score) + 1;
+                    } else {
+                      // If score is different, rank is current position + 1
+                      rank = index + 1;
+                    }
                   }
-                }
 
-                const isTopThree = rank <= 3;
+                  const isTopThree = rank <= 3;
 
-                return (
-                  <div
-                    key={entry.member}
-                    className={cn(
-                      'flex items-center px-4 py-1',
-                      index % 2 === 0 ? 'bg-gray-800/50' : 'bg-gray-900/50',
-                      isCurrentUser && 'bg-blue-900/20',
-                      'transition-colors duration-150'
-                    )}
-                  >
-                    <div className="flex flex-1 items-center gap-3">
-                      <span
-                        className={cn(
-                          'min-w-[2rem] font-mono text-sm',
-                          isTopThree ? 'font-bold text-yellow-400' : 'text-gray-400'
-                        )}
-                      >
-                        #{rank}
-                      </span>
-                      <span
-                        className={cn(
-                          'truncate font-medium',
-                          isCurrentUser ? 'text-blue-500' : 'text-white'
-                        )}
-                      >
-                        {entry.member} {isCurrentUser && '(you)'}
-                      </span>
+                  return (
+                    <div
+                      key={entry.member}
+                      className={cn(
+                        'flex items-center px-4 py-1',
+                        index % 2 === 0 ? 'bg-gray-800/50' : 'bg-gray-900/50',
+                        isCurrentUser && 'bg-blue-900/20',
+                        'transition-colors duration-150'
+                      )}
+                    >
+                      <div className="flex flex-1 items-center gap-3">
+                        <span
+                          className={cn(
+                            'min-w-[2rem] font-mono text-sm',
+                            isTopThree ? 'font-bold text-yellow-400' : 'text-gray-400'
+                          )}
+                        >
+                          #{rank}
+                        </span>
+                        <span
+                          className={cn(
+                            'truncate font-medium',
+                            isCurrentUser ? 'text-blue-500' : 'text-white'
+                          )}
+                        >
+                          {entry.member} {isCurrentUser && '(you)'}
+                        </span>
+                      </div>
+                      <span className="font-bold text-gray-200">{prettyNumber(entry.score)}</span>
                     </div>
-                    <span className="font-bold text-gray-200">{prettyNumber(entry.score)}</span>
-                  </div>
-                );
-              })}
-            </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <p>No one has completed today's challenge. Check back soon!</p>
+            )}
           </div>
         )}
       </div>

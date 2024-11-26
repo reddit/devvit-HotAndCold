@@ -49,7 +49,8 @@ export const initialize = async (context: TriggerContext) => {
   }
 
   await context.scheduler.runJob({
-    cron: "0 22 * * *",
+    // Time is in UTC, so I think this is 8am? It's around there :D
+    cron: "0 13 * * *",
     name: "DAILY_GAME_DROP",
     data: {},
   });

@@ -12,7 +12,7 @@ import { ChallengeToWord } from './challengeToWord.js';
 import { WordList } from './wordList.js';
 import { ChallengeToPost } from './challengeToPost.js';
 import { Preview } from '../components/Preview.js';
-import { coerceValues, stringifyValues } from '../utils/utils.js';
+import { stringifyValues } from '../utils/utils.js';
 import { Streaks } from './streaks.js';
 import { Devvit, Post } from '@devvit/public-api';
 
@@ -217,11 +217,11 @@ export const makeNewChallenge = zoddy(
         challenge: newChallengeNumber,
         config: {
           word: newWord,
-          totalPlayers: 0,
-          totalSolves: 0,
-          totalGuesses: 0,
-          totalHints: 0,
-          totalGiveUps: 0,
+          totalPlayers: '0',
+          totalSolves: '0',
+          totalGuesses: '0',
+          totalHints: '0',
+          totalGiveUps: '0',
         },
       });
 
