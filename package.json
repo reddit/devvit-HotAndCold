@@ -19,10 +19,12 @@
     "scripts:initDb": "NODE_OPTIONS=\"--max-old-space-size=8192\" tsx ./scripts/initDb.ts",
     "supabase": "supabase",
     "dev:game": "vite build --watch",
-    "dev:devvit": "MY_PORTAL=0 mydevvit playtest huckleberrydevcorner4 --employee-update",
+    "dev:devvit": "MY_PORTAL=0 mydevvit playtest HotAndColdDev --employee-update",
     "dev:all": "concurrently -p \"[{name}]\" -n \"DEVVIT,GAME\" -c \"bgBlue.bold,bgMagenta.bold\" \"npm run dev:devvit\" \"npm run dev:game\" --restart-tries 30",
     "vite": "vite --mode detached",
-    "test": "vitest"
+    "test": "vitest",
+    "upload": "devvit upload",
+    "publish": "devvit publish"
   },
   "dependencies": {
     "@devvit/public-api": "0.11.3",

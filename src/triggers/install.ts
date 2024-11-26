@@ -57,7 +57,7 @@ export const initialize = async (context: TriggerContext) => {
 };
 
 Devvit.addTrigger({
-  events: ["AppUpgrade"],
+  events: ["AppInstall"],
   onEvent: async (_, context) => {
     await initialize(context);
   },
