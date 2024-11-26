@@ -14,7 +14,7 @@ import { Score } from "./score.js";
 import { isEmptyObject, omit } from "../utils/utils.js";
 import { GameResponse } from "../../game/shared.js";
 import { Similarity } from "./similarity.js";
-import { Players } from "./players.js";
+import { ChallengePlayers } from "./challengePlayers.js";
 import { ChallengeProgress } from "./challengeProgress.js";
 
 export * as Guess from "./guess.js";
@@ -35,6 +35,7 @@ export const guessSchema = z.object({
 });
 
 const challengeUserInfoSchema = z.object({
+  username: z.string(),
   finalScore: z.number().optional(),
   startedPlayingAtMs: z.number().optional(),
   solvedAtMs: z.number().optional(),
@@ -58,6 +59,7 @@ export const getChallengeUserInfo = zoddy(
     }
 
     return challengeUserInfoSchema.parse({
+      username,
       finalScore: result.finalScore
         ? parseInt(result.finalScore, 10)
         : undefined,
@@ -90,6 +92,7 @@ const maybeInitForUser = zoddy(
       await redis.hSet(
         getChallengeUserKey(challenge, username),
         {
+          username,
           finalScore: "0",
           guesses: "[]",
           // These will be set as dates!
@@ -192,15 +195,16 @@ export const getHintForUser = zoddy(
       guesses: JSON.stringify([...challengeUserInfo.guesses ?? [], hintToAdd]),
     });
 
-    await ChallengeProgress.upsertEntry({
-      redis: txn,
-      challenge,
-      username,
-      progress: Math.max(
-        hintToAdd.normalizedSimilarity,
-        ...challengeUserInfo.guesses?.map((x) => x.normalizedSimilarity) ?? [],
-      ),
-    });
+    // Do not progress when hints are used!
+    // await ChallengeProgress.upsertEntry({
+    //   redis: txn,
+    //   challenge,
+    //   username,
+    //   progress: Math.max(
+    //     hintToAdd.normalizedSimilarity,
+    //     ...challengeUserInfo.guesses?.map((x) => x.normalizedSimilarity) ?? [],
+    //   ),
+    // });
 
     // await txn.exec();
 
@@ -255,10 +259,11 @@ export const submitGuess = zoddy(
     let startedPlayingAtMs = challengeUserInfo.startedPlayingAtMs;
     if (!challengeUserInfo.startedPlayingAtMs) {
       startedPlayingAtMs = Date.now();
-      await Players.setPlayer({
+      await ChallengePlayers.setPlayer({
         redis: txn,
         username,
         avatar,
+        challenge,
       });
       await Challenge.incrementChallengeTotalPlayers({ redis: txn, challenge });
       await markChallengePlayedForUser({ challenge, redis: txn, username });

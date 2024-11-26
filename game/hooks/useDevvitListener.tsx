@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
 import { DevvitMessage, BlocksToWebviewMessage } from '../shared';
+import { logger } from '../utils/logger';
+import { useMocks } from './useMocks';
 
 /**
  * Triggers re-renders when a message is received from the Devvit webview.
@@ -24,7 +26,7 @@ import { DevvitMessage, BlocksToWebviewMessage } from '../shared';
  *  useEffect(() => {
  *    if (data) {
  *      // great place to set loading to false!
- *      console.log(data.error, data.similarity);
+ *      logger.log(data.error, data.similarity);
  *    }
  *   }, [data]);
  *
@@ -34,12 +36,17 @@ import { DevvitMessage, BlocksToWebviewMessage } from '../shared';
  */
 export const useDevvitListener = <T extends BlocksToWebviewMessage['type']>(eventType: T) => {
   type Event = Extract<BlocksToWebviewMessage, { type: T }>;
-  const [data, setData] = useState<Event['payload'] | undefined>();
+  const mocks = useMocks();
+  const [data, setData] = useState<Event['payload'] | undefined>(
+    eventType === 'CHALLENGE_LEADERBOARD_RESPONSE'
+      ? mocks.getMock('mocks')?.challengeLeaderboardResponse
+      : undefined
+  );
 
   useEffect(() => {
     const messageHandler = (ev: MessageEvent<DevvitMessage>) => {
       if (ev.data.type !== 'devvit-message') {
-        console.warn(`Received message with type ${ev.data.type} but expected 'devvit-message'`);
+        logger.warn(`Received message with type ${ev.data.type} but expected 'devvit-message'`);
         return;
       }
 

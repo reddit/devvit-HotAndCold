@@ -1,24 +1,31 @@
 import { Page } from './shared';
-import { SplashPage } from './pages/SplashPage';
 import { PlayPage } from './pages/PlayPage';
-import { LeaderboardPage } from './pages/LeaderboardPage';
 import { StatsPage } from './pages/StatsPage';
 import { WinPage } from './pages/WinPage';
 import { usePage } from './hooks/usePage';
+import { IS_DETACHED } from './constants';
+import { logger } from './utils/logger';
+import { Progress } from './components/progress';
+import { useGame } from './hooks/useGame';
+import { Logo } from './components/logo';
+import { sendMessageToDevvit } from './utils';
+import { useConfirmation } from './hooks/useConfirmation';
+import { AnimatedNumber } from './components/timer';
+import { HelpMenu } from './components/helpMenu';
+import { useState } from 'react';
+import { HowToPlayModal } from './components/howToPlayModal';
+
+if (IS_DETACHED) {
+  logger.debug(`Running in detached mode`);
+}
 
 const getPage = (page: Page) => {
   switch (page) {
-    case 'splash':
-      return <SplashPage />;
     case 'play':
       return <PlayPage />;
-    case 'leaderboard':
-      return <LeaderboardPage />;
     case 'stats':
       return <StatsPage />;
     case 'win':
-      return <WinPage />;
-    case 'lose':
       return <WinPage />;
     default:
       throw new Error(`Unknown page: ${page satisfies never}`);
@@ -27,6 +34,78 @@ const getPage = (page: Page) => {
 
 export const App = () => {
   const page = usePage();
+  const { challengeUserInfo, number } = useGame();
+  const hasStartedPlaying = challengeUserInfo?.guesses && challengeUserInfo?.guesses?.length > 0;
+  const { showConfirmation } = useConfirmation();
+  const [howToPlayOpen, setHowToPlayOpen] = useState(false);
 
-  return <div className="h-full p-2">{getPage(page)}</div>;
+  return (
+    <div className="relative flex h-full min-h-0 flex-1 flex-col p-6">
+      <div>
+        <div className="flex h-4 items-center justify-between">
+          {number && <p className="text-sm text-gray-500">Challenge #{number}</p>}
+
+          {challengeUserInfo?.guesses && (
+            <div className="flex gap-3">
+              <div className="flex items-end">
+                <p className="text-sm text-gray-500">Guesses:&nbsp;</p>
+                <AnimatedNumber
+                  className="text-gray-500"
+                  size={12.25}
+                  value={challengeUserInfo.guesses?.length}
+                />
+              </div>
+              <HelpMenu
+                items={[
+                  { name: 'How to Play', action: () => setHowToPlayOpen(true) },
+                  {
+                    name: 'Hint',
+                    disabled: !hasStartedPlaying,
+                    action: async () => {
+                      const response = await showConfirmation({
+                        title: 'Are you sure?',
+                        description: `Receiving a hint will reduce your final score. Please use them sparingly to stay competitive on the leaderboard.`,
+                        confirmText: 'Request Hint',
+                        cancelText: 'Cancel',
+                      });
+
+                      if (!response.confirmed) return;
+
+                      sendMessageToDevvit({
+                        type: 'HINT_REQUEST',
+                      });
+                    },
+                  },
+                  {
+                    name: 'Give Up',
+                    disabled: !hasStartedPlaying,
+                    action: async () => {
+                      const response = await showConfirmation({
+                        title: 'Are you sure?',
+                        description: `This will end the game and reveal the word. You won't receive a score for this game and your streak will be reset.`,
+                        confirmText: 'Give Up',
+                        cancelText: 'Cancel',
+                      });
+
+                      if (!response.confirmed) return;
+
+                      sendMessageToDevvit({
+                        type: 'GIVE_UP_REQUEST',
+                      });
+                    },
+                  },
+                ]}
+              />
+            </div>
+          )}
+        </div>
+        <div className="-mt-4 mb-[10px] flex justify-center">
+          <Logo />
+        </div>
+      </div>
+      {getPage(page)}
+      <Progress />
+      <HowToPlayModal isOpen={howToPlayOpen} onClose={() => setHowToPlayOpen(false)} />
+    </div>
+  );
 };

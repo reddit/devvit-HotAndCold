@@ -7,7 +7,7 @@ function getConfig(size = 18) {
     padding: size * 0.22,
     height: size * 1.22,
     digitWidth: size * 0.62,
-    spacing: Math.max(size * 0.08, 1),
+    spacing: 0,
   };
 }
 

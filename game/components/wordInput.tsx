@@ -71,7 +71,9 @@ export function WordInput({
         e.ctrlKey ||
         e.metaKey ||
         e.key === 'Shift' ||
-        e.key === 'Tab'
+        e.key === 'Tab' ||
+        e.key === 'ArrowUp' ||
+        e.key === 'ArrowDown'
       ) {
         return;
       }

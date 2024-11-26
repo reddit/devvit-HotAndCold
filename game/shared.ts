@@ -1,10 +1,7 @@
 export type Page =
-  | "splash"
   | "play"
-  | "leaderboard"
   | "stats"
-  | "win"
-  | "lose";
+  | "win";
 
 export type Guess = {
   word: string;
@@ -42,6 +39,7 @@ export type Game = {
     solvedAtMs?: number | undefined;
     gaveUpAtMs?: number | undefined;
     guesses?: Guess[] | undefined;
+    username: string;
   };
   challengeProgress: PlayerProgress;
 };

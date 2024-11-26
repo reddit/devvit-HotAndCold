@@ -3,19 +3,24 @@ import { Game } from '../shared';
 import { sendMessageToDevvit } from '../utils';
 import { useDevvitListener } from './useDevvitListener';
 import { useSetPage } from './usePage';
+import { logger } from '../utils/logger';
+import { useMocks } from './useMocks';
 
 const GameContext = createContext<Partial<Game>>({});
 const GameUpdaterContext = createContext<React.Dispatch<
   React.SetStateAction<Partial<Game>>
 > | null>(null);
-
+// foo to trigger rebuild
 export const GameContextProvider = ({ children }: { children: React.ReactNode }) => {
   const setPage = useSetPage();
-  const [game, setGame] = useState<Partial<Game>>({});
+  const mocks = useMocks();
+  const [game, setGame] = useState<Partial<Game>>(mocks.getMock('mocks')?.game ?? {});
   const initResponse = useDevvitListener('GAME_INIT_RESPONSE');
   const submissionResponse = useDevvitListener('WORD_SUBMITTED_RESPONSE');
   const hintResponse = useDevvitListener('HINT_RESPONSE');
   const giveUpResponse = useDevvitListener('GIVE_UP_RESPONSE');
+
+  logger.log(JSON.stringify(game));
 
   useEffect(() => {
     sendMessageToDevvit({
@@ -24,35 +29,35 @@ export const GameContextProvider = ({ children }: { children: React.ReactNode })
   }, []);
 
   useEffect(() => {
-    console.log('Init response: ', initResponse);
+    logger.log('Init response: ', initResponse);
     if (initResponse) {
       setGame(initResponse);
     }
   }, [initResponse]);
 
   useEffect(() => {
-    console.log('Submission response: ', submissionResponse);
+    logger.log('Submission response: ', submissionResponse);
     if (submissionResponse) {
       setGame(submissionResponse);
     }
   }, [submissionResponse]);
 
   useEffect(() => {
-    console.log('Hint response: ', hintResponse);
+    logger.log('Hint response: ', hintResponse);
     if (hintResponse) {
       setGame(hintResponse);
     }
   }, [hintResponse]);
 
   useEffect(() => {
-    console.log('Give up response: ', giveUpResponse);
+    logger.log('Give up response: ', giveUpResponse);
     if (giveUpResponse) {
       setGame(giveUpResponse);
     }
   }, [giveUpResponse]);
 
   useEffect(() => {
-    console.log('New game info: ', game);
+    logger.log('New game info: ', game);
     if (game.challengeUserInfo?.solvedAtMs) {
       setPage('win');
       return;

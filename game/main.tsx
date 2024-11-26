@@ -1,4 +1,3 @@
-// @ts-expect-error
 import './index.css';
 
 import { StrictMode } from 'react';
@@ -7,15 +6,21 @@ import { App } from './App';
 import { PageContextProvider } from './hooks/usePage';
 import { GameContextProvider } from './hooks/useGame';
 import { UserSettingsContextProvider } from './hooks/useUserSettings';
+import { MockProvider } from './hooks/useMocks';
+import { ConfirmationDialogProvider } from './hooks/useConfirmation';
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <PageContextProvider>
-      <UserSettingsContextProvider>
-        <GameContextProvider>
-          <App />
-        </GameContextProvider>
-      </UserSettingsContextProvider>
-    </PageContextProvider>
+    <MockProvider gameStatus="WON">
+      <ConfirmationDialogProvider>
+        <PageContextProvider>
+          <UserSettingsContextProvider>
+            <GameContextProvider>
+              <App />
+            </GameContextProvider>
+          </UserSettingsContextProvider>
+        </PageContextProvider>
+      </ConfirmationDialogProvider>
+    </MockProvider>
   </StrictMode>
 );

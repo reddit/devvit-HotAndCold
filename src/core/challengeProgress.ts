@@ -6,7 +6,7 @@ import {
   zodTransaction,
 } from "../utils/zoddy.js";
 import { getChallengeKey } from "./challenge.js";
-import { Players, playersSchema } from "./players.js";
+import { ChallengePlayers } from "./challengePlayers.js";
 
 export * as ChallengeProgress from "./challengeProgress.js";
 
@@ -23,7 +23,7 @@ export const getPlayerProgress = zoddy(
     sort: z.enum(["ASC", "DESC"]).optional().default("DESC"),
   }),
   async ({ redis, challenge, sort, start, stop, username }) => {
-    const players = await Players.getAll({ redis });
+    const players = await ChallengePlayers.getAll({ redis, challenge });
 
     // TODO: Total yolo
     const result = await redis.zRange(

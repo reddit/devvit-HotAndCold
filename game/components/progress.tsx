@@ -4,6 +4,7 @@ import { useDevvitListener } from '../hooks/useDevvitListener';
 import { GameResponse } from '../shared';
 import { useGame } from '../hooks/useGame';
 import { cn } from '../utils';
+import { useDimensions } from '../hooks/useDimensions';
 
 interface GradientArrowProps {
   /**
@@ -63,40 +64,6 @@ const GradientArrow: React.FC<GradientArrowProps> = ({
   );
 };
 
-const useDimensions = () => {
-  const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
-  const [node, setNode] = useState<HTMLDivElement | null>(null);
-
-  const ref = React.useCallback((nodeElem: HTMLDivElement | null) => {
-    setNode(nodeElem);
-  }, []);
-
-  useEffect(() => {
-    if (!node) return;
-
-    const measure = () => {
-      window.requestAnimationFrame(() => {
-        setDimensions({
-          width: node.clientWidth,
-          height: node.clientHeight,
-        });
-      });
-    };
-
-    measure();
-
-    window.addEventListener('resize', measure);
-    window.addEventListener('orientationchange', measure);
-
-    return () => {
-      window.removeEventListener('resize', measure);
-      window.removeEventListener('orientationchange', measure);
-    };
-  }, [node]);
-
-  return [ref, dimensions] as const;
-};
-
 export const Progress = () => {
   const { challengeProgress } = useGame();
   const [containerRef, containerDimensions] = useDimensions();
@@ -145,8 +112,6 @@ export const Progress = () => {
 
     return centeredPosition + adjustedBuffer;
   };
-
-  console.log(progress);
 
   return (
     <div
