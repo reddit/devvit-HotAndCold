@@ -109,15 +109,19 @@ export const WinPage = () => {
 
   if (!word) throw new Error('No correct word found?');
 
-  // Calculate percentile
+  const calculatePercentageOutperformed = (rank: number, totalPlayers: number): number => {
+    if (totalPlayers <= 1 || rank <= 0) return 0;
+    if (rank === 1) return 100;
+
+    const playersBeaten = totalPlayers - rank;
+    const percentage = (playersBeaten / (totalPlayers - 1)) * 100;
+    return Math.round(percentage);
+  };
+
+  // In the WinPage component:
   const playerRank = leaderboardData?.userRank?.score || 0;
   const totalPlayers = challengeInfo.totalPlayers || 1;
-  // If you're rank 1 out of 100, you're in the 99th percentile
-  // If you're rank 100 out of 100, you're in the 0th percentile
-  const percentile = Math.max(
-    0,
-    Math.min(100, Math.round(((totalPlayers - playerRank) / totalPlayers) * 100))
-  );
+  const percentageOutperformed = calculatePercentageOutperformed(playerRank, totalPlayers);
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-4">
@@ -153,8 +157,10 @@ export const WinPage = () => {
               )}
 
               <p className="text-gray-400">
-                {percentile && didWin ? (
-                  <span>That's better than {percentile}% of players!</span>
+                {didWin ? (
+                  <span>
+                    That's better than {playerRank > 0 ? percentageOutperformed : '--'}% of players!
+                  </span>
                 ) : (
                   <span>Play again tomorrow!</span>
                 )}
