@@ -3,8 +3,6 @@ import { PlayPage } from './pages/PlayPage';
 import { StatsPage } from './pages/StatsPage';
 import { WinPage } from './pages/WinPage';
 import { usePage } from './hooks/usePage';
-import { IS_DETACHED } from './constants';
-import { logger } from './utils/logger';
 import { Progress } from './components/progress';
 import { useGame } from './hooks/useGame';
 import { Logo } from './components/logo';
@@ -14,10 +12,7 @@ import { AnimatedNumber } from './components/timer';
 import { HelpMenu } from './components/helpMenu';
 import { useState } from 'react';
 import { HowToPlayModal } from './components/howToPlayModal';
-
-if (IS_DETACHED) {
-  logger.debug(`Running in detached mode`);
-}
+import { LoadingPage } from './pages/LoadingPage';
 
 const getPage = (page: Page) => {
   switch (page) {
@@ -27,8 +22,10 @@ const getPage = (page: Page) => {
       return <StatsPage />;
     case 'win':
       return <WinPage />;
+    case 'loading':
+      return <LoadingPage />;
     default:
-      throw new Error(`Unknown page: ${page satisfies never}`);
+      throw new Error(`Invalid page: ${page satisfies never}`);
   }
 };
 
@@ -108,7 +105,7 @@ export const App = () => {
         </div>
       </div>
       {getPage(page)}
-      <Progress />
+      {page !== 'loading' && <Progress />}
       <HowToPlayModal isOpen={howToPlayOpen} onClose={() => setHowToPlayOpen(false)} />
     </div>
   );

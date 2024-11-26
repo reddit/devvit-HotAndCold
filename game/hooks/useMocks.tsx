@@ -1,14 +1,23 @@
 import { createContext, useContext, useState } from 'react';
 import { Game } from '../shared';
-import { GIVE_UP_GAME, PLAYING_GAME, WINNING_GAME } from '../mocks';
+import {
+  CHALLENGE_LEADERBOARD_RESPONSE,
+  generateMockProgressData,
+  generateTestScenarios,
+  GIVE_UP_GAME,
+  PLAYING_GAME,
+  WINNING_GAME,
+} from '../mocks';
 
 export type MockConfig = {
   meta: {
     gameStatus: 'PLAYING' | 'WON' | 'GAVE_UP';
+    progressTestScenario: keyof ReturnType<typeof generateTestScenarios>;
   };
   mocks: {
     game?: Partial<Game>;
     challengeLeaderboardResponse?: any;
+    generateMockProgressData?: ReturnType<typeof generateMockProgressData>;
   };
 };
 
@@ -22,10 +31,12 @@ const MockContext = createContext<MockContextType | null>(null);
 export const MockProvider = ({
   children,
   gameStatus,
+  progressTestScenario,
 }: { children: React.ReactNode } & MockConfig['meta']) => {
   const [mockState, setMockState] = useState<MockConfig>({
     meta: {
       gameStatus,
+      progressTestScenario,
     },
     mocks: {
       game:
@@ -34,33 +45,8 @@ export const MockProvider = ({
           : gameStatus === 'WON'
             ? WINNING_GAME
             : PLAYING_GAME,
-      challengeLeaderboardResponse: {
-        'userStreak': 6,
-        'leaderboardByScore': [
-          {
-            'score': 451,
-            'member': 'mwood230',
-          },
-          {
-            'score': 394,
-            'member': 'UnluckyHuckleberry53',
-          },
-        ],
-        'leaderboardByFastest': [
-          {
-            'score': 34219,
-            'member': 'UnluckyHuckleberry53',
-          },
-          {
-            'score': 6844,
-            'member': 'mwood230',
-          },
-        ],
-        'userRank': {
-          'score': 2,
-          'timeToSolve': 1,
-        },
-      },
+      generateMockProgressData: generateTestScenarios()[progressTestScenario],
+      challengeLeaderboardResponse: CHALLENGE_LEADERBOARD_RESPONSE,
     },
   });
 

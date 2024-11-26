@@ -60,7 +60,8 @@ export const GameContextProvider = ({ children }: { children: React.ReactNode })
     logger.log('New game info: ', game);
     if (game.challengeUserInfo?.solvedAtMs || game.challengeUserInfo?.gaveUpAtMs) {
       setPage('win');
-      return;
+    } else {
+      setPage('play');
     }
   }, [game, setPage]);
 

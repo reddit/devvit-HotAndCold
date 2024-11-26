@@ -1,4 +1,5 @@
 export type Page =
+  | "loading"
   | "play"
   | "stats"
   | "win";
@@ -51,6 +52,17 @@ export type UserSettings = {
   sortType: "SIMILARITY" | "TIMESTAMP";
 };
 
+export type ChallengeLeaderboardResponse = {
+  // TODO: Community streak to see if the entire community can keep a solve per day going?
+  userStreak: number;
+  userRank: {
+    score: number;
+    timeToSolve: number;
+  };
+  leaderboardByScore: { member: string; score: number }[];
+  leaderboardByFastest: { member: string; score: number }[];
+};
+
 export type WebviewToBlocksMessage =
   | { type: "GAME_INIT" }
   | {
@@ -93,16 +105,7 @@ export type BlocksToWebviewMessage =
   }
   | {
     type: "CHALLENGE_LEADERBOARD_RESPONSE";
-    payload: {
-      // TODO: Community streak to see if the entire community can keep a solve per day going?
-      userStreak: number;
-      userRank: {
-        score: number;
-        timeToSolve: number;
-      };
-      leaderboardByScore: { member: string; score: number }[];
-      leaderboardByFastest: { member: string; score: number }[];
-    };
+    payload: ChallengeLeaderboardResponse;
   };
 
 export type DevvitMessage = {

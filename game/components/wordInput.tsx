@@ -12,7 +12,7 @@ export function WordInput({
 }: {
   placeholders: string[];
   onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
-  onSubmit: () => void;
+  onSubmit: (animationDuration: number) => void;
   autoFocusOnKeypress?: boolean;
   value?: string; // Add to props interface
 }) {
@@ -203,14 +203,26 @@ export function WordInput({
         (prev, current) => (current.x > prev ? current.x : prev),
         0
       );
+
+      // Calculate animation duration based on width
+      // 8 pixels per frame at 60fps
+      const pixelsPerFrame = 8;
+      const framesNeeded = maxX / pixelsPerFrame;
+      const durationMs = (framesNeeded / 60) * 1000; // convert to milliseconds
+
+      // Add a small buffer for safety
+      const totalDuration = durationMs + 100;
+
       animate(maxX);
+
+      // Let parent know how long to wait
+      onSubmit(totalDuration);
     }
   };
 
   const handleSubmit = () => {
     if (internalValue) {
       vanishAndSubmit();
-      onSubmit();
     }
   };
 
@@ -228,7 +240,7 @@ export function WordInput({
     >
       <canvas
         className={cn(
-          'pointer-events-none absolute left-2 top-[20%] z-[1000] origin-top-left scale-50 transform pr-20 text-base invert filter dark:invert-0',
+          'pointer-events-none absolute left-[5px] top-[15%] z-[1000] origin-top-left scale-50 transform pr-20 text-base invert filter dark:invert-0',
           !animating ? 'opacity-0' : 'opacity-100'
         )}
         ref={canvasRef}
@@ -239,6 +251,7 @@ export function WordInput({
             onChange && onChange(e);
           }
         }}
+        spellCheck="false"
         onKeyDown={handleKeyDown}
         ref={inputRef}
         value={internalValue}

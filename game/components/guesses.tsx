@@ -11,12 +11,12 @@ const ProximityIndicator = ({ guess }: { guess: Guess }) => {
   const fill = Math.round((1 - guess.rank / 1000) * 100);
   return (
     <motion.div
-      className="absolute right-0 top-0 flex h-full translate-x-full items-center gap-1 pl-1"
+      className="absolute right-1 top-0 flex h-full translate-x-full items-center gap-1 pl-1"
       initial={{ opacity: 0, scale: 0.8 }}
       animate={{ opacity: 1, scale: 1 }}
       transition={{ type: 'spring', duration: 0.5 }}
     >
-      <span className="text-xs">#{guess.rank}</span>
+      <span className="text-sm">#{guess.rank}</span>
       <motion.div className="relative h-1.5 w-12 overflow-hidden rounded-full bg-gray-700">
         <motion.div
           className="absolute left-0 top-0 h-full rounded-full bg-gradient-to-r from-[#4DE1F2] via-[#FED155] to-[#FE5555]"
@@ -92,7 +92,7 @@ export const Guesses = ({ items }: { items: Guess[] }) => {
               animate={{ opacity: 1, height: GUESS_HEIGHT }}
               exit={{ opacity: 0, height: 0 }}
               className={cn(
-                'relative flex justify-between gap-1 rounded px-1 text-xs',
+                'relative flex justify-between gap-1 rounded px-1 text-sm',
                 item.timestamp === latestGuess?.timestamp && 'bg-gray-700/50'
               )}
             >

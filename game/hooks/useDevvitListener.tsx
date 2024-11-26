@@ -37,14 +37,25 @@ import { useMocks } from './useMocks';
 export const useDevvitListener = <T extends BlocksToWebviewMessage['type']>(eventType: T) => {
   type Event = Extract<BlocksToWebviewMessage, { type: T }>;
   const mocks = useMocks();
-  const [data, setData] = useState<Event['payload'] | undefined>(
-    eventType === 'CHALLENGE_LEADERBOARD_RESPONSE'
-      ? mocks.getMock('mocks')?.challengeLeaderboardResponse
-      : undefined
-  );
+  const [data, setData] = useState<Event['payload'] | undefined>(undefined);
+
+  useEffect(() => {
+    const allMocks = mocks.getMock('mocks');
+    if (eventType === 'PLAYER_PROGRESS_UPDATE') {
+      // @ts-expect-error
+      setData({ challengeProgress: allMocks?.generateMockProgressData });
+    } else if (eventType === 'CHALLENGE_LEADERBOARD_RESPONSE') {
+      setData(allMocks?.challengeLeaderboardResponse);
+    }
+  }, [eventType, mocks]);
 
   useEffect(() => {
     const messageHandler = (ev: MessageEvent<DevvitMessage>) => {
+      // Only process messages from external sources (parent window)
+      if (ev.source !== window.parent) {
+        return;
+      }
+
       if (ev.data.type !== 'devvit-message') {
         logger.warn(`Received message with type ${ev.data.type} but expected 'devvit-message'`);
         return;

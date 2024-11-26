@@ -8,10 +8,16 @@ import { GameContextProvider } from './hooks/useGame';
 import { UserSettingsContextProvider } from './hooks/useUserSettings';
 import { MockProvider } from './hooks/useMocks';
 import { ConfirmationDialogProvider } from './hooks/useConfirmation';
+import { IS_DETACHED } from './constants';
+import { logger } from './utils/logger';
+
+if (IS_DETACHED) {
+  logger.debug(`Running in detached mode`);
+}
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <MockProvider gameStatus="GAVE_UP">
+    <MockProvider gameStatus="PLAYING" progressTestScenario="earlyProgress">
       <ConfirmationDialogProvider>
         <PageContextProvider>
           <UserSettingsContextProvider>

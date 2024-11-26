@@ -3,7 +3,7 @@ import { UserSettings } from '../shared';
 
 const defaultUserSettings: UserSettings = {
   sortDirection: 'DESC',
-  sortType: 'SIMILARITY',
+  sortType: 'TIMESTAMP',
 };
 
 const UserSettingsContext = createContext<UserSettings>(defaultUserSettings);

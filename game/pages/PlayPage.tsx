@@ -8,6 +8,8 @@ export const PlayPage = () => {
   const [word, setWord] = useState('');
   const { challengeUserInfo } = useGame();
 
+  const wordResult = challengeUserInfo?.guesses?.find((guess) => guess.word === word);
+
   return (
     <div className="flex h-full flex-col justify-center gap-6">
       <div className="flex flex-col items-center justify-center gap-6">
@@ -15,7 +17,7 @@ export const PlayPage = () => {
         <WordInput
           value={word}
           onChange={(e) => setWord(e.target.value)}
-          onSubmit={() => {
+          onSubmit={(animationDuration) => {
             if (word.trim().split(' ').length > 1) {
               sendMessageToDevvit({
                 type: 'SHOW_TOAST',
@@ -30,10 +32,9 @@ export const PlayPage = () => {
             });
             // TODO Store previous in case we need to replenish due to errors
 
-            // TODO: Scale based on length of word
-            // setTimeout(() => {
-            //   setWord('');
-            // }, 400);
+            setTimeout(() => {
+              setWord('');
+            }, animationDuration);
           }}
           placeholders={[
             'Can you guess the word?',

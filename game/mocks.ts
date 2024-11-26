@@ -1,4 +1,4 @@
-import { Game } from "./shared";
+import { ChallengeLeaderboardResponse, Game, PlayerProgress } from "./shared";
 
 /**
  * Mocks are ran when the game is started with Vite's
@@ -312,4 +312,159 @@ export const GIVE_UP_GAME: Partial<Game> = {
     "totalGiveUps": 1,
   },
   "challengeProgress": [],
+};
+
+interface MockDataOptions {
+  /**
+   * Total number of players to generate
+   * @default 5000
+   */
+  totalPlayers?: number;
+  /**
+   * Progress value for the active player (0-100)
+   * @default 45
+   */
+  playerProgress?: number;
+  /**
+   * Percentage of players to cluster near the beginning (0-10%)
+   * @default 0.3
+   */
+  earlyPlayerRatio?: number;
+  /**
+   * Percentage of players who have completed (100%)
+   * @default 0.1
+   */
+  completedPlayerRatio?: number;
+}
+
+/**
+ * Generates mock data for testing the Progress Bar component
+ */
+export const generateMockProgressData = ({
+  totalPlayers = 5000,
+  playerProgress = 45,
+  earlyPlayerRatio = 0.3,
+  completedPlayerRatio = 0.1,
+}: MockDataOptions = {}) => {
+  const players: PlayerProgress = [];
+
+  // Add the active player
+  players.push({
+    username: "You",
+    progress: playerProgress,
+    isPlayer: true,
+    avatar: null,
+  });
+
+  // Calculate distribution
+  const earlyPlayers = Math.floor(totalPlayers * earlyPlayerRatio);
+  const completedPlayers = Math.floor(totalPlayers * completedPlayerRatio);
+  const midRangePlayers = totalPlayers - earlyPlayers - completedPlayers;
+
+  // Generate early players (0-10%)
+  for (let i = 0; i < earlyPlayers; i++) {
+    players.push({
+      username: `early_player_${i}`,
+      progress: Math.random() * 10,
+      isPlayer: false,
+      avatar: null,
+    });
+  }
+
+  // Generate mid-range players (10-99%)
+  for (let i = 0; i < midRangePlayers; i++) {
+    players.push({
+      username: `mid_player_${i}`,
+      progress: 10 + Math.random() * 89,
+      isPlayer: false,
+      avatar: null,
+    });
+  }
+
+  // Generate completed players (100%)
+  for (let i = 0; i < completedPlayers; i++) {
+    players.push({
+      username: `completed_player_${i}`,
+      progress: 100,
+      isPlayer: false,
+      avatar: null,
+    });
+  }
+
+  return players;
+};
+
+/**
+ * Generates different test scenarios for the Progress Bar
+ */
+export const generateTestScenarios = () => {
+  return {
+    // Scenario 1: Player just starting (lots of players ahead)
+    earlyProgress: generateMockProgressData({
+      playerProgress: 5,
+      totalPlayers: 10000,
+      earlyPlayerRatio: 0.2,
+      completedPlayerRatio: 0.1,
+    }),
+
+    // Scenario 2: Player in middle of pack
+    midProgress: generateMockProgressData({
+      playerProgress: 45,
+      totalPlayers: 5000,
+      earlyPlayerRatio: 0.3,
+      completedPlayerRatio: 0.2,
+    }),
+
+    // Scenario 3: Player nearly complete
+    lateProgress: generateMockProgressData({
+      playerProgress: 95,
+      totalPlayers: 8000,
+      earlyPlayerRatio: 0.4,
+      completedPlayerRatio: 0.05,
+    }),
+
+    // Scenario 4: Player completed
+    completed: generateMockProgressData({
+      playerProgress: 100,
+      totalPlayers: 6000,
+      earlyPlayerRatio: 0.5,
+      completedPlayerRatio: 0.15,
+    }),
+
+    // Scenario 5: Small player pool (no grouping)
+    smallPool: generateMockProgressData({
+      playerProgress: 50,
+      totalPlayers: 500,
+      earlyPlayerRatio: 0.2,
+      completedPlayerRatio: 0.1,
+    }),
+  };
+};
+
+export const CHALLENGE_LEADERBOARD_RESPONSE: ChallengeLeaderboardResponse = {
+  "userStreak": 6,
+  "leaderboardByScore": [
+    {
+      "score": 451,
+      "member": "mwood230",
+    },
+    {
+      "score": 394,
+      "member": "UnluckyHuckleberry53",
+    },
+  ],
+  "leaderboardByFastest": [
+    {
+      "score": 34219,
+      "member": "UnluckyHuckleberry53",
+    },
+    {
+      "score": 6844,
+      "member": "mwood230",
+    },
+  ],
+  "userRank": {
+    "score": 2,
+    "timeToSolve": 1,
+  },
 };
