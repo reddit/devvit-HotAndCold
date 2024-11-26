@@ -35,7 +35,11 @@ const getPage = (page: Page) => {
 export const App = () => {
   const page = usePage();
   const { challengeUserInfo, number } = useGame();
-  const hasStartedPlaying = challengeUserInfo?.guesses && challengeUserInfo?.guesses?.length > 0;
+  const isActivelyPlaying =
+    challengeUserInfo?.guesses &&
+    challengeUserInfo?.guesses?.length > 0 &&
+    !challengeUserInfo?.solvedAtMs &&
+    !challengeUserInfo?.gaveUpAtMs;
   const { showConfirmation } = useConfirmation();
   const [howToPlayOpen, setHowToPlayOpen] = useState(false);
 
@@ -60,7 +64,7 @@ export const App = () => {
                   { name: 'How to Play', action: () => setHowToPlayOpen(true) },
                   {
                     name: 'Hint',
-                    disabled: !hasStartedPlaying,
+                    disabled: !isActivelyPlaying,
                     action: async () => {
                       const response = await showConfirmation({
                         title: 'Are you sure?',
@@ -78,7 +82,7 @@ export const App = () => {
                   },
                   {
                     name: 'Give Up',
-                    disabled: !hasStartedPlaying,
+                    disabled: !isActivelyPlaying,
                     action: async () => {
                       const response = await showConfirmation({
                         title: 'Are you sure?',

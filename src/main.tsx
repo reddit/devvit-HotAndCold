@@ -15,6 +15,7 @@ import { Challenge } from './core/challenge.js';
 import { ChallengeProgress } from './core/challengeProgress.js';
 import { ChallengeLeaderboard } from './core/challengeLeaderboard.js';
 import { Streaks } from './core/streaks.js';
+import { Reminders } from './core/reminders.js';
 
 Devvit.configure({
   redditAPI: true,
@@ -235,6 +236,18 @@ Devvit.addCustomPostType({
                     userRank,
                   },
                 });
+                break;
+              case 'TOGGLE_USER_REMINDER':
+                const resp = await Reminders.toggleReminderForUsername({
+                  redis: context.redis,
+                  username: initialState.user?.username!,
+                });
+
+                if (resp.newValue) {
+                  context.ui.showToast(`You will now receive reminders to play!`);
+                } else {
+                  context.ui.showToast(`You will no longer receive reminders to play.`);
+                }
                 break;
 
               default:

@@ -529,6 +529,7 @@ export const giveUp = zoddy(
       challengeUserInfo: {
         ...challengeUserInfo,
         gaveUpAtMs: Date.now(),
+        guesses: newGuesses,
       },
       challengeInfo: {
         ...omit(challengeInfo, ["word"]),

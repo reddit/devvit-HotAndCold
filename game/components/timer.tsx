@@ -76,12 +76,43 @@ interface AnimatedNumberProps {
   className?: string;
 }
 
-export const AnimatedNumber = ({ value, size = 18, className = '' }: AnimatedNumberProps) => {
-  // Get number of digits needed
+export const AnimatedNumber = ({
+  value,
+  size = 18,
+  className = '',
+  animateOnMount = false,
+}: AnimatedNumberProps & { animateOnMount?: boolean }) => {
+  const [displayValue, setDisplayValue] = useState(animateOnMount ? 0 : value);
+
+  useEffect(() => {
+    if (animateOnMount && displayValue !== value) {
+      const startTime = Date.now();
+      const startValue = 0;
+      const duration = 1000;
+
+      const animate = () => {
+        const now = Date.now();
+        const elapsed = now - startTime;
+        const progress = Math.min(elapsed / duration, 1);
+        const easeOutQuart = 1 - Math.pow(1 - progress, 4);
+        const current = Math.round(startValue + (value - startValue) * easeOutQuart);
+
+        setDisplayValue(current);
+
+        if (progress < 1) {
+          requestAnimationFrame(animate);
+        }
+      };
+
+      requestAnimationFrame(animate);
+    } else {
+      setDisplayValue(value);
+    }
+  }, [value, animateOnMount]);
+
+  // Calculate digits based on final value, not display value
   const numDigits = Math.max(Math.floor(Math.log10(Math.abs(value))) + 1, 1);
   const config = getConfig(size);
-
-  // Create array of place values (e.g., [100, 10, 1] for a 3-digit number)
   const places = Array.from({ length: numDigits }, (_, i) => Math.pow(10, numDigits - 1 - i));
 
   return (
@@ -93,7 +124,7 @@ export const AnimatedNumber = ({ value, size = 18, className = '' }: AnimatedNum
     >
       <div className="flex" style={{ gap: config.spacing }}>
         {places.map((place, index) => (
-          <Digit key={index} place={place} value={value} config={config} />
+          <Digit key={index} place={place} value={displayValue} config={config} />
         ))}
       </div>
     </div>

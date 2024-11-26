@@ -295,6 +295,13 @@ export const GIVE_UP_GAME: Partial<Game> = {
       "timestamp": 1732567724326,
       "rank": -1,
       "isHint": false,
+    }, {
+      "word": "sparkle",
+      "timestamp": 1732567596949,
+      "similarity": 1,
+      "normalizedSimilarity": 99,
+      "rank": -1,
+      "isHint": false,
     }],
   },
   "challengeInfo": {

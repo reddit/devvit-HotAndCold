@@ -58,7 +58,7 @@ export const GameContextProvider = ({ children }: { children: React.ReactNode })
 
   useEffect(() => {
     logger.log('New game info: ', game);
-    if (game.challengeUserInfo?.solvedAtMs) {
+    if (game.challengeUserInfo?.solvedAtMs || game.challengeUserInfo?.gaveUpAtMs) {
       setPage('win');
       return;
     }

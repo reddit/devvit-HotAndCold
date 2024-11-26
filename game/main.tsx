@@ -11,7 +11,7 @@ import { ConfirmationDialogProvider } from './hooks/useConfirmation';
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <MockProvider gameStatus="WON">
+    <MockProvider gameStatus="GAVE_UP">
       <ConfirmationDialogProvider>
         <PageContextProvider>
           <UserSettingsContextProvider>

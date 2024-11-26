@@ -262,6 +262,7 @@ export const makeNewChallenge = zoddy(
       return {
         postId: post.id,
         postUrl: post.url,
+        challenge: newChallengeNumber,
       };
     } catch (error) {
       console.error('Error making new challenge:', error);

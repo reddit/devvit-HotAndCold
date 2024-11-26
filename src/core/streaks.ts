@@ -105,7 +105,7 @@ export const expireStreaks = zoddy(
         redis: redis,
         challenge: challengeNumberBeforeTheNewestChallenge,
         start: 0,
-        stop: -1,
+        stop: 10,
         sort: "DESC",
       }),
     ]);

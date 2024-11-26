@@ -1,15 +1,38 @@
-import {
-  Devvit,
-  MultiTriggerDefinition,
-  TriggerContext,
-} from "@devvit/public-api";
+import { Devvit, TriggerContext } from "@devvit/public-api";
 import { WordList } from "../core/wordList.js";
 import { Challenge } from "../core/challenge.js";
+import { Reminders } from "../core/reminders.js";
 
 Devvit.addSchedulerJob({
   name: "DAILY_GAME_DROP",
   onRun: async (_, context) => {
-    await Challenge.makeNewChallenge({ context });
+    const newChallenge = await Challenge.makeNewChallenge({ context });
+
+    const usernames = await Reminders.getUsersOptedIntoReminders({
+      redis: context.redis,
+    });
+
+    const chunkSize = 25;
+    for (let i = 0; i < usernames.length; i += chunkSize) {
+      const chunk = usernames.slice(i, i + chunkSize);
+
+      // Create array of promises for current chunk
+      const promises = chunk.map((username) =>
+        context.reddit.sendPrivateMessage({
+          subject:
+            `HotAndCold: Time to play challenge #${newChallenge.challenge}!`,
+          text:
+            `The new challenge is up! Go to [this link](${newChallenge.postUrl}) to play!`,
+          to: username,
+        })
+      );
+
+      // Wait for all promises in chunk to resolve
+      await Promise.all(promises);
+      console.log(
+        `Sent ${chunk.length} messages to users out of ${usernames.length}.`,
+      );
+    }
   },
 });
 
@@ -30,11 +53,6 @@ export const initialize = async (context: TriggerContext) => {
     name: "DAILY_GAME_DROP",
     data: {},
   });
-};
-
-type AppUpgrade = MultiTriggerDefinition<"AppUpgrade">["onEvent"];
-const functionSomething: AppUpgrade = (e, context) => {
-  console.log(e.installer, context.appName);
 };
 
 Devvit.addTrigger({

@@ -5,7 +5,7 @@ import { useDevvitListener } from '../hooks/useDevvitListener';
 import PillSwitch from '../components/switcher';
 import { AnimatedNumber } from '../components/timer';
 
-export const prettyNumber = (num: number): string => {
+const prettyNumber = (num: number): string => {
   return num.toLocaleString('en-US');
 };
 
@@ -27,25 +27,6 @@ const StatCard = ({
       <div className="truncate font-bold text-white">{value}</div>
     </div>
   </div>
-);
-
-const RankIcon = () => (
-  <svg
-    xmlns="http://www.w3.org/2000/svg"
-    className="h-5 w-5"
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    stroke-width="2"
-    stroke-linecap="round"
-    stroke-linejoin="round"
-  >
-    <path stroke="none" d="M0 0h24v24H0z" fill="none" />
-    <path d="M18 7v12a2 2 0 0 1 -2 2h-8a2 2 0 0 1 -2 -2v-12l6 -4z" />
-    <path d="M10 13l2 -1l2 1" />
-    <path d="M10 17l2 -1l2 1" />
-    <path d="M10 9l2 -1l2 1" />
-  </svg>
 );
 
 const TimeIcon = () => (
@@ -146,7 +127,7 @@ export const WinPage = () => {
   );
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col gap-6">
+    <div className="flex min-h-0 flex-1 flex-col gap-4">
       <div className="flex justify-center">
         <PillSwitch
           activeIndex={activeIndex}
@@ -163,13 +144,17 @@ export const WinPage = () => {
                 {didWin ? 'Congratulations!' : 'Nice Try!'}
               </h1>
               <p className="text-xl font-semibold">
-                The word was: <span className="text-blue-500">{word.word}</span>
+                The word was: <span className="text-[#dd4c4c]">{word.word}</span>
               </p>
             </div>
 
             <div className="flex flex-col items-center gap-2">
               {didWin ? (
-                <AnimatedNumber size={40} value={challengeUserInfo.finalScore ?? 0} />
+                <AnimatedNumber
+                  size={40}
+                  value={challengeUserInfo.finalScore ?? 0}
+                  animateOnMount
+                />
               ) : (
                 <span className="text-4xl">--</span>
               )}
@@ -213,10 +198,19 @@ export const WinPage = () => {
                 <input
                   type="checkbox"
                   checked={remindMeTomorrow}
-                  onChange={(e) => setRemindMeTomorrow(e.target.checked)}
+                  onChange={(e) => {
+                    setRemindMeTomorrow(e.target.checked);
+
+                    sendMessageToDevvit({
+                      payload: {},
+                      type: 'TOGGLE_USER_REMINDER',
+                    });
+                  }}
                   className="h-4 w-4 rounded border-gray-600 bg-gray-700 text-blue-600"
                 />
-                <span className="text-sm text-gray-300">Remind me to play tomorrow</span>
+                <span className="select-none text-sm text-gray-300">
+                  Remind me to play tomorrow
+                </span>
               </label>
             </div>
           </div>
@@ -224,7 +218,6 @@ export const WinPage = () => {
 
         {activeIndex === 1 && (
           <div className="flex flex-col gap-6">
-            <h2 className="text-center text-xl font-bold text-white">Challenge Overview</h2>
             <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
               <StatCard
                 title="Total Players"
@@ -293,7 +286,6 @@ export const WinPage = () => {
         {activeIndex === 2 && (
           <div className="flex flex-col gap-4">
             <div className="flex flex-col gap-1 text-center">
-              <h2 className="text-xl font-bold text-white">Today's Top Players</h2>
               {leaderboardData?.userRank && (
                 <p className="text-gray-400">
                   Your Rank:{' '}
@@ -325,7 +317,7 @@ export const WinPage = () => {
                   <div
                     key={entry.member}
                     className={cn(
-                      'flex items-center px-4 py-2',
+                      'flex items-center px-4 py-1',
                       index % 2 === 0 ? 'bg-gray-800/50' : 'bg-gray-900/50',
                       isCurrentUser && 'bg-blue-900/20',
                       'transition-colors duration-150'

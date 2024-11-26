@@ -63,7 +63,11 @@ export type WebviewToBlocksMessage =
     type: "SHOW_TOAST";
     string: string;
   }
-  | { type: "LEADERBOARD_FOR_CHALLENGE" };
+  | { type: "LEADERBOARD_FOR_CHALLENGE" }
+  | {
+    type: "TOGGLE_USER_REMINDER";
+    payload: {};
+  };
 
 export type BlocksToWebviewMessage =
   // TODO: Just make `GAME_RESPONSE`?

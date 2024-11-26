@@ -3,7 +3,6 @@ import { sendMessageToDevvit } from '../utils';
 import { WordInput } from '../components/wordInput';
 import { Guesses } from '../components/guesses';
 import { useGame } from '../hooks/useGame';
-import { Logo } from '../components/logo';
 
 export const PlayPage = () => {
   const [word, setWord] = useState('');
@@ -11,13 +10,8 @@ export const PlayPage = () => {
 
   return (
     <div className="flex h-full flex-col justify-center gap-6">
-      <div>
-        <div className="mb-[10px] flex justify-center">
-          <Logo />
-        </div>
-      </div>
       <div className="flex flex-col items-center justify-center gap-6">
-        <p className="text-center text-xl text-white">Can you guess the secret word?</p>
+        <p className="mt-8 text-center text-xl text-white">Can you guess the secret word?</p>
         <WordInput
           value={word}
           onChange={(e) => setWord(e.target.value)}
