@@ -180,8 +180,8 @@ export const WinPage = () => {
                 icon={TimeIcon}
               />
               <StatCard
-                title="Coldest Guess"
-                value={coldestGuess?.word ?? '-'}
+                title="Rank"
+                value={`#${leaderboardData?.userRank.score ?? '--'}`}
                 icon={ThermometerIcon}
               />
             </div>

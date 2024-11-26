@@ -37,6 +37,30 @@ export const zodRedditUsername = z
   });
 
 /**
+ * A special Zod schema that parses a string into a number.
+ * Empty string is parsed as `undefined`.
+ */
+export const redisNumberString = z.string().transform((val, ctx) => {
+  if (val === "") return undefined;
+
+  const parsed = parseInt(val);
+
+  if (isNaN(parsed)) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "Not a number",
+    });
+
+    // This is a special symbol you can use to
+    // return early from the transform function.
+    // It has type `never` so it does not affect the
+    // inferred return type.
+    return z.NEVER;
+  }
+  return parsed;
+});
+
+/**
  * Validates a function's arguments against a zod schema to ensure things are
  * safe at runtime. Throws of there is a parameter error!
  *

@@ -13,6 +13,8 @@ import { HelpMenu } from './components/helpMenu';
 import { useState } from 'react';
 import { HowToPlayModal } from './components/howToPlayModal';
 import { LoadingPage } from './pages/LoadingPage';
+import { FriendsModal } from './components/friendsModal';
+import { useSetUserSettings, useUserSettings } from './hooks/useUserSettings';
 
 const getPage = (page: Page) => {
   switch (page) {
@@ -31,6 +33,8 @@ const getPage = (page: Page) => {
 
 export const App = () => {
   const page = usePage();
+  const { layout } = useUserSettings();
+  const setUserSettings = useSetUserSettings();
   const { challengeUserInfo, number } = useGame();
   const isActivelyPlaying =
     challengeUserInfo?.guesses &&
@@ -39,6 +43,7 @@ export const App = () => {
     !challengeUserInfo?.gaveUpAtMs;
   const { showConfirmation } = useConfirmation();
   const [howToPlayOpen, setHowToPlayOpen] = useState(false);
+  // const [friendsModalOpen, setFriendsModalOpen] = useState(false);
 
   return (
     <div className="relative flex h-full min-h-0 flex-1 flex-col p-6">
@@ -59,6 +64,14 @@ export const App = () => {
               <HelpMenu
                 items={[
                   { name: 'How to Play', action: () => setHowToPlayOpen(true) },
+                  {
+                    name: 'Toggle Size',
+                    action: () =>
+                      setUserSettings((x) => ({
+                        ...x,
+                        layout: layout === 'CONDENSED' ? 'EXPANDED' : 'CONDENSED',
+                      })),
+                  },
                   {
                     name: 'Hint',
                     disabled: !isActivelyPlaying,
@@ -107,6 +120,7 @@ export const App = () => {
       {getPage(page)}
       {page !== 'loading' && <Progress />}
       <HowToPlayModal isOpen={howToPlayOpen} onClose={() => setHowToPlayOpen(false)} />
+      {/* <FriendsModal isOpen={friendsModalOpen} onClose={() => setFriendsModalOpen(false)} /> */}
     </div>
   );
 };

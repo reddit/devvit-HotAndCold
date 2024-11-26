@@ -5,8 +5,6 @@ import { cn } from '../utils';
 import { useEffect, useState } from 'react';
 import { useDimensions } from '../hooks/useDimensions';
 
-const GUESS_HEIGHT = 16;
-
 const ProximityIndicator = ({ guess }: { guess: Guess }) => {
   const fill = Math.round((1 - guess.rank / 1000) * 100);
   return (
@@ -16,7 +14,7 @@ const ProximityIndicator = ({ guess }: { guess: Guess }) => {
       animate={{ opacity: 1, scale: 1 }}
       transition={{ type: 'spring', duration: 0.5 }}
     >
-      <span className="text-sm">#{guess.rank}</span>
+      <span className="text-sm text-[#FE5555]">#{guess.rank}</span>
       <motion.div className="relative h-1.5 w-12 overflow-hidden rounded-full bg-gray-700">
         <motion.div
           className="absolute left-0 top-0 h-full rounded-full bg-gradient-to-r from-[#4DE1F2] via-[#FED155] to-[#FE5555]"
@@ -30,10 +28,12 @@ const ProximityIndicator = ({ guess }: { guess: Guess }) => {
 };
 
 export const Guesses = ({ items }: { items: Guess[] }) => {
-  const { sortDirection, sortType } = useUserSettings();
+  const { sortDirection, sortType, layout } = useUserSettings();
   const setUserSettings = useSetUserSettings();
   const [currentPage, setCurrentPage] = useState(1);
   const [ref, dimensions] = useDimensions();
+
+  const GUESS_HEIGHT = layout == 'CONDENSED' ? 16 : 22;
 
   const latestGuess = items.reduce(
     (latest, current) => {
@@ -66,7 +66,14 @@ export const Guesses = ({ items }: { items: Guess[] }) => {
   }, [sortDirection, sortType, itemsPerPage]);
 
   return (
-    <div ref={ref} className="relative z-10 flex h-full w-48 flex-col self-center">
+    <div
+      ref={ref}
+      className={cn(
+        'relative z-10 flex h-full w-56 flex-col self-center',
+        layout === 'CONDENSED' && 'text-sm',
+        layout === 'EXPANDED' && 'text-md'
+      )}
+    >
       <div className="flex h-7 items-start">
         <button
           onClick={() =>
@@ -75,7 +82,7 @@ export const Guesses = ({ items }: { items: Guess[] }) => {
               sortType: sortType === 'SIMILARITY' ? 'TIMESTAMP' : 'SIMILARITY',
             }))
           }
-          className="flex items-center text-sm"
+          className="flex items-center"
         >
           Sort:&nbsp;
           {sortType === 'SIMILARITY' ? <span>similarity</span> : <span>guessed at</span>}
@@ -92,7 +99,7 @@ export const Guesses = ({ items }: { items: Guess[] }) => {
               animate={{ opacity: 1, height: GUESS_HEIGHT }}
               exit={{ opacity: 0, height: 0 }}
               className={cn(
-                'relative flex justify-between gap-1 rounded px-1 text-sm',
+                'relative flex justify-between gap-1 rounded px-1',
                 item.timestamp === latestGuess?.timestamp && 'bg-gray-700/50'
               )}
             >
@@ -134,7 +141,7 @@ export const Guesses = ({ items }: { items: Guess[] }) => {
             onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
             disabled={currentPage === 1}
             className={cn(
-              'rounded px-1 py-1 text-sm',
+              'rounded px-1 py-1',
               currentPage === 1 ? 'cursor-not-allowed opacity-50' : 'hover:bg-gray-700'
             )}
           >
@@ -149,14 +156,14 @@ export const Guesses = ({ items }: { items: Guess[] }) => {
               <path d="M13.883 5.007l.058 -.005h.118l.058 .005l.06 .009l.052 .01l.108 .032l.067 .027l.132 .07l.09 .065l.081 .073l.083 .094l.054 .077l.054 .096l.017 .036l.027 .067l.032 .108l.01 .053l.01 .06l.004 .057l.002 .059v12c0 .852 -.986 1.297 -1.623 .783l-.084 -.076l-6 -6a1 1 0 0 1 -.083 -1.32l.083 -.094l6 -6l.094 -.083l.077 -.054l.096 -.054l.036 -.017l.067 -.027l.108 -.032l.053 -.01l.06 -.01z" />
             </svg>
           </button>
-          <span className="text-sm">
+          <span className="">
             {currentPage} / {totalPages}
           </span>
           <button
             onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
             disabled={currentPage === totalPages}
             className={cn(
-              'rounded px-1 py-1 text-sm',
+              'rounded px-1 py-1',
               currentPage === totalPages ? 'cursor-not-allowed opacity-50' : 'hover:bg-gray-700'
             )}
           >

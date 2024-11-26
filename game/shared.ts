@@ -50,6 +50,7 @@ export type GameResponse = Game;
 export type UserSettings = {
   sortDirection: "ASC" | "DESC";
   sortType: "SIMILARITY" | "TIMESTAMP";
+  layout: "CONDENSED" | "EXPANDED";
 };
 
 export type ChallengeLeaderboardResponse = {

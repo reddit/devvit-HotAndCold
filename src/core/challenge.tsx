@@ -1,5 +1,12 @@
 import { z } from 'zod';
-import { zodContext, zoddy, zodJobContext, zodRedis, zodTransaction } from '../utils/zoddy.js';
+import {
+  redisNumberString,
+  zodContext,
+  zoddy,
+  zodJobContext,
+  zodRedis,
+  zodTransaction,
+} from '../utils/zoddy.js';
 import { API } from '../core/api.js';
 import { ChallengeToWord } from './challengeToWord.js';
 import { WordList } from './wordList.js';
@@ -15,14 +22,16 @@ export const getCurrentChallengeNumberKey = () => 'current_challenge_number' as 
 
 export const getChallengeKey = (challenge: number) => `challenge:${challenge}` as const;
 
-const challengeSchema = z.object({
-  word: z.string().trim().toLowerCase(),
-  totalPlayers: z.number().gte(0).optional(),
-  totalSolves: z.number().gte(0).optional(),
-  totalGuesses: z.number().gte(0).optional(),
-  totalHints: z.number().gte(0).optional(),
-  totalGiveUps: z.number().gte(0).optional(),
-});
+const challengeSchema = z
+  .object({
+    word: z.string().trim().toLowerCase(),
+    totalPlayers: redisNumberString.optional(),
+    totalSolves: redisNumberString.optional(),
+    totalGuesses: redisNumberString.optional(),
+    totalHints: redisNumberString.optional(),
+    totalGiveUps: redisNumberString.optional(),
+  })
+  .strict();
 
 export const getCurrentChallengeNumber = zoddy(
   z.object({
@@ -69,16 +78,7 @@ export const getChallenge = zoddy(
     if (!result) {
       throw new Error('No challenge found');
     }
-    return challengeSchema.parse(
-      coerceValues({
-        word: result.word,
-        totalPlayers: result.totalPlayers ? parseInt(result.totalPlayers) : undefined,
-        totalSolves: result.totalSolves ? parseInt(result.totalSolves) : undefined,
-        totalGuesses: result.totalGuesses ? parseInt(result.totalGuesses) : undefined,
-        totalHints: result.totalHints ? parseInt(result.totalHints) : undefined,
-        totalGiveUps: result.totalGiveUps ? parseInt(result.totalGiveUps) : undefined,
-      })
-    );
+    return challengeSchema.parse(result);
   }
 );
 

@@ -1,5 +1,6 @@
 import { z } from "zod";
 import {
+  redisNumberString,
   zodContext,
   zoddy,
   zodRedditUsername,
@@ -32,15 +33,23 @@ export const guessSchema = z.object({
   // Only for top 1,000 similar words
   rank: z.number().gte(-1),
   isHint: z.boolean(),
-});
+}).strict();
 
 const challengeUserInfoSchema = z.object({
   username: z.string(),
-  finalScore: z.number().optional(),
-  startedPlayingAtMs: z.number().optional(),
-  solvedAtMs: z.number().optional(),
-  gaveUpAtMs: z.number().optional(),
-  guesses: z.array(guessSchema).optional(),
+  finalScore: redisNumberString.optional(),
+  startedPlayingAtMs: redisNumberString.optional(),
+  solvedAtMs: redisNumberString.optional(),
+  gaveUpAtMs: redisNumberString.optional(),
+  guesses: z.string().transform((val) => {
+    const maybeArray = JSON.parse(val);
+
+    if (!Array.isArray(maybeArray)) {
+      return [];
+    }
+
+    return maybeArray.map((x) => guessSchema.parse(x));
+  }).optional(),
 });
 
 export const getChallengeUserInfo = zoddy(
@@ -60,19 +69,7 @@ export const getChallengeUserInfo = zoddy(
 
     return challengeUserInfoSchema.parse({
       username,
-      finalScore: result.finalScore
-        ? parseInt(result.finalScore, 10)
-        : undefined,
-      startedPlayingAtMs: result.startedPlayingAtMs
-        ? parseInt(result.startedPlayingAtMs, 10)
-        : undefined,
-      solvedAtMs: result.solvedAtMs
-        ? parseInt(result.solvedAtMs, 10)
-        : undefined,
-      gaveUpAtMs: result.gaveUpAtMs
-        ? parseInt(result.gaveUpAtMs, 10)
-        : undefined,
-      guesses: JSON.parse(result.guesses ?? "[]"),
+      result,
     });
   },
 );
@@ -95,11 +92,7 @@ const maybeInitForUser = zoddy(
           username,
           finalScore: "0",
           guesses: "[]",
-          // These will be set as dates!
-          solvedAtMs: "",
-          gaveUpAtMs: "",
-          startedPlayingAtMs: "",
-        } satisfies Record<keyof z.infer<typeof challengeUserInfoSchema>, any>,
+        },
       );
     }
   },

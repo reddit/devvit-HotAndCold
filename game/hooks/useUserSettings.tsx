@@ -4,6 +4,7 @@ import { UserSettings } from '../shared';
 const defaultUserSettings: UserSettings = {
   sortDirection: 'DESC',
   sortType: 'TIMESTAMP',
+  layout: 'CONDENSED',
 };
 
 const UserSettingsContext = createContext<UserSettings>(defaultUserSettings);

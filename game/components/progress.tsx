@@ -300,8 +300,6 @@ export const Progress = () => {
   const [progress, setProgress] = useState<GameResponse['challengeProgress'] | null>(null);
   const progressUpdate = useDevvitListener('PLAYER_PROGRESS_UPDATE');
 
-  console.log(progress);
-
   useEffect(() => {
     if (challengeProgress) {
       setProgress(challengeProgress);

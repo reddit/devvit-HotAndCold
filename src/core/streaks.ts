@@ -16,7 +16,7 @@ export const getStreaksBackupKey = (challenge: number) =>
 
 const challengeSchema = z.object({
   word: z.string().trim().toLowerCase(),
-});
+}).strict();
 
 export const getStreaks = zoddy(
   z.object({

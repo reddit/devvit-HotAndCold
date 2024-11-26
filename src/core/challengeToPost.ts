@@ -27,6 +27,31 @@ export const getChallengeNumberForPost = zoddy(
   },
 );
 
+export const getPostForChallengeNumber = zoddy(
+  z.object({
+    redis: zodRedis,
+    challenge: z.number().gt(0),
+  }),
+  async ({ redis, challenge }) => {
+    const posts = await redis.zRange(
+      getChallengeToOriginalPostKey(),
+      challenge,
+      challenge,
+      { by: "score" },
+    );
+
+    if (!posts) {
+      throw new Error("No post found for challenge number");
+    }
+
+    if (posts.length !== 1) {
+      throw new Error("Multiple posts found for the same challenge number");
+    }
+
+    return posts[0].member;
+  },
+);
+
 export const setChallengeNumberForPost = zoddy(
   z.object({
     redis: z.union([zodRedis, zodTransaction]),

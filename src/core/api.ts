@@ -41,16 +41,16 @@ const wordConfigSchema = z.object({
       similarity: z.number(),
       is_hint: z.boolean(),
       definition: z.string(),
-    }),
+    }).strict(),
   ),
-});
+}).strict();
 
 const wordComparisonSchema = z.object({
   wordA: z.string(),
   wordB: z.string(),
   wordBLemma: z.string().trim().toLowerCase(),
   similarity: z.number().gte(-1).lte(1).nullable(),
-});
+}).strict();
 
 export const getWordConfig = zoddy(
   z.object({
