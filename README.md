@@ -1,17 +1,23 @@
-## Running Python Stuff
+# HotAndCold
 
-We use python stuff because it has better word libraries than JS.
+Guess the secret word by entering words with similar meanings. Words are scored based on how semantically related they are to the target word.
 
-```bash
-python3 -m venv venv
+Example: If the secret word is "ocean":
 
-source venv/bin/activate
+- sea: would score 80-100 (highly related)
+- wave: would score 40-79 (somewhat related)
+- calculator: would score 0-39 (distantly/unrelated)
 
-pip install nltk wordfreq emoji requests
+Think about synonyms, categories, and related concepts to find the secret word.
 
-python3 wordList.py
-```
+## Playing
 
-## Cache
+This is the app that runs the [HotAndCold](https://www.reddit.com/r/HotAndCold/) subreddit. Feel free to stop by and play any time!
 
-Ran into some problems with the nearest words call taking too long causing Devvit problems so I yolo'ed in a forever cache. You can find it in Supabase (not in this codebase really). If you change the dimensions or similarity algorithm please purge it manually by going to supabase and deleting all the rows.
+## Installing on another Subreddit
+
+You can install this game on your own subreddit if you would like to give it a try. All you need to do is install the app onto the subreddit. After installing, it will automatically run installation jobs and start posting new challenges daily.
+
+## Source Code
+
+The [code for HotAndCold is open source](https://github.com/mwood23/HotAndCold)! Feel free to suggest improvements, fork, and submit PRs of new features and improvements.

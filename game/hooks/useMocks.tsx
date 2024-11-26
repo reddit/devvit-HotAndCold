@@ -8,13 +8,14 @@ import {
   PLAYING_GAME,
   WINNING_GAME,
 } from '../mocks';
+import { IS_DETACHED } from '../constants';
 
 export type MockConfig = {
-  meta: {
+  meta?: {
     gameStatus: 'PLAYING' | 'WON' | 'GAVE_UP';
     progressTestScenario: keyof ReturnType<typeof generateTestScenarios>;
   };
-  mocks: {
+  mocks?: {
     game?: Partial<Game>;
     challengeLeaderboardResponse?: any;
     generateMockProgressData?: ReturnType<typeof generateMockProgressData>;
@@ -33,22 +34,29 @@ export const MockProvider = ({
   gameStatus,
   progressTestScenario,
 }: { children: React.ReactNode } & MockConfig['meta']) => {
-  const [mockState, setMockState] = useState<MockConfig>({
-    meta: {
-      gameStatus,
-      progressTestScenario,
-    },
-    mocks: {
-      game:
-        gameStatus === 'GAVE_UP'
-          ? GIVE_UP_GAME
-          : gameStatus === 'WON'
-            ? WINNING_GAME
-            : PLAYING_GAME,
-      generateMockProgressData: generateTestScenarios()[progressTestScenario],
-      challengeLeaderboardResponse: CHALLENGE_LEADERBOARD_RESPONSE,
-    },
-  });
+  const meta = {
+    gameStatus,
+    progressTestScenario,
+  };
+  const [mockState, setMockState] = useState<MockConfig>(
+    // For tree shaking!
+    IS_DETACHED
+      ? {
+          meta,
+          mocks: {
+            game:
+              meta?.gameStatus === 'GAVE_UP'
+                ? GIVE_UP_GAME
+                : meta?.gameStatus === 'WON'
+                  ? WINNING_GAME
+                  : PLAYING_GAME,
+            generateMockProgressData:
+              generateTestScenarios()[meta?.progressTestScenario ?? 'earlyProgress'],
+            challengeLeaderboardResponse: CHALLENGE_LEADERBOARD_RESPONSE,
+          },
+        }
+      : {}
+  );
 
   const value: MockContextType = {
     getMock: (key) => mockState[key],
