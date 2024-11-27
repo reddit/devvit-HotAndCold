@@ -8,6 +8,9 @@ import { createClient } from "jsr:@supabase/supabase-js@2";
 import { corsHeaders } from "../_shared/cors.ts";
 import lemmatize from "npm:wink-lemmatizer";
 
+/**
+ * Keep in sync with generateFinalWordList.ts
+ */
 const lemmatizeIt = (input: string) => {
   const word = input.trim().toLowerCase();
   // Early return if word is empty or not a string

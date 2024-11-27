@@ -1,5 +1,5 @@
 // @ts-expect-error
-import lemmatizer from "wink-lemmatizer";
+import lemmatize from "wink-lemmatizer";
 import fs from "fs";
 import * as csv from "csv-parse/sync";
 import { stringify } from "csv-stringify/sync";
@@ -230,29 +230,46 @@ function hasMultipleWords(word: string): boolean {
   return word.includes(" ");
 }
 
-function lemmatizeWord(word: string, pos: string): string {
-  // Convert WordNet POS to wink-lemmatizer format
-  switch (pos) {
-    case "n": // noun
-      return lemmatizer.noun(word);
-    case "v": // verb
-      return lemmatizer.verb(word);
-    case "a": // adjective
-    case "s": // adjective satellite
-      return lemmatizer.adjective(word);
-    default:
-      return word; // Return original word if POS is not recognized
+/**
+ * Keep in sync with /compares-words/index.ts
+ */
+const lemmatizeIt = (input: string) => {
+  const word = input.trim().toLowerCase();
+  // Early return if word is empty or not a string
+  if (!word || typeof word !== "string") {
+    return word;
   }
-}
 
-function processHyphenatedWord(word: string, pos: string): string | null {
+  // Try adjective first since it's most likely to be different if it is an adjective
+  const adj = lemmatize.adjective(word);
+  if (word !== adj) {
+    return adj;
+  }
+
+  // Try verb next as it's typically the next most common case
+  const verb = lemmatize.verb(word);
+  if (word !== verb) {
+    return verb;
+  }
+
+  // Try noun last as many words default to being nouns
+  const noun = lemmatize.noun(word);
+  if (word !== noun) {
+    return noun;
+  }
+
+  // If no lemmatization changed the word, return original
+  return word;
+};
+
+function processHyphenatedWord(word: string, _pos: string): string | null {
   if (!word.includes("-")) return word;
 
   // Special handling for 're-' prefix
   if (word.startsWith("re-")) {
     // Remove hyphen and lemmatize the whole word
     const dehyphenated = word.replace("-", "");
-    return lemmatizeWord(dehyphenated, pos);
+    return dehyphenated;
   }
 
   // Filter out all other hyphenated words
@@ -309,9 +326,12 @@ function processWord(
     return null;
   }
 
+  // Apply lemmatization
+  const lemmatizedWord = lemmatizeIt(processedWord);
+
   const processedEntry: ProcessedEntry = {
     ...entry,
-    lemmatizedForm: processedWord,
+    lemmatizedForm: lemmatizedWord,
     hint: hintWords.has(processedWord.toLowerCase()) ? "1" : "0",
   };
 
