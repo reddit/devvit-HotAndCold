@@ -37,7 +37,14 @@ export const guessSchema = z.object({
 
 const challengeUserInfoSchema = z.object({
   username: z.string(),
-  finalScore: redisNumberString.optional(),
+  score: z.string().transform((val) => {
+    if (val === undefined) return undefined;
+    if (val === "") return undefined;
+
+    const parsed = JSON.parse(val);
+
+    return Score.scoreSchema.parse(parsed);
+  }).optional(),
   startedPlayingAtMs: redisNumberString.optional(),
   solvedAtMs: redisNumberString.optional(),
   gaveUpAtMs: redisNumberString.optional(),
@@ -90,7 +97,6 @@ const maybeInitForUser = zoddy(
         getChallengeUserKey(challenge, username),
         {
           username,
-          finalScore: "0",
           guesses: "[]",
         },
       );
@@ -104,12 +110,12 @@ export const markChallengeSolvedForUser = zoddy(
     username: zodRedditUsername,
     challenge: z.number().gt(0),
     completedAt: z.number(),
-    finalScore: z.number(),
+    score: Score.scoreSchema,
   }),
-  async ({ redis, username, challenge, completedAt, finalScore }) => {
+  async ({ redis, username, challenge, completedAt, score }) => {
     await redis.hSet(getChallengeUserKey(challenge, username), {
       solvedAtMs: completedAt.toString(),
-      finalScore: finalScore.toString(),
+      score: JSON.stringify(score),
     });
   },
 );
@@ -153,9 +159,9 @@ export const getHintForUser = zoddy(
     );
 
     // Filter to hints and hints that have already been given
-    const remainingHints = wordConfig.similar_words.filter((entry) =>
-      entry.is_hint && !givenSet.has(entry.word)
-    );
+    const remainingHints = wordConfig.similar_words.slice(0, 250).filter((
+      entry,
+    ) => entry.is_hint && !givenSet.has(entry.word));
 
     if (remainingHints.length === 0) {
       throw new Error(`I don't have any more hints for you. Give up?`);
@@ -184,8 +190,13 @@ export const getHintForUser = zoddy(
 
     await Challenge.incrementChallengeTotalHints({ redis: txn, challenge });
 
+    const newGuesses = z.array(guessSchema).parse([
+      ...challengeUserInfo.guesses ?? [],
+      hintToAdd,
+    ]);
+
     await txn.hSet(getChallengeUserKey(challenge, username), {
-      guesses: JSON.stringify([...challengeUserInfo.guesses ?? [], hintToAdd]),
+      guesses: JSON.stringify(newGuesses),
     });
 
     // Do not progress when hints are used!
@@ -338,14 +349,17 @@ export const submitGuess = zoddy(
       isHint: false,
     };
 
-    const newGuesses = [...challengeUserInfo.guesses ?? [], guessToAdd];
+    const newGuesses = z.array(guessSchema).parse([
+      ...challengeUserInfo.guesses ?? [],
+      guessToAdd,
+    ]);
 
     await txn.hSet(getChallengeUserKey(challenge, username), {
       guesses: JSON.stringify(newGuesses),
     });
 
     const hasSolved = distance.similarity === 1;
-    let score: number | undefined = undefined;
+    let score: Score.ScoreExplanation | undefined = undefined;
     if (hasSolved) {
       console.log(`User ${username} solved challenge ${challenge}!`);
       if (!startedPlayingAtMs) {
@@ -366,7 +380,7 @@ export const submitGuess = zoddy(
         )?.length ?? 0,
       });
 
-      console.log(`Score for user ${username} is ${score}`);
+      console.log(`Score for user ${username} is ${JSON.stringify(score)}`);
 
       console.log(`Marking challenge as solved for user ${username}`);
 
@@ -375,7 +389,7 @@ export const submitGuess = zoddy(
         redis: txn,
         username,
         completedAt,
-        finalScore: score,
+        score,
       });
 
       console.log(`Incrementing streak for user ${username}`);
@@ -406,7 +420,7 @@ export const submitGuess = zoddy(
         redis: txn,
         challenge,
         username,
-        score,
+        score: score.finalScore,
         timeToCompleteMs: solveTimeMs,
       });
 
@@ -440,7 +454,7 @@ export const submitGuess = zoddy(
         ...challengeUserInfo,
         guesses: newGuesses,
         solvedAtMs: hasSolved ? Date.now() : undefined,
-        finalScore: score,
+        score,
       },
       challengeInfo: {
         ...omit(challengeInfo, ["word"]),
@@ -500,7 +514,10 @@ export const giveUp = zoddy(
       isHint: true,
     };
 
-    const newGuesses = [...challengeUserInfo.guesses ?? [], guessToAdd];
+    const newGuesses = z.array(guessSchema).parse([
+      ...challengeUserInfo.guesses ?? [],
+      guessToAdd,
+    ]);
 
     await txn.hSet(getChallengeUserKey(challenge, username), {
       guesses: JSON.stringify(newGuesses),

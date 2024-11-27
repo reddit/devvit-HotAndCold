@@ -7,7 +7,7 @@ export const PLAYING_GAME: Partial<Game> = {
   "number": 14,
   "challengeUserInfo": {
     "username": "UnluckyHuckleberry53",
-    "finalScore": 0,
+    "score": undefined,
     "startedPlayingAtMs": 1732565702424,
     "guesses": [{
       "word": "apple",
@@ -142,7 +142,27 @@ export const WINNING_GAME: Partial<Game> = {
   "number": 14,
   "challengeUserInfo": {
     "username": "UnluckyHuckleberry53",
-    "finalScore": 14,
+    "score": {
+      version: "1",
+      finalScore: 72,
+      breakdown: {
+        solvingBonus: 10,
+        timeBonus: {
+          points: 35,
+          timeInSeconds: 45,
+          isOptimal: false,
+        },
+        guessBonus: {
+          points: 40,
+          numberOfGuesses: 15,
+          isOptimal: false,
+        },
+        hintPenalty: {
+          numberOfHints: 1,
+          penaltyMultiplier: 0.85,
+        },
+      },
+    },
     "startedPlayingAtMs": 1732565702424,
     "solvedAtMs": 1732567596993,
     "guesses": [{
@@ -285,7 +305,7 @@ export const GIVE_UP_GAME: Partial<Game> = {
   "number": 10,
   "challengeUserInfo": {
     "username": "UnluckyHuckleberry53",
-    "finalScore": 0,
+    "score": undefined,
     "startedPlayingAtMs": 1732567723390,
     "gaveUpAtMs": 1732567731857,
     "guesses": [{

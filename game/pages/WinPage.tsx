@@ -103,9 +103,6 @@ export const WinPage = () => {
 
   const didWin = !!challengeUserInfo.solvedAtMs;
   const word = challengeUserInfo.guesses?.find((x) => x.similarity === 1);
-  const coldestGuess = challengeUserInfo.guesses?.reduce((prev, curr) =>
-    prev.similarity < curr.similarity ? prev : curr
-  );
 
   if (!word) throw new Error('No correct word found?');
 
@@ -149,7 +146,7 @@ export const WinPage = () => {
               {didWin ? (
                 <AnimatedNumber
                   size={40}
-                  value={challengeUserInfo.finalScore ?? 0}
+                  value={challengeUserInfo.score?.finalScore ?? 0}
                   animateOnMount
                 />
               ) : (
@@ -158,9 +155,14 @@ export const WinPage = () => {
 
               <p className="text-gray-400">
                 {didWin ? (
-                  <span>
-                    That's better than {playerRank > 0 ? percentageOutperformed : '--'}% of players!
-                  </span>
+                  totalPlayers === 1 ? (
+                    <span>You're the first player to solve today's challenge!</span>
+                  ) : (
+                    <span>
+                      That's better than {playerRank > 0 ? percentageOutperformed : '--'}% of
+                      players!
+                    </span>
+                  )
                 ) : (
                   <span>Play again tomorrow!</span>
                 )}

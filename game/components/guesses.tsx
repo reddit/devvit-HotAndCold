@@ -1,36 +1,65 @@
 import { motion, AnimatePresence } from 'motion/react';
-import { useSetUserSettings, useUserSettings } from '../hooks/useUserSettings';
+import { useUserSettings } from '../hooks/useUserSettings';
 import { Guess } from '../shared';
 import { cn } from '../utils';
 import { useEffect, useState } from 'react';
 import { useDimensions } from '../hooks/useDimensions';
 import { HowToPlayModal } from './howToPlayModal';
 
-const ProximityIndicator = ({ guess }: { guess: Guess }) => {
-  const fill = Math.round((1 - guess.rank / 1000) * 100);
+// const ProximityIndicator = ({ guess }: { guess: Guess }) => {
+//   const fill = Math.round((1 - guess.rank / 1000) * 100);
+//   return (
+//     <motion.div
+//       className="absolute right-1 top-0 flex h-full translate-x-full items-center gap-1 pl-1"
+//       initial={{ opacity: 0, scale: 0.8 }}
+//       animate={{ opacity: 1, scale: 1 }}
+//       transition={{ type: 'spring', duration: 0.5 }}
+//     >
+//       <span className="text-sm text-[#FE5555]">#{guess.rank}</span>
+//       <motion.div className="relative h-1.5 w-12 overflow-hidden rounded-full bg-gray-700">
+//         <motion.div
+//           className="absolute left-0 top-0 h-full rounded-full bg-gradient-to-r from-[#4DE1F2] via-[#FED155] to-[#FE5555]"
+//           initial={{ width: '0%' }}
+//           animate={{ width: `${fill}%` }}
+//           transition={{ type: 'spring', duration: 0.7 }}
+//         />
+//       </motion.div>
+//     </motion.div>
+//   );
+// };
+
+const GuessItem = ({ item, latestGuess }: { item: Guess; latestGuess?: Guess }) => {
   return (
-    <motion.div
-      className="absolute right-1 top-0 flex h-full translate-x-full items-center gap-1 pl-1"
-      initial={{ opacity: 0, scale: 0.8 }}
-      animate={{ opacity: 1, scale: 1 }}
-      transition={{ type: 'spring', duration: 0.5 }}
+    <p
+      className={cn(
+        'relative flex w-full justify-between gap-1 rounded px-1',
+        item.timestamp === latestGuess?.timestamp && 'border border-gray-500 bg-gray-700/50'
+      )}
     >
-      <span className="text-sm text-[#FE5555]">#{guess.rank}</span>
-      <motion.div className="relative h-1.5 w-12 overflow-hidden rounded-full bg-gray-700">
-        <motion.div
-          className="absolute left-0 top-0 h-full rounded-full bg-gradient-to-r from-[#4DE1F2] via-[#FED155] to-[#FE5555]"
-          initial={{ width: '0%' }}
-          animate={{ width: `${fill}%` }}
-          transition={{ type: 'spring', duration: 0.7 }}
-        />
-      </motion.div>
-    </motion.div>
+      <span
+        className={cn(
+          'truncate',
+          item.timestamp === latestGuess?.timestamp ? 'font-medium text-white' : 'text-gray-50'
+        )}
+      >
+        {item.word} {item.rank <= 250 && item.rank !== -1 ? ` (#${item.rank})` : null}
+      </span>
+      <span
+        className={cn(
+          'flex flex-shrink-0 items-center text-right',
+          item.normalizedSimilarity < 40 && 'text-[#4DE1F2]',
+          item.normalizedSimilarity >= 40 && item.normalizedSimilarity < 80 && 'text-[#FED155]',
+          item.normalizedSimilarity >= 80 && 'text-[#FE5555]'
+        )}
+      >
+        {item.normalizedSimilarity}%
+      </span>
+    </p>
   );
 };
 
 export const Guesses = ({ items }: { items: Guess[] }) => {
   const { sortDirection, sortType, layout } = useUserSettings();
-  const setUserSettings = useSetUserSettings();
   const [currentPage, setCurrentPage] = useState(1);
   const [ref, dimensions] = useDimensions();
   const [howToPlayOpen, setHowToPlayOpen] = useState(false);
@@ -78,19 +107,10 @@ export const Guesses = ({ items }: { items: Guess[] }) => {
         )}
       >
         {sortedItems.length > 0 ? (
-          <div className="flex h-7 items-start">
-            <button
-              onClick={() =>
-                setUserSettings((x) => ({
-                  ...x,
-                  sortType: sortType === 'SIMILARITY' ? 'TIMESTAMP' : 'SIMILARITY',
-                }))
-              }
-              className="flex items-center"
-            >
-              Sort:&nbsp;
-              {sortType === 'SIMILARITY' ? <span>similarity</span> : <span>guessed at</span>}
-            </button>
+          <div className="flex h-7 w-full flex-col content-end items-start gap-1">
+            {latestGuess && sortedItems.length > 1 && (
+              <GuessItem item={latestGuess} latestGuess={latestGuess} />
+            )}
           </div>
         ) : (
           <button
@@ -111,38 +131,8 @@ export const Guesses = ({ items }: { items: Guess[] }) => {
                 initial={{ opacity: 0, height: 0 }}
                 animate={{ opacity: 1, height: GUESS_HEIGHT }}
                 exit={{ opacity: 0, height: 0 }}
-                className={cn(
-                  'relative flex justify-between gap-1 rounded px-1',
-                  item.timestamp === latestGuess?.timestamp && 'bg-gray-700/50'
-                )}
               >
-                <span
-                  className={cn(
-                    'truncate',
-                    item.timestamp === latestGuess?.timestamp
-                      ? 'font-medium text-white'
-                      : 'text-gray-50'
-                  )}
-                >
-                  {item.word}
-                </span>
-
-                {item.rank && item.rank !== -1 && item.rank <= 1000 ? (
-                  <ProximityIndicator guess={item} />
-                ) : (
-                  <span
-                    className={cn(
-                      'flex flex-shrink-0 items-center',
-                      item.normalizedSimilarity < 40 && 'text-[#4DE1F2]',
-                      item.normalizedSimilarity >= 40 &&
-                        item.normalizedSimilarity < 80 &&
-                        'text-[#FED155]',
-                      item.normalizedSimilarity >= 80 && 'text-[#FE5555]'
-                    )}
-                  >
-                    {item.normalizedSimilarity}%
-                  </span>
-                )}
+                <GuessItem item={item} />
               </motion.div>
             ))}
           </AnimatePresence>

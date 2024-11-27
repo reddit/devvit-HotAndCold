@@ -114,7 +114,6 @@ const ProgressBar = ({
     const activePlayer = players.find((p) => p.isPlayer);
     if (!activePlayer) return { activePlayer: null, groups: [], visiblePlayers: [] };
 
-    const activeProgress = activePlayer.progress;
     const otherPlayers = players.filter((p) => !p.isPlayer);
 
     // Initialize groups and visible players
@@ -165,7 +164,7 @@ const ProgressBar = ({
   const calculatePosition = (progress: number) => {
     if (!containerWidth) return 0;
 
-    const safezoneBuffer = 30;
+    const safezoneBuffer = 15;
     const basePosition = (progress / 100) * containerWidth;
     const centeredPosition = basePosition - avatarSize / 2;
     const bufferProgress = (progress - 50) / 50;

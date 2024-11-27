@@ -24,7 +24,8 @@
     "vite": "vite --mode detached",
     "test": "vitest",
     "upload": "devvit upload",
-    "publish": "devvit publish"
+    "publish": "devvit publish",
+    "type-check": "tsc --noEmit && cd game && tsc --noEmit"
   },
   "dependencies": {
     "@devvit/public-api": "0.11.3",

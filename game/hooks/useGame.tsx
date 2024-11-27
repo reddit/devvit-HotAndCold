@@ -6,6 +6,10 @@ import { useSetPage } from './usePage';
 import { logger } from '../utils/logger';
 import { useMocks } from './useMocks';
 
+const isEmpty = (obj: object): boolean => {
+  return Object.keys(obj).length === 0;
+};
+
 const GameContext = createContext<Partial<Game>>({});
 const GameUpdaterContext = createContext<React.Dispatch<
   React.SetStateAction<Partial<Game>>
@@ -19,8 +23,6 @@ export const GameContextProvider = ({ children }: { children: React.ReactNode })
   const submissionResponse = useDevvitListener('WORD_SUBMITTED_RESPONSE');
   const hintResponse = useDevvitListener('HINT_RESPONSE');
   const giveUpResponse = useDevvitListener('GIVE_UP_RESPONSE');
-
-  logger.log(JSON.stringify(game));
 
   useEffect(() => {
     sendMessageToDevvit({
@@ -58,6 +60,9 @@ export const GameContextProvider = ({ children }: { children: React.ReactNode })
 
   useEffect(() => {
     logger.log('New game info: ', game);
+
+    if (isEmpty(game)) return;
+
     if (game.challengeUserInfo?.solvedAtMs || game.challengeUserInfo?.gaveUpAtMs) {
       setPage('win');
     } else {

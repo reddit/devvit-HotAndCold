@@ -8,8 +8,6 @@ export const PlayPage = () => {
   const [word, setWord] = useState('');
   const { challengeUserInfo } = useGame();
 
-  const wordResult = challengeUserInfo?.guesses?.find((guess) => guess.word === word);
-
   return (
     <div className="flex h-full flex-col justify-center gap-6">
       <div className="flex flex-col items-center justify-center gap-6">

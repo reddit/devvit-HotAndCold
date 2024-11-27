@@ -13,7 +13,6 @@ import { HelpMenu } from './components/helpMenu';
 import { useState } from 'react';
 import { HowToPlayModal } from './components/howToPlayModal';
 import { LoadingPage } from './pages/LoadingPage';
-import { FriendsModal } from './components/friendsModal';
 import { useSetUserSettings, useUserSettings } from './hooks/useUserSettings';
 
 const getPage = (page: Page) => {
@@ -71,6 +70,16 @@ export const App = () => {
                         ...x,
                         layout: layout === 'CONDENSED' ? 'EXPANDED' : 'CONDENSED',
                       })),
+                  },
+                  {
+                    name: `Sort by ${layout === 'CONDENSED' ? 'Similarity' : 'Timestamp'}`,
+                    disabled: !isActivelyPlaying,
+                    action: async () => {
+                      setUserSettings((x) => ({
+                        ...x,
+                        sortType: x.sortType === 'SIMILARITY' ? 'TIMESTAMP' : 'SIMILARITY',
+                      }));
+                    },
                   },
                   {
                     name: 'Hint',

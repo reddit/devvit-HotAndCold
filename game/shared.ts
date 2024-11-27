@@ -20,6 +20,28 @@ export type PlayerProgress = {
   isPlayer: boolean;
 }[];
 
+export type ScoreExplanation = {
+  version: string;
+  finalScore: number;
+  breakdown: {
+    solvingBonus: number;
+    timeBonus: {
+      points: number;
+      timeInSeconds: number;
+      isOptimal: boolean;
+    };
+    guessBonus: {
+      points: number;
+      numberOfGuesses: number;
+      isOptimal: boolean;
+    };
+    hintPenalty: {
+      numberOfHints: number;
+      penaltyMultiplier: number;
+    };
+  };
+};
+
 export type Game = {
   number: number;
   // TODO: Need to get this
@@ -35,7 +57,7 @@ export type Game = {
     totalGiveUps?: number | undefined;
   };
   challengeUserInfo: {
-    finalScore?: number | undefined;
+    score?: ScoreExplanation | undefined;
     startedPlayingAtMs?: number | undefined;
     solvedAtMs?: number | undefined;
     gaveUpAtMs?: number | undefined;
