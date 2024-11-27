@@ -72,7 +72,7 @@ export const App = () => {
                       })),
                   },
                   {
-                    name: `Sort by ${sortType === 'TIMESTAMP' ? 'Similarity' : 'Timestamp'}`,
+                    name: `Sort by ${sortType === 'TIMESTAMP' ? 'Similarity' : 'Time'}`,
                     disabled: !isActivelyPlaying,
                     action: async () => {
                       setUserSettings((x) => ({
