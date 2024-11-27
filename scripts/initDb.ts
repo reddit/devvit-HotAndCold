@@ -32,7 +32,7 @@ interface WordRow {
 
 const config: Config = {
   batchSize: 1000,
-  embedDimensions: [50, 100, 200, 300, 500, 1536, 3072],
+  embedDimensions: [200, 300, 500, 1536, 3072],
   wordlistPath: path.join(
     __dirname,
     "..",
@@ -52,7 +52,7 @@ const config: Config = {
   model: "text-embedding-3-large",
 };
 
-const client = new pg.Client({
+const client = new pg.Pool({
   connectionString: process.env.PG_CONNECTION_STRING,
 });
 
@@ -66,16 +66,6 @@ async function createSchema(): Promise<void> {
 
   await client.query("SET statement_timeout = '1h'");
 
-  await client.query(`
-    DO $$ 
-    BEGIN
-      IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'part_of_speech_enum') THEN
-        CREATE TYPE part_of_speech_enum AS ENUM ('n', 'v', 'a', 'r', 's');
-      END IF;
-    END
-    $$;
-  `);
-
   const embeddingColumns = config.embedDimensions
     .map((dim) => `embedding_${dim} vector(${dim})`)
     .join(",\n      ");
@@ -87,7 +77,7 @@ async function createSchema(): Promise<void> {
       ${embeddingColumns},
       synset_type VARCHAR(255),
       sense_count INT,
-      part_of_speech part_of_speech_enum,
+      part_of_speech VARCHAR(255),
       definition TEXT,
       synonyms TEXT,
       is_hint BOOLEAN,

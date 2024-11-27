@@ -9,11 +9,11 @@ import { fileURLToPath } from "url";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-// ===================== CONFIGURATION =====================
 const CONFIG = {
   inputPath: join(__dirname, "../words/output/wordnet.csv"),
   hintPath: join(__dirname, "../words/output/hintsList.csv"),
   outputPath: join(__dirname, "../words/output/finalizedWordList.csv"),
+  rejectedWordsPath: join(__dirname, "../words/output/rejectedWords.csv"),
   filterOptions: {
     removeProfanity: true,
     removeNumbers: true,
@@ -22,9 +22,7 @@ const CONFIG = {
     removeAbbreviations: true,
     processHyphenatedWords: true,
   },
-  // Customize which fields to maintain when combining duplicates
   duplicateFields: ["synset_offset", "pos", "definition"],
-  // Define which columns to keep in the output
   outputColumns: [
     "word",
     "synset_offset",
@@ -39,7 +37,6 @@ const CONFIG = {
   ],
 } as const;
 
-// ===================== TYPES =====================
 interface WordEntry {
   /** The actual word or term */
   word: string;
@@ -94,6 +91,11 @@ interface WordEntry {
 interface HintEntry {
   word: string;
   frequency: number;
+}
+
+interface RejectedWord {
+  word: string;
+  reason: string;
 }
 
 export interface ProcessedEntry extends WordEntry {
@@ -210,8 +212,7 @@ const profanityList = new Set([
 ]);
 
 function isProfane(word: string): boolean {
-  const lowercaseWord = word.toLowerCase();
-  return profanityList.has(lowercaseWord);
+  return profanityList.has(word.toLowerCase());
 }
 
 const hasNonLetters = (word: string) => {
@@ -239,6 +240,22 @@ const lemmatizeIt = (input: string) => {
   if (!word || typeof word !== "string") {
     return word;
   }
+
+  // Exception list
+  const exceptions = new Set([
+    "pass",
+    "rose",
+    "buss",
+    "discuss",
+    "better",
+    "best",
+    "lay",
+    "left",
+    "worst",
+    "pass",
+    "",
+  ]);
+  if (exceptions.has(word)) return word;
 
   // Try adjective first since it's most likely to be different if it is an adjective
   const adj = lemmatize.adjective(word);
@@ -276,24 +293,6 @@ function processHyphenatedWord(word: string, _pos: string): string | null {
   return null;
 }
 
-// ===================== MAIN PROCESSING FUNCTIONS =====================
-function shouldFilterWord(word: string): boolean {
-  if (CONFIG.filterOptions.removeProfanity && isProfane(word)) return true;
-  if (CONFIG.filterOptions.removeNumbers && isNumber(word)) return true;
-  if (
-    CONFIG.filterOptions.removeWordsContainingSpecialCharacters &&
-    hasNonLetters(word)
-  ) return true;
-  if (CONFIG.filterOptions.removeAbbreviations && isAbbreviation(word)) {
-    return true;
-  }
-  if (CONFIG.filterOptions.removeMultipleWords && hasMultipleWords(word)) {
-    return true;
-  }
-  return false;
-}
-
-// ===================== HINT PROCESSING =====================
 function loadHintData(): Set<string> {
   try {
     const hintData = fs.readFileSync(CONFIG.hintPath, "utf-8");
@@ -301,8 +300,6 @@ function loadHintData(): Set<string> {
       columns: true,
       skip_empty_lines: true,
     }) as HintEntry[];
-
-    // Create a Set of words from hint data for efficient lookup
     return new Set(records.map((record) => record.word.toLowerCase()));
   } catch (error) {
     console.error("Error loading hint data:", error);
@@ -313,59 +310,74 @@ function loadHintData(): Set<string> {
 function processWord(
   entry: WordEntry,
   hintWords: Set<string>,
+  rejectedWords: RejectedWord[],
 ): ProcessedEntry | null {
   const { word, pos } = entry;
 
-  if (shouldFilterWord(word)) {
+  if (CONFIG.filterOptions.removeProfanity && isProfane(word)) {
+    // rejectedWords.push({ word, reason: "is profane" });
+    return null;
+  }
+  if (CONFIG.filterOptions.removeNumbers && isNumber(word)) {
+    // rejectedWords.push({ word, reason: "is number" });
+    return null;
+  }
+  if (
+    CONFIG.filterOptions.removeWordsContainingSpecialCharacters &&
+    hasNonLetters(word)
+  ) {
+    // rejectedWords.push({ word, reason: "has non-letters" });
+    return null;
+  }
+  if (CONFIG.filterOptions.removeAbbreviations && isAbbreviation(word)) {
+    // rejectedWords.push({ word, reason: "is abbreviation" });
+    return null;
+  }
+  if (CONFIG.filterOptions.removeMultipleWords && hasMultipleWords(word)) {
+    // rejectedWords.push({ word, reason: "has multiple words" });
     return null;
   }
 
-  // Process hyphenated words first
   const processedWord = processHyphenatedWord(word, pos);
   if (processedWord === null) {
+    rejectedWords.push({ word, reason: "hyphenated word filtered" });
     return null;
   }
 
-  // Apply lemmatization
   const lemmatizedWord = lemmatizeIt(processedWord);
+  if (lemmatizedWord !== processedWord) {
+    rejectedWords.push({
+      word: processedWord,
+      reason: "lemmatized form differs",
+    });
+    return null;
+  }
 
-  const processedEntry: ProcessedEntry = {
+  return {
     ...entry,
-    lemmatizedForm: lemmatizedWord,
+    word: processedWord,
     hint: hintWords.has(processedWord.toLowerCase()) ? "1" : "0",
   };
-
-  return processedEntry;
 }
 
 function combineDuplicates(entries: ProcessedEntry[]): ProcessedEntry[] {
   const wordMap = new Map<string, ProcessedEntry>();
 
   entries.forEach((entry) => {
-    const key = entry.lemmatizedForm || entry.word;
-
-    if (wordMap.has(key)) {
-      const existing = wordMap.get(key)!;
-      existing.relatedEntries = existing.relatedEntries || [];
-
-      // Store only specified fields from duplicate entries
-      const duplicateInfo: Partial<WordEntry> = {};
+    if (wordMap.has(entry.word)) {
+      const existing = wordMap.get(entry.word)!;
       CONFIG.duplicateFields.forEach((field) => {
-        duplicateInfo[field] = entry[field];
+        existing[field] = [existing[field], entry[field]].join(";;; ");
       });
-
-      existing.relatedEntries.push(duplicateInfo);
-      // Preserve hint value if either entry is a hint
-      existing.hint = existing.hint || entry.hint;
+      existing.hint = entry.hint === "1" || existing.hint === "1" ? "1" : "0";
     } else {
-      wordMap.set(key, entry);
+      wordMap.set(entry.word, entry);
     }
   });
 
   return Array.from(wordMap.values());
 }
 
-// ===================== FILE OPERATIONS =====================
 function ensureDirectoryExists(filePath: string): void {
   const dir = path.dirname(filePath);
   if (!fs.existsSync(dir)) {
@@ -375,11 +387,9 @@ function ensureDirectoryExists(filePath: string): void {
 
 async function processCSV(): Promise<void> {
   try {
-    // Load hint data
     const hintWords = loadHintData();
     console.log(`Loaded ${hintWords.size} hint words`);
 
-    // Read input file
     const inputData = fs.readFileSync(CONFIG.inputPath, "utf-8");
     const records = csv.parse(inputData, {
       columns: true,
@@ -387,27 +397,32 @@ async function processCSV(): Promise<void> {
     }) as WordEntry[];
 
     const totalInitialEntries = records.length;
+    const rejectedWords: RejectedWord[] = [];
 
-    // Process records with hint data
     const processedEntries = records
-      .map((entry) => processWord(entry, hintWords))
+      .map((entry) => processWord(entry, hintWords, rejectedWords))
       .filter((entry): entry is ProcessedEntry => entry !== null);
 
-    // Combine duplicates
     const combinedEntries = combineDuplicates(processedEntries);
 
-    // Ensure output directories exist
     ensureDirectoryExists(CONFIG.outputPath);
+    ensureDirectoryExists(CONFIG.rejectedWordsPath);
 
-    // Write main output with only selected columns
     const outputCsv = stringify(combinedEntries, {
       header: true,
       columns: CONFIG.outputColumns,
     });
     fs.writeFileSync(CONFIG.outputPath, outputCsv);
 
-    // Calculate hint statistics
-    const hintCount = combinedEntries.filter((entry) => entry.hint).length;
+    const rejectedWordsCsv = stringify(rejectedWords, {
+      header: true,
+      columns: ["word", "reason"],
+    });
+    fs.writeFileSync(CONFIG.rejectedWordsPath, rejectedWordsCsv);
+
+    const hintCount = combinedEntries.filter((entry) =>
+      entry.hint === "1"
+    ).length;
 
     console.log("\nWord Processing Statistics:");
     console.log(`Initial total entries: ${totalInitialEntries}`);
@@ -424,11 +439,11 @@ async function processCSV(): Promise<void> {
         processedEntries.length - combinedEntries.length
       } duplicate entries`,
     );
+    console.log(`Rejected words written to: ${CONFIG.rejectedWordsPath}`);
   } catch (error) {
     console.error("Error processing CSV:", error);
     throw error;
   }
 }
 
-// ===================== EXECUTION =====================
 processCSV().catch(console.error);

@@ -15,8 +15,8 @@ const BATCH_INFO = [
   {
     "dimension": 50,
     "batchNumber": 1,
-    "batchId": "batch_673e559c07888190911774daf17f326f",
-    "fileId": "file-21aedNXioVE27TauRqYePy8j",
+    "batchId": "batch_674750a283088190b5c30c44ef7c5ab2",
+    "fileId": "file-JdmVMdMoMHyutJMgs34XV8",
     "requestCount": 45000,
     "filePath":
       "/Users/marcus.wood/community-apps/hotandcold/words/output/openai/batches/batch_text-embedding-3-large_50d_1.jsonl",
@@ -25,9 +25,9 @@ const BATCH_INFO = [
   {
     "dimension": 50,
     "batchNumber": 2,
-    "batchId": "batch_673e55a0da7881908d067c882de5b478",
-    "fileId": "file-UFWGjkcKlj18RHHsePyyFxyX",
-    "requestCount": 32427,
+    "batchId": "batch_674750a6089881909e236e4ae93e6254",
+    "fileId": "file-Vd8LuiuHGYweT6tUuPJt3K",
+    "requestCount": 27291,
     "filePath":
       "/Users/marcus.wood/community-apps/hotandcold/words/output/openai/batches/batch_text-embedding-3-large_50d_2.jsonl",
     "model": "text-embedding-3-large",
@@ -35,8 +35,8 @@ const BATCH_INFO = [
   {
     "dimension": 100,
     "batchNumber": 1,
-    "batchId": "batch_673e55a4dc68819085da30ed3f31a76e",
-    "fileId": "file-ppFRt7QobpGwNxGQrBLXxF13",
+    "batchId": "batch_674750a959888190a165a72d2c638ae4",
+    "fileId": "file-ATXWgd4HJNSMpSA3jCLZLZ",
     "requestCount": 45000,
     "filePath":
       "/Users/marcus.wood/community-apps/hotandcold/words/output/openai/batches/batch_text-embedding-3-large_100d_1.jsonl",
@@ -45,9 +45,9 @@ const BATCH_INFO = [
   {
     "dimension": 100,
     "batchNumber": 2,
-    "batchId": "batch_673e55a9bde0819099880653eef1e4bf",
-    "fileId": "file-szYLSZ5i0LfXghl2WaVMqCPh",
-    "requestCount": 32427,
+    "batchId": "batch_674750acd4e08190aef9a950abdd9b34",
+    "fileId": "file-QzFm3gD33uwmmwXqeUqVrm",
+    "requestCount": 27291,
     "filePath":
       "/Users/marcus.wood/community-apps/hotandcold/words/output/openai/batches/batch_text-embedding-3-large_100d_2.jsonl",
     "model": "text-embedding-3-large",
@@ -55,8 +55,8 @@ const BATCH_INFO = [
   {
     "dimension": 200,
     "batchNumber": 1,
-    "batchId": "batch_673e55ae2e988190bc90bc4901f90453",
-    "fileId": "file-1kXV40fMjO23V8TcpJ60GtwE",
+    "batchId": "batch_674750af397c8190a78e7cab60e07806",
+    "fileId": "file-AvLAxXCLnbt8WGgGJ6RDJK",
     "requestCount": 45000,
     "filePath":
       "/Users/marcus.wood/community-apps/hotandcold/words/output/openai/batches/batch_text-embedding-3-large_200d_1.jsonl",
@@ -65,9 +65,9 @@ const BATCH_INFO = [
   {
     "dimension": 200,
     "batchNumber": 2,
-    "batchId": "batch_673e55b2434481909fa0144d13dd800c",
-    "fileId": "file-Im2a1a8txzKxayo7EK13Rk9T",
-    "requestCount": 32427,
+    "batchId": "batch_674750b2211c819098bb80ee8a0f568b",
+    "fileId": "file-RwqfyyPkAyciTV3F2yfTeF",
+    "requestCount": 27291,
     "filePath":
       "/Users/marcus.wood/community-apps/hotandcold/words/output/openai/batches/batch_text-embedding-3-large_200d_2.jsonl",
     "model": "text-embedding-3-large",
@@ -75,8 +75,8 @@ const BATCH_INFO = [
   {
     "dimension": 300,
     "batchNumber": 1,
-    "batchId": "batch_673e55b7560481908a7b9d5798ad9850",
-    "fileId": "file-ThYqUU6pdD0QmbillUzXVA4K",
+    "batchId": "batch_674750b76c948190b07b7d2f9c550a95",
+    "fileId": "file-UycVnH3t6qSwj26dV2eu6d",
     "requestCount": 45000,
     "filePath":
       "/Users/marcus.wood/community-apps/hotandcold/words/output/openai/batches/batch_text-embedding-3-large_300d_1.jsonl",
@@ -85,9 +85,9 @@ const BATCH_INFO = [
   {
     "dimension": 300,
     "batchNumber": 2,
-    "batchId": "batch_673e55bb90348190a035062f964dc13c",
-    "fileId": "file-dVbCdALZB6mW69PeFMytVvb3",
-    "requestCount": 32427,
+    "batchId": "batch_674750bc7e8c8190a1d0af02af2b3c14",
+    "fileId": "file-NweZ6M9UG4BkWjNSExRpbt",
+    "requestCount": 27291,
     "filePath":
       "/Users/marcus.wood/community-apps/hotandcold/words/output/openai/batches/batch_text-embedding-3-large_300d_2.jsonl",
     "model": "text-embedding-3-large",
@@ -95,8 +95,8 @@ const BATCH_INFO = [
   {
     "dimension": 500,
     "batchNumber": 1,
-    "batchId": "batch_673e55c04124819081fc9f8ac518c3d0",
-    "fileId": "file-OlVY39YrnIJdhjDjw6Qz1OB1",
+    "batchId": "batch_674750bf9ecc8190addd99861deb141b",
+    "fileId": "file-PfEoTn8a9n6oSwBggVyi81",
     "requestCount": 45000,
     "filePath":
       "/Users/marcus.wood/community-apps/hotandcold/words/output/openai/batches/batch_text-embedding-3-large_500d_1.jsonl",
@@ -105,9 +105,9 @@ const BATCH_INFO = [
   {
     "dimension": 500,
     "batchNumber": 2,
-    "batchId": "batch_673e55c4464c819090428a7008cc67c0",
-    "fileId": "file-6Muh6RSNfWsLpCYGwWTcZQep",
-    "requestCount": 32427,
+    "batchId": "batch_674750c28ab88190a659ea6bc9e77096",
+    "fileId": "file-2kviB4dUkuYHjWqsa8SPAX",
+    "requestCount": 27291,
     "filePath":
       "/Users/marcus.wood/community-apps/hotandcold/words/output/openai/batches/batch_text-embedding-3-large_500d_2.jsonl",
     "model": "text-embedding-3-large",
@@ -115,8 +115,8 @@ const BATCH_INFO = [
   {
     "dimension": 1536,
     "batchNumber": 1,
-    "batchId": "batch_673e55c980e081908529a7fac7dbcbf8",
-    "fileId": "file-hJfipvQs9PLjGsv962nxh5Tg",
+    "batchId": "batch_674750c57da48190bfec0b14ee3d2a94",
+    "fileId": "file-3YMeXFJ7PsgFAU6fn8BpiD",
     "requestCount": 45000,
     "filePath":
       "/Users/marcus.wood/community-apps/hotandcold/words/output/openai/batches/batch_text-embedding-3-large_1536d_1.jsonl",
@@ -125,9 +125,9 @@ const BATCH_INFO = [
   {
     "dimension": 1536,
     "batchNumber": 2,
-    "batchId": "batch_673e55cd66b88190b00c14da8cc60b9b",
-    "fileId": "file-ydF98BesTeyTKIoxa2MX6DH6",
-    "requestCount": 32427,
+    "batchId": "batch_674750c8c164819091ec0457b8925e9b",
+    "fileId": "file-StetSBDWUsmqHpejDTAyYa",
+    "requestCount": 27291,
     "filePath":
       "/Users/marcus.wood/community-apps/hotandcold/words/output/openai/batches/batch_text-embedding-3-large_1536d_2.jsonl",
     "model": "text-embedding-3-large",
@@ -135,8 +135,8 @@ const BATCH_INFO = [
   {
     "dimension": 3072,
     "batchNumber": 1,
-    "batchId": "batch_673e55d136948190b52d06828cbcfef0",
-    "fileId": "file-MH2UqAwYEK6MOjx7uNHOmgxz",
+    "batchId": "batch_674750cb70d08190893e3071e96823ac",
+    "fileId": "file-4M8JFWRaM1wwpj1mDo69gc",
     "requestCount": 45000,
     "filePath":
       "/Users/marcus.wood/community-apps/hotandcold/words/output/openai/batches/batch_text-embedding-3-large_3072d_1.jsonl",
@@ -145,9 +145,9 @@ const BATCH_INFO = [
   {
     "dimension": 3072,
     "batchNumber": 2,
-    "batchId": "batch_673e55d527b88190a7ea8115df9f26c1",
-    "fileId": "file-bLAGRsnoL0yy5R7CZBTqLrhJ",
-    "requestCount": 32427,
+    "batchId": "batch_674750ce91fc8190884d38a3e6d3c6d4",
+    "fileId": "file-DcSLgKuM5R9ZbtospqfoKa",
+    "requestCount": 27291,
     "filePath":
       "/Users/marcus.wood/community-apps/hotandcold/words/output/openai/batches/batch_text-embedding-3-large_3072d_2.jsonl",
     "model": "text-embedding-3-large",

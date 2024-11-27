@@ -18,6 +18,22 @@ const lemmatizeIt = (input: string) => {
     return word;
   }
 
+  // Exception list
+  const exceptions = new Set([
+    "pass",
+    "rose",
+    "buss",
+    "discuss",
+    "better",
+    "best",
+    "lay",
+    "left",
+    "worst",
+    "pass",
+    "",
+  ]);
+  if (exceptions.has(word)) return word;
+
   // Try adjective first since it's most likely to be different if it is an adjective
   const adj = lemmatize.adjective(word);
   if (word !== adj) {
