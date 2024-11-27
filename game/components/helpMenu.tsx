@@ -123,7 +123,7 @@ export const HelpMenu = ({
 
       {toggled && (
         <div
-          className="absolute -left-24 top-full z-[10000] mt-1 w-28 rounded-md border border-gray-800 bg-gray-900 py-1 shadow-lg"
+          className="absolute -left-36 top-full z-[10000] mt-1 w-36 rounded-md border border-gray-800 bg-gray-900 py-1 shadow-lg"
           role="menu"
           aria-orientation="vertical"
           aria-labelledby="menu-button"

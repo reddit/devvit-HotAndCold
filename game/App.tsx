@@ -32,7 +32,7 @@ const getPage = (page: Page) => {
 
 export const App = () => {
   const page = usePage();
-  const { layout } = useUserSettings();
+  const { layout, sortType } = useUserSettings();
   const setUserSettings = useSetUserSettings();
   const { challengeUserInfo, number } = useGame();
   const isActivelyPlaying =
@@ -72,7 +72,7 @@ export const App = () => {
                       })),
                   },
                   {
-                    name: `Sort by ${layout === 'CONDENSED' ? 'Similarity' : 'Timestamp'}`,
+                    name: `Sort by ${sortType === 'TIMESTAMP' ? 'Similarity' : 'Timestamp'}`,
                     disabled: !isActivelyPlaying,
                     action: async () => {
                       setUserSettings((x) => ({
