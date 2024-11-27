@@ -285,6 +285,11 @@ export const submitGuess = zoddy(
       challengeUserInfo.guesses && challengeUserInfo.guesses.length > 0 &&
       challengeUserInfo.guesses.find((x) => x.word === distance.wordBLemma)
     ) {
+      if (rawGuess !== distance.wordBLemma) {
+        throw new Error(
+          `We changed your guess to ${distance.wordBLemma} and you've already guessed that.`,
+        );
+      }
       throw new Error(`You've already guessed ${distance.wordBLemma}.`);
     }
 

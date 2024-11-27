@@ -241,7 +241,7 @@ const ProgressBar = ({
                   item.isPlayer && 'font-semibold text-[#7BF24C]'
                 )}
               >
-                {item.isPlayer ? '> you <' : item.username}
+                {item.isPlayer ? '> you <' : <span>&nbsp;</span>}
               </span>
             </div>
           </motion.div>
