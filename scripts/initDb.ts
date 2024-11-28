@@ -54,6 +54,7 @@ const config: Config = {
 
 const client = new pg.Pool({
   connectionString: process.env.PG_CONNECTION_STRING,
+  max: 10,
 });
 
 async function createSchema(): Promise<void> {
@@ -84,15 +85,11 @@ async function createSchema(): Promise<void> {
       UNIQUE(word)
     );
     
-    CREATE INDEX IF NOT EXISTS idx_word ON words(word);
-    CREATE INDEX IF NOT EXISTS idx_pos ON words(part_of_speech);
-    CREATE INDEX IF NOT EXISTS idx_hint ON words(is_hint);
-
     CREATE TABLE IF NOT EXISTS cache (
-      id SERIAL PRIMARY KEY,
-      key VARCHAR(255) UNIQUE,
-      data JSONB
-    );
+        id SERIAL PRIMARY KEY,
+        key VARCHAR(255) UNIQUE,
+        data JSONB
+      );
   `;
 
   await client.query(createTableQuery);
@@ -274,8 +271,21 @@ async function main(): Promise<void> {
     console.log("Creating schema...");
     await createSchema();
 
-    console.log("Importing words...");
-    await importWords();
+    await client.query("ALTER TABLE words DISABLE TRIGGER ALL");
+
+    try {
+      console.log("Importing words...");
+      await importWords();
+    } catch (error) {
+      console.error(`Error importing words:`, error);
+    }
+
+    await client.query("ALTER TABLE words ENABLE TRIGGER ALL");
+
+    await client.query(`   
+      CREATE INDEX IF NOT EXISTS idx_word ON words(word);
+      CREATE INDEX IF NOT EXISTS idx_hint ON words(is_hint);
+      `);
 
     console.log("Import completed successfully.");
   } catch (error) {

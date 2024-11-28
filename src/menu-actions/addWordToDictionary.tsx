@@ -27,10 +27,29 @@ const addWordsToDictionaryFormId = Devvit.createForm(
   async ({ values: { prepend, words } }, context) => {
     const wordsToAdd = words.split(',').map((word: string) => word.trim());
 
+    /**
+     * Do a lemme check before adding the words to the dictionary
+     */
+    for (const word of wordsToAdd) {
+      const compare = await API.compareWords({
+        context,
+        guessWord: word,
+        // This can be any word, it doesn't matter we just want the lemma check!
+        secretWord: 'banana',
+      });
+
+      if (compare.wordB !== compare.wordBLemma) {
+        context.ui.showToast(
+          `The word "${word}" is not the lemma form of the word "${compare.wordB}". Only lemma words are valid secret words. Please try again.`
+        );
+        return;
+      }
+    }
+
     wordsToAdd.forEach((word) => {
       // Don't wait, this just heats up the cache for the third party API
       API.getWordConfig({ context, word });
-    })
+    });
 
     const resp = await WordList.addToCurrentWordList({
       mode: prepend ? 'prepend' : 'append',
