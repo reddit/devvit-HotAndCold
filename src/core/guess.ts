@@ -352,7 +352,10 @@ export const submitGuess = zoddy(
     const newGuesses = z.array(guessSchema).parse([
       ...challengeUserInfo.guesses ?? [],
       guessToAdd,
-    ]);
+      // This works around a bug where I would accidentally add the secret word to the guesses
+      // but score it on the guessed word's similarlity. This shim will remove the secret word
+      // to let the game self heal.
+    ]).filter((x) => !(x.word === distance.wordA && x.similarity !== 1));
 
     await txn.hSet(getChallengeUserKey(challenge, username), {
       guesses: JSON.stringify(newGuesses),
