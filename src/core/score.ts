@@ -49,14 +49,13 @@ export function calculateScore(
     timeBonus = 0;
   }
 
-  // Guess bonus calculation
   const numGuesses = guesses.length;
   let guessBonus;
-  const isOptimalGuesses = numGuesses <= 10;
+  const isOptimalGuesses = numGuesses <= 15;
   if (isOptimalGuesses) {
     guessBonus = 50;
-  } else if (numGuesses <= 50) {
-    guessBonus = Math.round(50 * (1 - (numGuesses - 10) / 40));
+  } else if (numGuesses <= 100) {
+    guessBonus = Math.round(50 * (1 - (numGuesses - 15) / 85));
   } else {
     guessBonus = 0;
   }
@@ -64,7 +63,6 @@ export function calculateScore(
   // Calculate base score
   let baseScore = solvingBonus + timeBonus + guessBonus;
 
-  // Calculate hint penalty
   const penaltyMultiplier = Math.pow(0.85, totalHints);
   const finalScore = Math.round(baseScore * penaltyMultiplier);
 

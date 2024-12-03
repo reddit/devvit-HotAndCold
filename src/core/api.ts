@@ -11,23 +11,21 @@ export const getWordConfigCacheKey = (word: string) =>
   `word_config:${word}` as const;
 
 /**
- * Generates a cache key for word comparisons in a deterministic order.
- * The order of the input parameters doesn't matter - the function will
- * always alphabetize them to ensure consistent cache keys:
+ * Generates a cache key for word comparisons. ORDER MATTERS HERE because
+ * we lemma wordB (the user's guess). Also if a prior secret word is used
+ * that is guessed often, that would break a deterministic cache key.
  *
- * wordComparisonCacheKey('CAR', 'DOG') === wordComparisonCacheKey('DOG', 'CAR')
- * // Both return 'word_comparison:CAR:DOG'
- *
- * @param wordA - First word to compare
- * @param wordB - Second word to compare
- * @returns Cache key with words in alphabetical order
+ * So while the distance is the same regardless of comparison order, you still
+ * need to cache in a given order due to the lemma check and the fact that
+ * wordA is ALWAYS the secret word.
  */
 export const getWordComparisonCacheKey = (
   wordA: string,
   wordB: string,
-): `word_comparison:${string}:${string}` => {
-  const [first, second] = [wordA, wordB].sort();
-  return `word_comparison:${first}:${second}` as const;
+) => {
+  // The _1 is because we messed up the original cache key and we don't
+  // provide a way for users to clear their cache.
+  return `word_comparison_1:${wordA}:${wordB}` as const;
 };
 
 const wordConfigSchema = z.object({
