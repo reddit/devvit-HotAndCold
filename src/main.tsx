@@ -135,6 +135,19 @@ Devvit.addCustomPostType({
                     challengeProgress: challengeProgress,
                   },
                 });
+
+                const isUserOptedIntoReminders = await Reminders.isUserOptedIntoReminders({
+                  redis: context.redis,
+                  username: initialState.user?.username!,
+                });
+
+                sendMessageToWebview(context, {
+                  type: 'TOGGLE_USER_REMINDER_RESPONSE',
+                  payload: {
+                    isUserOptedIntoReminders,
+                  },
+                });
+
                 break;
               case 'WORD_SUBMITTED':
                 try {
@@ -241,6 +254,13 @@ Devvit.addCustomPostType({
                 const resp = await Reminders.toggleReminderForUsername({
                   redis: context.redis,
                   username: initialState.user?.username!,
+                });
+
+                sendMessageToWebview(context, {
+                  type: 'TOGGLE_USER_REMINDER_RESPONSE',
+                  payload: {
+                    isUserOptedIntoReminders: resp.newValue,
+                  },
                 });
 
                 if (resp.newValue) {

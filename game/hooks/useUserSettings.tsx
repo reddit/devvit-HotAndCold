@@ -1,10 +1,12 @@
-import { createContext, useContext, useState } from 'react';
+import { createContext, useContext, useEffect, useState } from 'react';
 import { UserSettings } from '../shared';
+import { useDevvitListener } from './useDevvitListener';
 
 const defaultUserSettings: UserSettings = {
   sortDirection: 'DESC',
   sortType: 'SIMILARITY',
   layout: 'CONDENSED',
+  isUserOptedIntoReminders: false,
 };
 
 const UserSettingsContext = createContext<UserSettings>(defaultUserSettings);
@@ -14,6 +16,16 @@ const UserSettingsUpdaterContext = createContext<React.Dispatch<
 
 export const UserSettingsContextProvider = ({ children }: { children: React.ReactNode }) => {
   const [challenge, setUserSettings] = useState<UserSettings>(defaultUserSettings);
+  const reminders = useDevvitListener('TOGGLE_USER_REMINDER_RESPONSE');
+
+  useEffect(() => {
+    if (!reminders) return;
+
+    setUserSettings({
+      ...challenge,
+      isUserOptedIntoReminders: reminders.isUserOptedIntoReminders,
+    });
+  }, [reminders]);
 
   return (
     <UserSettingsUpdaterContext.Provider value={setUserSettings}>

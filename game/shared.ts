@@ -73,6 +73,7 @@ export type UserSettings = {
   sortDirection: "ASC" | "DESC";
   sortType: "SIMILARITY" | "TIMESTAMP";
   layout: "CONDENSED" | "EXPANDED";
+  isUserOptedIntoReminders: boolean;
 };
 
 export type ChallengeLeaderboardResponse = {
@@ -107,6 +108,16 @@ export type WebviewToBlocksMessage =
 export type BlocksToWebviewMessage =
   // TODO: Just make `GAME_RESPONSE`?
   | {
+    type: "GAME_INIT_RESPONSE";
+    payload: GameResponse;
+  }
+  | {
+    type: "TOGGLE_USER_REMINDER_RESPONSE";
+    payload: {
+      isUserOptedIntoReminders: boolean;
+    };
+  }
+  | {
     type: "WORD_SUBMITTED_RESPONSE";
     payload: GameResponse;
   }
@@ -116,10 +127,6 @@ export type BlocksToWebviewMessage =
   }
   | {
     type: "GIVE_UP_RESPONSE";
-    payload: GameResponse;
-  }
-  | {
-    type: "GAME_INIT_RESPONSE";
     payload: GameResponse;
   }
   | {

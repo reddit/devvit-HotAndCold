@@ -4,6 +4,7 @@ import { cn, getPrettyDuration, sendMessageToDevvit } from '../utils';
 import { useDevvitListener } from '../hooks/useDevvitListener';
 import PillSwitch from '../components/switcher';
 import { AnimatedNumber } from '../components/timer';
+import { useUserSettings } from '../hooks/useUserSettings';
 
 const prettyNumber = (num: number): string => {
   return num.toLocaleString('en-US');
@@ -90,7 +91,7 @@ const ThermometerIcon = () => (
 export const WinPage = () => {
   const { challengeInfo, challengeUserInfo } = useGame();
   const [activeIndex, setActiveIndex] = React.useState(0);
-  const [remindMeTomorrow, setRemindMeTomorrow] = React.useState(false);
+  const { isUserOptedIntoReminders } = useUserSettings();
   const leaderboardData = useDevvitListener('CHALLENGE_LEADERBOARD_RESPONSE');
 
   if (!challengeUserInfo || !challengeInfo) return null;
@@ -198,10 +199,8 @@ export const WinPage = () => {
               <label className="flex cursor-pointer items-center justify-center gap-2 px-4 py-2">
                 <input
                   type="checkbox"
-                  checked={remindMeTomorrow}
-                  onChange={(e) => {
-                    setRemindMeTomorrow(e.target.checked);
-
+                  checked={isUserOptedIntoReminders}
+                  onChange={() => {
                     sendMessageToDevvit({
                       payload: {},
                       type: 'TOGGLE_USER_REMINDER',

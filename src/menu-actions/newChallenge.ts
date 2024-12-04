@@ -3,6 +3,7 @@ import { Challenge } from "../core/challenge.js";
 
 Devvit.addMenuItem({
   label: "HotAndCold: New challenge",
+  forUserType: "moderator",
   location: "subreddit",
   onPress: async (_event, context) => {
     try {

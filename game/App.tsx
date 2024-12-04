@@ -32,7 +32,7 @@ const getPage = (page: Page) => {
 
 export const App = () => {
   const page = usePage();
-  const { layout, sortType } = useUserSettings();
+  const { layout, sortType, isUserOptedIntoReminders } = useUserSettings();
   const setUserSettings = useSetUserSettings();
   const { challengeUserInfo, number } = useGame();
   const isActivelyPlaying =
@@ -50,7 +50,7 @@ export const App = () => {
         <div className="flex h-4 items-center justify-between">
           {number && <p className="text-sm text-gray-500">Challenge #{number}</p>}
 
-          {challengeUserInfo?.guesses && (
+          {challengeUserInfo?.guesses ? (
             <div className="flex gap-3">
               <div className="flex items-end">
                 <p className="text-sm text-gray-500">Guesses:&nbsp;</p>
@@ -70,6 +70,15 @@ export const App = () => {
                         ...x,
                         layout: layout === 'CONDENSED' ? 'EXPANDED' : 'CONDENSED',
                       })),
+                  },
+                  {
+                    name: `Reminders: ${isUserOptedIntoReminders ? 'On' : 'Off'}`,
+                    action: () => {
+                      sendMessageToDevvit({
+                        type: 'TOGGLE_USER_REMINDER',
+                        payload: {},
+                      });
+                    },
                   },
                   {
                     name: `Sort by ${sortType === 'TIMESTAMP' ? 'Similarity' : 'Time'}`,
@@ -120,6 +129,20 @@ export const App = () => {
                 ]}
               />
             </div>
+          ) : (
+            <HelpMenu
+              items={[
+                {
+                  name: `Reminders: ${isUserOptedIntoReminders ? 'On' : 'Off'}`,
+                  action: () => {
+                    sendMessageToDevvit({
+                      type: 'TOGGLE_USER_REMINDER',
+                      payload: {},
+                    });
+                  },
+                },
+              ]}
+            />
           )}
         </div>
         <div className="-mt-4 mb-[10px] flex justify-center">
