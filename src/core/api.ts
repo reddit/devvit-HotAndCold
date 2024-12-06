@@ -2,6 +2,7 @@ import { z } from "zod";
 import { zodContext, zoddy, zodJobContext } from "../utils/zoddy.js";
 import { toMilliseconds } from "../utils/toMilliseconds.js";
 import { DEVVIT_SETTINGS_KEYS } from "../constants.js";
+import { fromError } from "zod-validation-error";
 
 export * as API from "./api.js";
 
@@ -102,8 +103,16 @@ export const getWordConfigCached = zoddy(
 
       return wordConfigSchema.parse(JSON.parse(cached));
     } catch (error) {
-      console.error(`Error getting cached word config:`, error);
+      if (error instanceof z.ZodError) {
+        console.error(
+          `Error getting word config for word: "${word}". This can commonly happen if the API does not find the target word in its dictionary. Make sure the word is the lemma form. Error:`,
+          fromError(error),
+        );
+      } else {
+        console.error(`Error getting word config for word: "${word}".`, error);
+      }
 
+      console.log(`Trying to get word config live from the API`);
       const response = await getWordConfig({ context, word });
 
       console.log(`I got a response live from the API doe so returning that.`);
@@ -177,7 +186,16 @@ export const compareWordsCached = zoddy(
 
       return wordComparisonSchema.parse(JSON.parse(cached));
     } catch (error) {
-      console.error(`Error getting cached word comparison:`, error);
+      if (error instanceof z.ZodError) {
+        console.error(
+          `Error getting cached word comparison. Error:`,
+          fromError(error),
+        );
+      } else {
+        console.error(`Error getting cached word comparison:`, error);
+      }
+
+      console.log(`Trying to get word comparison live from the API`);
 
       const response = await compareWords({
         context,

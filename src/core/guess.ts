@@ -13,7 +13,7 @@ import { Streaks } from "./streaks.js";
 import { ChallengeLeaderboard } from "./challengeLeaderboard.js";
 import { Score } from "./score.js";
 import { isEmptyObject, omit } from "../utils/utils.js";
-import { GameResponse } from "../../game/shared.js";
+import { GameResponse, Guess } from "../../game/shared.js";
 import { Similarity } from "./similarity.js";
 import { ChallengePlayers } from "./challengePlayers.js";
 import { ChallengeProgress } from "./challengeProgress.js";
@@ -133,6 +133,77 @@ export const markChallengePlayedForUser = zoddy(
   },
 );
 
+export type Word = {
+  word: string;
+  similarity: number;
+  is_hint: boolean;
+  definition: string;
+};
+
+export function _selectNextHint(params: {
+  similarWords: Word[];
+  previousGuesses: Guess[];
+}): Word | null {
+  const { similarWords, previousGuesses } = params;
+  const words = similarWords.slice(0, 250);
+  const guessedWords = new Set(previousGuesses.map((g) => g.word));
+
+  // Helper to find next unguessed hint
+  const findNextHint = (
+    startIndex: number,
+    endIndex: number,
+    searchForward: boolean,
+  ) => {
+    const indices = searchForward
+      ? Array.from(
+        { length: endIndex - startIndex + 1 },
+        (_, i) => startIndex + i,
+      )
+      : Array.from({ length: startIndex + 1 }, (_, i) => startIndex - i);
+
+    for (const i of indices) {
+      if (words[i]?.is_hint && !guessedWords.has(words[i].word)) {
+        return words[i];
+      }
+    }
+    return null;
+  };
+
+  // First hint with no guesses - return the furthest unguessed hint
+  if (previousGuesses.length === 0) {
+    return findNextHint(words.length - 1, 0, false);
+  }
+
+  // Find index of their most similar valid guess
+  const validGuesses = previousGuesses.filter((g) => g.rank >= 0);
+  if (validGuesses.length === 0) {
+    return findNextHint(words.length - 1, 0, false);
+  }
+
+  const closestIndex = Math.min(...validGuesses.map((g) => g.rank));
+
+  // If they've guessed the most similar word, look for next unguessed hint
+  if (closestIndex === 0) {
+    return findNextHint(1, words.length - 1, true);
+  }
+
+  // Target halfway between their best guess and the target word
+  const targetIndex = Math.floor(closestIndex / 2);
+
+  // Try to find hint:
+  // 1. Search forward from target
+  const forwardHint = findNextHint(targetIndex, closestIndex, true);
+  if (forwardHint) return forwardHint;
+
+  // 2. Search backward from target
+  const backwardHint = findNextHint(targetIndex - 1, 0, false);
+  if (backwardHint) return backwardHint;
+
+  // 3. Search forward from their closest guess as last resort
+  const lastResortHint = findNextHint(closestIndex + 1, words.length - 1, true);
+  return lastResortHint;
+}
+
 export const getHintForUser = zoddy(
   z.object({
     context: zodContext,
@@ -154,22 +225,14 @@ export const getHintForUser = zoddy(
       challenge,
     });
 
-    const givenSet = new Set(
-      challengeUserInfo.guesses?.map((x) => x.word) ?? [],
-    );
+    const newHint = _selectNextHint({
+      previousGuesses: challengeUserInfo.guesses ?? [],
+      similarWords: wordConfig.similar_words,
+    });
 
-    // Filter to hints and hints that have already been given
-    const remainingHints = wordConfig.similar_words.slice(0, 250).filter((
-      entry,
-    ) => entry.is_hint && !givenSet.has(entry.word));
-
-    if (remainingHints.length === 0) {
-      throw new Error(`I don't have any more hints for you. Give up?`);
+    if (!newHint) {
+      throw new Error(`I don't have anymore hints!`);
     }
-
-    // Get random index
-    const randomIndex = Math.floor(Math.random() * remainingHints.length);
-    const newHint = remainingHints[randomIndex];
 
     const hintToAdd: z.infer<typeof guessSchema> = {
       word: newHint.word,
@@ -236,6 +299,50 @@ export const getHintForUser = zoddy(
   },
 );
 
+/**
+ * Computes the progress using a sliding window of recent guesses.
+ * Assumes `previousGuesses` already includes the new guess.
+ *
+ * ASSUMES ORDER IS FROM OLDEST TO NEWEST GUESS.
+ *
+ * @param previousGuesses - The array of all guesses (including hints and the newly added guess).
+ * @param windowSize - The number of recent non-hint guesses to consider for calculating progress.
+ * @returns The computed progress (max normalized similarity in the considered window).
+ */
+export function _computeProgress(
+  previousGuesses: z.infer<typeof guessSchema>[],
+  windowSize: number,
+): number {
+  // Filter out any hint guesses
+  const previousNonHintGuesses = previousGuesses.filter((g) => !g.isHint);
+
+  // Take only the last `windowSize` non-hint guesses to form the "window"
+  const relevantGuesses = previousNonHintGuesses.slice(-windowSize);
+
+  if (relevantGuesses.length === 0) {
+    return 0;
+  }
+
+  // Assign weights: oldest guess in the window gets weight = 1,
+  // next gets weight = 2, ..., most recent gets weight = relevantGuesses.length
+  const totalGuesses = relevantGuesses.length;
+
+  // Compute weighted sum and total weight
+  let weightedSum = 0;
+  let totalWeight = 0;
+  for (let i = 0; i < totalGuesses; i++) {
+    // i=0 is the oldest in the window, i=totalGuesses-1 is the most recent
+    const weight = i + 1;
+    weightedSum += relevantGuesses[i].normalizedSimilarity * weight;
+    totalWeight += weight;
+  }
+
+  const weightedAverage = weightedSum / totalWeight;
+
+  // Round to integer as before
+  return Math.round(weightedAverage);
+}
+
 export const submitGuess = zoddy(
   z.object({
     context: zodContext,
@@ -292,19 +399,29 @@ export const submitGuess = zoddy(
 
     console.log(`Username: ${username}:`, "distance", distance);
 
+    const alreadyGuessWord = challengeUserInfo.guesses &&
+      challengeUserInfo.guesses.length > 0 &&
+      challengeUserInfo.guesses.find((x) => x.word === distance.wordBLemma);
     if (
-      challengeUserInfo.guesses && challengeUserInfo.guesses.length > 0 &&
-      challengeUserInfo.guesses.find((x) => x.word === distance.wordBLemma)
+      alreadyGuessWord
     ) {
       if (rawGuess !== distance.wordBLemma) {
         throw new Error(
-          `We changed your guess to ${distance.wordBLemma} and you've already guessed that.`,
+          `We changed your guess to ${distance.wordBLemma} (${alreadyGuessWord.normalizedSimilarity}%) and you've already guessed that.`,
         );
       }
-      throw new Error(`You've already guessed ${distance.wordBLemma}.`);
+      throw new Error(
+        `You've already guessed ${distance.wordBLemma} (${alreadyGuessWord.normalizedSimilarity}%).`,
+      );
     }
 
     if (distance.similarity == null) {
+      // Somehow there's a bug where "word" didn't get imported and appears to be the
+      // only word. Leaving this in as an easter egg and fixing the bug like this :D
+      if (distance.wordBLemma === "word") {
+        throw new Error(`C'mon, you can do better than that!`);
+      }
+
       throw new Error(`Sorry, I'm not familiar with that word.`);
     }
 
@@ -377,7 +494,7 @@ export const submitGuess = zoddy(
         solveTimeMs,
         // Need to manually add guess here since this runs in a transaction
         // and the guess has not been added to the user's guesses yet
-        guesses: newGuesses,
+        totalGuesses: newGuesses.length,
         totalHints: challengeUserInfo.guesses?.filter((x) =>
           x.isHint
         )?.length ?? 0,
@@ -434,10 +551,17 @@ export const submitGuess = zoddy(
       redis: txn,
       challenge,
       username,
-      progress: Math.max(
-        guessToAdd.normalizedSimilarity,
-        ...challengeUserInfo.guesses?.map((x) => x.normalizedSimilarity) ?? [],
-      ),
+      progress: hasSolved ? 100 : _computeProgress([
+        ...challengeUserInfo.guesses ?? [],
+        guessToAdd,
+      ], 6),
+      // TODO: Trying out sliding window progress!
+      // progress: Math.max(
+      //   guessToAdd.normalizedSimilarity,
+      //   ...challengeUserInfo.guesses?.filter((x) => x.isHint === false).map((
+      //     x,
+      //   ) => x.normalizedSimilarity) ?? [],
+      // ),
     });
 
     // await txn.exec();

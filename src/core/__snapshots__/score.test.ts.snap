@@ -1,0 +1,25 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`calculateScore > game simulations > simulates game scenario (time: 15000, hints: 0, guesses: 10) 1`] = `
+{
+  "breakdown": {
+    "guessBonus": {
+      "isOptimal": true,
+      "numberOfGuesses": 10,
+      "points": 50,
+    },
+    "hintPenalty": {
+      "numberOfHints": 0,
+      "penaltyMultiplier": 1,
+    },
+    "solvingBonus": 10,
+    "timeBonus": {
+      "isOptimal": true,
+      "points": 40,
+      "timeInSeconds": 15,
+    },
+  },
+  "finalScore": 100,
+  "version": "1",
+}
+`;

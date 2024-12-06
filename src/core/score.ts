@@ -1,5 +1,4 @@
 import { z } from "zod";
-import { guessSchema } from "./guess.js";
 
 export * as Score from "./score.js";
 
@@ -28,10 +27,11 @@ export const scoreSchema = z.object({
 export type ScoreExplanation = z.infer<typeof scoreSchema>;
 
 export function calculateScore(
-  { solveTimeMs, totalHints, guesses }: {
+  { solveTimeMs, totalHints, totalGuesses }: {
     solveTimeMs: number;
     totalHints: number;
-    guesses: z.infer<typeof guessSchema>[];
+    /** Inclusive of hints! */
+    totalGuesses: number;
   },
 ): ScoreExplanation {
   // Solving bonus (flat 10 points for completing)
@@ -44,18 +44,19 @@ export function calculateScore(
   if (isOptimalTime) {
     timeBonus = 40;
   } else if (timeInSeconds <= 600) { // 10 minutes
-    timeBonus = Math.round(40 * (1 - (timeInSeconds - 30) / 570));
+    // Only start from 39 otherwise at 35 seconds you could still get a perfect score due to rounding
+    timeBonus = Math.round(39 * (1 - (timeInSeconds - 30) / 570));
   } else {
     timeBonus = 0;
   }
 
-  const numGuesses = guesses.length;
   let guessBonus;
-  const isOptimalGuesses = numGuesses <= 15;
+  const isOptimalGuesses = totalGuesses <= 15;
   if (isOptimalGuesses) {
     guessBonus = 50;
-  } else if (numGuesses <= 100) {
-    guessBonus = Math.round(50 * (1 - (numGuesses - 15) / 85));
+  } else if (totalGuesses <= 100) {
+    // Meanwhile, this can start at 50 because another guess is enough to deduct 1 point
+    guessBonus = Math.round(50 * (1 - (totalGuesses - 15) / 85));
   } else {
     guessBonus = 0;
   }
@@ -63,7 +64,7 @@ export function calculateScore(
   // Calculate base score
   let baseScore = solvingBonus + timeBonus + guessBonus;
 
-  const penaltyMultiplier = Math.pow(0.85, totalHints);
+  const penaltyMultiplier = Math.pow(0.70, totalHints);
   const finalScore = Math.round(baseScore * penaltyMultiplier);
 
   return {
@@ -78,7 +79,7 @@ export function calculateScore(
       },
       guessBonus: {
         points: guessBonus,
-        numberOfGuesses: numGuesses,
+        numberOfGuesses: totalGuesses,
         isOptimal: isOptimalGuesses,
       },
       hintPenalty: {

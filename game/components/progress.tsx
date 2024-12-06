@@ -25,6 +25,7 @@ interface ProgressProps {
   maxStackBubbles?: number;
   avatarSize?: number;
   startColor?: string;
+  middleColor?: string;
   endColor?: string;
 }
 
@@ -35,6 +36,7 @@ const ProgressBar = ({
   maxStackBubbles = 4,
   avatarSize = 40,
   startColor = '#4CE1F2',
+  middleColor = '#FED155',
   endColor = '#DE3232',
 }: ProgressProps) => {
   const [containerRef, setContainerRef] = useState<HTMLDivElement | null>(null);
@@ -173,6 +175,8 @@ const ProgressBar = ({
     return centeredPosition + adjustedBuffer;
   };
 
+  const [selectedPlayerUsername, setSelectedPlayerUsername] = useState<string | null>(null);
+
   return (
     <div className="relative flex flex-shrink-0 flex-col items-center justify-center">
       {/* Progress arrow first (below other elements) */}
@@ -181,7 +185,7 @@ const ProgressBar = ({
           className="absolute left-0 top-1/2 h-0 w-full"
           style={{
             borderTop: '3px solid',
-            borderImage: `linear-gradient(90deg, ${startColor} 0%, ${endColor} 100%) 1`,
+            borderImage: `linear-gradient(90deg, ${startColor} 0%, ${middleColor} 40%, ${middleColor} 80%, ${endColor} 100%) 1`,
           }}
         />
         <div
@@ -219,6 +223,11 @@ const ProgressBar = ({
             transition={{
               x: { type: 'spring', stiffness: 100, damping: 20 },
             }}
+            onClick={() =>
+              setSelectedPlayerUsername((x) => (item.username === x ? null : item.username))
+            }
+            onMouseEnter={() => setSelectedPlayerUsername(item.username)}
+            onMouseLeave={() => setSelectedPlayerUsername(null)}
           >
             <div className="relative flex -translate-y-1/2 flex-col items-center justify-center">
               <div
@@ -236,11 +245,12 @@ const ProgressBar = ({
               </div>
               <span
                 className={cn(
-                  'absolute -bottom-5 left-1/2 mt-1 -translate-x-1/2 whitespace-nowrap text-xs font-medium text-[#8BA2AD]',
-                  item.isPlayer && 'font-semibold text-[#7BF24C]'
+                  'absolute -bottom-5 left-1/2 mt-1 -translate-x-1/2 whitespace-nowrap text-xs font-medium text-transparent',
+                  item.isPlayer && 'font-semibold text-[#7BF24C]',
+                  item.username === selectedPlayerUsername && !item.isPlayer && 'text-[#8BA2AD]'
                 )}
               >
-                {item.isPlayer ? '> you <' : <span>&nbsp;</span>}
+                {item.isPlayer ? '> you <' : item.username}
               </span>
             </div>
           </motion.div>
@@ -306,7 +316,7 @@ export const Progress = () => {
   }, [challengeProgress]);
 
   useEffect(() => {
-    if (progressUpdate) {
+    if (progressUpdate?.challengeProgress) {
       setProgress(progressUpdate.challengeProgress);
     }
   }, [progressUpdate]);
