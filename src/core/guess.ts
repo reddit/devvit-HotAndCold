@@ -299,50 +299,6 @@ export const getHintForUser = zoddy(
   },
 );
 
-/**
- * Computes the progress using a sliding window of recent guesses.
- * Assumes `previousGuesses` already includes the new guess.
- *
- * ASSUMES ORDER IS FROM OLDEST TO NEWEST GUESS.
- *
- * @param previousGuesses - The array of all guesses (including hints and the newly added guess).
- * @param windowSize - The number of recent non-hint guesses to consider for calculating progress.
- * @returns The computed progress (max normalized similarity in the considered window).
- */
-export function _computeProgress(
-  previousGuesses: z.infer<typeof guessSchema>[],
-  windowSize: number,
-): number {
-  // Filter out any hint guesses
-  const previousNonHintGuesses = previousGuesses.filter((g) => !g.isHint);
-
-  // Take only the last `windowSize` non-hint guesses to form the "window"
-  const relevantGuesses = previousNonHintGuesses.slice(-windowSize);
-
-  if (relevantGuesses.length === 0) {
-    return 0;
-  }
-
-  // Assign weights: oldest guess in the window gets weight = 1,
-  // next gets weight = 2, ..., most recent gets weight = relevantGuesses.length
-  const totalGuesses = relevantGuesses.length;
-
-  // Compute weighted sum and total weight
-  let weightedSum = 0;
-  let totalWeight = 0;
-  for (let i = 0; i < totalGuesses; i++) {
-    // i=0 is the oldest in the window, i=totalGuesses-1 is the most recent
-    const weight = i + 1;
-    weightedSum += relevantGuesses[i].normalizedSimilarity * weight;
-    totalWeight += weight;
-  }
-
-  const weightedAverage = weightedSum / totalWeight;
-
-  // Round to integer as before
-  return Math.round(weightedAverage);
-}
-
 export const submitGuess = zoddy(
   z.object({
     context: zodContext,
@@ -551,17 +507,12 @@ export const submitGuess = zoddy(
       redis: txn,
       challenge,
       username,
-      progress: hasSolved ? 100 : _computeProgress([
-        ...challengeUserInfo.guesses ?? [],
-        guessToAdd,
-      ], 6),
-      // TODO: Trying out sliding window progress!
-      // progress: Math.max(
-      //   guessToAdd.normalizedSimilarity,
-      //   ...challengeUserInfo.guesses?.filter((x) => x.isHint === false).map((
-      //     x,
-      //   ) => x.normalizedSimilarity) ?? [],
-      // ),
+      progress: Math.max(
+        guessToAdd.normalizedSimilarity,
+        ...challengeUserInfo.guesses?.filter((x) => x.isHint === false).map((
+          x,
+        ) => x.normalizedSimilarity) ?? [],
+      ),
     });
 
     // await txn.exec();

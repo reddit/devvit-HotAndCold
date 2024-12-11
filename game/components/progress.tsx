@@ -31,7 +31,7 @@ interface ProgressProps {
 
 const ProgressBar = ({
   players,
-  maxVisiblePlayers = 6,
+  maxVisiblePlayers = 30,
   groupThreshold = 1000,
   maxStackBubbles = 4,
   avatarSize = 40,
