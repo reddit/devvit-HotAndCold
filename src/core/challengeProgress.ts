@@ -8,6 +8,7 @@ import {
 } from "../utils/zoddy.js";
 import { getChallengeKey } from "./challenge.js";
 import { ChallengePlayers } from "./challengePlayers.js";
+import { RedditApiCache } from "./redditApiCache.js";
 
 export * as ChallengeProgress from "./challengeProgress.js";
 
@@ -56,9 +57,13 @@ export const getPlayerProgress = zoddy(
     // meter. Don't save it because that will happen when they save and we
     // only want to see it in the UI.
     if (results.some((x) => x.isPlayer) === false) {
-      const snoovator = await context.reddit.getSnoovatarUrl(username);
+      const avatar = await RedditApiCache.getSnoovatarCached({
+        context,
+        username,
+      });
+
       results.push({
-        avatar: snoovator ?? null,
+        avatar: avatar ?? null,
         username: username,
         isPlayer: true,
         progress: 0,

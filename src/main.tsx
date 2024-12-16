@@ -16,6 +16,7 @@ import { ChallengeProgress } from './core/challengeProgress.js';
 import { ChallengeLeaderboard } from './core/challengeLeaderboard.js';
 import { Streaks } from './core/streaks.js';
 import { Reminders } from './core/reminders.js';
+import { RedditApiCache } from './core/redditApiCache.js';
 
 Devvit.configure({
   redditAPI: true,
@@ -61,9 +62,13 @@ Devvit.addCustomPostType({
         };
       }
 
-      const avatar = await context.reddit.getSnoovatarUrl(user.username);
+      // Rate limits things
+      const avatar = await RedditApiCache.getSnoovatarCached({
+        context,
+        username: user.username,
+      });
 
-      return { user: { username: user.username, avatar: avatar ?? null }, challenge };
+      return { user: { username: user.username, avatar }, challenge };
     });
 
     // TODO: Show a teaser for the user
