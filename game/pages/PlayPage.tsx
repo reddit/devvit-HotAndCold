@@ -11,7 +11,7 @@ export const PlayPage = () => {
   return (
     <div className="flex h-full flex-col justify-center gap-6">
       <div className="flex flex-col items-center justify-center gap-6">
-        <p className="mt-8 text-center text-xl text-white">Can you guess the secret word?</p>
+        <p className="mt-4 text-center text-xl text-white">Can you guess the secret word?</p>
         <WordInput
           value={word}
           onChange={(e) => setWord(e.target.value)}

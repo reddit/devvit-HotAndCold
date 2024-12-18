@@ -5,6 +5,7 @@ import { cn } from '../utils';
 import { useEffect, useState } from 'react';
 import { useDimensions } from '../hooks/useDimensions';
 import { HowToPlayModal } from './howToPlayModal';
+import { useGame } from '../hooks/useGame';
 
 // const ProximityIndicator = ({ guess }: { guess: Guess }) => {
 //   const fill = Math.round((1 - guess.rank / 1000) * 100);
@@ -63,6 +64,7 @@ export const Guesses = ({ items }: { items: Guess[] }) => {
   const [currentPage, setCurrentPage] = useState(1);
   const [ref, dimensions] = useDimensions();
   const [howToPlayOpen, setHowToPlayOpen] = useState(false);
+  const { challengeInfo } = useGame();
 
   const GUESS_HEIGHT = layout == 'CONDENSED' ? 16 : 22;
 
@@ -101,7 +103,7 @@ export const Guesses = ({ items }: { items: Guess[] }) => {
       <div
         ref={ref}
         className={cn(
-          'relative z-10 flex h-full w-56 flex-col self-center',
+          'relative z-10 flex h-full w-60 flex-col self-center',
           layout === 'CONDENSED' && 'text-sm',
           layout === 'EXPANDED' && 'text-md'
         )}
@@ -113,13 +115,25 @@ export const Guesses = ({ items }: { items: Guess[] }) => {
             )}
           </div>
         ) : (
-          <button
-            type="button"
-            className="flex w-[110px] items-center justify-center self-center rounded-lg bg-gray-800 px-4 py-2"
-            onClick={() => setHowToPlayOpen(true)}
-          >
-            <span>How to Play</span>
-          </button>
+          <>
+            {challengeInfo?.totalPlayers && challengeInfo.totalPlayers > 0 ? (
+              <p className="mb-4 text-center text-gray-500">
+                {`${Math.round(((challengeInfo?.totalSolves ?? 0) / (challengeInfo?.totalPlayers ?? 1)) * 100)}%`}{' '}
+                of {challengeInfo.totalPlayers} players have succeeded.
+              </p>
+            ) : (
+              <p className="mb-4 text-center text-gray-500">
+                Be the first to solve this challenge!
+              </p>
+            )}
+            <button
+              type="button"
+              className="flex w-[110px] items-center justify-center self-center rounded-lg bg-gray-800 px-4 py-2"
+              onClick={() => setHowToPlayOpen(true)}
+            >
+              <span>How to Play</span>
+            </button>
+          </>
         )}
 
         <div className="flex-1 overflow-hidden">

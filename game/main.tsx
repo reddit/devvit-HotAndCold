@@ -1,3 +1,4 @@
+import './utils/initListener';
 import './index.css';
 
 import { StrictMode } from 'react';

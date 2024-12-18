@@ -268,7 +268,11 @@ export function WordInput({
         disabled={!internalValue}
         type="submit"
         className="z-50 flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full bg-black transition duration-200 disabled:bg-gray-100 dark:bg-zinc-900 dark:disabled:bg-zinc-800"
-        onClick={handleSubmit}
+        onMouseDown={(e) => {
+          // Workaround for ios and android blurring the input on button click
+          e.preventDefault();
+          handleSubmit();
+        }}
       >
         <motion.svg
           xmlns="http://www.w3.org/2000/svg"

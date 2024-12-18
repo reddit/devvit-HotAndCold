@@ -119,27 +119,7 @@ export const createLogger = (
   const logger = logLevels.reduce((acc, level) => {
     if (level === "off") return acc;
 
-    const nameStyle = "font-weight: bold; color: #4CE1F2;";
-    const consoleMethod = console[level];
-
-    Object.defineProperty(acc, level, {
-      get() {
-        if (!isLevelEnabled(level)) {
-          return () => {}; // No-op function when logging is disabled
-        }
-
-        return (...args: any[]) => {
-          // Original console logging
-          consoleMethod.bind(console, `%c${name}:`, nameStyle)(...args);
-
-          // UI Stream logging
-          if (uiStream) {
-            appendToOverlay(level, ...args);
-          }
-        };
-      },
-      enumerable: true,
-    });
+    acc[level] = console[level].bind(console, `${name}:`);
 
     return acc;
   }, {} as Record<LogLevel, (...args: any[]) => void>);
@@ -156,10 +136,9 @@ export const createLogger = (
     return (...args: any[]) => {
       const now = Date.now();
       if (now - lastLogTime > delay && isLogLevel(level)) {
-        const nameStyle = "font-weight: bold; color: #4CE1F2;";
-        // Original console logging
+        // Use direct console method binding to preserve call site
         // @ts-expect-error
-        console[level](`%c${name}:`, nameStyle, ...args);
+        console[level].bind(console, `${name}:`)(...args);
 
         // UI Stream logging
         if (uiStream) {

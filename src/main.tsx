@@ -4,7 +4,7 @@ import './triggers/upgrade.js';
 import './menu-actions/newChallenge.js';
 import './menu-actions/addWordToDictionary.js';
 
-import { Devvit, useInterval, useState } from '@devvit/public-api';
+import { Devvit, useAsync, useInterval, useState } from '@devvit/public-api';
 import { DEVVIT_SETTINGS_KEYS } from './constants.js';
 import { isServerCall, omit, sendMessageToWebview } from './utils/utils.js';
 import { WebviewToBlocksMessage } from '../game/shared.js';
@@ -35,18 +35,30 @@ Devvit.addSettings([
   },
 ]);
 
+type InitialState =
+  | {
+      type: 'UNAUTHED';
+      user: null;
+      challenge: number;
+    }
+  | {
+      type: 'AUTHED';
+      user: {
+        username: string;
+        avatar: string | null;
+      };
+      challenge: number;
+      challengeInfo: Awaited<ReturnType<(typeof Challenge)['getChallenge']>>;
+      challengeUserInfo: Awaited<ReturnType<(typeof Guess)['getChallengeUserInfo']>>;
+      challengeProgress: Awaited<ReturnType<(typeof ChallengeProgress)['getPlayerProgress']>>;
+    };
+
 // Add a post type definition
 Devvit.addCustomPostType({
   name: 'HotAndCold',
   height: 'tall',
   render: (context) => {
-    const [initialState] = useState<{
-      user: {
-        username: string | null;
-        avatar: string | null;
-      } | null;
-      challenge: number;
-    }>(async () => {
+    const [initialState] = useState<InitialState>(async () => {
       const [user, challenge] = await Promise.all([
         context.reddit.getCurrentUser(),
         ChallengeToPost.getChallengeNumberForPost({
@@ -54,25 +66,61 @@ Devvit.addCustomPostType({
           postId: context.postId!,
         }),
       ]);
-
       if (!user) {
         return {
+          type: 'UNAUTHED' as const,
           user: null,
           challenge,
         };
       }
 
       // Rate limits things
-      const avatar = await RedditApiCache.getSnoovatarCached({
-        context,
-        username: user.username,
+      const [avatar, challengeInfo, challengeUserInfo, challengeProgress] = await Promise.all([
+        RedditApiCache.getSnoovatarCached({
+          context,
+          username: user.username,
+        }),
+        Challenge.getChallenge({
+          challenge: challenge,
+          redis: context.redis,
+        }),
+        Guess.getChallengeUserInfo({
+          challenge: challenge,
+          redis: context.redis,
+          username: user.username,
+        }),
+        ChallengeProgress.getPlayerProgress({
+          challenge: challenge,
+          context,
+          sort: 'DESC',
+          start: 0,
+          stop: 10_000,
+          username: user.username,
+        }),
+      ]);
+
+      sendMessageToWebview(context, {
+        type: 'INIT',
+        payload: {
+          challengeInfo: omit(challengeInfo, ['word']),
+          challengeUserInfo,
+          number: challenge,
+          challengeProgress: challengeProgress,
+        },
       });
 
-      return { user: { username: user.username, avatar }, challenge };
+      return {
+        type: 'AUTHED' as const,
+        user: { username: user.username, avatar },
+        challenge,
+        challengeInfo,
+        challengeUserInfo,
+        challengeProgress,
+      };
     });
 
     // TODO: Show a teaser for the user
-    if (!initialState.user?.username) {
+    if (initialState.type === 'UNAUTHED') {
       return <Preview text="Please login to play." />;
     }
 
@@ -83,7 +131,7 @@ Devvit.addCustomPostType({
         sort: 'DESC',
         start: 0,
         stop: 10_000,
-        username: initialState.user?.username!,
+        username: initialState.user.username,
       });
 
       sendMessageToWebview(context, {
@@ -107,43 +155,22 @@ Devvit.addCustomPostType({
 
             switch (data.type) {
               case 'GAME_INIT':
-                const challengeNumber = await ChallengeToPost.getChallengeNumberForPost({
-                  postId: context.postId!,
-                  redis: context.redis,
-                });
-                const [challengeInfo, challengeUserInfo, challengeProgress] = await Promise.all([
-                  Challenge.getChallenge({
-                    challenge: challengeNumber,
-                    redis: context.redis,
-                  }),
-                  Guess.getChallengeUserInfo({
-                    challenge: challengeNumber,
-                    redis: context.redis,
-                    username: initialState.user?.username!,
-                  }),
-                  ChallengeProgress.getPlayerProgress({
-                    challenge: initialState.challenge,
-                    context,
-                    sort: 'DESC',
-                    start: 0,
-                    stop: 10_000,
-                    username: initialState.user?.username!,
-                  }),
-                ]);
+                const { challengeInfo, challengeUserInfo, challengeProgress, challenge } =
+                  initialState;
 
                 sendMessageToWebview(context, {
                   type: 'GAME_INIT_RESPONSE',
                   payload: {
                     challengeInfo: omit(challengeInfo, ['word']),
                     challengeUserInfo,
-                    number: challengeNumber,
+                    number: challenge,
                     challengeProgress: challengeProgress,
                   },
                 });
 
                 const isUserOptedIntoReminders = await Reminders.isUserOptedIntoReminders({
                   redis: context.redis,
-                  username: initialState.user?.username!,
+                  username: initialState.user.username,
                 });
 
                 sendMessageToWebview(context, {
@@ -162,8 +189,8 @@ Devvit.addCustomPostType({
                       context,
                       challenge: initialState.challenge,
                       guess: data.value,
-                      username: initialState.user?.username!,
-                      avatar: initialState.user?.avatar!,
+                      username: initialState.user.username,
+                      avatar: initialState.user.avatar,
                     }),
                   });
                 } catch (error) {
@@ -188,7 +215,7 @@ Devvit.addCustomPostType({
                     payload: await Guess.getHintForUser({
                       context,
                       challenge: initialState.challenge,
-                      username: initialState.user?.username!,
+                      username: initialState.user.username,
                     }),
                   });
                 } catch (error) {
@@ -209,7 +236,7 @@ Devvit.addCustomPostType({
                     payload: await Guess.giveUp({
                       context,
                       challenge: initialState.challenge,
-                      username: initialState.user?.username!,
+                      username: initialState.user.username,
                     }),
                   });
                 } catch (error) {
@@ -225,7 +252,7 @@ Devvit.addCustomPostType({
                   challenge: initialState?.challenge,
                   redis: context.redis,
                   start: 0,
-                  stop: 10,
+                  stop: 9,
                   sort: 'DESC',
                 });
                 console.log('Leaderboard by score:', leaderboardByScore);
@@ -233,17 +260,17 @@ Devvit.addCustomPostType({
                   challenge: initialState?.challenge,
                   redis: context.redis,
                   start: 0,
-                  stop: 10,
+                  stop: 9,
                   sort: 'DESC',
                 });
                 const userRank = await ChallengeLeaderboard.getRankingsForMember({
                   challenge: initialState?.challenge,
                   redis: context.redis,
-                  username: initialState.user?.username!,
+                  username: initialState.user.username,
                 });
                 const userStreak = await Streaks.getStreakForMember({
                   redis: context.redis,
-                  username: initialState.user?.username!,
+                  username: initialState.user.username,
                 });
                 sendMessageToWebview(context, {
                   type: 'CHALLENGE_LEADERBOARD_RESPONSE',
@@ -258,7 +285,7 @@ Devvit.addCustomPostType({
               case 'TOGGLE_USER_REMINDER':
                 const resp = await Reminders.toggleReminderForUsername({
                   redis: context.redis,
-                  username: initialState.user?.username!,
+                  username: initialState.user.username,
                 });
 
                 sendMessageToWebview(context, {

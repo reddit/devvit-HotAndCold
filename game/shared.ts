@@ -108,6 +108,10 @@ export type WebviewToBlocksMessage =
 export type BlocksToWebviewMessage =
   // TODO: Just make `GAME_RESPONSE`?
   | {
+    type: "INIT";
+    payload: GameResponse;
+  }
+  | {
     type: "GAME_INIT_RESPONSE";
     payload: GameResponse;
   }

@@ -5,6 +5,7 @@ import { useDevvitListener } from '../hooks/useDevvitListener';
 import PillSwitch from '../components/switcher';
 import { AnimatedNumber } from '../components/timer';
 import { useUserSettings } from '../hooks/useUserSettings';
+import { ScoreBreakdownModal } from '../components/scoreBreakdownModal';
 
 const prettyNumber = (num: number): string => {
   return num.toLocaleString('en-US');
@@ -92,6 +93,7 @@ export const WinPage = () => {
   const { challengeInfo, challengeUserInfo } = useGame();
   const [activeIndex, setActiveIndex] = React.useState(0);
   const { isUserOptedIntoReminders } = useUserSettings();
+  const [isScoreBreakdownOpen, setIsScoreBreakdownOpen] = React.useState(false);
   const leaderboardData = useDevvitListener('CHALLENGE_LEADERBOARD_RESPONSE');
 
   if (!challengeUserInfo || !challengeInfo) return null;
@@ -122,239 +124,261 @@ export const WinPage = () => {
   const percentageOutperformed = calculatePercentageOutperformed(playerRank, totalPlayers);
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col gap-4">
-      <div className="flex justify-center">
-        <PillSwitch
-          activeIndex={activeIndex}
-          onChange={setActiveIndex}
-          items={[{ name: 'My Stats' }, { name: 'Challenge Stats' }, { name: 'Leaderboard' }]}
-        />
-      </div>
+    <>
+      <div className="flex min-h-0 flex-1 flex-col gap-4">
+        <div className="flex justify-center">
+          <PillSwitch
+            activeIndex={activeIndex}
+            onChange={setActiveIndex}
+            items={[{ name: 'My Stats' }, { name: 'Challenge Stats' }, { name: 'Leaderboard' }]}
+          />
+        </div>
 
-      <div className="mx-auto w-full max-w-xl px-4">
-        {activeIndex === 0 && (
-          <div className="flex flex-col items-center gap-6 text-center">
-            <div className="flex flex-col items-center gap-2">
-              <h1 className="text-2xl font-bold text-white">
-                {didWin ? 'Congratulations!' : 'Nice Try!'}
-              </h1>
-              <p className="text-xl font-semibold">
-                The word was: <span className="text-[#dd4c4c]">{word.word}</span>
-              </p>
-            </div>
+        <div className="mx-auto w-full max-w-xl px-4">
+          {activeIndex === 0 && (
+            <div className="flex flex-col items-center gap-6 text-center">
+              <div className="flex flex-col items-center gap-2">
+                <h1 className="text-xl font-bold text-white">
+                  {didWin ? 'Congratulations!' : 'Nice Try!'}
+                </h1>
+                <p className="text-lg font-semibold">
+                  The word was: <span className="text-[#dd4c4c]">{word.word}</span>
+                </p>
+              </div>
 
-            <div className="flex flex-col items-center gap-2">
-              {didWin ? (
-                <AnimatedNumber
-                  size={40}
-                  value={challengeUserInfo.score?.finalScore ?? 0}
-                  animateOnMount
-                />
-              ) : (
-                <span className="text-4xl">--</span>
-              )}
-
-              <p className="text-gray-400">
+              <div className="flex flex-col items-center gap-2">
                 {didWin ? (
-                  totalPlayers === 1 ? (
-                    <span>You're the first player to solve today's challenge!</span>
-                  ) : (
-                    <span>
-                      That's better than {playerRank > 0 ? percentageOutperformed : '--'}% of
-                      players!
-                    </span>
-                  )
+                  <div className="flex flex-col items-center justify-center">
+                    <p className="mb-2 text-sm font-bold">
+                      Your Score (
+                      <span
+                        className="cursor-pointer text-gray-500 underline"
+                        onClick={() => setIsScoreBreakdownOpen(true)}
+                      >
+                        breakdown
+                      </span>
+                      )
+                    </p>
+
+                    <AnimatedNumber
+                      size={40}
+                      value={challengeUserInfo.score?.finalScore ?? 0}
+                      animateOnMount
+                    />
+                  </div>
                 ) : (
-                  <span>Play again tomorrow!</span>
+                  <span className="text-4xl">--</span>
                 )}
-              </p>
-            </div>
 
-            <div className="w-50% grid grid-cols-2 gap-4">
-              <StatCard
-                title="Time to Solve"
-                value={
-                  getPrettyDuration(
-                    new Date(challengeUserInfo.startedPlayingAtMs!),
-                    new Date(challengeUserInfo.solvedAtMs ?? challengeUserInfo.gaveUpAtMs!)
-                  ) ?? '--'
-                }
-                icon={TimeIcon}
-              />
-              <StatCard
-                title="Rank"
-                value={didWin ? `#${leaderboardData?.userRank.score ?? '--'}` : '--'}
-                icon={ThermometerIcon}
-              />
-            </div>
+                <p className="text-sm text-gray-400">
+                  {didWin ? (
+                    totalPlayers === 1 ? (
+                      <span>You're the first player to solve today's challenge!</span>
+                    ) : (
+                      <span>
+                        That's better than {playerRank > 0 ? percentageOutperformed : '--'}% of
+                        players!
+                      </span>
+                    )
+                  ) : (
+                    <span>Play again tomorrow!</span>
+                  )}
+                </p>
+              </div>
 
-            <div className="flex flex-col gap-3">
-              {/* <button
+              <div className="w-50% grid grid-cols-2 gap-4">
+                <StatCard
+                  title="Time to Solve"
+                  value={
+                    getPrettyDuration(
+                      new Date(challengeUserInfo.startedPlayingAtMs!),
+                      new Date(challengeUserInfo.solvedAtMs ?? challengeUserInfo.gaveUpAtMs!)
+                    ) ?? '--'
+                  }
+                  icon={TimeIcon}
+                />
+                <StatCard
+                  title="Rank"
+                  value={didWin ? `#${leaderboardData?.userRank.score ?? '--'}` : '--'}
+                  icon={ThermometerIcon}
+                />
+              </div>
+
+              <div className="flex flex-col gap-3">
+                {/* <button
                 className="w-full rounded-lg bg-blue-600 px-4 py-2 font-medium text-white hover:bg-blue-700"
                 onClick={() => {}}
               >
                 Share Word Journey
               </button> */}
 
-              <label className="flex cursor-pointer items-center justify-center gap-2 px-4 py-2">
-                <input
-                  type="checkbox"
-                  checked={isUserOptedIntoReminders}
-                  onChange={() => {
-                    sendMessageToDevvit({
-                      payload: {},
-                      type: 'TOGGLE_USER_REMINDER',
-                    });
-                  }}
-                  className="h-4 w-4 rounded border-gray-600 bg-gray-700 text-blue-600"
-                />
-                <span className="select-none text-sm text-gray-300">
-                  Remind me to play tomorrow
-                </span>
-              </label>
-            </div>
-          </div>
-        )}
-
-        {activeIndex === 1 && (
-          <div className="flex flex-col gap-6">
-            <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
-              <StatCard
-                title="Total Players"
-                value={challengeInfo?.totalPlayers ?? 0}
-                icon={GuessIcon}
-              />
-              <StatCard
-                title="Total Solves"
-                value={challengeInfo?.totalSolves ?? 0}
-                icon={GuessIcon}
-              />
-              <StatCard
-                title="Total Guesses"
-                value={challengeInfo?.totalGuesses ?? 0}
-                icon={GuessIcon}
-              />
-              <StatCard
-                title="Total Hints"
-                value={challengeInfo?.totalHints ?? 0}
-                icon={GuessIcon}
-              />
-              <StatCard
-                title="Give Ups"
-                value={challengeInfo?.totalGiveUps ?? 0}
-                icon={GuessIcon}
-              />
-              <StatCard
-                title="Solve Rate"
-                value={`${Math.round(((challengeInfo?.totalSolves ?? 0) / (challengeInfo?.totalPlayers ?? 1)) * 100)}%`}
-                icon={() => (
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    className="h-5 w-5"
-                    viewBox="0 0 24 24"
-                    strokeWidth="2"
-                    stroke="currentColor"
-                    fill="none"
-                  >
-                    <path d="M3 12a9 9 0 1 0 18 0a9 9 0 0 0 -18 0" />
-                    <path d="M12 7v5l3 3" />
-                  </svg>
-                )}
-              />
-              <StatCard
-                title="Average Guesses"
-                value={Math.round(
-                  (challengeInfo?.totalGuesses ?? 0) / (challengeInfo?.totalPlayers ?? 1)
-                )}
-                icon={() => (
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    className="h-5 w-5"
-                    viewBox="0 0 24 24"
-                    strokeWidth="2"
-                    stroke="currentColor"
-                    fill="none"
-                  >
-                    <path d="M3 12h4l3 8l4 -16l3 8h4" />
-                  </svg>
-                )}
-              />
-            </div>
-          </div>
-        )}
-
-        {activeIndex === 2 && (
-          <div className="flex flex-col gap-4">
-            <div className="flex flex-col gap-1 text-center">
-              {leaderboardData?.userRank && (
-                <p className="text-gray-400">
-                  Your Rank:{' '}
-                  <span className="font-bold text-blue-400">
-                    {didWin ? `#${leaderboardData.userRank.score}` : '--'}
+                <label className="flex cursor-pointer items-center justify-center gap-2 px-4 py-2">
+                  <input
+                    type="checkbox"
+                    checked={isUserOptedIntoReminders}
+                    onChange={() => {
+                      sendMessageToDevvit({
+                        payload: {},
+                        type: 'TOGGLE_USER_REMINDER',
+                      });
+                    }}
+                    className="h-4 w-4 rounded border-gray-600 bg-gray-700 text-blue-600"
+                  />
+                  <span className="select-none text-sm text-gray-300">
+                    Remind me to play tomorrow
                   </span>
+                </label>
+              </div>
+            </div>
+          )}
+
+          {activeIndex === 1 && (
+            <div className="flex flex-col gap-6">
+              <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
+                <StatCard
+                  title="Total Players"
+                  value={challengeInfo?.totalPlayers ?? 0}
+                  icon={GuessIcon}
+                />
+                <StatCard
+                  title="Total Solves"
+                  value={challengeInfo?.totalSolves ?? 0}
+                  icon={GuessIcon}
+                />
+                <StatCard
+                  title="Total Guesses"
+                  value={challengeInfo?.totalGuesses ?? 0}
+                  icon={GuessIcon}
+                />
+                <StatCard
+                  title="Total Hints"
+                  value={challengeInfo?.totalHints ?? 0}
+                  icon={GuessIcon}
+                />
+                <StatCard
+                  title="Give Ups"
+                  value={challengeInfo?.totalGiveUps ?? 0}
+                  icon={GuessIcon}
+                />
+                <StatCard
+                  title="Solve Rate"
+                  value={`${Math.round(((challengeInfo?.totalSolves ?? 0) / (challengeInfo?.totalPlayers ?? 1)) * 100)}%`}
+                  icon={() => (
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      className="h-5 w-5"
+                      viewBox="0 0 24 24"
+                      strokeWidth="2"
+                      stroke="currentColor"
+                      fill="none"
+                    >
+                      <path d="M3 12a9 9 0 1 0 18 0a9 9 0 0 0 -18 0" />
+                      <path d="M12 7v5l3 3" />
+                    </svg>
+                  )}
+                />
+                <StatCard
+                  title="Average Guesses"
+                  value={Math.round(
+                    (challengeInfo?.totalGuesses ?? 0) / (challengeInfo?.totalPlayers ?? 1)
+                  )}
+                  icon={() => (
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      className="h-5 w-5"
+                      viewBox="0 0 24 24"
+                      strokeWidth="2"
+                      stroke="currentColor"
+                      fill="none"
+                    >
+                      <path d="M3 12h4l3 8l4 -16l3 8h4" />
+                    </svg>
+                  )}
+                />
+              </div>
+            </div>
+          )}
+
+          {activeIndex === 2 && (
+            <div className="flex flex-col gap-4">
+              <div className="flex flex-col gap-1 text-center">
+                {leaderboardData?.userRank && (
+                  <p className="text-gray-400">
+                    Your Rank:{' '}
+                    <span className="font-bold text-blue-400">
+                      {didWin ? `#${leaderboardData.userRank.score}` : '--'}
+                    </span>
+                  </p>
+                )}
+              </div>
+
+              {leaderboardData?.leaderboardByScore.length ? (
+                <div className="overflow-hidden rounded-lg border border-gray-700 bg-gray-900">
+                  {leaderboardData?.leaderboardByScore.map((entry, index, entries) => {
+                    const isCurrentUser = entry.member === challengeUserInfo.username;
+
+                    // Find the rank by looking at previous scores
+                    let rank = 1;
+                    if (index > 0) {
+                      const prevScore = entries[index - 1].score;
+                      if (entry.score === prevScore) {
+                        // If this score matches previous score, use the same rank
+                        rank = entries.findIndex((e) => e.score === entry.score) + 1;
+                      } else {
+                        // If score is different, rank is current position + 1
+                        rank = index + 1;
+                      }
+                    }
+
+                    const isTopThree = rank <= 3;
+
+                    return (
+                      <div
+                        key={entry.member}
+                        className={cn(
+                          'flex items-center px-4 py-1',
+                          index % 2 === 0 ? 'bg-gray-800/50' : 'bg-gray-900/50',
+                          isCurrentUser && 'bg-blue-900/20',
+                          'transition-colors duration-150'
+                        )}
+                      >
+                        <div className="flex flex-1 items-center gap-3">
+                          <span
+                            className={cn(
+                              'min-w-[2rem] font-mono text-sm',
+                              isTopThree ? 'font-bold text-yellow-400' : 'text-gray-400'
+                            )}
+                          >
+                            #{rank}
+                          </span>
+                          <span
+                            className={cn(
+                              'truncate font-medium',
+                              isCurrentUser ? 'text-blue-500' : 'text-white'
+                            )}
+                          >
+                            {entry.member} {isCurrentUser && '(you)'}
+                          </span>
+                        </div>
+                        <span className="font-bold text-gray-200">{prettyNumber(entry.score)}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <p className="text-center">
+                  No one has completed today's challenge. Check back soon!
                 </p>
               )}
             </div>
-
-            {leaderboardData?.leaderboardByScore.length ? (
-              <div className="overflow-hidden rounded-lg border border-gray-700 bg-gray-900">
-                {leaderboardData?.leaderboardByScore.map((entry, index, entries) => {
-                  const isCurrentUser = entry.member === challengeUserInfo.username;
-
-                  // Find the rank by looking at previous scores
-                  let rank = 1;
-                  if (index > 0) {
-                    const prevScore = entries[index - 1].score;
-                    if (entry.score === prevScore) {
-                      // If this score matches previous score, use the same rank
-                      rank = entries.findIndex((e) => e.score === entry.score) + 1;
-                    } else {
-                      // If score is different, rank is current position + 1
-                      rank = index + 1;
-                    }
-                  }
-
-                  const isTopThree = rank <= 3;
-
-                  return (
-                    <div
-                      key={entry.member}
-                      className={cn(
-                        'flex items-center px-4 py-1',
-                        index % 2 === 0 ? 'bg-gray-800/50' : 'bg-gray-900/50',
-                        isCurrentUser && 'bg-blue-900/20',
-                        'transition-colors duration-150'
-                      )}
-                    >
-                      <div className="flex flex-1 items-center gap-3">
-                        <span
-                          className={cn(
-                            'min-w-[2rem] font-mono text-sm',
-                            isTopThree ? 'font-bold text-yellow-400' : 'text-gray-400'
-                          )}
-                        >
-                          #{rank}
-                        </span>
-                        <span
-                          className={cn(
-                            'truncate font-medium',
-                            isCurrentUser ? 'text-blue-500' : 'text-white'
-                          )}
-                        >
-                          {entry.member} {isCurrentUser && '(you)'}
-                        </span>
-                      </div>
-                      <span className="font-bold text-gray-200">{prettyNumber(entry.score)}</span>
-                    </div>
-                  );
-                })}
-              </div>
-            ) : (
-              <p>No one has completed today's challenge. Check back soon!</p>
-            )}
-          </div>
-        )}
+          )}
+        </div>
       </div>
-    </div>
+      <ScoreBreakdownModal
+        clickAnywhereToClose={false}
+        isOpen={isScoreBreakdownOpen}
+        onClose={() => setIsScoreBreakdownOpen(false)}
+      />
+    </>
   );
 };

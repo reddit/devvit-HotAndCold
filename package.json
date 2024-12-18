@@ -22,13 +22,13 @@
     "dev:devvit": "MY_PORTAL=0 mydevvit playtest HotAndColdDev --employee-update",
     "dev:all": "concurrently -p \"[{name}]\" -n \"DEVVIT,GAME\" -c \"bgBlue.bold,bgMagenta.bold\" \"npm run dev:devvit\" \"npm run dev:game\" --restart-tries 30",
     "vite": "vite --mode detached",
-    "test": "vitest",
-    "upload": "devvit upload",
+    "test": "vitest run",
+    "upload": "npm run type-check && npm run test && devvit upload",
     "publish": "devvit publish",
     "type-check": "tsc --noEmit && cd game && tsc --noEmit"
   },
   "dependencies": {
-    "@devvit/public-api": "0.11.3",
+    "@devvit/public-api": "0.11.5",
     "@react-three/fiber": "^8.17.10",
     "@types/fast-levenshtein": "^0.0.4",
     "clsx": "^2.1.1",
