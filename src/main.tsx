@@ -130,7 +130,7 @@ Devvit.addCustomPostType({
         context,
         sort: 'DESC',
         start: 0,
-        stop: 10_000,
+        stop: 1000,
         username: initialState.user.username,
       });
 
@@ -140,7 +140,7 @@ Devvit.addCustomPostType({
           challengeProgress,
         },
       });
-    }, 5000).start();
+    }, 6000).start();
 
     return (
       <vstack height="100%" width="100%" alignment="center middle">

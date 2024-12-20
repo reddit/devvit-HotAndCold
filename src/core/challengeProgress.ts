@@ -25,12 +25,6 @@ export const getPlayerProgress = zoddy(
     sort: z.enum(["ASC", "DESC"]).optional().default("DESC"),
   }),
   async ({ context, challenge, sort, start, stop, username }) => {
-    const players = await ChallengePlayers.getAll({
-      redis: context.redis,
-      challenge,
-    });
-
-    // TODO: Total yolo
     const result = await context.redis.zRange(
       getChallengePlayerProgressKey(challenge),
       start,
@@ -41,6 +35,12 @@ export const getPlayerProgress = zoddy(
     if (!result) {
       throw new Error(`No leaderboard found challenge ${challenge}`);
     }
+
+    const players = await ChallengePlayers.getSome({
+      redis: context.redis,
+      challenge,
+      usernames: result.map((x) => x.member),
+    });
 
     const results = result.map((x) => {
       const player = players[x.member];

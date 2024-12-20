@@ -50,3 +50,29 @@ export const getAll = zoddy(
     return playersSchema.parse(players);
   },
 );
+
+export const getSome = zoddy(
+  z.object({
+    redis: zodRedis,
+    challenge: z.number().gt(0),
+    usernames: z.array(z.string()),
+  }),
+  async ({ redis, challenge, usernames }) => {
+    if (usernames.length === 0) return {};
+
+    const items = await redis.hMGet(
+      getChallengePlayersKey(challenge),
+      usernames,
+    );
+
+    const players: z.infer<typeof playersSchema> = {};
+
+    items.forEach(
+      (raw, index) => {
+        players[usernames[index]] = JSON.parse(raw ?? "{}");
+      },
+    );
+
+    return playersSchema.parse(players);
+  },
+);
