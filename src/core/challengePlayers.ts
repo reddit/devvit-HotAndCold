@@ -67,9 +67,9 @@ export const getSome = zoddy(
 
     const players: z.infer<typeof playersSchema> = {};
 
-    Object.entries(items.filter((x) => x != null)).forEach(
-      ([username, data]) => {
-        players[username] = JSON.parse(data);
+    items.forEach(
+      (raw, index) => {
+        players[usernames[index]] = JSON.parse(raw ?? "{}");
       },
     );
 

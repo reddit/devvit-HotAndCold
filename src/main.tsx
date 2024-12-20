@@ -125,22 +125,14 @@ Devvit.addCustomPostType({
     }
 
     useInterval(async () => {
-      const challengeProgress = await context.cache(
-        async () => {
-          return await ChallengeProgress.getPlayerProgress({
-            challenge: initialState.challenge,
-            context,
-            sort: 'DESC',
-            start: 0,
-            stop: 1000,
-            username: initialState.user.username,
-          });
-        },
-        {
-          key: `challengeProgressCache:${initialState.challenge}`,
-          ttl: 5000,
-        }
-      );
+      const challengeProgress = await ChallengeProgress.getPlayerProgress({
+        challenge: initialState.challenge,
+        context,
+        sort: 'DESC',
+        start: 0,
+        stop: 1000,
+        username: initialState.user.username,
+      });
 
       sendMessageToWebview(context, {
         type: 'PLAYER_PROGRESS_UPDATE',
