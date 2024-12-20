@@ -22,7 +22,7 @@ export const getPlayerProgress = zoddy(
     username: zodRedditUsername,
     start: z.number().gte(0).optional().default(0),
     stop: z.number().gte(-1).optional().default(10),
-    sort: z.enum(["ASC", "DESC"]).optional().default("DESC"),
+    sort: z.enum(["ASC", "DESC"]).optional().default("ASC"),
   }),
   async ({ context, challenge, sort, start, stop, username }) => {
     const result = await context.redis.zRange(
@@ -42,7 +42,8 @@ export const getPlayerProgress = zoddy(
       usernames: result.map((x) => x.member),
     });
 
-    const results = result.map((x) => {
+    // Filter out people who give up and people who haven't started
+    const results = result.filter((x) => x.score > 1).map((x) => {
       const player = players[x.member];
 
       return {
@@ -57,6 +58,12 @@ export const getPlayerProgress = zoddy(
     // meter. Don't save it because that will happen when they save and we
     // only want to see it in the UI.
     if (results.some((x) => x.isPlayer) === false) {
+      // Sometimes users won't be in the returned sample so we do a check here to see if they have a score
+      const score = await context.redis.zScore(
+        getChallengePlayerProgressKey(challenge),
+        username,
+      );
+
       const avatar = await RedditApiCache.getSnoovatarCached({
         context,
         username,
@@ -66,7 +73,8 @@ export const getPlayerProgress = zoddy(
         avatar: avatar ?? null,
         username: username,
         isPlayer: true,
-        progress: 0,
+        // Default to 0 (this means they have not started)
+        progress: score ?? 0,
       });
     }
 
