@@ -105,6 +105,14 @@ export type WebviewToBlocksMessage =
     payload: {};
   };
 
+export type FeedbackResponse = {
+  feedback: string;
+  action?: {
+    message: string;
+    type: "HINT" | "GIVE_UP" | "NONE";
+  };
+};
+
 export type BlocksToWebviewMessage =
   // TODO: Just make `GAME_RESPONSE`?
   | {
@@ -140,6 +148,10 @@ export type BlocksToWebviewMessage =
   | {
     type: "CHALLENGE_LEADERBOARD_RESPONSE";
     payload: ChallengeLeaderboardResponse;
+  }
+  | {
+    type: "FEEDBACK";
+    payload: FeedbackResponse;
   };
 
 export type DevvitMessage = {

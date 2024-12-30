@@ -48,6 +48,7 @@ const GuessItem = ({ item, latestGuess }: { item: Guess; latestGuess?: Guess }) 
       <span
         className={cn(
           'flex flex-shrink-0 items-center text-right',
+          // TODO: Keep in sync with guess service comment stream thing
           item.normalizedSimilarity < 40 && 'text-[#4DE1F2]',
           item.normalizedSimilarity >= 40 && item.normalizedSimilarity < 80 && 'text-[#FED155]',
           item.normalizedSimilarity >= 80 && 'text-[#FE5555]'
