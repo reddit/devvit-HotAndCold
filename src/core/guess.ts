@@ -1,5 +1,6 @@
 import { z } from "zod";
 import {
+  guessSchema,
   redisNumberString,
   zodContext,
   zoddy,
@@ -28,16 +29,6 @@ export const getChallengeUserKey = (
   challengeNumber: number,
   username: string,
 ) => `${Challenge.getChallengeKey(challengeNumber)}:user:${username}` as const;
-
-export const guessSchema = z.object({
-  word: z.string(),
-  similarity: z.number().gte(-1).lte(1),
-  normalizedSimilarity: z.number().gte(0).lte(100),
-  timestamp: z.number(),
-  // Only for top 1,000 similar words
-  rank: z.number().gte(-1),
-  isHint: z.boolean(),
-}).strict();
 
 const challengeUserInfoSchema = z.object({
   username: z.string(),
@@ -293,6 +284,14 @@ export const getHintForUser = zoddy(
       username,
     });
 
+    // Clears out any feedback (like the feedback that prompted them to take a hint!)
+    sendMessageToWebview(context, {
+      type: "FEEDBACK",
+      payload: {
+        feedback: "",
+      },
+    });
+
     return {
       number: challenge,
       challengeUserInfo: {
@@ -372,7 +371,7 @@ export const submitGuess = zoddy(
     ) {
       if (rawGuess !== distance.wordBLemma) {
         throw new Error(
-          `We changed your guess to ${distance.wordBLemma} (${alreadyGuessWord.normalizedSimilarity}%) and you've already guessed that.`,
+          `We changed your guess to ${distance.wordBLemma} (${alreadyGuessWord.normalizedSimilarity}%) and you've already tried that.`,
         );
       }
       throw new Error(
@@ -717,6 +716,14 @@ export const giveUp = zoddy(
       start: 0,
       stop: 1000,
       username,
+    });
+
+    // Clears out any feedback (like the feedback that prompted them to take a hint!)
+    sendMessageToWebview(context, {
+      type: "FEEDBACK",
+      payload: {
+        feedback: "",
+      },
     });
 
     return {

@@ -1,7 +1,6 @@
 import { z } from "zod";
 import { getHeatForGuess } from "../utils/getHeat.js";
-import { zodContext, zoddy } from "../utils/zoddy.js";
-import { guessSchema } from "./guess.js";
+import { guessSchema, zodContext, zoddy } from "../utils/zoddy.js";
 import { sendMessageToWebview } from "../utils/utils.js";
 
 export * as Feedback from "./feedback.js";
@@ -318,29 +317,15 @@ export const sendMessage = zoddy(
     }
 
     // Dad joke messages
-    if (totalGuesses === 24 && Math.random() < 0.2) { // Low chance for dad jokes
+    if (totalGuesses === 20 && Math.random() < 0.2) {
       return sendFeedback(
-        "🎭 Why did the dictionary feel sad? It lost all its words! (Unlike you - you've got plenty of guesses left!)",
+        "📚 What did the passive verb say? I'd rather not be active right now! (Unlike you - keep those guesses coming!)",
       );
     }
 
-    if (coldStreakLength === 7 && Math.random() < 0.2) {
+    if (totalHotGuesses === 4 && Math.random() < 0.2) {
       return sendFeedback(
-        "❄️ What did the word say when it was stressed? 'I need to take things letter by letter!'",
-      );
-    }
-
-    if (
-      totalWarmGuesses === 5 && totalHotGuesses === 0 && Math.random() < 0.2
-    ) {
-      return sendFeedback(
-        "📚 What did one thesaurus say to the other? Long time no synonym! (Speaking of synonyms...)",
-      );
-    }
-
-    if (totalHints >= 3 && Math.random() < 0.2) {
-      return sendFeedback(
-        "🎯 What's a word puzzle's favorite snack? Hint chips! (Sorry, that was terrible. Back to guessing!)",
+        "🔥 Why did the hot guess go to the doctor? It had a high word count! (Ba dum tss!)",
       );
     }
 
@@ -356,6 +341,12 @@ export const sendMessage = zoddy(
       );
     }
 
+    if (totalWarmGuesses === 8 && Math.random() < 0.2) {
+      return sendFeedback(
+        "📝 What's a synonym's favorite day? Thesaurus-day! (Get it? Thursday? I'll stop now...)",
+      );
+    }
+
     if (totalGuesses === 40 && Math.random() < 0.2) {
       return sendFeedback(
         "🎲 Why did the word quit its job? It didn't get enough letters of recommendation! (Unlike you - you're doing great!)",
@@ -365,6 +356,104 @@ export const sendMessage = zoddy(
     if (totalHints === 5 && Math.random() < 0.2) {
       return sendFeedback(
         "💡 What did one hint say to the other? You're not being very helpful! (But hopefully I am!)",
+      );
+    }
+
+    if (totalGuesses === 24 && Math.random() < 0.2) {
+      return sendFeedback(
+        "🎭 Why did the dictionary feel sad? It lost all its words! (Unlike you - you've got plenty of guesses left!)",
+      );
+    }
+
+    // Devious comment prompts
+    if (totalHotGuesses === 3 && totalGuesses < 20) {
+      const tricksterMessages = [
+        "😈 You seem clever... clever enough to leave a delightfully misleading hint in the comments?",
+        "🎭 Masters of the game make the best tricksters! Care to leave a deceptive clue below?",
+      ];
+      return sendFeedback(sample(tricksterMessages));
+    }
+
+    if (warmStreakLength === 6) {
+      return sendFeedback(
+        "🎪 Six warm guesses in a row! You must know something... Share a cryptic hint that only LOOKS helpful!",
+      );
+    }
+
+    if (totalGuesses === 22 && totalHotGuesses >= 1) {
+      return sendFeedback(
+        "🃏 Got a hot guess? Leave a hint that sends everyone down the wrong path - it's part of the fun!",
+      );
+    }
+
+    if (totalGuesses === 35 && totalWarmGuesses >= 5) {
+      const misdirectionMessages = [
+        "🎭 Time to join the hint conspiracy! Leave a clue that's technically true but totally misleading...",
+        "🌟 The best hints are the ones that make people say 'Oh!' and then guess completely wrong!",
+      ];
+      return sendFeedback(sample(misdirectionMessages));
+    }
+
+    // Additional playful performance messages
+    if (totalHints === 0 && totalHotGuesses >= 8) {
+      return sendFeedback(
+        "🎓 Eight hot guesses without hints? You're not just playing the game, you're teaching a masterclass!",
+      );
+    }
+
+    if (warmStreakLength === 8) {
+      return sendFeedback(
+        "🌡️ Eight warm guesses in a row? You're not just warm, you're practically tropical!",
+      );
+    }
+
+    if (
+      totalGuesses === 55 && totalHotGuesses === 0 && totalWarmGuesses >= 10
+    ) {
+      return sendFeedback(
+        "🎯 You're the master of 'almost there'! So many warm guesses... the target word is sweating!",
+      );
+    }
+
+    if (coldStreakLength === 15 && totalHints === 0) {
+      return sendFeedback(
+        "🧊 Fifteen cold guesses in a row without asking for hints? Your determination is absolutely legendary!",
+      );
+    }
+
+    if (totalGuesses === 80 && totalHotGuesses >= 12) {
+      return sendFeedback(
+        "🔥 Twelve hot guesses? You're not just hot, you're supernova hot! The word can't hide much longer!",
+      );
+    }
+
+    if (totalWarmGuesses === 20 && totalHotGuesses === 0) {
+      return sendFeedback(
+        "🌡️ Twenty warm guesses! You're the champion of 'close but no cigar' - time to turn up the heat!",
+      );
+    }
+
+    if (totalGuesses % 50 === 0 && totalHints === 0 && totalGuesses > 100) {
+      return sendFeedback(
+        "💪 No hints after ${totalGuesses} guesses? You're either incredibly stubborn or incredibly brilliant... maybe both?",
+      );
+    }
+
+    if (hotStreakLength === 5) {
+      return sendFeedback(
+        "🎯 Five hot guesses in a row! The target word is probably feeling very exposed right now!",
+      );
+    }
+
+    if (totalGuesses === 65 && totalHotGuesses >= 3 && totalHints === 0) {
+      return sendFeedback(
+        "🎮 Three hot guesses without hints? You're playing chess while others are playing checkers!",
+      );
+    }
+
+    if (warmStreakLength === 10) {
+      return sendFeedback(
+        "🌟 Ten warm guesses in a row! You're like a heat-seeking missile... that's slightly miscalibrated!",
       );
     }
 
@@ -399,58 +488,6 @@ export const sendMessage = zoddy(
       );
     }
 
-    if (warmStreakLength === 5 && Math.random() < 0.3) {
-      return sendFeedback("👀 You're onto something... but what exactly?");
-    }
-
-    if (totalGuesses % 25 === 0 && totalGuesses > 50 && Math.random() < 0.3) {
-      const persistenceMessages = [
-        "💪 Most people would've given up by now. Not you though!",
-        "🎯 Your dedication is impressive. Let's crack this!",
-      ];
-      return sendFeedback(sample(persistenceMessages));
-    }
-
-    if (totalHotGuesses === 7 && Math.random() < 0.4) {
-      return sendFeedback(
-        "🎲 Seven hot guesses! The luck is strong with this one.",
-      );
-    }
-
-    if (totalGuesses === 13 && Math.random() < 0.3) {
-      return sendFeedback("🎲 Unlucky 13? Not with these guesses!");
-    }
-
-    if (
-      totalWarmGuesses === 10 && totalHotGuesses === 0 && Math.random() < 0.3
-    ) {
-      return sendFeedback(
-        "🤔 You're circling the answer... but which direction to go?",
-      );
-    }
-
-    if (totalGuesses === 99 && Math.random() < 0.5) {
-      return sendFeedback(
-        "💯 One more for the century mark! You're nothing if not persistent.",
-      );
-    }
-
-    // if (totalHints === 0 && totalGuesses === 69 && Math.random() < 0.3) {
-    //   return sendFeedback("😎 Nice.");
-    // }
-
-    if (totalGuesses === 15 && totalWarmGuesses >= 3 && Math.random() < 0.3) {
-      return sendFeedback(
-        "🎯 Getting warmer... or are you just really good at finding related words?",
-      );
-    }
-
-    if (coldStreakLength === 4 && totalHotGuesses >= 1 && Math.random() < 0.4) {
-      return sendFeedback(
-        "👀 Remember that hot guess earlier? Maybe there's something there...",
-      );
-    }
-
     // Community engagement messages
     if (warmStreakLength === 5) {
       return sendFeedback(
@@ -461,29 +498,6 @@ export const sendMessage = zoddy(
     if (totalWarmGuesses >= 15 && totalHotGuesses === 0) {
       return sendFeedback(
         "💡 You've found lots of related words! Try to think about what connects all your warm guesses.",
-      );
-    }
-
-    // Community engagement messages
-    if (totalHotGuesses >= 2) {
-      const communityMessages = [
-        "🌟 Got it figured out? Leave a hint below! But remember, sometimes the best hint is a red herring...",
-        "🎪 Join the mind games! Drop a hint in the comments - make it helpful or wonderfully misleading!",
-      ];
-      return sendFeedback(sample(communityMessages));
-    }
-
-    if (totalHotGuesses >= 5) {
-      const communityMessages = [
-        "😈 Know the answer? Leave a cryptic hint in the comments... or perhaps a clever misdirection?",
-        "🎭 Time to play mind games! Drop a hint in the comments - true or false, that's your call...",
-      ];
-      return sendFeedback(sample(communityMessages));
-    }
-
-    if (totalGuesses === 45) {
-      return sendFeedback(
-        "🎪 Stuck? Check the comments... but beware, not every hint is what it seems!",
       );
     }
 

@@ -1,10 +1,11 @@
 // Order matters here!
 import './triggers/install.js';
 import './triggers/upgrade.js';
+import './triggers/onComment.js';
 import './menu-actions/newChallenge.js';
 import './menu-actions/addWordToDictionary.js';
 
-import { Devvit, useAsync, useInterval, useState } from '@devvit/public-api';
+import { Devvit, useInterval, useState } from '@devvit/public-api';
 import { DEVVIT_SETTINGS_KEYS } from './constants.js';
 import { isServerCall, omit, sendMessageToWebview } from './utils/utils.js';
 import { WebviewToBlocksMessage } from '../game/shared.js';

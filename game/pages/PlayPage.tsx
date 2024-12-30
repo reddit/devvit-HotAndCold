@@ -17,12 +17,12 @@ const FeedbackSection = () => {
   }, [message]);
 
   return (
-    <div className="flex h-3.5 items-center justify-between gap-2">
+    <div className="flex h-7 items-start justify-between gap-2">
       <p className="text-left text-xs text-[#EEF1F3]">{feedback?.feedback}</p>
       {feedback?.action != null && (
         <p
           className={clsx(
-            'text-right text-xs text-[#8BA2AD]',
+            'flex-shrink-0 text-right text-xs text-[#8BA2AD]',
             feedback.action.type !== 'NONE' && 'cursor-pointer underline'
           )}
           onClick={() => {
