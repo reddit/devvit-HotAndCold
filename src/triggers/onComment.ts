@@ -31,7 +31,11 @@ Devvit.addTrigger({
         `Comment contains the word: ${challengeInfo.word}. Deleting comment...`,
       );
 
-      await comment.delete();
+      try {
+        await comment.remove(true);
+      } catch (error) {
+        console.error(`Error deleting comment:`, error);
+      }
     }
   },
 });
