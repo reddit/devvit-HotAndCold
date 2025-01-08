@@ -1,10 +1,11 @@
 // Order matters here!
 import './triggers/install.js';
 import './triggers/upgrade.js';
+import './triggers/onComment.js';
 import './menu-actions/newChallenge.js';
 import './menu-actions/addWordToDictionary.js';
 
-import { Devvit, useAsync, useInterval, useState } from '@devvit/public-api';
+import { Devvit, useInterval, useState } from '@devvit/public-api';
 import { DEVVIT_SETTINGS_KEYS } from './constants.js';
 import { isServerCall, omit, sendMessageToWebview } from './utils/utils.js';
 import { WebviewToBlocksMessage } from '../game/shared.js';
@@ -199,10 +200,21 @@ Devvit.addCustomPostType({
                   console.error('Error submitting guess:', error);
                   // Sometimes the error is nasty and we don't want to show it
                   if (error instanceof Error && !['Error: 2'].includes(error.message)) {
-                    context.ui.showToast(error.message);
+                    sendMessageToWebview(context, {
+                      type: 'FEEDBACK',
+                      payload: {
+                        feedback: error.message,
+                      },
+                    });
+                    // context.ui.showToast(error.message);
                     return;
                   }
-                  context.ui.showToast(`I'm not sure what happened. Please try again.`);
+                  sendMessageToWebview(context, {
+                    type: 'FEEDBACK',
+                    payload: {
+                      feedback: `I'm not sure what happened. Please try again.`,
+                    },
+                  });
                 }
                 break;
               case 'SHOW_TOAST':
@@ -223,10 +235,20 @@ Devvit.addCustomPostType({
 
                   console.error('Error getting hint:', error);
                   if (error instanceof Error) {
-                    context.ui.showToast(error.message);
+                    sendMessageToWebview(context, {
+                      type: 'FEEDBACK',
+                      payload: {
+                        feedback: error.message,
+                      },
+                    });
                     return;
                   }
-                  context.ui.showToast(`I'm not sure what happened. Please try again.`);
+                  sendMessageToWebview(context, {
+                    type: 'FEEDBACK',
+                    payload: {
+                      feedback: `I'm not sure what happened. Please try again.`,
+                    },
+                  });
                 }
                 break;
               case 'GIVE_UP_REQUEST':
@@ -240,11 +262,22 @@ Devvit.addCustomPostType({
                     }),
                   });
                 } catch (error) {
+                  console.error(`Error giving up:`, error);
                   if (error instanceof Error) {
-                    context.ui.showToast(error.message);
+                    sendMessageToWebview(context, {
+                      type: 'FEEDBACK',
+                      payload: {
+                        feedback: error.message,
+                      },
+                    });
                     return;
                   }
-                  context.ui.showToast(`I'm not sure what happened. Please try again.`);
+                  sendMessageToWebview(context, {
+                    type: 'FEEDBACK',
+                    payload: {
+                      feedback: `I'm not sure what happened. Please try again.`,
+                    },
+                  });
                 }
                 break;
               case 'LEADERBOARD_FOR_CHALLENGE':

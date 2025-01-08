@@ -256,7 +256,9 @@ export function WordInput({
         ref={inputRef}
         value={internalValue}
         type="text"
-        autoCorrect="off"
+        autoCorrect="on"
+        autoComplete="off"
+        enterKeyHint="send"
         className={cn(
           'text-md relative z-50 h-full w-full rounded-3xl border-none bg-transparent px-4 text-black shadow-[0px_2px_3px_-1px_rgba(0,0,0,0.1),_0px_1px_0px_0px_rgba(25,28,33,0.02),_0px_0px_0px_1px_rgba(25,28,33,0.08)] transition duration-200 focus:outline-none focus:ring-0 dark:bg-gray-800 dark:text-white',
           animating && 'text-transparent dark:text-transparent',

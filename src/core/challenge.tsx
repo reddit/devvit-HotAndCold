@@ -14,7 +14,7 @@ import { ChallengeToPost } from './challengeToPost.js';
 import { Preview } from '../components/Preview.js';
 import { stringifyValues } from '../utils/utils.js';
 import { Streaks } from './streaks.js';
-import { Devvit, Post } from '@devvit/public-api';
+import { Devvit, Post, RichTextBuilder } from '@devvit/public-api';
 
 export * as Challenge from './challenge.js';
 
@@ -25,6 +25,7 @@ export const getChallengeKey = (challenge: number) => `challenge:${challenge}` a
 const challengeSchema = z
   .object({
     word: z.string().trim().toLowerCase(),
+    winnersCircleCommentId: z.string().optional(),
     totalPlayers: redisNumberString.optional(),
     totalSolves: redisNumberString.optional(),
     totalGuesses: redisNumberString.optional(),
@@ -212,11 +213,18 @@ export const makeNewChallenge = zoddy(
         preview: <Preview />,
       });
 
+      // TODO: Threaded comments eventually
+      // const winnersCircleComment = await post.addComment({
+      //   richtext: new RichTextBuilder().paragraph((c) => c.text({ text: `🏆 Winner's Circle 🏆` })),
+      // });
+      // await winnersCircleComment.distinguish(true);
+
       await setChallenge({
         redis: txn,
         challenge: newChallengeNumber,
         config: {
           word: newWord,
+          // winnersCircleCommentId: winnersCircleComment.id,
           totalPlayers: '0',
           totalSolves: '0',
           totalGuesses: '0',

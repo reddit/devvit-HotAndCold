@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { _selectNextHint, guessSchema, Word } from "./guess.js";
+import { _selectNextHint, Word } from "./guess.js";
 import { z } from "zod";
+import { guessSchema } from "../utils/zoddy.js";
 
 // Remember: words are sorted by similarity (closest first)
 const TEST_WORDS: Word[] = [
