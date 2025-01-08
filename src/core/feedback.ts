@@ -34,8 +34,6 @@ export const sendMessage = zoddy(
 
     const firstOfTargetHeatHelper = (target: "COLD" | "WARM" | "HOT") => {
       const sample = guessesWithHeat.slice(1);
-      const lastGuess = sample[sample.length - 1];
-      if (lastGuess.heat !== target) return false;
       return sample.filter((x) => x.heat === target).length === 1;
     };
 
@@ -82,10 +80,7 @@ export const sendMessage = zoddy(
     // First cold guess messages
     if (isFirstColdGuess) {
       const coldMessages = [
-        "❄️ Brrr, that's pretty far from our target! But hey, now we know where NOT to look.",
-        "🧊 Getting chilly in here! Let's warm things up with a different angle.",
-        "❄️ That guess is on ice! Try thinking in a different direction.",
-        "🌨️ Not quite the direction we're heading, but every guess helps narrow it down!",
+        "❄️ Brrr, that's pretty far from our target!",
       ];
       return sendFeedback(sample(coldMessages));
     }
@@ -113,18 +108,9 @@ export const sendMessage = zoddy(
     }
 
     // Cold streak messages
-    if (coldStreakLength === 5) {
-      return sendFeedback(
-        "🧭 Seems like we're wandering in the wrong direction. Want to try a different approach?",
-        {
-          action: { message: "Request hint", type: "HINT" },
-        },
-      );
-    }
-
     if (coldStreakLength === 10) {
       return sendFeedback(
-        "🆘 10 cold guesses in a row? No worries, everyone gets stuck sometimes! How about a hint?",
+        "It's a little chilly in here. How about a hint?",
         {
           action: { message: "Request hint", type: "HINT" },
         },
@@ -144,9 +130,9 @@ export const sendMessage = zoddy(
     // Milestone messages
     if (totalGuesses === 7) {
       const earlyEngagementMessages = [
-        "💭 Pro tip: The comments section is where the real mind games happen! Keep an eye out for hints... or leave your own devious clues!",
-        "🎭 Want to be sneaky? Drop a hint in the comments - true or misleading, that's your strategy to master!",
-        "🌟 Part of the fun is in the comments! Leave a cryptic clue for others... or a clever decoy!",
+        "💭 Keep an eye out for hints in the comments... or leave your own devious clues!",
+        "🎭 Want to be sneaky? Drop a hint in the comments - true or misleading...",
+        "🌟 The fun is in the comments! Leave a cryptic clue for others... or a clever decoy!",
       ];
       return sendFeedback(sample(earlyEngagementMessages));
     }
@@ -183,7 +169,7 @@ export const sendMessage = zoddy(
 
     if (totalGuesses === 40 && totalHotGuesses === 0) {
       return sendFeedback(
-        "🎯 40 guesses without getting hot? No shame in using a hint - even the best players do!",
+        "🎯 No shame in using a hint!",
         {
           action: { message: "Request hint", type: "HINT" },
         },
@@ -278,7 +264,7 @@ export const sendMessage = zoddy(
 
     if (coldStreakLength === 12 && Math.random() < 0.4) {
       return sendFeedback(
-        "💭 Stuck in a rut? Check the comments - but watch out, some of those 'hints' are pure chaos!",
+        "💭 Stuck in a rut? Check the comments!",
       );
     }
 
@@ -325,7 +311,7 @@ export const sendMessage = zoddy(
 
     if (totalHotGuesses === 4 && Math.random() < 0.2) {
       return sendFeedback(
-        "🔥 Why did the hot guess go to the doctor? It had a high word count! (Ba dum tss!)",
+        "🔥 Why did the hot guess go to the doctor? It had a high word count!",
       );
     }
 
@@ -353,12 +339,6 @@ export const sendMessage = zoddy(
       );
     }
 
-    if (totalHints === 5 && Math.random() < 0.2) {
-      return sendFeedback(
-        "💡 What did one hint say to the other? You're not being very helpful! (But hopefully I am!)",
-      );
-    }
-
     if (totalGuesses === 24 && Math.random() < 0.2) {
       return sendFeedback(
         "🎭 Why did the dictionary feel sad? It lost all its words! (Unlike you - you've got plenty of guesses left!)",
@@ -382,28 +362,13 @@ export const sendMessage = zoddy(
 
     if (totalGuesses === 22 && totalHotGuesses >= 1) {
       return sendFeedback(
-        "🃏 Got a hot guess? Leave a hint that sends everyone down the wrong path - it's part of the fun!",
-      );
-    }
-
-    if (totalGuesses === 35 && totalWarmGuesses >= 5) {
-      const misdirectionMessages = [
-        "🎭 Time to join the hint conspiracy! Leave a clue that's technically true but totally misleading...",
-        "🌟 The best hints are the ones that make people say 'Oh!' and then guess completely wrong!",
-      ];
-      return sendFeedback(sample(misdirectionMessages));
-    }
-
-    // Additional playful performance messages
-    if (totalHints === 0 && totalHotGuesses >= 8) {
-      return sendFeedback(
-        "🎓 Eight hot guesses without hints? You're not just playing the game, you're teaching a masterclass!",
+        "Nice, a hot guess! Drop a hint in the comments - but make it tricky!",
       );
     }
 
     if (warmStreakLength === 8) {
       return sendFeedback(
-        "🌡️ Eight warm guesses in a row? You're not just warm, you're practically tropical!",
+        "🌡️ Eight warm guesses in a row? You're not just warm, you're tropical!",
       );
     }
 
@@ -411,7 +376,7 @@ export const sendMessage = zoddy(
       totalGuesses === 55 && totalHotGuesses === 0 && totalWarmGuesses >= 10
     ) {
       return sendFeedback(
-        "🎯 You're the master of 'almost there'! So many warm guesses... the target word is sweating!",
+        "🎯 You're the master of 'almost there'! So many warm guesses... the secret word is sweating!",
       );
     }
 
@@ -435,25 +400,13 @@ export const sendMessage = zoddy(
 
     if (totalGuesses % 50 === 0 && totalHints === 0 && totalGuesses > 100) {
       return sendFeedback(
-        "💪 No hints after ${totalGuesses} guesses? You're either incredibly stubborn or incredibly brilliant... maybe both?",
+        `💪 No hints after ${totalGuesses} guesses? You're either incredibly stubborn or incredibly brilliant... maybe both?`,
       );
     }
 
     if (hotStreakLength === 5) {
       return sendFeedback(
         "🎯 Five hot guesses in a row! The target word is probably feeling very exposed right now!",
-      );
-    }
-
-    if (totalGuesses === 65 && totalHotGuesses >= 3 && totalHints === 0) {
-      return sendFeedback(
-        "🎮 Three hot guesses without hints? You're playing chess while others are playing checkers!",
-      );
-    }
-
-    if (warmStreakLength === 10) {
-      return sendFeedback(
-        "🌟 Ten warm guesses in a row! You're like a heat-seeking missile... that's slightly miscalibrated!",
       );
     }
 
@@ -468,14 +421,6 @@ export const sendMessage = zoddy(
       return sendFeedback(sample(hotRunMessages));
     }
 
-    if (coldStreakLength === 6 && totalGuesses < 20 && Math.random() < 0.4) {
-      const freezingMessages = [
-        "❄️ Time for a new strategy? This one's not exactly working out",
-        "🧊 These guesses are ice cold. But hey, at least we know what it's not!",
-      ];
-      return sendFeedback(sample(freezingMessages));
-    }
-
     if (totalGuesses === 37) {
       return sendFeedback(
         "🎰 Guess #37 - the most random of numbers. Sort of ironic, no?",
@@ -485,19 +430,6 @@ export const sendMessage = zoddy(
     if (totalGuesses === 42) {
       return sendFeedback(
         "✨ Guess #42 - traditionally a lucky number. Let's see if it works here!",
-      );
-    }
-
-    // Community engagement messages
-    if (warmStreakLength === 5) {
-      return sendFeedback(
-        "🤔 You're consistently warm - try thinking about what these words have in common!",
-      );
-    }
-
-    if (totalWarmGuesses >= 15 && totalHotGuesses === 0) {
-      return sendFeedback(
-        "💡 You've found lots of related words! Try to think about what connects all your warm guesses.",
       );
     }
 

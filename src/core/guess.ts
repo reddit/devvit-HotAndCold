@@ -22,6 +22,7 @@ import { RichTextBuilder } from "@devvit/public-api";
 import { getPrettyDuration } from "../utils/prettyDuration.js";
 import { getHeatForGuess } from "../utils/getHeat.js";
 import { Feedback } from "./feedback.js";
+import { ChallengeToPost } from "./challengeToPost.js";
 
 export * as Guess from "./guess.js";
 
@@ -468,99 +469,164 @@ export const submitGuess = zoddy(
 
       console.log(`Marking challenge as solved for user ${username}`);
 
-      await markChallengeSolvedForUser({
-        challenge,
-        redis: txn,
-        username,
-        completedAt,
-        score,
-      });
-
-      console.log(`Incrementing streak for user ${username}`);
-
       const currentChallengeNumber = await Challenge.getCurrentChallengeNumber({
         redis: txn,
       });
 
       // NOTE: This is bad for perf and should really be a background job or something
       // Users might see a delay in seeing the winning screen
-      if (challengeInfo.winnersCircleCommentId) {
-        const rootCommentThread = await context.reddit.getCommentById(
-          challengeInfo.winnersCircleCommentId,
-        );
+      // if (challengeInfo.winnersCircleCommentId) {
+      // const rootCommentThread = await context.reddit.getCommentById(
+      //   challengeInfo.winnersCircleCommentId,
+      // );
 
-        const coldestGuess = newGuesses.reduce((prev, current) =>
-          prev.normalizedSimilarity < current.normalizedSimilarity
-            ? prev
-            : current
-        );
-        const averageNormalizedSimilarity = Math.round(
-          newGuesses.reduce(
-            (acc, current) => acc + current.normalizedSimilarity,
-            0,
-          ) / newGuesses.length,
-        );
-        const totalHints = newGuesses.filter((x) => x.isHint).length;
+      const coldestGuess = newGuesses.reduce((prev, current) =>
+        prev.normalizedSimilarity < current.normalizedSimilarity
+          ? prev
+          : current
+      );
+      const averageNormalizedSimilarity = Math.round(
+        newGuesses.reduce(
+          (acc, current) => acc + current.normalizedSimilarity,
+          0,
+        ) / newGuesses.length,
+      );
+      const totalHints = newGuesses.filter((x) => x.isHint).length;
 
-        rootCommentThread.reply({
-          // @ts-expect-error The types in devvit are wrong
-          richtext: new RichTextBuilder()
-            .paragraph((p) =>
-              p.text({ text: `u/${username} solved the challenge!` })
-            )
-            .paragraph((p) =>
-              p.text({
-                text: newGuesses.map((item) => {
-                  const heat = getHeatForGuess(item);
-                  if (heat === "COLD") {
-                    return "🔵";
-                  }
+      const postId = await ChallengeToPost.getPostForChallengeNumber({
+        redis: txn,
+        challenge,
+      });
+      const winnersCircleComment = await context.reddit.submitComment({
+        id: postId,
+        // @ts-expect-error The types in devvit are wrong
+        richtext: new RichTextBuilder()
+          .paragraph((p) =>
+            p.text({ text: `u/${username} solved the challenge!` })
+          )
+          .paragraph((p) =>
+            p.text({
+              text: newGuesses.map((item) => {
+                const heat = getHeatForGuess(item);
+                if (heat === "COLD") {
+                  return "🔵";
+                }
 
-                  if (
-                    heat === "WARM"
-                  ) {
-                    return "🟡";
-                  }
+                if (
+                  heat === "WARM"
+                ) {
+                  return "🟡";
+                }
 
-                  if (heat === "HOT") {
-                    return "🔴";
-                  }
-                }).join(""),
-              })
-            )
-            .paragraph((p) => {
-              p.text({
-                text: `Score: ${score?.finalScore}${
-                  score?.finalScore === 100 ? " (perfect)" : ""
-                }`,
-              });
-              p.linebreak();
-              p.text({
-                text:
-                  `Total guesses: ${newGuesses.length} (${totalHints} hints)`,
-              });
-              p.linebreak();
-              p.text({
-                text: `Time to solve: ${
-                  getPrettyDuration(
-                    new Date(startedPlayingAtMs),
-                    new Date(completedAt),
-                  )
-                }`,
-              });
-              p.linebreak();
-              p.text({
-                text:
-                  `Coldest guess: ${coldestGuess.word} (${coldestGuess.normalizedSimilarity}%)`,
-              });
-              p.linebreak();
-              p.text({
-                text: `Average heat: ${averageNormalizedSimilarity}%`,
-              });
+                if (heat === "HOT") {
+                  return "🔴";
+                }
+              }).join(""),
             })
-            .build(),
-        });
-      }
+          )
+          .paragraph((p) => {
+            p.text({
+              text: `Score: ${score?.finalScore}${
+                score?.finalScore === 100 ? " (perfect)" : ""
+              }`,
+            });
+            p.linebreak();
+            p.text({
+              text: `Total guesses: ${newGuesses.length} (${totalHints} hints)`,
+            });
+            p.linebreak();
+            p.text({
+              text: `Time to solve: ${
+                getPrettyDuration(
+                  new Date(startedPlayingAtMs),
+                  new Date(completedAt),
+                )
+              }`,
+            });
+            p.linebreak();
+            p.text({
+              text:
+                `Coldest guess: ${coldestGuess.word} (${coldestGuess.normalizedSimilarity}%)`,
+            });
+            p.linebreak();
+            p.text({
+              text: `Average heat: ${averageNormalizedSimilarity}%`,
+            });
+          })
+          .build(),
+      });
+
+      await markChallengeSolvedForUser({
+        challenge,
+        redis: txn,
+        username,
+        completedAt,
+        score,
+        winnersCircleCommentId: winnersCircleComment.id,
+      });
+
+      console.log(`Incrementing streak for user ${username}`);
+
+      // TODO: Threaded comments eventually
+      // rootCommentThread.reply({
+      //   // @ts-expect-error The types in devvit are wrong
+      // richtext: new RichTextBuilder()
+      //   .paragraph((p) =>
+      //     p.text({ text: `u/${username} solved the challenge!` })
+      //   )
+      //   .paragraph((p) =>
+      //     p.text({
+      //       text: newGuesses.map((item) => {
+      //         const heat = getHeatForGuess(item);
+      //         if (heat === "COLD") {
+      //           return "🔵";
+      //         }
+
+      //         if (
+      //           heat === "WARM"
+      //         ) {
+      //           return "🟡";
+      //         }
+
+      //         if (heat === "HOT") {
+      //           return "🔴";
+      //         }
+      //       }).join(""),
+      //     })
+      //   )
+      //   .paragraph((p) => {
+      //     p.text({
+      //       text: `Score: ${score?.finalScore}${
+      //         score?.finalScore === 100 ? " (perfect)" : ""
+      //       }`,
+      //     });
+      //     p.linebreak();
+      //     p.text({
+      //       text:
+      //         `Total guesses: ${newGuesses.length} (${totalHints} hints)`,
+      //     });
+      //     p.linebreak();
+      //     p.text({
+      //       text: `Time to solve: ${
+      //         getPrettyDuration(
+      //           new Date(startedPlayingAtMs),
+      //           new Date(completedAt),
+      //         )
+      //       }`,
+      //     });
+      //     p.linebreak();
+      //     p.text({
+      //       text:
+      //         `Coldest guess: ${coldestGuess.word} (${coldestGuess.normalizedSimilarity}%)`,
+      //     });
+      //     p.linebreak();
+      //     p.text({
+      //       text: `Average heat: ${averageNormalizedSimilarity}%`,
+      //     });
+      //   })
+      //   .build(),
+      // });
+      // }
 
       // Only increment streak if the user solved the current day's challenge
       if (currentChallengeNumber === challenge) {
