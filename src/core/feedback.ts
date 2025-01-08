@@ -33,8 +33,7 @@ export const sendMessage = zoddy(
     }));
 
     const firstOfTargetHeatHelper = (target: "COLD" | "WARM" | "HOT") => {
-      const sample = guessesWithHeat.slice(1);
-      return sample.filter((x) => x.heat === target).length === 1;
+      return guessesWithHeat.filter((x) => x.heat === target).length === 1;
     };
 
     const heatStreakHelper = (target: "COLD" | "WARM" | "HOT") => {
@@ -108,7 +107,7 @@ export const sendMessage = zoddy(
     }
 
     // Cold streak messages
-    if (coldStreakLength === 10) {
+    if (coldStreakLength === 11) {
       return sendFeedback(
         "It's a little chilly in here. How about a hint?",
         {
@@ -128,7 +127,7 @@ export const sendMessage = zoddy(
     }
 
     // Milestone messages
-    if (totalGuesses === 7) {
+    if (totalGuesses === 17) {
       const earlyEngagementMessages = [
         "💭 Keep an eye out for hints in the comments... or leave your own devious clues!",
         "🎭 Want to be sneaky? Drop a hint in the comments - true or misleading...",
