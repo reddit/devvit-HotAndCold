@@ -22,7 +22,7 @@ Devvit.addSchedulerJob({
           subject:
             `HotAndCold: Time to play challenge #${newChallenge.challenge}!`,
           text:
-            `The new challenge is up! Go to [this link](${newChallenge.postUrl}) to play!`,
+            `The new challenge is up! Go to [this link](${newChallenge.postUrl}) to play!\n\nUnsubscribe from these messages any time by going to the challenge, tapping the three dots, and selecting "Unsubscribe".`,
           to: username,
         })
       );

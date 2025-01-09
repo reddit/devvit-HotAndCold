@@ -538,6 +538,7 @@ export const submitGuess = zoddy(
             p.text({
               text: `Time to solve: ${
                 getPrettyDuration(
+                  // @ts-expect-error - Works on a future version
                   new Date(startedPlayingAtMs),
                   new Date(completedAt),
                 )

@@ -1,15 +1,15 @@
 import { Devvit } from '@devvit/public-api';
-import { Challenge } from '../core/challenge.js';
+import { Reminders } from '../core/reminders.js';
 
 Devvit.addMenuItem({
-  label: 'HotAndCold: New challenge',
+  label: 'HotAndCold: Get total reminders',
   forUserType: 'moderator',
   location: 'subreddit',
   onPress: async (_event, context) => {
     try {
-      const newChallenge = await Challenge.makeNewChallenge({ context });
+      const total = await Reminders.totalReminders({ redis: context.redis });
 
-      context.ui.navigateTo(newChallenge.postUrl);
+      context.ui.showToast(`Total game reminders: ${total}`);
     } catch (error) {
       console.error(`Error making new challenge:`, error);
     }
