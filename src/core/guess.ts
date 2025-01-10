@@ -1,4 +1,4 @@
-import { z } from "zod";
+import { z } from 'zod';
 import {
   guessSchema,
   redisNumberString,
@@ -7,54 +7,60 @@ import {
   zodRedditUsername,
   zodRedis,
   zodTransaction,
-} from "../utils/zoddy.js";
-import { Challenge } from "./challenge.js";
-import { API } from "./api.js";
-import { Streaks } from "./streaks.js";
-import { ChallengeLeaderboard } from "./challengeLeaderboard.js";
-import { Score } from "./score.js";
-import { isEmptyObject, omit, sendMessageToWebview } from "../utils/utils.js";
-import { GameResponse, Guess } from "../../game/shared.js";
-import { Similarity } from "./similarity.js";
-import { ChallengePlayers } from "./challengePlayers.js";
-import { ChallengeProgress } from "./challengeProgress.js";
-import { RichTextBuilder } from "@devvit/public-api";
-import { getPrettyDuration } from "../utils/prettyDuration.js";
-import { getHeatForGuess } from "../utils/getHeat.js";
-import { Feedback } from "./feedback.js";
-import { ChallengeToPost } from "./challengeToPost.js";
+} from '../utils/zoddy.js';
+import { Challenge } from './challenge.js';
+import { API } from './api.js';
+import { Streaks } from './streaks.js';
+import { ChallengeLeaderboard } from './challengeLeaderboard.js';
+import { Score } from './score.js';
+import { isEmptyObject, omit, sendMessageToWebview } from '../utils/utils.js';
+import { GameResponse, Guess } from '../../game/shared.js';
+import { Similarity } from './similarity.js';
+import { ChallengePlayers } from './challengePlayers.js';
+import { ChallengeProgress } from './challengeProgress.js';
+import { Comment, RichTextBuilder } from '@devvit/public-api';
+import { getPrettyDuration } from '../utils/prettyDuration.js';
+import { getHeatForGuess } from '../utils/getHeat.js';
+import { Feedback } from './feedback.js';
+import { ChallengeToPost } from './challengeToPost.js';
 
-export * as Guess from "./guess.js";
+export * as Guess from './guess.js';
 
-export const getChallengeUserKey = (
-  challengeNumber: number,
-  username: string,
-) => `${Challenge.getChallengeKey(challengeNumber)}:user:${username}` as const;
+export const getChallengeUserKey = (challengeNumber: number, username: string) =>
+  `${Challenge.getChallengeKey(challengeNumber)}:user:${username}` as const;
 
-const challengeUserInfoSchema = z.object({
-  username: z.string(),
-  score: z.string().transform((val) => {
-    if (val === undefined) return undefined;
-    if (val === "") return undefined;
+const challengeUserInfoSchema = z
+  .object({
+    username: z.string(),
+    score: z
+      .string()
+      .transform((val) => {
+        if (val === undefined) return undefined;
+        if (val === '') return undefined;
 
-    const parsed = JSON.parse(val);
+        const parsed = JSON.parse(val);
 
-    return Score.scoreSchema.parse(parsed);
-  }).optional(),
-  winnersCircleCommentId: z.string().optional(),
-  startedPlayingAtMs: redisNumberString.optional(),
-  solvedAtMs: redisNumberString.optional(),
-  gaveUpAtMs: redisNumberString.optional(),
-  guesses: z.string().transform((val) => {
-    const maybeArray = JSON.parse(val);
+        return Score.scoreSchema.parse(parsed);
+      })
+      .optional(),
+    winnersCircleCommentId: z.string().optional(),
+    startedPlayingAtMs: redisNumberString.optional(),
+    solvedAtMs: redisNumberString.optional(),
+    gaveUpAtMs: redisNumberString.optional(),
+    guesses: z
+      .string()
+      .transform((val) => {
+        const maybeArray = JSON.parse(val);
 
-    if (!Array.isArray(maybeArray)) {
-      return [];
-    }
+        if (!Array.isArray(maybeArray)) {
+          return [];
+        }
 
-    return maybeArray.map((x) => guessSchema.parse(x));
-  }).optional(),
-}).strict();
+        return maybeArray.map((x) => guessSchema.parse(x));
+      })
+      .optional(),
+  })
+  .strict();
 
 export const getChallengeUserInfo = zoddy(
   z.object({
@@ -63,9 +69,7 @@ export const getChallengeUserInfo = zoddy(
     challenge: z.number().gt(0),
   }),
   async ({ redis, username, challenge }) => {
-    const result = await redis.hGetAll(
-      getChallengeUserKey(challenge, username),
-    );
+    const result = await redis.hGetAll(getChallengeUserKey(challenge, username));
 
     if (!result) {
       throw new Error(`No user found for ${username} on day ${challenge}`);
@@ -75,7 +79,7 @@ export const getChallengeUserInfo = zoddy(
       username,
       ...result,
     });
-  },
+  }
 );
 
 const maybeInitForUser = zoddy(
@@ -85,20 +89,15 @@ const maybeInitForUser = zoddy(
     challenge: z.number().gt(0),
   }),
   async ({ redis, username, challenge }) => {
-    const result = await redis.hGetAll(
-      getChallengeUserKey(challenge, username),
-    );
+    const result = await redis.hGetAll(getChallengeUserKey(challenge, username));
 
     if (!result || isEmptyObject(result)) {
-      await redis.hSet(
-        getChallengeUserKey(challenge, username),
-        {
-          username,
-          guesses: "[]",
-        },
-      );
+      await redis.hSet(getChallengeUserKey(challenge, username), {
+        username,
+        guesses: '[]',
+      });
     }
-  },
+  }
 );
 
 export const markChallengeSolvedForUser = zoddy(
@@ -110,15 +109,13 @@ export const markChallengeSolvedForUser = zoddy(
     score: Score.scoreSchema,
     winnersCircleCommentId: z.string().optional(),
   }),
-  async (
-    { redis, username, challenge, completedAt, score, winnersCircleCommentId },
-  ) => {
+  async ({ redis, username, challenge, completedAt, score, winnersCircleCommentId }) => {
     await redis.hSet(getChallengeUserKey(challenge, username), {
       solvedAtMs: completedAt.toString(),
       score: JSON.stringify(score),
-      winnersCircleCommentId: winnersCircleCommentId ?? "",
+      winnersCircleCommentId: winnersCircleCommentId ?? '',
     });
-  },
+  }
 );
 
 export const markChallengePlayedForUser = zoddy(
@@ -131,7 +128,7 @@ export const markChallengePlayedForUser = zoddy(
     await redis.hSet(getChallengeUserKey(challenge, username), {
       startedPlayingAtMs: Date.now().toString(),
     });
-  },
+  }
 );
 
 export type Word = {
@@ -150,16 +147,9 @@ export function _selectNextHint(params: {
   const guessedWords = new Set(previousGuesses.map((g) => g.word));
 
   // Helper to find next unguessed hint
-  const findNextHint = (
-    startIndex: number,
-    endIndex: number,
-    searchForward: boolean,
-  ) => {
+  const findNextHint = (startIndex: number, endIndex: number, searchForward: boolean) => {
     const indices = searchForward
-      ? Array.from(
-        { length: endIndex - startIndex + 1 },
-        (_, i) => startIndex + i,
-      )
+      ? Array.from({ length: endIndex - startIndex + 1 }, (_, i) => startIndex + i)
       : Array.from({ length: startIndex + 1 }, (_, i) => startIndex - i);
 
     for (const i of indices) {
@@ -254,10 +244,9 @@ export const getHintForUser = zoddy(
 
     await Challenge.incrementChallengeTotalHints({ redis: txn, challenge });
 
-    const newGuesses = z.array(guessSchema).parse([
-      ...challengeUserInfo.guesses ?? [],
-      hintToAdd,
-    ]);
+    const newGuesses = z
+      .array(guessSchema)
+      .parse([...(challengeUserInfo.guesses ?? []), hintToAdd]);
 
     await txn.hSet(getChallengeUserKey(challenge, username), {
       guesses: JSON.stringify(newGuesses),
@@ -279,7 +268,7 @@ export const getHintForUser = zoddy(
     const challengeProgress = await ChallengeProgress.getPlayerProgress({
       challenge,
       context,
-      sort: "DESC",
+      sort: 'DESC',
       start: 0,
       stop: 1000,
       username,
@@ -287,9 +276,9 @@ export const getHintForUser = zoddy(
 
     // Clears out any feedback (like the feedback that prompted them to take a hint!)
     sendMessageToWebview(context, {
-      type: "FEEDBACK",
+      type: 'FEEDBACK',
       payload: {
-        feedback: "",
+        feedback: '',
       },
     });
 
@@ -297,15 +286,15 @@ export const getHintForUser = zoddy(
       number: challenge,
       challengeUserInfo: {
         ...challengeUserInfo,
-        guesses: [...challengeUserInfo.guesses ?? [], hintToAdd],
+        guesses: [...(challengeUserInfo.guesses ?? []), hintToAdd],
       },
       challengeInfo: {
-        ...omit(challengeInfo, ["word"]),
+        ...omit(challengeInfo, ['word']),
         totalHints: (challengeInfo.totalHints ?? 0) + 1,
       },
       challengeProgress,
     };
-  },
+  }
 );
 
 export const submitGuess = zoddy(
@@ -316,9 +305,7 @@ export const submitGuess = zoddy(
     challenge: z.number().gt(0),
     guess: z.string().trim().toLowerCase(),
   }),
-  async (
-    { context, username, challenge, guess: rawGuess, avatar },
-  ): Promise<GameResponse> => {
+  async ({ context, username, challenge, guess: rawGuess, avatar }): Promise<GameResponse> => {
     await maybeInitForUser({ redis: context.redis, username, challenge });
 
     // const txn = await context.redis.watch();
@@ -362,28 +349,27 @@ export const submitGuess = zoddy(
       guessWord: rawGuess,
     });
 
-    console.log(`Username: ${username}:`, "distance", distance);
+    console.log(`Username: ${username}:`, 'distance', distance);
 
-    const alreadyGuessWord = challengeUserInfo.guesses &&
+    const alreadyGuessWord =
+      challengeUserInfo.guesses &&
       challengeUserInfo.guesses.length > 0 &&
       challengeUserInfo.guesses.find((x) => x.word === distance.wordBLemma);
-    if (
-      alreadyGuessWord
-    ) {
+    if (alreadyGuessWord) {
       if (rawGuess !== distance.wordBLemma) {
         throw new Error(
-          `We changed your guess to ${distance.wordBLemma} (${alreadyGuessWord.normalizedSimilarity}%) and you've already tried that.`,
+          `We changed your guess to ${distance.wordBLemma} (${alreadyGuessWord.normalizedSimilarity}%) and you've already tried that.`
         );
       }
       throw new Error(
-        `You've already guessed ${distance.wordBLemma} (${alreadyGuessWord.normalizedSimilarity}%).`,
+        `You've already guessed ${distance.wordBLemma} (${alreadyGuessWord.normalizedSimilarity}%).`
       );
     }
 
     if (distance.similarity == null) {
       // Somehow there's a bug where "word" didn't get imported and appears to be the
       // only word. Leaving this in as an easter egg and fixing the bug like this :D
-      if (distance.wordBLemma === "word") {
+      if (distance.wordBLemma === 'word') {
         throw new Error(`C'mon, you can do better than that!`);
       }
 
@@ -397,12 +383,10 @@ export const submitGuess = zoddy(
 
     await Challenge.incrementChallengeTotalGuesses({ redis: txn, challenge });
 
-    console.log(`Username: ${username}:`, "increment total guess complete");
+    console.log(`Username: ${username}:`, 'increment total guess complete');
 
     let rankOfWord: number | undefined = undefined;
-    const indexOfGuess = wordConfig.similar_words.findIndex((x) =>
-      x.word === distance.wordBLemma
-    );
+    const indexOfGuess = wordConfig.similar_words.findIndex((x) => x.word === distance.wordBLemma);
     if (indexOfGuess === -1) {
       // The word was found!
       if (distance.similarity === 1) {
@@ -431,13 +415,16 @@ export const submitGuess = zoddy(
       isHint: false,
     };
 
-    const newGuesses = z.array(guessSchema).parse([
-      ...challengeUserInfo.guesses ?? [],
-      guessToAdd,
-      // This works around a bug where I would accidentally add the secret word to the guesses
-      // but score it on the guessed word's similarity. This shim will remove the secret word
-      // to let the game self heal.
-    ]).filter((x) => !(x.word === distance.wordA && x.similarity !== 1));
+    const newGuesses = z
+      .array(guessSchema)
+      .parse([
+        ...(challengeUserInfo.guesses ?? []),
+        guessToAdd,
+        // This works around a bug where I would accidentally add the secret word to the guesses
+        // but score it on the guessed word's similarity. This shim will remove the secret word
+        // to let the game self heal.
+      ])
+      .filter((x) => !(x.word === distance.wordA && x.similarity !== 1));
 
     await txn.hSet(getChallengeUserKey(challenge, username), {
       guesses: JSON.stringify(newGuesses),
@@ -448,21 +435,17 @@ export const submitGuess = zoddy(
     if (hasSolved) {
       console.log(`User ${username} solved challenge ${challenge}!`);
       if (!startedPlayingAtMs) {
-        throw new Error(
-          `User ${username} has not started playing yet but solved?`,
-        );
+        throw new Error(`User ${username} has not started playing yet but solved?`);
       }
       const completedAt = Date.now();
       const solveTimeMs = completedAt - startedPlayingAtMs;
-      console.log("Calculating score...");
+      console.log('Calculating score...');
       score = Score.calculateScore({
         solveTimeMs,
         // Need to manually add guess here since this runs in a transaction
         // and the guess has not been added to the user's guesses yet
         totalGuesses: newGuesses.length,
-        totalHints: challengeUserInfo.guesses?.filter((x) =>
-          x.isHint
-        )?.length ?? 0,
+        totalHints: challengeUserInfo.guesses?.filter((x) => x.isHint)?.length ?? 0,
       });
 
       console.log(`Score for user ${username} is ${JSON.stringify(score)}`);
@@ -475,87 +458,73 @@ export const submitGuess = zoddy(
 
       // NOTE: This is bad for perf and should really be a background job or something
       // Users might see a delay in seeing the winning screen
-      // if (challengeInfo.winnersCircleCommentId) {
-      // const rootCommentThread = await context.reddit.getCommentById(
-      //   challengeInfo.winnersCircleCommentId,
-      // );
+      let winnersCircleComment: Comment | undefined;
+      if (challengeInfo.winnersCircleCommentId) {
+        const rootCommentThread = await context.reddit.getCommentById(
+          challengeInfo.winnersCircleCommentId
+        );
 
-      const coldestGuess = newGuesses.reduce((prev, current) =>
-        prev.normalizedSimilarity < current.normalizedSimilarity
-          ? prev
-          : current
-      );
-      const averageNormalizedSimilarity = Math.round(
-        newGuesses.reduce(
-          (acc, current) => acc + current.normalizedSimilarity,
-          0,
-        ) / newGuesses.length,
-      );
-      const totalHints = newGuesses.filter((x) => x.isHint).length;
+        const coldestGuess = newGuesses.reduce((prev, current) =>
+          prev.normalizedSimilarity < current.normalizedSimilarity ? prev : current
+        );
+        const averageNormalizedSimilarity = Math.round(
+          newGuesses.reduce((acc, current) => acc + current.normalizedSimilarity, 0) /
+            newGuesses.length
+        );
+        const totalHints = newGuesses.filter((x) => x.isHint).length;
 
-      const postId = await ChallengeToPost.getPostForChallengeNumber({
-        redis: txn,
-        challenge,
-      });
-      const winnersCircleComment = await context.reddit.submitComment({
-        id: postId,
-        // @ts-expect-error The types in devvit are wrong
-        richtext: new RichTextBuilder()
-          .paragraph((p) =>
-            p.text({ text: `u/${username} solved the challenge!` })
-          )
-          .paragraph((p) =>
-            p.text({
-              text: newGuesses.map((item) => {
-                const heat = getHeatForGuess(item);
-                if (heat === "COLD") {
-                  return "🔵";
-                }
+        winnersCircleComment = await rootCommentThread.reply({
+          // @ts-expect-error The types in devvit are wrong
+          richtext: new RichTextBuilder()
+            .paragraph((p) => p.text({ text: `u/${username} solved the challenge!` }))
+            .paragraph((p) =>
+              p.text({
+                text: newGuesses
+                  .map((item) => {
+                    const heat = getHeatForGuess(item);
+                    if (heat === 'COLD') {
+                      return '🔵';
+                    }
 
-                if (
-                  heat === "WARM"
-                ) {
-                  return "🟡";
-                }
+                    if (heat === 'WARM') {
+                      return '🟡';
+                    }
 
-                if (heat === "HOT") {
-                  return "🔴";
-                }
-              }).join(""),
-            })
-          )
-          .paragraph((p) => {
-            p.text({
-              text: `Score: ${score?.finalScore}${
-                score?.finalScore === 100 ? " (perfect)" : ""
-              }`,
-            });
-            p.linebreak();
-            p.text({
-              text: `Total guesses: ${newGuesses.length} (${totalHints} hints)`,
-            });
-            p.linebreak();
-            p.text({
-              text: `Time to solve: ${
-                getPrettyDuration(
-                  // @ts-expect-error - Works on a future version
+                    if (heat === 'HOT') {
+                      return '🔴';
+                    }
+                  })
+                  .join(''),
+              })
+            )
+            .paragraph((p) => {
+              p.text({
+                text: `Score: ${score?.finalScore}${score?.finalScore === 100 ? ' (perfect)' : ''}`,
+              });
+              p.linebreak();
+              p.text({
+                text: `Total guesses: ${newGuesses.length} (${totalHints} hints)`,
+              });
+              p.linebreak();
+              p.text({
+                text: `Time to solve: ${getPrettyDuration(
+                  // @ts-expect-error This is a bug in the types
                   new Date(startedPlayingAtMs),
-                  new Date(completedAt),
-                )
-              }`,
-            });
-            p.linebreak();
-            p.text({
-              text:
-                `Coldest guess: ${coldestGuess.word} (${coldestGuess.normalizedSimilarity}%)`,
-            });
-            p.linebreak();
-            p.text({
-              text: `Average heat: ${averageNormalizedSimilarity}%`,
-            });
-          })
-          .build(),
-      });
+                  new Date(completedAt)
+                )}`,
+              });
+              p.linebreak();
+              p.text({
+                text: `Coldest guess: ${coldestGuess.word} (${coldestGuess.normalizedSimilarity}%)`,
+              });
+              p.linebreak();
+              p.text({
+                text: `Average heat: ${averageNormalizedSimilarity}%`,
+              });
+            })
+            .build(),
+        });
+      }
 
       await markChallengeSolvedForUser({
         challenge,
@@ -563,82 +532,17 @@ export const submitGuess = zoddy(
         username,
         completedAt,
         score,
-        winnersCircleCommentId: winnersCircleComment.id,
+        winnersCircleCommentId: winnersCircleComment?.id,
       });
 
       console.log(`Incrementing streak for user ${username}`);
 
-      // TODO: Threaded comments eventually
-      // rootCommentThread.reply({
-      //   // @ts-expect-error The types in devvit are wrong
-      // richtext: new RichTextBuilder()
-      //   .paragraph((p) =>
-      //     p.text({ text: `u/${username} solved the challenge!` })
-      //   )
-      //   .paragraph((p) =>
-      //     p.text({
-      //       text: newGuesses.map((item) => {
-      //         const heat = getHeatForGuess(item);
-      //         if (heat === "COLD") {
-      //           return "🔵";
-      //         }
-
-      //         if (
-      //           heat === "WARM"
-      //         ) {
-      //           return "🟡";
-      //         }
-
-      //         if (heat === "HOT") {
-      //           return "🔴";
-      //         }
-      //       }).join(""),
-      //     })
-      //   )
-      //   .paragraph((p) => {
-      //     p.text({
-      //       text: `Score: ${score?.finalScore}${
-      //         score?.finalScore === 100 ? " (perfect)" : ""
-      //       }`,
-      //     });
-      //     p.linebreak();
-      //     p.text({
-      //       text:
-      //         `Total guesses: ${newGuesses.length} (${totalHints} hints)`,
-      //     });
-      //     p.linebreak();
-      //     p.text({
-      //       text: `Time to solve: ${
-      //         getPrettyDuration(
-      //           new Date(startedPlayingAtMs),
-      //           new Date(completedAt),
-      //         )
-      //       }`,
-      //     });
-      //     p.linebreak();
-      //     p.text({
-      //       text:
-      //         `Coldest guess: ${coldestGuess.word} (${coldestGuess.normalizedSimilarity}%)`,
-      //     });
-      //     p.linebreak();
-      //     p.text({
-      //       text: `Average heat: ${averageNormalizedSimilarity}%`,
-      //     });
-      //   })
-      //   .build(),
-      // });
-      // }
-
       // Only increment streak if the user solved the current day's challenge
       if (currentChallengeNumber === challenge) {
-        console.log(
-          `User ${username} solved today's challenge, incrementing streak`,
-        );
+        console.log(`User ${username} solved today's challenge, incrementing streak`);
         await Streaks.incrementEntry({ redis: txn, username });
       } else {
-        console.log(
-          `User ${username} solved a past challenge, skipping streak increment`,
-        );
+        console.log(`User ${username} solved a past challenge, skipping streak increment`);
       }
 
       console.log(`Incrementing total solves for challenge ${challenge}`);
@@ -664,16 +568,16 @@ export const submitGuess = zoddy(
       username,
       progress: Math.max(
         guessToAdd.normalizedSimilarity,
-        ...challengeUserInfo.guesses?.filter((x) => x.isHint === false).map((
-          x,
-        ) => x.normalizedSimilarity) ?? [],
+        ...(challengeUserInfo.guesses
+          ?.filter((x) => x.isHint === false)
+          .map((x) => x.normalizedSimilarity) ?? [])
       ),
     });
 
     const challengeProgress = await ChallengeProgress.getPlayerProgress({
       challenge,
       context,
-      sort: "DESC",
+      sort: 'DESC',
       start: 0,
       stop: 1000,
       username,
@@ -698,7 +602,7 @@ export const submitGuess = zoddy(
         score,
       },
       challengeInfo: {
-        ...omit(challengeInfo, ["word"]),
+        ...omit(challengeInfo, ['word']),
         totalGuesses: (challengeInfo.totalGuesses ?? 0) + 1,
         // Only optimistically increment on their first guess
         totalPlayers: isFirstGuess
@@ -708,7 +612,7 @@ export const submitGuess = zoddy(
       },
       challengeProgress,
     };
-  },
+  }
 );
 
 export const giveUp = zoddy(
@@ -755,10 +659,9 @@ export const giveUp = zoddy(
       isHint: true,
     };
 
-    const newGuesses = z.array(guessSchema).parse([
-      ...challengeUserInfo.guesses ?? [],
-      guessToAdd,
-    ]);
+    const newGuesses = z
+      .array(guessSchema)
+      .parse([...(challengeUserInfo.guesses ?? []), guessToAdd]);
 
     await txn.hSet(getChallengeUserKey(challenge, username), {
       guesses: JSON.stringify(newGuesses),
@@ -779,7 +682,7 @@ export const giveUp = zoddy(
     const challengeProgress = await ChallengeProgress.getPlayerProgress({
       challenge,
       context,
-      sort: "DESC",
+      sort: 'DESC',
       start: 0,
       stop: 1000,
       username,
@@ -787,9 +690,9 @@ export const giveUp = zoddy(
 
     // Clears out any feedback (like the feedback that prompted them to take a hint!)
     sendMessageToWebview(context, {
-      type: "FEEDBACK",
+      type: 'FEEDBACK',
       payload: {
-        feedback: "",
+        feedback: '',
       },
     });
 
@@ -801,10 +704,10 @@ export const giveUp = zoddy(
         guesses: newGuesses,
       },
       challengeInfo: {
-        ...omit(challengeInfo, ["word"]),
+        ...omit(challengeInfo, ['word']),
         totalGiveUps: (challengeInfo.totalGiveUps ?? 0) + 1,
       },
       challengeProgress,
     };
-  },
+  }
 );

@@ -213,18 +213,17 @@ export const makeNewChallenge = zoddy(
         preview: <Preview />,
       });
 
-      // TODO: Threaded comments eventually
-      // const winnersCircleComment = await post.addComment({
-      //   richtext: new RichTextBuilder().paragraph((c) => c.text({ text: `🏆 Winner's Circle 🏆` })),
-      // });
-      // await winnersCircleComment.distinguish(true);
+      const winnersCircleComment = await post.addComment({
+        richtext: new RichTextBuilder().paragraph((c) => c.text({ text: `🏆 Winner's Circle 🏆` })),
+      });
+      await winnersCircleComment.distinguish(true);
 
       await setChallenge({
         redis: txn,
         challenge: newChallengeNumber,
         config: {
           word: newWord,
-          // winnersCircleCommentId: winnersCircleComment.id,
+          winnersCircleCommentId: winnersCircleComment.id,
           totalPlayers: '0',
           totalSolves: '0',
           totalGuesses: '0',
