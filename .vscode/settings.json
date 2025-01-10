@@ -19,5 +19,15 @@
   "[typescript]": {
     "editor.defaultFormatter": "esbenp.prettier-vscode"
   },
-  "cSpell.words": ["hotandcold", "mydevvit", "playtest", "snoovatar", "webroot", "zoddy"]
+  "cSpell.words": [
+    "devvit",
+    "hotandcold",
+    "mydevvit",
+    "playtest",
+    "snoovatar",
+    "vstack",
+    "webroot",
+    "zoddy",
+    "zstack"
+  ]
 }
