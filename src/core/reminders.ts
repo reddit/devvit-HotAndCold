@@ -41,41 +41,13 @@ export const removeReminderForUsername = zoddy(
   }
 );
 
-async function fetchChunks<T>(
-  chunkSize: number,
-  fetchData: (offset: number, limit: number) => Promise<T[]>
-): Promise<T[]> {
-  const allData: T[] = [];
-  let offset = 0;
-
-  while (true) {
-    // Fetch a chunk of data
-    const chunk = await fetchData(offset, chunkSize);
-
-    // Add the chunk to the complete data set
-    allData.push(...chunk);
-
-    // Break the loop if the chunk size is less than the requested size
-    if (chunk.length < chunkSize) {
-      break;
-    }
-
-    // Increment the offset
-    offset += chunkSize;
-  }
-
-  return allData;
-}
-
 export const getUsersOptedIntoReminders = zoddy(
   z.object({
     redis: zodRedis,
   }),
   async ({ redis }) => {
-    const data = await fetchChunks(1000, async (offset, limit) => {
-      return await redis.zRange(getRemindersKey(), offset, offset + limit, {
-        by: 'score',
-      });
+    const data = await redis.zRange(getRemindersKey(), 1, 1, {
+      by: 'score',
     });
 
     return data.map((item) => item.member);

@@ -26,8 +26,42 @@ Devvit.addSchedulerJob({
       );
 
       // Wait for all promises in chunk to resolve
-      await Promise.all(promises);
-      console.log(`Sent ${chunk.length} messages to users out of ${usernames.length}.`);
+      const results = await Promise.allSettled(promises);
+      let successCount = 0;
+      let settledIndex = 0;
+      for (const result of results) {
+        if (result.status === 'rejected' && result.reason instanceof Error) {
+          if (
+            result.reason.message.includes('INVALID_USER') ||
+            result.reason.message.includes('NO_USER') ||
+            result.reason.message.includes('NOT_WHITELISTED_BY_USER_MESSAGE')
+          ) {
+            try {
+              const userToRemove = chunk[settledIndex];
+              console.log(
+                `Removing user "${userToRemove}" from reminder list due to error: ${JSON.stringify(result.reason.message)}`
+              );
+
+              await Reminders.removeReminderForUsername({
+                redis: context.redis,
+                username: userToRemove,
+              });
+            } catch (error) {
+              console.error(`Failed to remove user from reminder list: ${error}`);
+            }
+          } else {
+            console.error(`Failed to send message to user: ${JSON.stringify(result.reason)}`);
+          }
+        } else {
+          successCount++;
+        }
+
+        settledIndex++;
+      }
+
+      console.log(
+        `Sent ${successCount} successfully out of ${chunk.length} messages to users out of ${usernames.length}.`
+      );
     }
   },
 });
