@@ -9,7 +9,7 @@ import './menu-actions/totalReminders.js';
 import { Devvit, useChannel, useInterval, useState } from '@devvit/public-api';
 import { DEVVIT_SETTINGS_KEYS } from './constants.js';
 import { isServerCall, omit, sendMessageToWebview } from './utils/utils.js';
-import { WebviewToBlocksMessage } from '@hotandcold/shared';
+import { WebviewToBlocksMessage } from '@hotandcold/classic-shared';
 import { Guess } from './core/guess.js';
 import { ChallengeToPost } from './core/challengeToPost.js';
 import { Preview } from './components/Preview.js';
@@ -104,13 +104,10 @@ Devvit.addCustomPostType({
       sendMessageToWebview(context, {
         type: 'INIT',
         payload: {
-          type: 'SINGLE_PLAYER',
-          game: {
-            challengeInfo: omit(challengeInfo, ['word']),
-            challengeUserInfo,
-            number: challenge,
-            challengeProgress: challengeProgress,
-          },
+          challengeInfo: omit(challengeInfo, ['word']),
+          challengeUserInfo,
+          number: challenge,
+          challengeProgress: challengeProgress,
         },
       });
 
@@ -164,7 +161,7 @@ Devvit.addCustomPostType({
                   initialState;
 
                 sendMessageToWebview(context, {
-                  type: 'SINGLE_PLAYER_GAME_INIT_RESPONSE',
+                  type: 'GAME_INIT_RESPONSE',
                   payload: {
                     challengeInfo: omit(challengeInfo, ['word']),
                     challengeUserInfo,

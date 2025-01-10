@@ -14,7 +14,7 @@ import { Streaks } from './streaks.js';
 import { ChallengeLeaderboard } from './challengeLeaderboard.js';
 import { Score } from './score.js';
 import { isEmptyObject, omit, sendMessageToWebview } from '../utils/utils.js';
-import { GameResponse, Guess } from '@hotandcold/shared';
+import { GameResponse, Guess } from '@hotandcold/classic-shared';
 import { Similarity } from './similarity.js';
 import { ChallengePlayers } from './challengePlayers.js';
 import { ChallengeProgress } from './challengeProgress.js';
@@ -508,7 +508,6 @@ export const submitGuess = zoddy(
               p.linebreak();
               p.text({
                 text: `Time to solve: ${getPrettyDuration(
-                  // @ts-expect-error This is a bug in the types
                   new Date(startedPlayingAtMs),
                   new Date(completedAt)
                 )}`,

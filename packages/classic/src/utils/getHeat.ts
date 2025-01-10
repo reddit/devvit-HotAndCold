@@ -1,4 +1,4 @@
-import { Guess } from '@hotandcold/shared';
+import { Guess } from '@hotandcold/classic-shared';
 
 // TODO: Keep in sync with guesses.tsx where users see it while playing
 export const getHeatForGuess = (item: Guess) => {
