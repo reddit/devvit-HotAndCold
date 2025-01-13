@@ -29,5 +29,6 @@
     "webroot",
     "zoddy",
     "zstack"
-  ]
+  ],
+  "vitest.disableWorkspaceWarning": true
 }
