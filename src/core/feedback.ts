@@ -13,6 +13,48 @@ function sample<T>(array: T[]): T {
   return array[randomIndex];
 }
 
+const heatSchema = z.enum(['COLD', 'WARM', 'HOT']);
+
+export const firstOfTargetHeatHelper = zoddy(
+  z.object({
+    guesses: z.array(guessSchema.extend({ heat: heatSchema })),
+    target: heatSchema,
+  }),
+  ({ guesses, target }) => {
+    // We have a welcome message that doesn't "count"
+    if (guesses.length === 1) return false;
+
+    // The first guess doesn't "count" because we have a welcome message
+    // The last message is what we're testing
+    const sample = guesses.slice(1, -1);
+    const isGuessInSample = sample.filter((x) => x.heat === target).length > 0;
+
+    if (isGuessInSample) return false;
+
+    const lastGuess = guesses[guesses.length - 1];
+    if (!lastGuess) return false;
+
+    // Filter hints because they don't count!
+    return lastGuess.heat === target;
+  }
+);
+
+export const heatStreakHelper = zoddy(
+  z.object({
+    guesses: z.array(guessSchema.extend({ heat: heatSchema })),
+    target: heatSchema,
+  }),
+  ({ guesses, target }) => {
+    const sample = guesses.reverse();
+    let totalStreak = 0;
+    for (const guess of sample) {
+      if (guess.heat !== target) break;
+      totalStreak++;
+    }
+    return totalStreak;
+  }
+);
+
 export const sendMessage = zoddy(
   z.object({ context: zodContext, newGuesses: z.array(guessSchema) }),
   ({ context, newGuesses }) => {
@@ -32,29 +74,15 @@ export const sendMessage = zoddy(
       heat: getHeatForGuess(x),
     }));
 
-    const firstOfTargetHeatHelper = (target: 'COLD' | 'WARM' | 'HOT') => {
-      // Filter hints because they don't count!
-      return guessesWithHeat.filter((x) => x.heat === target && !x.isHint).length === 1;
-    };
+    const isFirstColdGuess = firstOfTargetHeatHelper({ guesses: guessesWithHeat, target: 'COLD' });
+    const isFirstWarmGuess = firstOfTargetHeatHelper({ guesses: guessesWithHeat, target: 'WARM' });
+    const isFirstHotGuess = firstOfTargetHeatHelper({ guesses: guessesWithHeat, target: 'HOT' });
 
-    const heatStreakHelper = (target: 'COLD' | 'WARM' | 'HOT') => {
-      const sample = guessesWithHeat.reverse();
-      let totalStreak = 0;
-      for (const guess of sample) {
-        if (guess.heat !== target) break;
-        totalStreak++;
-      }
-      return totalStreak;
-    };
-
-    const isFirstColdGuess = firstOfTargetHeatHelper('COLD');
-    const isFirstWarmGuess = firstOfTargetHeatHelper('WARM');
-    const isFirstHotGuess = firstOfTargetHeatHelper('HOT');
-
-    const coldStreakLength = heatStreakHelper('COLD');
-    const hotStreakLength = heatStreakHelper('HOT');
+    const coldStreakLength = heatStreakHelper({ guesses: guessesWithHeat, target: 'COLD' });
+    const hotStreakLength = heatStreakHelper({ guesses: guessesWithHeat, target: 'HOT' });
     // If you guess hot, then it's still warm!
-    const warmStreakLength = heatStreakHelper('WARM') + hotStreakLength;
+    const warmStreakLength =
+      heatStreakHelper({ guesses: guessesWithHeat, target: 'WARM' }) + hotStreakLength;
 
     const totalHotGuesses = guessesWithHeat.filter((x) => x.heat === 'HOT').length;
     const totalWarmGuesses = guessesWithHeat.filter((x) => x.heat === 'WARM').length;

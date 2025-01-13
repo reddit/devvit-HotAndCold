@@ -1,3 +1,3 @@
-import { createLogger } from "./createLogger";
+import { createLogger } from './createLogger';
 
-export const logger = createLogger("HotAndCold", "debug", false);
+export const logger = createLogger('HotAndCold', 'debug', false);

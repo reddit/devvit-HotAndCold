@@ -1,25 +1,11 @@
 import { createContext, useContext, useState } from 'react';
 import { Page } from '../shared';
-import { GAME_INIT_DATA } from '../utils/initListener';
 
 const PageContext = createContext<Page | null>(null);
 const PageUpdaterContext = createContext<React.Dispatch<React.SetStateAction<Page>> | null>(null);
 
 export const PageContextProvider = ({ children }: { children: React.ReactNode }) => {
-  const [page, setPage] = useState<Page>(() => {
-    if (!GAME_INIT_DATA) {
-      return 'loading';
-    }
-    // Keep in sync with useGame's use effect
-    if (
-      GAME_INIT_DATA.challengeUserInfo?.solvedAtMs ||
-      GAME_INIT_DATA.challengeUserInfo?.gaveUpAtMs
-    ) {
-      return 'win';
-    } else {
-      return 'play';
-    }
-  });
+  const [page, setPage] = useState<Page>(() => 'loading');
 
   return (
     <PageUpdaterContext.Provider value={setPage}>
