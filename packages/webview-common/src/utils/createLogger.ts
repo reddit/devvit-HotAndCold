@@ -55,15 +55,39 @@ function createOverlayElements() {
   toggleButton.style.justifyContent = 'center';
   toggleButton.style.boxShadow = '0 2px 5px rgba(0,0,0,0.2)';
 
+  const clearButton = document.createElement('button');
+  clearButton.textContent = '💩';
+  clearButton.style.position = 'fixed';
+  clearButton.style.top = '20px';
+  clearButton.style.right = '20px';
+  clearButton.style.zIndex = '10000';
+  clearButton.style.padding = '8px 12px';
+  clearButton.style.backgroundColor = '#4CE1F2';
+  clearButton.style.border = 'none';
+  clearButton.style.borderRadius = '50%';
+  clearButton.style.cursor = 'pointer';
+  clearButton.style.width = '40px';
+  clearButton.style.height = '40px';
+  clearButton.style.fontSize = '20px';
+  clearButton.style.display = 'flex';
+  clearButton.style.alignItems = 'center';
+  clearButton.style.justifyContent = 'center';
+  clearButton.style.boxShadow = '0 2px 5px rgba(0,0,0,0.2)';
+
   let isVisible = false;
   toggleButton.addEventListener('click', () => {
     isVisible = !isVisible;
     overlay.style.display = isVisible ? 'block' : 'none';
+    clearButton.style.display = isVisible ? 'block' : 'none';
     toggleButton.style.backgroundColor = isVisible ? '#FF6B6B' : '#4CE1F2';
     toggleButton.textContent = isVisible ? '✕' : '📋';
   });
 
-  return { overlay, logContainer, toggleButton };
+  clearButton.addEventListener('click', () => {
+    logContainer.innerHTML = '';
+  });
+
+  return { overlay, logContainer, toggleButton, clearButton };
 }
 
 function formatLogEntry(entry: LogEntry): string {
@@ -82,12 +106,14 @@ export const createLogger = (
     overlay: HTMLDivElement;
     logContainer: HTMLPreElement;
     toggleButton: HTMLButtonElement;
+    clearButton: HTMLButtonElement;
   } | null = null;
 
   if (uiStream) {
     overlayElements = createOverlayElements();
     document.body.appendChild(overlayElements.overlay);
     document.body.appendChild(overlayElements.toggleButton);
+    document.body.appendChild(overlayElements.clearButton);
   }
 
   const isLevelEnabled = (level: LogLevel) => {
@@ -106,6 +132,7 @@ export const createLogger = (
     };
 
     const formattedLog = formatLogEntry(entry);
+    console.log(overlayElements, formattedLog);
     overlayElements.logContainer.insertAdjacentHTML('beforeend', formattedLog);
 
     // Auto-scroll to bottom
@@ -117,7 +144,15 @@ export const createLogger = (
     (acc, level) => {
       if (level === 'off') return acc;
 
-      acc[level] = console[level].bind(console, `${name}:`);
+      // UI Stream logging
+      if (uiStream) {
+        acc[level] = (...args) => {
+          acc[level] = console[level].bind(console, `${name}:`);
+          appendToOverlay(level, ...args);
+        };
+      } else {
+        acc[level] = console[level].bind(console, `${name}:`);
+      }
 
       return acc;
     },

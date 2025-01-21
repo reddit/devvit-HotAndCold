@@ -587,10 +587,10 @@ export const submitGuess = zoddy(
      * It's safe to assume there's no high priority messages by the time you make it here because
      * we would have thrown them above.
      */
-    Feedback.sendMessage({
-      context,
-      newGuesses,
-    });
+    // Feedback.sendMessage({
+    //   context,
+    //   newGuesses,
+    // });
 
     return {
       number: challenge,
