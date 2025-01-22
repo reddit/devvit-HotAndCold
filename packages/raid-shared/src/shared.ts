@@ -15,6 +15,7 @@ export type Game = {
     // DO NOT SEND THE WORD HERE!
     // THAT WOULD BE SILLY
     totalGuesses?: number | null;
+    totalUniqueGuesses?: number | null;
     totalPlayers?: number | null;
     startedAtMs: number | null;
     solvedAtMs?: number | null;

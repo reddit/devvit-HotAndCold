@@ -6,7 +6,6 @@ import { useGame } from './hooks/useGame';
 import { Logo } from '@hotandcold/webview-common/components/logo';
 import { sendMessageToDevvit } from './utils';
 import { prettyNumber } from '@hotandcold/webview-common/utils';
-import { useConfirmation } from '@hotandcold/webview-common/hooks/useConfirmation';
 import { AnimatedNumber } from '@hotandcold/webview-common/components/timer';
 import { HelpMenu } from '@hotandcold/webview-common/components/helpMenu';
 import { useState } from 'react';
@@ -33,7 +32,7 @@ export const App = () => {
   const setUserSettings = useSetUserSettings();
   const { challengeUserInfo, challengeInfo } = useGame();
   const isActivelyPlaying = challengeUserInfo?.guesses && challengeUserInfo?.guesses?.length > 0;
-  const { showConfirmation } = useConfirmation();
+  // const { showConfirmation } = useConfirmation();
   const [howToPlayOpen, setHowToPlayOpen] = useState(false);
   // const [friendsModalOpen, setFriendsModalOpen] = useState(false);
 

@@ -5,7 +5,6 @@ import { cn } from '@hotandcold/webview-common/utils';
 import { useEffect, useState } from 'react';
 import { useDimensions } from '@hotandcold/webview-common/hooks/useDimensions';
 import { HowToPlayModal } from './howToPlayModal';
-import { useGame } from '../hooks/useGame';
 
 const GuessItem = ({ item, latestGuess }: { item: Guess; latestGuess?: Guess }) => {
   return (
@@ -43,7 +42,6 @@ export const Guesses = ({ items }: { items: Guess[] }) => {
   const [currentPage, setCurrentPage] = useState(1);
   const [ref, dimensions] = useDimensions();
   const [howToPlayOpen, setHowToPlayOpen] = useState(false);
-  const { challengeInfo } = useGame();
 
   const GUESS_HEIGHT = layout == 'CONDENSED' ? 16 : 22;
 
@@ -95,16 +93,6 @@ export const Guesses = ({ items }: { items: Guess[] }) => {
           </div>
         ) : (
           <>
-            {challengeInfo?.totalPlayers && challengeInfo.totalPlayers > 0 ? (
-              <p className="mb-4 text-center text-gray-500">
-                {`${Math.round(((challengeInfo?.totalSolves ?? 0) / (challengeInfo?.totalPlayers ?? 1)) * 100)}%`}{' '}
-                of {challengeInfo.totalPlayers} players have succeeded.
-              </p>
-            ) : (
-              <p className="mb-4 text-center text-gray-500">
-                Be the first to solve this challenge!
-              </p>
-            )}
             <button
               type="button"
               className="flex w-[110px] items-center justify-center self-center rounded-lg bg-gray-800 px-4 py-2"
