@@ -14,6 +14,9 @@ import { Similarity } from './similarity.js';
 import { ChallengePlayers } from './challengePlayers.js';
 import { GameResponse } from '@hotandcold/raid-shared';
 import { guessSchema } from '../utils/guessSchema.js';
+import { ChallengeToStatus } from './challengeToStatus.js';
+import { ChallengeGuesses } from './challengeGuesses.js';
+import { ChallengeFaucet } from './challengeFaucet.js';
 
 export * as Guess from './guess.js';
 
@@ -112,18 +115,24 @@ export const submitGuess = zoddy(
     // await txn.multi();
     const txn = context.redis;
 
+    const challengeStatus = await ChallengeToStatus.getStatusForChallengeNumber({
+      redis: txn,
+      challenge,
+    });
+
+    if (challengeStatus !== 'ACTIVE') {
+      throw new Error(`Sorry, this challenge is no longer active.`);
+    }
+
     const challengeUserInfo = await getChallengeUserInfo({
       redis: context.redis,
       username,
       challenge,
     });
 
-    // Empty string check since we initially set it! Added other falsies just in case
-    let startedPlayingAtMs = challengeUserInfo.startedPlayingAtMs;
     let isFirstGuess = false;
     if (!challengeUserInfo.startedPlayingAtMs) {
       isFirstGuess = true;
-      startedPlayingAtMs = Date.now();
       await ChallengePlayers.setPlayer({
         redis: txn,
         username,
@@ -159,6 +168,7 @@ export const submitGuess = zoddy(
       challengeUserInfo.guesses &&
       challengeUserInfo.guesses.length > 0 &&
       challengeUserInfo.guesses.find((x) => x.word === distance.wordBLemma);
+
     if (alreadyGuessWord) {
       if (rawGuess !== distance.wordBLemma) {
         throw new Error(
@@ -216,7 +226,6 @@ export const submitGuess = zoddy(
         targetWordSimilarity: distance.similarity,
       }),
       rank: rankOfWord,
-      isHint: false,
     };
 
     const newGuesses = z
@@ -234,11 +243,28 @@ export const submitGuess = zoddy(
       guesses: JSON.stringify(newGuesses),
     });
 
+    await ChallengeGuesses.addGuess({
+      challenge,
+      guess: guessToAdd,
+      redis: txn,
+      username,
+    });
+
     const hasSolved = distance.similarity === 1;
     if (hasSolved) {
-      console.log(`SOMEONE SOLVED IT!!!`);
-
-      //  TODO:
+      await Promise.all([
+        Challenge.markChallengeSolved({
+          redis: txn,
+          challenge,
+          solvedAtMs: Date.now().toString(),
+          solvingUser: username,
+        }),
+        ChallengeToStatus.setStatusForChallenge({
+          redis: txn,
+          challenge,
+          status: 'COMPLETED',
+        }),
+      ]);
 
       console.log(`End of winning logic for user ${username}`);
     }
@@ -247,6 +273,16 @@ export const submitGuess = zoddy(
 
     return {
       number: challenge,
+      challengeStatus: hasSolved ? 'COMPLETED' : 'ACTIVE',
+      userAvailableGuesses: await ChallengeFaucet.getAvailableTokensForPlayer({
+        challenge,
+        redis: txn,
+        username,
+      }),
+      challengeTopGuesses: await ChallengeGuesses.getTopGuessesForChallenge({
+        challenge,
+        redis: txn,
+      }),
       challengeUserInfo: {
         ...challengeUserInfo,
         guesses: newGuesses,

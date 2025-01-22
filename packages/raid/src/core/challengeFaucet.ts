@@ -49,6 +49,17 @@ export namespace ChallengeFaucet {
     }
   );
 
+  export const getAvailableTokensForPlayer = zoddy(
+    z.object({
+      redis: zodRedis,
+      challenge: z.number().gt(0),
+      username: zodRedditUsername,
+    }),
+    async ({ redis, challenge, username }) => {
+      return (await redis.zScore(getChallengeFaucetKey(challenge), username)) ?? 0;
+    }
+  );
+
   export const consumeTokenForPlayer = zoddy(
     z.object({
       challenge: z.number().gt(0),

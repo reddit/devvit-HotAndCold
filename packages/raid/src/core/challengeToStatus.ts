@@ -73,7 +73,7 @@ export namespace ChallengeToStatus {
     }
   );
 
-  export const setStatusForPost = zoddy(
+  export const setStatusForChallenge = zoddy(
     z.object({
       redis: z.union([zodRedis, zodTransaction]),
       challenge: z.number().gt(0),

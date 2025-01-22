@@ -15,6 +15,9 @@ import { ChallengeToPost } from './core/challengeToPost.js';
 import { RedditApiCache } from './core/redditApiCache.js';
 import { omit } from '@hotandcold/shared/utils';
 import { sendMessageToWebview } from './utils/index.js';
+import { ChallengeToStatus } from './core/challengeToStatus.js';
+import { ChallengeGuesses } from './core/challengeGuesses.js';
+import { ChallengeFaucet } from './core/challengeFaucet.js';
 
 Devvit.configure({
   redditAPI: true,
@@ -71,8 +74,14 @@ Devvit.addCustomPostType({
         };
       }
 
-      // Rate limits things
-      const [avatar, challengeInfo, challengeUserInfo] = await Promise.all([
+      const [
+        avatar,
+        challengeInfo,
+        challengeUserInfo,
+        challengeStatus,
+        challengeTopGuesses,
+        userAvailableGuesses,
+      ] = await Promise.all([
         RedditApiCache.getSnoovatarCached({
           context,
           username: user.username,
@@ -86,13 +95,29 @@ Devvit.addCustomPostType({
           redis: context.redis,
           username: user.username,
         }),
+        ChallengeToStatus.getStatusForChallengeNumber({
+          challenge,
+          redis: context.redis,
+        }),
+        ChallengeGuesses.getTopGuessesForChallenge({
+          challenge,
+          redis: context.redis,
+        }),
+        ChallengeFaucet.getAvailableTokensForPlayer({
+          challenge,
+          redis: context.redis,
+          username: user.username,
+        }),
       ]);
 
       sendMessageToWebview(context, {
         type: 'INIT',
         payload: {
           challengeInfo: omit(challengeInfo, ['word']),
+          challengeStatus,
           challengeUserInfo,
+          challengeTopGuesses,
+          userAvailableGuesses,
           number: challenge,
         },
       });

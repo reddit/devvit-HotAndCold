@@ -8,6 +8,5 @@ export const guessSchema = z
     timestamp: z.number(),
     // Only for top 1,000 similar words
     rank: z.number().gte(-1),
-    isHint: z.boolean(),
   })
   .strict();

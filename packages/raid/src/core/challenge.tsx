@@ -4,6 +4,7 @@ import {
   zodContext,
   zoddy,
   zodJobContext,
+  zodRedditUsername,
   zodRedis,
   zodTransaction,
 } from '@hotandcold/shared/utils/zoddy';
@@ -31,6 +32,8 @@ const challengeSchema = z
     // % of dictionary used
     totalUniqueGuesses: redisNumberString.optional(),
     startedAtMs: redisNumberString,
+    solvedAtMs: redisNumberString.optional(),
+    solvingUser: zodRedditUsername.optional(),
   })
   .strict();
 
@@ -91,6 +94,19 @@ export const setChallenge = zoddy(
   }),
   async ({ redis, challenge, config }) => {
     await redis.hSet(getChallengeKey(challenge), stringifyValues(config));
+  }
+);
+
+export const markChallengeSolved = zoddy(
+  challengeSchema
+    .pick({ solvedAtMs: true, solvingUser: true })
+    .required({ solvedAtMs: true, solvingUser: true })
+    .extend({
+      challenge: z.number(),
+      redis: zodRedis,
+    }),
+  async ({ solvedAtMs, solvingUser, redis, challenge }) => {
+    redis.hSet(getChallengeKey(challenge), stringifyValues({ solvedAtMs, solvingUser }));
   }
 );
 
@@ -193,7 +209,7 @@ export const makeNewChallenge = zoddy(
         preview: <Preview />,
       });
 
-      await ChallengeToStatus.setStatusForPost({
+      await ChallengeToStatus.setStatusForChallenge({
         status: 'ACTIVE',
         challenge: newChallengeNumber,
         redis: txn,
@@ -204,6 +220,7 @@ export const makeNewChallenge = zoddy(
         challenge: newChallengeNumber,
         config: {
           startedAtMs: Date.now().toString(),
+          solvedAtMs: undefined,
           word: newWord,
           totalPlayers: '0',
           totalGuesses: '0',

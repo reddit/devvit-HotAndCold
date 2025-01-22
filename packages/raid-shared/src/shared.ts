@@ -6,11 +6,12 @@ export type Guess = {
   similarity: number;
   normalizedSimilarity: number;
   rank: number;
-  isHint: boolean;
 };
 
 export type Game = {
   number: number;
+  challengeStatus: 'ACTIVE' | 'COMPLETED';
+  userAvailableGuesses: number;
   challengeInfo: {
     // DO NOT SEND THE WORD HERE!
     // THAT WOULD BE SILLY
@@ -25,6 +26,10 @@ export type Game = {
     guesses?: Guess[] | undefined;
     username: string;
   };
+  challengeTopGuesses: {
+    username: string;
+    guess: Guess;
+  }[];
 };
 
 export type GameResponse = Game;
@@ -77,6 +82,12 @@ export type BlocksToWebviewMessage =
   | {
       type: 'WORD_SUBMITTED_RESPONSE';
       payload: GameResponse;
+    }
+  | {
+      type: 'FAUCET_REPLENISH';
+      payload: {
+        availableGuesses: number;
+      };
     }
   | {
       type: 'FEEDBACK';
