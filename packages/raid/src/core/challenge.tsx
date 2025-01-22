@@ -6,14 +6,15 @@ import {
   zodJobContext,
   zodRedis,
   zodTransaction,
-} from '../utils/zoddy.js';
+} from '@hotandcold/shared/utils/zoddy';
 import { API } from '../core/api.js';
 import { Preview } from '../components/Preview.js';
-import { stringifyValues } from '../utils/utils.js';
+import { stringifyValues } from '@hotandcold/shared/utils';
 import { Devvit, Post } from '@devvit/public-api';
 import { WordList } from './wordList.js';
 import { ChallengeToWord } from './challengeToWord.js';
 import { ChallengeToPost } from './challengeToPost.js';
+import { ChallengeToStatus } from './challengeToStatus.js';
 
 export * as Challenge from './challenge.js';
 
@@ -26,6 +27,9 @@ const challengeSchema = z
     word: z.string().trim().toLowerCase(),
     totalPlayers: redisNumberString.optional(),
     totalGuesses: redisNumberString.optional(),
+    // There are guesses that are globally unique. Used to compute the
+    // % of dictionary used
+    totalUniqueGuesses: redisNumberString.optional(),
     startedAtMs: redisNumberString,
   })
   .strict();
@@ -124,6 +128,16 @@ export const incrementChallengeTotalGuesses = zoddy(
   }
 );
 
+export const incrementChallengeTotalUniqueGuesses = zoddy(
+  z.object({
+    redis: z.union([zodRedis, zodTransaction]),
+    challenge: z.number().gt(0),
+  }),
+  async ({ redis, challenge }) => {
+    await redis.hIncrBy(getChallengeKey(challenge), 'totalUniqueGuesses', 1);
+  }
+);
+
 export const makeNewChallenge = zoddy(
   z.object({
     context: z.union([zodJobContext, zodContext]),
@@ -147,7 +161,7 @@ export const makeNewChallenge = zoddy(
     const unusedWordIndex = wordList.findIndex((word: string) => !usedWords.includes(word));
 
     if (unusedWordIndex === -1) {
-      throw new Error('No unused words available in the word list');
+      throw new Error('No unused words available in the word list. Please add more and try again.');
     }
 
     const newWord = wordList[unusedWordIndex];
@@ -179,6 +193,12 @@ export const makeNewChallenge = zoddy(
         preview: <Preview />,
       });
 
+      await ChallengeToStatus.setStatusForPost({
+        status: 'ACTIVE',
+        challenge: newChallengeNumber,
+        redis: txn,
+      });
+
       await setChallenge({
         redis: txn,
         challenge: newChallengeNumber,
@@ -187,6 +207,7 @@ export const makeNewChallenge = zoddy(
           word: newWord,
           totalPlayers: '0',
           totalGuesses: '0',
+          totalUniqueGuesses: '0',
         },
       });
 

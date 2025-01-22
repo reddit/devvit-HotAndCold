@@ -1,4 +1,10 @@
 import { z } from 'zod';
+import { API } from '../core/api.js';
+import { ChallengeToWord } from './challengeToWord.js';
+import { WordList } from './wordList.js';
+import { ChallengeToPost } from './challengeToPost.js';
+import { Preview } from '../components/Preview.js';
+import { toMilliseconds, stringifyValues } from '@hotandcold/shared/utils';
 import {
   redisNumberString,
   zodContext,
@@ -6,13 +12,8 @@ import {
   zodJobContext,
   zodRedis,
   zodTransaction,
-} from '../utils/zoddy.js';
-import { API } from '../core/api.js';
-import { ChallengeToWord } from './challengeToWord.js';
-import { WordList } from './wordList.js';
-import { ChallengeToPost } from './challengeToPost.js';
-import { Preview } from '../components/Preview.js';
-import { stringifyValues } from '../utils/utils.js';
+} from '@hotandcold/shared/utils/zoddy';
+
 import { Streaks } from './streaks.js';
 import { Devvit, Post, RichTextBuilder } from '@devvit/public-api';
 
@@ -181,7 +182,7 @@ export const makeNewChallenge = zoddy(
     const unusedWordIndex = wordList.findIndex((word: string) => !usedWords.includes(word));
 
     if (unusedWordIndex === -1) {
-      throw new Error('No unused words available in the word list');
+      throw new Error('No unused words available in the word list. Please add more and try again.');
     }
 
     const newWord = wordList[unusedWordIndex];

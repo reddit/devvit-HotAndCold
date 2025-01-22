@@ -1,8 +1,8 @@
 import { z } from 'zod';
-import { zodContext, zoddy, zodJobContext } from '../utils/zoddy.js';
-import { toMilliseconds } from '../utils/toMilliseconds.js';
+import { zodContext, zoddy, zodJobContext } from '@hotandcold/shared/utils/zoddy';
 import { DEVVIT_SETTINGS_KEYS } from '../constants.js';
 import { fromError } from 'zod-validation-error';
+import { toMilliseconds } from '@hotandcold/shared/utils';
 
 export * as API from './api.js';
 
@@ -153,8 +153,9 @@ export const compareWordsCached = zoddy(
     context: z.union([zodJobContext, zodContext]),
     secretWord: z.string().trim().toLowerCase(),
     guessWord: z.string().trim().toLowerCase(),
+    onCacheMiss: z.function().args(wordComparisonSchema).returns(z.promise(z.void())).optional(),
   }),
-  async ({ context, secretWord: wordA, guessWord: wordB }) => {
+  async ({ context, secretWord: wordA, guessWord: wordB, onCacheMiss }) => {
     try {
       const cacheKey = getWordComparisonCacheKey(wordA, wordB);
 
@@ -179,12 +180,15 @@ export const compareWordsCached = zoddy(
           // Do a quick check in case API is down or changes
           const data = wordComparisonSchema.parse(response);
 
+          await onCacheMiss?.(data);
+
           return JSON.stringify(data);
         },
         {
           key: cacheKey,
-          // Not doing forever because I'm worried I'll blow out our Redis
-          ttl: toMilliseconds({ days: 30 }),
+          // Much longer since we use it to compute the % of english dictionary
+          // After a year will anyone really care? :D
+          ttl: toMilliseconds({ days: 365 }),
         }
       );
 

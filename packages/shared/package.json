@@ -4,7 +4,9 @@
   "private": true,
   "type": "module",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./utils": "./src/utils/index.ts",
+    "./utils/zoddy": "./src/utils/zoddy.ts"
   },
   "scripts": {
     "prettier": "prettier --write .",

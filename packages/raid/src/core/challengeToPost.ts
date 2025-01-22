@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { zoddy, zodRedis, zodTransaction } from '../utils/zoddy.js';
+import { zoddy, zodRedis, zodTransaction } from '@hotandcold/shared/utils/zoddy';
 
 export * as ChallengeToPost from './challengeToPost.js';
 

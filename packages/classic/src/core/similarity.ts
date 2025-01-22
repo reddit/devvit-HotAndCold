@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { zoddy } from '../utils/zoddy.js';
+import { zoddy } from '@hotandcold/shared/utils/zoddy';
 
 export * as Similarity from './similarity.js';
 

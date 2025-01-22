@@ -1,7 +1,8 @@
+import { getHeatForGuess } from '@hotandcold/shared/utils';
+import { zodContext, zoddy } from '@hotandcold/shared/utils/zoddy';
 import { z } from 'zod';
-import { getHeatForGuess } from '../utils/getHeat.js';
-import { guessSchema, zodContext, zoddy } from '../utils/zoddy.js';
-import { sendMessageToWebview } from '../utils/utils.js';
+import { guessSchema } from '../utils/guessSchema.js';
+import { sendMessageToWebview } from '../utils/index.js';
 
 export * as Feedback from './feedback.js';
 

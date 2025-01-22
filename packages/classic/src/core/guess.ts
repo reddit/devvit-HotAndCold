@@ -1,28 +1,27 @@
 import { z } from 'zod';
+import { getPrettyDuration, getHeatForGuess, isEmptyObject, omit } from '@hotandcold/shared/utils';
 import {
-  guessSchema,
   redisNumberString,
   zodContext,
   zoddy,
   zodRedditUsername,
   zodRedis,
   zodTransaction,
-} from '../utils/zoddy.js';
+} from '@hotandcold/shared/utils/zoddy';
 import { Challenge } from './challenge.js';
 import { API } from './api.js';
 import { Streaks } from './streaks.js';
 import { ChallengeLeaderboard } from './challengeLeaderboard.js';
 import { Score } from './score.js';
-import { isEmptyObject, omit, sendMessageToWebview } from '../utils/utils.js';
 import { GameResponse, Guess } from '@hotandcold/classic-shared';
 import { Similarity } from './similarity.js';
 import { ChallengePlayers } from './challengePlayers.js';
 import { ChallengeProgress } from './challengeProgress.js';
 import { Comment, RichTextBuilder } from '@devvit/public-api';
-import { getPrettyDuration } from '../utils/prettyDuration.js';
-import { getHeatForGuess } from '../utils/getHeat.js';
 import { Feedback } from './feedback.js';
 import { ChallengeToPost } from './challengeToPost.js';
+import { sendMessageToWebview } from '../utils/index.js';
+import { guessSchema } from '../utils/guessSchema.js';
 
 export * as Guess from './guess.js';
 

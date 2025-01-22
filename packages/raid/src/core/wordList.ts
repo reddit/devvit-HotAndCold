@@ -1,5 +1,11 @@
 import { z } from 'zod';
-import { zodContext, zoddy, zodRedis, zodTransaction, zodTriggerContext } from '../utils/zoddy.js';
+import {
+  zodContext,
+  zoddy,
+  zodRedis,
+  zodTransaction,
+  zodTriggerContext,
+} from '@hotandcold/shared/utils/zoddy';
 
 export * as WordList from './wordList.js';
 

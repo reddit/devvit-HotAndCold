@@ -3,8 +3,8 @@
  */
 
 import { z } from 'zod';
-import { zodContext, zoddy } from '../utils/zoddy.js';
-import { toMilliseconds } from '../utils/toMilliseconds.js';
+import { zodContext, zoddy } from '@hotandcold/shared/utils/zoddy';
+import { toMilliseconds } from '@hotandcold/shared/utils';
 
 export * as RedditApiCache from './redditApiCache.js';
 

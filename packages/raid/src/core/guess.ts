@@ -1,19 +1,19 @@
 import { z } from 'zod';
 import {
-  guessSchema,
   redisNumberString,
   zodContext,
   zoddy,
   zodRedditUsername,
   zodRedis,
   zodTransaction,
-} from '../utils/zoddy.js';
+} from '@hotandcold/shared/utils/zoddy';
 import { Challenge } from './challenge.js';
 import { API } from './api.js';
-import { isEmptyObject, omit, sendMessageToWebview } from '../utils/utils.js';
+import { isEmptyObject, omit } from '@hotandcold/shared/utils';
 import { Similarity } from './similarity.js';
 import { ChallengePlayers } from './challengePlayers.js';
 import { GameResponse } from '@hotandcold/raid-shared';
+import { guessSchema } from '../utils/guessSchema.js';
 
 export * as Guess from './guess.js';
 
@@ -147,6 +147,10 @@ export const submitGuess = zoddy(
       context,
       secretWord: challengeInfo.word,
       guessWord: rawGuess,
+      onCacheMiss: async () => {
+        // This is how we compute the % words of english dictionary!
+        Challenge.incrementChallengeTotalUniqueGuesses({ redis: txn, challenge });
+      },
     });
 
     console.log(`Username: ${username}:`, 'distance', distance);

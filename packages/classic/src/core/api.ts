@@ -1,6 +1,6 @@
 import { z } from 'zod';
-import { zodContext, zoddy, zodJobContext } from '../utils/zoddy.js';
-import { toMilliseconds } from '../utils/toMilliseconds.js';
+import { zodContext, zoddy, zodJobContext } from '@hotandcold/shared/utils/zoddy';
+import { toMilliseconds } from '@hotandcold/shared/utils';
 import { DEVVIT_SETTINGS_KEYS } from '../constants.js';
 import { fromError } from 'zod-validation-error';
 

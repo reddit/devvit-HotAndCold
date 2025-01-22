@@ -1,4 +1,5 @@
 // Order matters here!
+import './triggers/faucet.js';
 import './triggers/install.js';
 import './triggers/upgrade.js';
 import './menu-actions/newChallenge.js';
@@ -12,7 +13,8 @@ import { Guess } from './core/guess.js';
 import { Preview } from './components/Preview.js';
 import { ChallengeToPost } from './core/challengeToPost.js';
 import { RedditApiCache } from './core/redditApiCache.js';
-import { omit, sendMessageToWebview } from './utils/utils.js';
+import { omit } from '@hotandcold/shared/utils';
+import { sendMessageToWebview } from './utils/index.js';
 
 Devvit.configure({
   redditAPI: true,

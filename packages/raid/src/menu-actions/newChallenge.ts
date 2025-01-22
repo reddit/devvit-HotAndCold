@@ -12,6 +12,11 @@ Devvit.addMenuItem({
       context.ui.navigateTo(newChallenge.postUrl);
     } catch (error) {
       console.error(`Error making new challenge:`, error);
+      if (error instanceof Error) {
+        context.ui.showToast(error.message);
+      } else {
+        context.ui.showToast(`An unknown error occurred.`);
+      }
     }
   },
 });

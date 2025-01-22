@@ -1,5 +1,11 @@
 import { z } from 'zod';
-import { zodContext, zoddy, zodRedditUsername, zodRedis, zodTransaction } from '../utils/zoddy.js';
+import {
+  zodContext,
+  zoddy,
+  zodRedditUsername,
+  zodRedis,
+  zodTransaction,
+} from '@hotandcold/shared/utils/zoddy';
 import { getChallengeKey } from './challenge.js';
 import { ChallengePlayers } from './challengePlayers.js';
 import { RedditApiCache } from './redditApiCache.js';

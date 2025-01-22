@@ -6,7 +6,7 @@ import {
   zodJobContext,
   zodRedditUsername,
   zodRedis,
-} from '../utils/zoddy.js';
+} from '@hotandcold/shared/utils/zoddy';
 import { Challenge } from './challenge.js';
 import { ChallengeToPost } from './challengeToPost.js';
 

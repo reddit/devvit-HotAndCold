@@ -2,6 +2,7 @@ import { Devvit, TriggerContext } from '@devvit/public-api';
 import { WordList } from '../core/wordList.js';
 import { Challenge } from '../core/challenge.js';
 import { Reminders } from '../core/reminders.js';
+import { processInChunks } from '@hotandcold/shared/utils';
 
 Devvit.addSchedulerJob({
   name: 'DAILY_GAME_DROP',
@@ -12,57 +13,41 @@ Devvit.addSchedulerJob({
       redis: context.redis,
     });
 
-    const chunkSize = 25;
-    for (let i = 0; i < usernames.length; i += chunkSize) {
-      const chunk = usernames.slice(i, i + chunkSize);
-
-      // Create array of promises for current chunk
-      const promises = chunk.map((username) =>
+    await processInChunks({
+      items: usernames,
+      chunkSize: 25,
+      promiseGenerator: (username: string) =>
         context.reddit.sendPrivateMessage({
           subject: `HotAndCold: Time to play challenge #${newChallenge.challenge}!`,
           text: `The new challenge is up! Go to [this link](${newChallenge.postUrl}) to play!\n\nUnsubscribe from these messages any time by going to the challenge, tapping the three dots, and selecting "Unsubscribe".`,
           to: username,
-        })
-      );
+        }),
+      onSuccess: async (result: any, username: string, index: number, chunkIndex: number) => {
+        console.log(`Successfully sent message to ${username}.`);
+      },
+      onError: async (error: any, username: string, index: number, chunkIndex: number) => {
+        if (
+          error.message.includes('INVALID_USER') ||
+          error.message.includes('NO_USER') ||
+          error.message.includes('NOT_WHITELISTED_BY_USER_MESSAGE')
+        ) {
+          try {
+            console.log(
+              `Removing user "${username}" from reminder list due to error: ${error.message}`
+            );
 
-      // Wait for all promises in chunk to resolve
-      const results = await Promise.allSettled(promises);
-      let successCount = 0;
-      let settledIndex = 0;
-      for (const result of results) {
-        if (result.status === 'rejected' && result.reason instanceof Error) {
-          if (
-            result.reason.message.includes('INVALID_USER') ||
-            result.reason.message.includes('NO_USER') ||
-            result.reason.message.includes('NOT_WHITELISTED_BY_USER_MESSAGE')
-          ) {
-            try {
-              const userToRemove = chunk[settledIndex];
-              console.log(
-                `Removing user "${userToRemove}" from reminder list due to error: ${JSON.stringify(result.reason.message)}`
-              );
-
-              await Reminders.removeReminderForUsername({
-                redis: context.redis,
-                username: userToRemove,
-              });
-            } catch (error) {
-              console.error(`Failed to remove user from reminder list: ${error}`);
-            }
-          } else {
-            console.error(`Failed to send message to user: ${JSON.stringify(result.reason)}`);
+            await Reminders.removeReminderForUsername({
+              redis: context.redis,
+              username,
+            });
+          } catch (removeError) {
+            console.error(`Failed to remove user from reminder list: ${removeError}`);
           }
         } else {
-          successCount++;
+          console.error(`Failed to send message to ${username}: ${JSON.stringify(error)}`);
         }
-
-        settledIndex++;
-      }
-
-      console.log(
-        `Sent ${successCount} successfully out of ${chunk.length} messages to users out of ${usernames.length}.`
-      );
-    }
+      },
+    });
   },
 });
 

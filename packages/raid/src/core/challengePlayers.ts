@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { zoddy, zodRedditUsername, zodRedis, zodTransaction } from '../utils/zoddy.js';
+import { zoddy, zodRedditUsername, zodRedis, zodTransaction } from '@hotandcold/shared/utils/zoddy';
 import { Challenge } from './challenge.js';
 
 export * as ChallengePlayers from './challengePlayers.js';

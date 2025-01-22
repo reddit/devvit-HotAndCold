@@ -5,18 +5,6 @@ import { fromError } from 'zod-validation-error';
 export const zodRedis = z.custom<Devvit.Context['redis']>((redis) => redis);
 export const zodTransaction = z.custom<TxClientLike>((transaction) => transaction);
 
-export const guessSchema = z
-  .object({
-    word: z.string(),
-    similarity: z.number().gte(-1).lte(1),
-    normalizedSimilarity: z.number().gte(0).lte(100),
-    timestamp: z.number(),
-    // Only for top 1,000 similar words
-    rank: z.number().gte(-1),
-    isHint: z.boolean(),
-  })
-  .strict();
-
 export const zodContext = z.custom<Devvit.Context>((context) => context);
 export const zodJobContext = z.custom<JobContext>((context) => context);
 export const zodTriggerContext = z.custom<TriggerContext>((context) => context);

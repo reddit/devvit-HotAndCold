@@ -1,5 +1,11 @@
 import { z } from 'zod';
-import { zodContext, zoddy, zodRedis, zodTransaction, zodTriggerContext } from '../utils/zoddy.js';
+import {
+  zodContext,
+  zoddy,
+  zodRedis,
+  zodTransaction,
+  zodTriggerContext,
+} from '@hotandcold/shared/utils/zoddy';
 import { DEFAULT_WORD_LIST } from '../constants.js';
 import { API } from './api.js';
 

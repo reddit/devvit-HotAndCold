@@ -8,7 +8,7 @@ import './menu-actions/totalReminders.js';
 
 import { Devvit, useChannel, useInterval, useState } from '@devvit/public-api';
 import { DEVVIT_SETTINGS_KEYS } from './constants.js';
-import { isServerCall, omit, sendMessageToWebview } from './utils/utils.js';
+import { isServerCall, omit } from '@hotandcold/shared/utils';
 import { WebviewToBlocksMessage } from '@hotandcold/classic-shared';
 import { Guess } from './core/guess.js';
 import { ChallengeToPost } from './core/challengeToPost.js';
@@ -19,6 +19,7 @@ import { ChallengeLeaderboard } from './core/challengeLeaderboard.js';
 import { Streaks } from './core/streaks.js';
 import { Reminders } from './core/reminders.js';
 import { RedditApiCache } from './core/redditApiCache.js';
+import { sendMessageToWebview } from './utils/index.js';
 
 Devvit.configure({
   redditAPI: true,
