@@ -2,25 +2,48 @@ import { motion, AnimatePresence } from 'motion/react';
 import { useUserSettings } from '../hooks/useUserSettings';
 import { Guess } from '@hotandcold/raid-shared';
 import { cn } from '@hotandcold/webview-common/utils';
-import { useEffect, useState } from 'react';
+import { ReactNode, useEffect, useState } from 'react';
 import { useDimensions } from '@hotandcold/webview-common/hooks/useDimensions';
 import { HowToPlayModal } from './howToPlayModal';
 
-const GuessItem = ({ item, latestGuess }: { item: Guess; latestGuess?: Guess }) => {
+export const GuessItem = ({
+  item,
+  variant,
+  highlight,
+}: {
+  item: Guess;
+  variant: 'community' | 'user';
+  highlight?: boolean;
+}) => {
+  const { layout } = useUserSettings();
   return (
     <p
       className={cn(
-        'relative flex w-full justify-between gap-1 rounded px-1',
-        item.timestamp === latestGuess?.timestamp && 'border border-gray-500 bg-gray-700/50'
+        'relative flex w-full justify-between gap-1 rounded border border-transparent px-1',
+        highlight && 'border-gray-500 bg-gray-700/50'
       )}
     >
       <span
         className={cn(
-          'truncate',
-          item.timestamp === latestGuess?.timestamp ? 'font-medium text-white' : 'text-gray-50'
+          'flex flex-shrink-0 items-center',
+          highlight ? 'font-medium text-white' : 'text-gray-50'
         )}
       >
-        {item.word} {item.rank <= 250 && item.rank !== -1 ? ` (#${item.rank})` : null}
+        {item.word} {item.rank <= 250 && item.rank !== -1 ? ` (#${item.rank})` : null}&nbsp;
+        {variant === 'community' && item.username && (
+          <div className="group relative">
+            <img
+              src={item.snoovatar ?? '/assets/default_snoovatar.png'}
+              className="inline object-contain"
+              style={{
+                height: layout === 'CONDENSED' ? '18px' : '22px',
+              }}
+            />
+            <span className="absolute left-0 top-[-100%] m-4 mx-auto rounded-md bg-gray-800 px-1 text-sm text-gray-100 opacity-0 transition-opacity group-hover:opacity-100">
+              {item.username}
+            </span>
+          </div>
+        )}
       </span>
       <span
         className={cn(
@@ -37,7 +60,17 @@ const GuessItem = ({ item, latestGuess }: { item: Guess; latestGuess?: Guess }) 
   );
 };
 
-export const Guesses = ({ items }: { items: Guess[] }) => {
+export const Guesses = ({
+  items,
+  title,
+  variant,
+  emptyState,
+}: {
+  items: Guess[];
+  title: string;
+  variant: 'community' | 'user';
+  emptyState: ReactNode;
+}) => {
   const { sortDirection, sortType, layout } = useUserSettings();
   const [currentPage, setCurrentPage] = useState(1);
   const [ref, dimensions] = useDimensions();
@@ -80,42 +113,33 @@ export const Guesses = ({ items }: { items: Guess[] }) => {
       <div
         ref={ref}
         className={cn(
-          'relative z-10 flex h-full w-60 flex-col self-center',
+          'relative z-10 flex h-full w-60 flex-col self-center overflow-hidden',
           layout === 'CONDENSED' && 'text-sm',
           layout === 'EXPANDED' && 'text-md'
         )}
       >
-        {sortedItems.length > 0 ? (
-          <div className="flex h-7 w-full flex-col content-end items-start gap-1">
-            {latestGuess && sortedItems.length > 1 && (
-              <GuessItem item={latestGuess} latestGuess={latestGuess} />
-            )}
-          </div>
-        ) : (
-          <>
-            <button
-              type="button"
-              className="flex w-[110px] items-center justify-center self-center rounded-lg bg-gray-800 px-4 py-2"
-              onClick={() => setHowToPlayOpen(true)}
-            >
-              <span>How to Play</span>
-            </button>
-          </>
-        )}
-
-        <div className="flex-1 overflow-hidden">
+        <div className="font-xs font-bold underline">{title}</div>
+        <div className="flex-1">
           <AnimatePresence mode="popLayout">
-            {paginatedItems.map((item) => (
-              <motion.div
-                key={item.word}
-                layout
-                initial={{ opacity: 0, height: 0 }}
-                animate={{ opacity: 1, height: GUESS_HEIGHT }}
-                exit={{ opacity: 0, height: 0 }}
-              >
-                <GuessItem item={item} />
-              </motion.div>
-            ))}
+            {paginatedItems.length > 0 ? (
+              paginatedItems.map((item) => (
+                <motion.div
+                  key={item.word}
+                  layout
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: GUESS_HEIGHT }}
+                  exit={{ opacity: 0, height: 0 }}
+                >
+                  <GuessItem
+                    item={item}
+                    variant={variant}
+                    highlight={variant === 'user' && item.timestamp === latestGuess?.timestamp}
+                  />
+                </motion.div>
+              ))
+            ) : (
+              <p>{emptyState}</p>
+            )}
           </AnimatePresence>
         </div>
 

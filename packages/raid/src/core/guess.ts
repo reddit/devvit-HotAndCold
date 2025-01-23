@@ -7,7 +7,7 @@ import {
   zodRedis,
   zodTransaction,
 } from '@hotandcold/shared/utils/zoddy';
-import { Challenge } from './challenge.js';
+import { Challenge, challengeSchema } from './challenge.js';
 import { API } from './api.js';
 import { isEmptyObject, omit } from '@hotandcold/shared/utils';
 import { Similarity } from './similarity.js';
@@ -130,6 +130,20 @@ export const submitGuess = zoddy(
       challenge,
     });
 
+    const availableTokensBeforeGuess = await ChallengeFaucet.getAvailableTokensForPlayer({
+      challenge,
+      redis: txn,
+      username,
+    });
+
+    console.log('availableTokensBeforeGuess', availableTokensBeforeGuess);
+
+    if (availableTokensBeforeGuess <= 0) {
+      throw new Error(
+        `You're out of guesses. You get a new one every minute. In the meantime, join in on the conversation below!`
+      );
+    }
+
     let isFirstGuess = false;
     if (!challengeUserInfo.startedPlayingAtMs) {
       isFirstGuess = true;
@@ -138,6 +152,11 @@ export const submitGuess = zoddy(
         username,
         avatar,
         challenge,
+      });
+      await ChallengeFaucet.addPlayerFaucet({
+        challenge,
+        redis: txn,
+        username,
       });
       await Challenge.incrementChallengeTotalPlayers({ redis: txn, challenge });
       await markChallengePlayedForUser({ challenge, redis: txn, username });
@@ -226,6 +245,8 @@ export const submitGuess = zoddy(
         targetWordSimilarity: distance.similarity,
       }),
       rank: rankOfWord,
+      username,
+      snoovatar: avatar ?? undefined,
     };
 
     const newGuesses = z
@@ -249,8 +270,25 @@ export const submitGuess = zoddy(
       redis: txn,
       username,
     });
+    await ChallengeFaucet.consumeTokenForPlayer({
+      challenge,
+      redis: txn,
+      username,
+    });
+
+    console.log(`Challenge ${challenge} guess added`);
 
     const hasSolved = distance.similarity === 1;
+
+    const newChallengeInfo = {
+      ...omit(challengeInfo, ['word']),
+      totalGuesses: (challengeInfo.totalGuesses ?? 0) + 1,
+      // Only optimistically increment on their first guess
+      totalPlayers: isFirstGuess
+        ? (challengeInfo.totalPlayers ?? 0) + 1
+        : challengeInfo.totalPlayers,
+    };
+
     if (hasSolved) {
       await Promise.all([
         Challenge.markChallengeSolved({
@@ -258,6 +296,7 @@ export const submitGuess = zoddy(
           challenge,
           solvedAtMs: Date.now().toString(),
           solvingUser: username,
+          solvingUserSnoovatar: avatar ?? undefined,
         }),
         ChallengeToStatus.setStatusForChallenge({
           redis: txn,
@@ -266,14 +305,27 @@ export const submitGuess = zoddy(
         }),
       ]);
 
+      newChallengeInfo.solvedAtMs = Date.now();
+      newChallengeInfo.solvingUser = username;
+      newChallengeInfo.solvingUserSnoovatar = avatar ?? undefined;
+      // Only add on solved!
+      // @ts-expect-error - Too lazy to fix
+      newChallengeInfo.word = challengeInfo.word;
+
+      // @ts-ignore I'm sure it's fine
+      await context.realtime.send('RAID_SOLVED', { challengeInfo: newChallengeInfo });
+
       console.log(`End of winning logic for user ${username}`);
     }
 
     // TODO: Nice place for messages like asking for upvotes and progressive onboarding
 
+    await context.realtime.send('HOT_AND_COLD_GUESS_STREAM', { guess: guessToAdd });
+
     return {
       number: challenge,
       challengeStatus: hasSolved ? 'COMPLETED' : 'ACTIVE',
+      // TODO: I think you can optimistically decrement this
       userAvailableGuesses: await ChallengeFaucet.getAvailableTokensForPlayer({
         challenge,
         redis: txn,
@@ -287,14 +339,7 @@ export const submitGuess = zoddy(
         ...challengeUserInfo,
         guesses: newGuesses,
       },
-      challengeInfo: {
-        ...omit(challengeInfo, ['word']),
-        totalGuesses: (challengeInfo.totalGuesses ?? 0) + 1,
-        // Only optimistically increment on their first guess
-        totalPlayers: isFirstGuess
-          ? (challengeInfo.totalPlayers ?? 0) + 1
-          : challengeInfo.totalPlayers,
-      },
+      challengeInfo: newChallengeInfo,
     };
   }
 );

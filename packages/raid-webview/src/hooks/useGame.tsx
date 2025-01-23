@@ -18,9 +18,9 @@ const GameUpdaterContext = createContext<React.Dispatch<
 export const GameContextProvider = ({ children }: { children: React.ReactNode }) => {
   const setPage = useSetPage();
   const [game, setGame] = useState<Partial<Game>>(GAME_INIT_DATA ?? {});
-  logger.info(`game state:`, game);
   const initResponse = useDevvitListener('GAME_INIT_RESPONSE');
   const submissionResponse = useDevvitListener('WORD_SUBMITTED_RESPONSE');
+  const raidSolvedResponse = useDevvitListener('RAID_SOLVED');
 
   // Just in case the game is not initialized
   // This is old code left in for safety
@@ -43,6 +43,12 @@ export const GameContextProvider = ({ children }: { children: React.ReactNode })
       setGame(submissionResponse);
     }
   }, [submissionResponse]);
+
+  useEffect(() => {
+    if (raidSolvedResponse) {
+      setGame((x) => ({ ...x, challengeInfo: raidSolvedResponse.challengeInfo }));
+    }
+  }, [raidSolvedResponse]);
 
   useEffect(() => {
     logger.log('New game info: ', game);

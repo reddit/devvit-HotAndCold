@@ -44,7 +44,7 @@ export namespace ChallengeToStatus {
     async ({ redis, challenge }) => {
       const statusNumber = await redis.zScore(getChallengeToStatusKey(), challenge.toString());
 
-      if (!statusNumber) {
+      if (statusNumber == null) {
         throw new Error('No status number found for post. Did you mean to create one?');
       }
       return numberToStatus(statusNumber as 0 | 1);

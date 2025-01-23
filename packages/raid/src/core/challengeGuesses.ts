@@ -28,8 +28,8 @@ export namespace ChallengeGuesses {
         await redis.zAdd(challengeGuessesUniqueKey(challenge), { member: guess.word, score: 1 });
         await redis.zAdd(challengeGuessesKey(challenge), {
           member: makeUserGuessKey(username, guess),
-          // Note that this can be -1 if it's not even close
-          score: guess.rank,
+          // Raw similarity because it has the highest precision. We only use it for ranking
+          score: guess.similarity,
         });
       } else {
         await redis.zIncrBy(challengeGuessesUniqueKey(challenge), guess.word, 1);
@@ -57,16 +57,16 @@ export namespace ChallengeGuesses {
       challenge: z.number().gt(0),
     }),
     async ({ redis, challenge }) => {
-      const guesses = await redis.zRange(challengeGuessesKey(challenge), 0, 24, {
+      const guesses = await redis.zRange(challengeGuessesKey(challenge), 0, 300, {
         by: 'rank',
       });
 
       return guesses.map((guess) => {
-        const [username, guessJSONString] = guess.member.split(':');
+        const [username, ...guessJSONParts] = guess.member.split(':');
 
         return {
+          ...guessSchema.parse(JSON.parse(guessJSONParts.join(':'))),
           username,
-          guess: guessSchema.parse(JSON.parse(guessJSONString)),
         };
       });
     }

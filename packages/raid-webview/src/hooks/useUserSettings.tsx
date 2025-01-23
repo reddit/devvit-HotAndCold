@@ -5,7 +5,7 @@ import { useDevvitListener } from './useDevvitListener';
 const defaultUserSettings: UserSettings = {
   sortDirection: 'DESC',
   sortType: 'SIMILARITY',
-  layout: 'CONDENSED',
+  layout: 'EXPANDED',
   isUserOptedIntoReminders: false,
 };
 

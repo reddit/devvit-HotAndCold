@@ -23,7 +23,7 @@ export const getCurrentChallengeNumberKey = () => 'current_challenge_number' as 
 
 export const getChallengeKey = (challenge: number) => `challenge:${challenge}` as const;
 
-const challengeSchema = z
+export const challengeSchema = z
   .object({
     word: z.string().trim().toLowerCase(),
     totalPlayers: redisNumberString.optional(),
@@ -34,6 +34,7 @@ const challengeSchema = z
     startedAtMs: redisNumberString,
     solvedAtMs: redisNumberString.optional(),
     solvingUser: zodRedditUsername.optional(),
+    solvingUserSnoovatar: z.string().optional(),
   })
   .strict();
 
@@ -99,14 +100,17 @@ export const setChallenge = zoddy(
 
 export const markChallengeSolved = zoddy(
   challengeSchema
-    .pick({ solvedAtMs: true, solvingUser: true })
+    .pick({ solvedAtMs: true, solvingUser: true, solvingUserSnoovatar: true })
     .required({ solvedAtMs: true, solvingUser: true })
     .extend({
       challenge: z.number(),
       redis: zodRedis,
     }),
-  async ({ solvedAtMs, solvingUser, redis, challenge }) => {
-    redis.hSet(getChallengeKey(challenge), stringifyValues({ solvedAtMs, solvingUser }));
+  async ({ solvedAtMs, solvingUser, solvingUserSnoovatar, redis, challenge }) => {
+    redis.hSet(
+      getChallengeKey(challenge),
+      stringifyValues({ solvedAtMs, solvingUser, solvingUserSnoovatar })
+    );
   }
 );
 
@@ -220,7 +224,6 @@ export const makeNewChallenge = zoddy(
         challenge: newChallengeNumber,
         config: {
           startedAtMs: Date.now().toString(),
-          solvedAtMs: undefined,
           word: newWord,
           totalPlayers: '0',
           totalGuesses: '0',

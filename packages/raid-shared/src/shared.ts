@@ -6,6 +6,8 @@ export type Guess = {
   similarity: number;
   normalizedSimilarity: number;
   rank: number;
+  username?: string;
+  snoovatar?: string;
 };
 
 export type Game = {
@@ -13,23 +15,22 @@ export type Game = {
   challengeStatus: 'ACTIVE' | 'COMPLETED';
   userAvailableGuesses: number;
   challengeInfo: {
-    // DO NOT SEND THE WORD HERE!
-    // THAT WOULD BE SILLY
+    // Only send if the challenge is solved
+    word?: string | null;
     totalGuesses?: number | null;
     totalUniqueGuesses?: number | null;
     totalPlayers?: number | null;
     startedAtMs: number | null;
     solvedAtMs?: number | null;
+    solvingUser?: string | null;
+    solvingUserSnoovatar?: string | null;
   };
   challengeUserInfo: {
     startedPlayingAtMs?: number | null;
     guesses?: Guess[] | undefined;
     username: string;
   };
-  challengeTopGuesses: {
-    username: string;
-    guess: Guess;
-  }[];
+  challengeTopGuesses: Guess[];
 };
 
 export type GameResponse = Game;
@@ -92,6 +93,24 @@ export type BlocksToWebviewMessage =
   | {
       type: 'FEEDBACK';
       payload: FeedbackResponse;
+    }
+  | {
+      type: 'NEW_GUESS_FROM_GUESS_STREAM';
+      payload: {
+        guess: Guess;
+      };
+    }
+  | {
+      type: 'NEW_PLAYER_COUNT';
+      payload: {
+        playerCount: number;
+      };
+    }
+  | {
+      type: 'RAID_SOLVED';
+      payload: {
+        challengeInfo: Game['challengeInfo'];
+      };
     };
 
 export type DevvitMessage = {

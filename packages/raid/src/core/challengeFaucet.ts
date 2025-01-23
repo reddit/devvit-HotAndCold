@@ -18,7 +18,8 @@ export namespace ChallengeFaucet {
     async (args) => {
       const usersToIncrement = await args.redis.zRange(
         getChallengeFaucetKey(args.challenge),
-        0,
+        // You should never go below 0, but you never know....
+        -10,
         TOKEN_CEILING,
         {
           by: 'score',
@@ -56,7 +57,7 @@ export namespace ChallengeFaucet {
       username: zodRedditUsername,
     }),
     async ({ redis, challenge, username }) => {
-      return (await redis.zScore(getChallengeFaucetKey(challenge), username)) ?? 0;
+      return (await redis.zScore(getChallengeFaucetKey(challenge), username)) ?? 10;
     }
   );
 
