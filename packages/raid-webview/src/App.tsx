@@ -59,7 +59,7 @@ const CurrentGuesses = () => {
 
   return (
     <div className="flex items-end">
-      <p className="text-sm text-gray-500">Guesses:&nbsp;</p>
+      <p className="text-sm text-gray-500">Guesses left:&nbsp;</p>
       <AnimatedNumber className="text-gray-500" size={12.25} value={guesses >= 0 ? guesses : 0} />
     </div>
   );
@@ -80,12 +80,12 @@ export const App = () => {
   };
 
   return (
-    <div className="relative flex h-full min-h-0 flex-1 flex-col p-6">
+    <div className="relative flex h-full min-h-0 flex-1 flex-col p-4 md:p-6">
       <div>
         <div className="flex h-4 items-center justify-between">
-          <CurrentPlayers />
+          <CurrentGuesses />
           <div className="flex gap-3">
-            <CurrentGuesses />
+            <CurrentPlayers />
             <HelpMenu
               items={[
                 { name: 'How to Play', action: () => setHowToPlayOpen(true) },
@@ -121,11 +121,11 @@ export const App = () => {
           </div>
         </div>
         <div className="-mt-4 mb-[10px] flex justify-center">
-          <img src="assets/logo.jpg" className="w-[120px] object-contain" />
+          <img src="assets/logo.png" className="w-[120px] object-contain" />
         </div>
       </div>
       {getPage(page)}
-      <div className="pt-3 text-center">
+      <div className="pt-4 text-center text-sm">
         % of dictionary guessed: {computePercentOfDictionaryGuessed()}
       </div>
       <HowToPlayModal isOpen={howToPlayOpen} onClose={() => setHowToPlayOpen(false)} />

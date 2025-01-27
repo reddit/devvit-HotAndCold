@@ -109,7 +109,7 @@ export const markChallengeSolved = zoddy(
   async ({ solvedAtMs, solvingUser, solvingUserSnoovatar, redis, challenge }) => {
     redis.hSet(
       getChallengeKey(challenge),
-      stringifyValues({ solvedAtMs, solvingUser, solvingUserSnoovatar })
+      stringifyValues({ solvedAtMs, solvingUser, solvingUserSnoovatar: solvingUserSnoovatar ?? '' })
     );
   }
 );

@@ -20,7 +20,8 @@ export namespace ChallengeFaucet {
         getChallengeFaucetKey(args.challenge),
         // You should never go below 0, but you never know....
         -10,
-        TOKEN_CEILING,
+        // Don't give people at 10 an extra token!
+        TOKEN_CEILING - 1,
         {
           by: 'score',
         }

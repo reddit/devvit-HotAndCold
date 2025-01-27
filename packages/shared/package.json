@@ -6,7 +6,9 @@
   "exports": {
     ".": "./src/index.ts",
     "./utils": "./src/utils/index.ts",
-    "./utils/zoddy": "./src/utils/zoddy.ts"
+    "./utils/zoddy": "./src/utils/zoddy.ts",
+    "./utils/sortBy": "./src/utils/sortBy.ts",
+    "./utils/uniqueBy": "./src/utils/uniqueBy.ts"
   },
   "scripts": {
     "prettier": "prettier --write .",

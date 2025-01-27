@@ -70,7 +70,6 @@ Devvit.addCustomPostType({
   name: 'HotAndCold',
   height: 'tall',
   render: (context) => {
-    const [counter, setCounter] = useState(0);
     const [initialState] = useState<InitialState>(async () => {
       const [user, challenge] = await Promise.all([
         context.reddit.getCurrentUser(),
@@ -214,7 +213,7 @@ Devvit.addCustomPostType({
       name: 'RAID_SOLVED',
       onMessage: (message: any) => {
         // Don't emit messages sent by self
-        if (message.guess.username === initialState.user.username) {
+        if (message.challengeInfo.solvingUser === initialState.user.username) {
           return;
         }
 

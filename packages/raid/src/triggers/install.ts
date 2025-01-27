@@ -5,7 +5,7 @@ import { Reminders } from '../core/reminders.js';
 import { processInChunks } from '@hotandcold/shared/utils';
 
 Devvit.addSchedulerJob({
-  name: 'DAILY_GAME_DROP',
+  name: 'DROP_RAID',
   onRun: async (_, context) => {
     const newChallenge = await Challenge.makeNewChallenge({ context });
 
@@ -64,9 +64,9 @@ export const initialize = async (context: TriggerContext) => {
   }
 
   await context.scheduler.runJob({
-    // Time is in UTC, so I think this is 8am? It's around there :D
-    cron: '0 13 * * *',
-    name: 'DAILY_GAME_DROP',
+    // Time is in UTC, so I think this is 2pm? It's around there :D
+    cron: '0 19 * * 2,5',
+    name: 'DROP_RAID',
     data: {},
   });
 

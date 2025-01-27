@@ -45,8 +45,13 @@ export const GameContextProvider = ({ children }: { children: React.ReactNode })
   }, [submissionResponse]);
 
   useEffect(() => {
+    console.log('raid solved effect', raidSolvedResponse);
     if (raidSolvedResponse) {
-      setGame((x) => ({ ...x, challengeInfo: raidSolvedResponse.challengeInfo }));
+      setGame((x) => ({
+        ...x,
+        challengeInfo: raidSolvedResponse.challengeInfo,
+        challengeStatus: 'COMPLETED',
+      }));
     }
   }, [raidSolvedResponse]);
 

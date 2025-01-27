@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { sendMessageToDevvit } from '../utils';
 import { WordInput } from '@hotandcold/webview-common/components/wordInput';
 import { Guesses, GuessItem } from '../components/guesses';
@@ -7,8 +7,11 @@ import { useDevvitListener } from '../hooks/useDevvitListener';
 import clsx from 'clsx';
 import { FeedbackResponse, Guess } from '@hotandcold/raid-shared';
 import { GuessTicker } from '../components/guessTicker';
+import { sortBy } from '@hotandcold/shared/utils/sortBy';
+import { uniqueBy } from '@hotandcold/shared/utils/uniqueBy';
 
 const FeedbackSection = () => {
+  const prevLastGuess = useRef<Guess | null>(null);
   const [feedback, setFeedback] = useState<FeedbackResponse | null>(null);
   const message = useDevvitListener('FEEDBACK');
   const { challengeUserInfo } = useGame();
@@ -24,6 +27,14 @@ const FeedbackSection = () => {
     if (!message) return;
     setFeedback(message);
   }, [message]);
+
+  // This is needed because otherwise you see feedback only instead of the latest guess
+  useEffect(() => {
+    if (latestGuess && prevLastGuess.current !== latestGuess) {
+      prevLastGuess.current = latestGuess;
+      setFeedback(null);
+    }
+  }, [latestGuess]);
 
   return (
     <div className="h-7">
@@ -62,9 +73,51 @@ const FeedbackSection = () => {
   );
 };
 
+const makeUniqueGuessStream = ({
+  newGuesses,
+  oldGuesses,
+}: {
+  newGuesses: Guess[];
+  oldGuesses: Guess[];
+}) => {
+  const sortedGuesses = sortBy([...newGuesses, ...oldGuesses], ['timestamp'], ['asc']);
+  const uniquedGuess = uniqueBy(sortedGuesses, 'word');
+
+  return sortBy(uniquedGuess, ['similarity'], ['desc']);
+};
+
+const ChallengeTopGuesses = () => {
+  const [guesses, setGuesses] = useState<Guess[]>([]);
+  const { challengeTopGuesses } = useGame();
+  const newGuessStream = useDevvitListener('NEW_GUESS_FROM_GUESS_STREAM');
+
+  useEffect(() => {
+    if (newGuessStream) {
+      setGuesses((x) =>
+        makeUniqueGuessStream({ newGuesses: [newGuessStream.guess], oldGuesses: x })
+      );
+    }
+  }, [newGuessStream]);
+
+  useEffect(() => {
+    if (challengeTopGuesses) {
+      setGuesses((x) => makeUniqueGuessStream({ newGuesses: challengeTopGuesses, oldGuesses: x }));
+    }
+  }, [challengeTopGuesses]);
+
+  return (
+    <Guesses
+      items={guesses ?? []}
+      title="Top Guesses"
+      variant="community"
+      emptyState="Top guesses from the community will appear here."
+    />
+  );
+};
+
 export const PlayPage = () => {
   const [word, setWord] = useState('');
-  const { challengeUserInfo, challengeTopGuesses } = useGame();
+  const { challengeUserInfo } = useGame();
 
   return (
     <div className="flex h-full flex-col justify-center gap-6">
@@ -103,13 +156,8 @@ export const PlayPage = () => {
           <FeedbackSection />
         </div>
       </div>
-      <div className="flex flex-1 justify-center gap-4">
-        <Guesses
-          items={challengeTopGuesses ?? []}
-          title="Top Guesses"
-          variant="community"
-          emptyState="Top guesses from the community will appear here."
-        />
+      <div className="flex flex-1 justify-center gap-8">
+        <ChallengeTopGuesses />
         <Guesses
           items={challengeUserInfo?.guesses ?? []}
           title="Your Guesses"

@@ -29,9 +29,8 @@ export const GuessItem = ({
           highlight ? 'font-medium text-white' : 'text-gray-50'
         )}
       >
-        {item.word} {item.rank <= 250 && item.rank !== -1 ? ` (#${item.rank})` : null}&nbsp;
         {variant === 'community' && item.username && (
-          <div className="group relative">
+          <div className="group relative mr-1">
             <img
               src={item.snoovatar ?? '/assets/default_snoovatar.png'}
               className="inline object-contain"
@@ -44,6 +43,7 @@ export const GuessItem = ({
             </span>
           </div>
         )}
+        {item.word} {item.rank <= 250 && item.rank !== -1 ? ` (#${item.rank})` : null}&nbsp;
       </span>
       <span
         className={cn(

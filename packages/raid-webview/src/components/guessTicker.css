@@ -1,0 +1,9 @@
+.ticker-scroll {
+  overflow-y: scroll;
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE/Edge */
+}
+
+.ticker-scroll::-webkit-scrollbar {
+  display: none; /* Chrome/Safari/Opera */
+}
