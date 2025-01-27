@@ -30,6 +30,9 @@ export const HowToPlayModal = (props: Omit<ComponentProps<typeof Modal>, 'childr
         <p className="mt-4 italic text-gray-300">
           Think about synonyms, categories, and related concepts to find the secret word.
         </p>
+        <p className="mt-4 text-gray-300">
+          In raid mode, everyone plays together and the word is much more difficult. Good luck!
+        </p>
       </div>
     </Modal>
   );
