@@ -19,5 +19,17 @@
   "[typescript]": {
     "editor.defaultFormatter": "esbenp.prettier-vscode"
   },
-  "cSpell.words": ["Devvit", "snoovatar", "zoddy"]
+  "cSpell.words": [
+    "devvit",
+    "hotandcold",
+    "mydevvit",
+    "playtest",
+    "snoovatar",
+    "uniqued",
+    "vstack",
+    "webroot",
+    "zoddy",
+    "zstack"
+  ],
+  "vitest.disableWorkspaceWarning": true
 }

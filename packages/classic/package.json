@@ -1,0 +1,19 @@
+{
+  "name": "@hotandcold/classic",
+  "version": "0.0.0",
+  "private": true,
+  "license": "BSD-3-Clause",
+  "type": "module",
+  "scripts": {
+    "dev": "MY_PORTAL=0 mydevvit playtest HotAndColdDev --employee-update --config devvit.dev.yaml",
+    "prettier": "prettier --write .",
+    "test": "vitest run",
+    "type-check": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@devvit/public-api": "0.11.5",
+    "@hotandcold/shared": "*",
+    "@hotandcold/classic-shared": "*"
+  },
+  "devDependencies": {}
+}

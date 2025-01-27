@@ -1,0 +1,18 @@
+{
+  "name": "@hotandcold/shared",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./utils": "./src/utils/index.ts",
+    "./utils/zoddy": "./src/utils/zoddy.ts",
+    "./utils/sortBy": "./src/utils/sortBy.ts",
+    "./utils/uniqueBy": "./src/utils/uniqueBy.ts"
+  },
+  "scripts": {
+    "prettier": "prettier --write .",
+    "type-check": "tsc --noEmit"
+  },
+  "dependencies": {}
+}
