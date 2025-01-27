@@ -1,5 +1,5 @@
-import './utils/initListener';
 import './index.css';
+import { logger } from './utils/logger';
 
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
@@ -10,7 +10,6 @@ import { UserSettingsContextProvider } from './hooks/useUserSettings';
 import { MockProvider } from './hooks/useMocks';
 import { ConfirmationDialogProvider } from '@hotandcold/webview-common/hooks/useConfirmation';
 import { IS_DETACHED } from './constants';
-import { logger } from './utils/logger';
 
 console.log('webview main called');
 

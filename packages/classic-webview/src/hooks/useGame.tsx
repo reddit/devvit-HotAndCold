@@ -5,7 +5,6 @@ import { useDevvitListener } from './useDevvitListener';
 import { useSetPage } from './usePage';
 import { logger } from '../utils/logger';
 import { useMocks } from './useMocks';
-import { GAME_INIT_DATA } from '../utils/initListener';
 
 const isEmpty = (obj: object): boolean => {
   return Object.keys(obj).length === 0;
@@ -19,10 +18,7 @@ const GameUpdaterContext = createContext<React.Dispatch<
 export const GameContextProvider = ({ children }: { children: React.ReactNode }) => {
   const setPage = useSetPage();
   const mocks = useMocks();
-  const [game, setGame] = useState<Partial<Game>>(
-    mocks.getMock('mocks')?.game ?? GAME_INIT_DATA ?? {}
-  );
-  logger.info(`game state:`, game);
+  const [game, setGame] = useState<Partial<Game>>(mocks.getMock('mocks')?.game ?? {});
   const initResponse = useDevvitListener('GAME_INIT_RESPONSE');
   const submissionResponse = useDevvitListener('WORD_SUBMITTED_RESPONSE');
   const hintResponse = useDevvitListener('HINT_RESPONSE');

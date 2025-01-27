@@ -102,15 +102,15 @@ Devvit.addCustomPostType({
         }),
       ]);
 
-      sendMessageToWebview(context, {
-        type: 'INIT',
-        payload: {
-          challengeInfo: omit(challengeInfo, ['word']),
-          challengeUserInfo,
-          number: challenge,
-          challengeProgress: challengeProgress,
-        },
-      });
+      // sendMessageToWebview(context, {
+      //   type: 'INIT',
+      //   payload: {
+      //     challengeInfo: omit(challengeInfo, ['word']),
+      //     challengeUserInfo,
+      //     number: challenge,
+      //     challengeProgress: challengeProgress,
+      //   },
+      // });
 
       return {
         type: 'AUTHED' as const,
@@ -153,7 +153,6 @@ Devvit.addCustomPostType({
           width={'100%'}
           height={'100%'}
           onMessage={async (event) => {
-            console.log('Received message', event);
             const data = event as unknown as WebviewToBlocksMessage;
 
             switch (data.type) {
