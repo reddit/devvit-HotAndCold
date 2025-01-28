@@ -30,7 +30,7 @@ export const getCurrentWordList = zoddy(
       throw new Error('No word list found');
     }
 
-    return JSON.parse(wordList);
+    return JSON.parse(wordList) as string[];
   }
 );
 

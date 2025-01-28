@@ -75,7 +75,15 @@ export const getWordConfig = zoddy(
     });
 
     // Do a quick check in case API is down or changes
-    return wordConfigSchema.parse(await response.json());
+    const result = wordConfigSchema.safeParse(await response.json());
+
+    if (!result.success) {
+      throw new Error(
+        `Failed to parse response from API for word "${word}": ${result.error.errors}`
+      );
+    }
+
+    return result.data;
   }
 );
 

@@ -71,3 +71,28 @@ Devvit.addMenuItem({
     context.ui.showForm(addWordsToDictionaryFormId);
   },
 });
+
+Devvit.addMenuItem({
+  label: 'HotAndCold Raid: Get Word List Length',
+  location: 'subreddit',
+  forUserType: 'moderator',
+  onPress: async (_event, context) => {
+    const wordList = await WordList.getCurrentWordList({ redis: context.redis });
+
+    context.ui.showToast(`Word list length: ${wordList.length}`);
+  },
+});
+
+Devvit.addMenuItem({
+  label: 'HotAndCold Raid: Clear Word List',
+  location: 'subreddit',
+  forUserType: 'moderator',
+  onPress: async (_event, context) => {
+    const wordList = await WordList.setCurrentWordListWords({
+      redis: context.redis,
+      words: [],
+    });
+
+    context.ui.showToast(`Word list cleared.`);
+  },
+});

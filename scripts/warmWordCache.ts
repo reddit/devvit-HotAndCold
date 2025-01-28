@@ -1,10 +1,9 @@
-import * as dotenv from "dotenv";
-import { DEFAULT_WORD_LIST } from "../src/constants";
+import * as dotenv from 'dotenv';
 
 // Load environment variables
 dotenv.config();
 
-const API_URL = "https://jbbhyxtpholdwrxencjx.supabase.co/functions/v1/";
+const API_URL = 'https://jbbhyxtpholdwrxencjx.supabase.co/functions/v1/';
 const MAX_CONCURRENT_REQUESTS = 10;
 
 class Semaphore {
@@ -36,18 +35,32 @@ class Semaphore {
   }
 }
 
-async function processWord(
-  word: string,
-  semaphore: Semaphore,
-): Promise<void> {
+async function processWord(word: string, semaphore: Semaphore): Promise<void> {
   await semaphore.acquire();
   try {
     console.log(`Processing word: ${word}`);
 
-    const response = await fetch(API_URL + "nearest-words", {
-      method: "POST",
+    const wordExists = await fetch(API_URL + 'word', {
+      method: 'POST',
       headers: {
-        "Content-Type": "application/json",
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${process.env.SUPABASE_SECRET}`,
+      },
+      body: JSON.stringify({ word }),
+    });
+
+    if (!wordExists.ok) {
+      throw new Error(`HTTP error! status: ${wordExists.status}`);
+    }
+    const wordExistsData = await wordExists.json();
+    if (!wordExistsData?.data?.[0].id) {
+      throw new Error(`Word "${word}" not found in the database`);
+    }
+
+    const response = await fetch(API_URL + 'nearest-words', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
         Authorization: `Bearer ${process.env.SUPABASE_SECRET}`,
       },
       body: JSON.stringify({ word }),
@@ -66,16 +79,20 @@ async function processWord(
 }
 
 async function warmCache() {
-  console.log("Starting cache warming...");
+  console.log('Starting cache warming...');
   const semaphore = new Semaphore(MAX_CONCURRENT_REQUESTS);
 
-  const promises = DEFAULT_WORD_LIST.map((word) =>
-    processWord(word, semaphore)
-  );
+  const WORDS: string[] = [];
+
+  if (WORDS.length === 0) {
+    throw new Error(`Add some words to the WORDS array to warm the cache`);
+  }
+
+  const promises = WORDS.map((word) => processWord(word, semaphore));
 
   await Promise.all(promises);
 
-  console.log("Cache warming completed!");
+  console.log('Cache warming completed!');
 }
 
 // Run the cache warmer
