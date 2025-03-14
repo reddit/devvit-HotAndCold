@@ -20,4 +20,4 @@ You can install this game on your own subreddit if you would like to give it a t
 
 ## Source Code
 
-The [code for HotAndCold is open source](https://github.com/mwood23/HotAndCold)! Feel free to suggest improvements, fork, and submit PRs of new features and improvements.
+The [code for HotAndCold is open source](https://github.com/reddit/devvit-HotAndCold)! Feel free to suggest improvements, fork, and submit PRs of new features and improvements.
