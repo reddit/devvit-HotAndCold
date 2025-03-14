@@ -11,7 +11,7 @@
     "type-check": "tsc --noEmit"
   },
   "dependencies": {
-    "@devvit/public-api": "0.11.5",
+    "@devvit/public-api": "0.11.8-next-2025-02-20-9c69a5fab.0",
     "@hotandcold/shared": "*",
     "@hotandcold/classic-shared": "*"
   },

@@ -57,10 +57,10 @@ export const getSome = zoddy(
 
     const items = await redis.hMGet(getChallengePlayersKey(challenge), usernames);
 
-    const players: z.infer<typeof playersSchema> = {};
+    const players: Record<string, string | null> = {};
 
     items.forEach((raw, index) => {
-      players[usernames[index]] = JSON.parse(raw ?? '{}');
+      players[usernames[index]] = raw;
     });
 
     return playersSchema.parse(players);

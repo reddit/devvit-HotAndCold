@@ -169,17 +169,19 @@ Devvit.addCustomPostType({
     useChannel({
       name: 'HOT_AND_COLD_GUESS_STREAM',
       onMessage: (message: any) => {
-        // Don't emit messages sent by self
-        if (message.guess.username === initialState.user.username) {
-          return;
-        }
+        context.ui.showToast(`New guess from ${typeof message} Message: ${message}`);
 
-        sendMessageToWebview(context, {
-          type: 'NEW_GUESS_FROM_GUESS_STREAM',
-          payload: {
-            guess: message.guess,
-          },
-        });
+        // // Don't emit messages sent by self
+        // if (message.guess.username === initialState.user.username) {
+        //   return;
+        // }
+
+        // sendMessageToWebview(context, {
+        //   type: 'NEW_GUESS_FROM_GUESS_STREAM',
+        //   payload: {
+        //     guess: message.guess,
+        //   },
+        // });
       },
       onSubscribed: async () => {
         const playerCount = await CurrentPlayers.incrementPlayers({
@@ -334,7 +336,7 @@ Devvit.addCustomPostType({
                 break;
 
               default:
-                throw new Error(`Unknown message type: ${data satisfies never}`);
+                throw new Error(`Unknown message type: ${JSON.stringify(data satisfies never)}`);
             }
           }}
         />

@@ -6,10 +6,10 @@ import './menu-actions/newChallenge.js';
 import './menu-actions/addWordToDictionary.js';
 import './menu-actions/totalReminders.js';
 
-import { Devvit, useChannel, useInterval, useState } from '@devvit/public-api';
+import { Devvit, useChannel, useInterval, useState, useWebView } from '@devvit/public-api';
 import { DEVVIT_SETTINGS_KEYS } from './constants.js';
 import { isServerCall, omit } from '@hotandcold/shared/utils';
-import { WebviewToBlocksMessage } from '@hotandcold/classic-shared';
+import { BlocksToWebviewMessage, WebviewToBlocksMessage } from '@hotandcold/classic-shared';
 import { Guess } from './core/guess.js';
 import { ChallengeToPost } from './core/challengeToPost.js';
 import { Preview } from './components/Preview.js';
@@ -127,6 +127,197 @@ Devvit.addCustomPostType({
       return <Preview text="Please login to play." />;
     }
 
+    const webview = useWebView<WebviewToBlocksMessage, BlocksToWebviewMessage>({
+      url: 'index.html',
+      onMessage: async (event, { postMessage }) => {
+        const data = event as unknown as WebviewToBlocksMessage;
+
+        switch (data.type) {
+          case 'GAME_INIT':
+            const { challengeInfo, challengeUserInfo, challengeProgress, challenge } = initialState;
+
+            sendMessageToWebview(context, {
+              type: 'GAME_INIT_RESPONSE',
+              payload: {
+                challengeInfo: omit(challengeInfo, ['word']),
+                challengeUserInfo,
+                number: challenge,
+                challengeProgress: challengeProgress,
+              },
+            });
+
+            const isUserOptedIntoReminders = await Reminders.isUserOptedIntoReminders({
+              redis: context.redis,
+              username: initialState.user.username,
+            });
+
+            sendMessageToWebview(context, {
+              type: 'TOGGLE_USER_REMINDER_RESPONSE',
+              payload: {
+                isUserOptedIntoReminders,
+              },
+            });
+
+            break;
+          case 'WORD_SUBMITTED':
+            try {
+              sendMessageToWebview(context, {
+                type: 'WORD_SUBMITTED_RESPONSE',
+                payload: await Guess.submitGuess({
+                  context,
+                  challenge: initialState.challenge,
+                  guess: data.value,
+                  username: initialState.user.username,
+                  avatar: initialState.user.avatar,
+                }),
+              });
+            } catch (error) {
+              isServerCall(error);
+
+              console.error('Error submitting guess:', error);
+              // Sometimes the error is nasty and we don't want to show it
+              if (error instanceof Error && !['Error: 2'].includes(error.message)) {
+                sendMessageToWebview(context, {
+                  type: 'FEEDBACK',
+                  payload: {
+                    feedback: error.message,
+                  },
+                });
+                // context.ui.showToast(error.message);
+                return;
+              }
+              sendMessageToWebview(context, {
+                type: 'FEEDBACK',
+                payload: {
+                  feedback: `I'm not sure what happened. Please try again.`,
+                },
+              });
+            }
+            break;
+          case 'SHOW_TOAST':
+            context.ui.showToast(data.string);
+            break;
+          case 'HINT_REQUEST':
+            try {
+              sendMessageToWebview(context, {
+                type: 'HINT_RESPONSE',
+                payload: await Guess.getHintForUser({
+                  context,
+                  challenge: initialState.challenge,
+                  username: initialState.user.username,
+                }),
+              });
+            } catch (error) {
+              isServerCall(error);
+
+              console.error('Error getting hint:', error);
+              if (error instanceof Error) {
+                sendMessageToWebview(context, {
+                  type: 'FEEDBACK',
+                  payload: {
+                    feedback: error.message,
+                  },
+                });
+                return;
+              }
+              sendMessageToWebview(context, {
+                type: 'FEEDBACK',
+                payload: {
+                  feedback: `I'm not sure what happened. Please try again.`,
+                },
+              });
+            }
+            break;
+          case 'GIVE_UP_REQUEST':
+            try {
+              sendMessageToWebview(context, {
+                type: 'GIVE_UP_RESPONSE',
+                payload: await Guess.giveUp({
+                  context,
+                  challenge: initialState.challenge,
+                  username: initialState.user.username,
+                }),
+              });
+            } catch (error) {
+              console.error(`Error giving up:`, error);
+              if (error instanceof Error) {
+                sendMessageToWebview(context, {
+                  type: 'FEEDBACK',
+                  payload: {
+                    feedback: error.message,
+                  },
+                });
+                return;
+              }
+              sendMessageToWebview(context, {
+                type: 'FEEDBACK',
+                payload: {
+                  feedback: `I'm not sure what happened. Please try again.`,
+                },
+              });
+            }
+            break;
+          case 'LEADERBOARD_FOR_CHALLENGE':
+            const leaderboardByScore = await ChallengeLeaderboard.getLeaderboardByScore({
+              challenge: initialState?.challenge,
+              redis: context.redis,
+              start: 0,
+              stop: 9,
+              sort: 'DESC',
+            });
+            console.log('Leaderboard by score:', leaderboardByScore);
+            const leaderboardByFastest = await ChallengeLeaderboard.getLeaderboardByFastest({
+              challenge: initialState?.challenge,
+              redis: context.redis,
+              start: 0,
+              stop: 9,
+              sort: 'DESC',
+            });
+            const userRank = await ChallengeLeaderboard.getRankingsForMember({
+              challenge: initialState?.challenge,
+              redis: context.redis,
+              username: initialState.user.username,
+            });
+            const userStreak = await Streaks.getStreakForMember({
+              redis: context.redis,
+              username: initialState.user.username,
+            });
+            sendMessageToWebview(context, {
+              type: 'CHALLENGE_LEADERBOARD_RESPONSE',
+              payload: {
+                userStreak,
+                leaderboardByScore,
+                leaderboardByFastest,
+                userRank,
+              },
+            });
+            break;
+          case 'TOGGLE_USER_REMINDER':
+            const resp = await Reminders.toggleReminderForUsername({
+              redis: context.redis,
+              username: initialState.user.username,
+            });
+
+            sendMessageToWebview(context, {
+              type: 'TOGGLE_USER_REMINDER_RESPONSE',
+              payload: {
+                isUserOptedIntoReminders: resp.newValue,
+              },
+            });
+
+            if (resp.newValue) {
+              context.ui.showToast(`You will now receive reminders to play!`);
+            } else {
+              context.ui.showToast(`You will no longer receive reminders to play.`);
+            }
+            break;
+
+          default:
+            throw new Error(`Unknown message type: ${data satisfies never}`);
+        }
+      },
+    });
+
     useInterval(async () => {
       const challengeProgress = await ChallengeProgress.getPlayerProgress({
         challenge: initialState.challenge,
@@ -147,200 +338,7 @@ Devvit.addCustomPostType({
 
     return (
       <vstack height="100%" width="100%" alignment="center middle">
-        <webview
-          id="webview"
-          url="index.html"
-          width={'100%'}
-          height={'100%'}
-          onMessage={async (event) => {
-            const data = event as unknown as WebviewToBlocksMessage;
-
-            switch (data.type) {
-              case 'GAME_INIT':
-                const { challengeInfo, challengeUserInfo, challengeProgress, challenge } =
-                  initialState;
-
-                sendMessageToWebview(context, {
-                  type: 'GAME_INIT_RESPONSE',
-                  payload: {
-                    challengeInfo: omit(challengeInfo, ['word']),
-                    challengeUserInfo,
-                    number: challenge,
-                    challengeProgress: challengeProgress,
-                  },
-                });
-
-                const isUserOptedIntoReminders = await Reminders.isUserOptedIntoReminders({
-                  redis: context.redis,
-                  username: initialState.user.username,
-                });
-
-                sendMessageToWebview(context, {
-                  type: 'TOGGLE_USER_REMINDER_RESPONSE',
-                  payload: {
-                    isUserOptedIntoReminders,
-                  },
-                });
-
-                break;
-              case 'WORD_SUBMITTED':
-                try {
-                  sendMessageToWebview(context, {
-                    type: 'WORD_SUBMITTED_RESPONSE',
-                    payload: await Guess.submitGuess({
-                      context,
-                      challenge: initialState.challenge,
-                      guess: data.value,
-                      username: initialState.user.username,
-                      avatar: initialState.user.avatar,
-                    }),
-                  });
-                } catch (error) {
-                  isServerCall(error);
-
-                  console.error('Error submitting guess:', error);
-                  // Sometimes the error is nasty and we don't want to show it
-                  if (error instanceof Error && !['Error: 2'].includes(error.message)) {
-                    sendMessageToWebview(context, {
-                      type: 'FEEDBACK',
-                      payload: {
-                        feedback: error.message,
-                      },
-                    });
-                    // context.ui.showToast(error.message);
-                    return;
-                  }
-                  sendMessageToWebview(context, {
-                    type: 'FEEDBACK',
-                    payload: {
-                      feedback: `I'm not sure what happened. Please try again.`,
-                    },
-                  });
-                }
-                break;
-              case 'SHOW_TOAST':
-                context.ui.showToast(data.string);
-                break;
-              case 'HINT_REQUEST':
-                try {
-                  sendMessageToWebview(context, {
-                    type: 'HINT_RESPONSE',
-                    payload: await Guess.getHintForUser({
-                      context,
-                      challenge: initialState.challenge,
-                      username: initialState.user.username,
-                    }),
-                  });
-                } catch (error) {
-                  isServerCall(error);
-
-                  console.error('Error getting hint:', error);
-                  if (error instanceof Error) {
-                    sendMessageToWebview(context, {
-                      type: 'FEEDBACK',
-                      payload: {
-                        feedback: error.message,
-                      },
-                    });
-                    return;
-                  }
-                  sendMessageToWebview(context, {
-                    type: 'FEEDBACK',
-                    payload: {
-                      feedback: `I'm not sure what happened. Please try again.`,
-                    },
-                  });
-                }
-                break;
-              case 'GIVE_UP_REQUEST':
-                try {
-                  sendMessageToWebview(context, {
-                    type: 'GIVE_UP_RESPONSE',
-                    payload: await Guess.giveUp({
-                      context,
-                      challenge: initialState.challenge,
-                      username: initialState.user.username,
-                    }),
-                  });
-                } catch (error) {
-                  console.error(`Error giving up:`, error);
-                  if (error instanceof Error) {
-                    sendMessageToWebview(context, {
-                      type: 'FEEDBACK',
-                      payload: {
-                        feedback: error.message,
-                      },
-                    });
-                    return;
-                  }
-                  sendMessageToWebview(context, {
-                    type: 'FEEDBACK',
-                    payload: {
-                      feedback: `I'm not sure what happened. Please try again.`,
-                    },
-                  });
-                }
-                break;
-              case 'LEADERBOARD_FOR_CHALLENGE':
-                const leaderboardByScore = await ChallengeLeaderboard.getLeaderboardByScore({
-                  challenge: initialState?.challenge,
-                  redis: context.redis,
-                  start: 0,
-                  stop: 9,
-                  sort: 'DESC',
-                });
-                console.log('Leaderboard by score:', leaderboardByScore);
-                const leaderboardByFastest = await ChallengeLeaderboard.getLeaderboardByFastest({
-                  challenge: initialState?.challenge,
-                  redis: context.redis,
-                  start: 0,
-                  stop: 9,
-                  sort: 'DESC',
-                });
-                const userRank = await ChallengeLeaderboard.getRankingsForMember({
-                  challenge: initialState?.challenge,
-                  redis: context.redis,
-                  username: initialState.user.username,
-                });
-                const userStreak = await Streaks.getStreakForMember({
-                  redis: context.redis,
-                  username: initialState.user.username,
-                });
-                sendMessageToWebview(context, {
-                  type: 'CHALLENGE_LEADERBOARD_RESPONSE',
-                  payload: {
-                    userStreak,
-                    leaderboardByScore,
-                    leaderboardByFastest,
-                    userRank,
-                  },
-                });
-                break;
-              case 'TOGGLE_USER_REMINDER':
-                const resp = await Reminders.toggleReminderForUsername({
-                  redis: context.redis,
-                  username: initialState.user.username,
-                });
-
-                sendMessageToWebview(context, {
-                  type: 'TOGGLE_USER_REMINDER_RESPONSE',
-                  payload: {
-                    isUserOptedIntoReminders: resp.newValue,
-                  },
-                });
-
-                if (resp.newValue) {
-                  context.ui.showToast(`You will now receive reminders to play!`);
-                } else {
-                  context.ui.showToast(`You will no longer receive reminders to play.`);
-                }
-                break;
-
-              default:
-                throw new Error(`Unknown message type: ${data satisfies never}`);
-            }
-          }}
-        />
+        <button onPress={() => webview.mount()}>Play</button>
       </vstack>
     );
   },
