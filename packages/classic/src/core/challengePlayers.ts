@@ -60,7 +60,7 @@ export const getSome = zoddy(
     const players: Record<string, string | null> = {};
 
     items.forEach((raw, index) => {
-      players[usernames[index]] = raw;
+      players[usernames[index]] = JSON.parse(raw ?? '{}');
     });
 
     return playersSchema.parse(players);
