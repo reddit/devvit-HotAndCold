@@ -133,7 +133,7 @@ Devvit.addCustomPostType({
         context,
         sort: 'DESC',
         start: 0,
-        stop: 1000,
+        stop: 20,
         username: initialState.user.username,
       });
 

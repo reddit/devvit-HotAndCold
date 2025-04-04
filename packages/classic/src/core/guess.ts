@@ -269,7 +269,7 @@ export const getHintForUser = zoddy(
       context,
       sort: 'DESC',
       start: 0,
-      stop: 1000,
+      stop: 20,
       username,
     });
 
@@ -577,7 +577,7 @@ export const submitGuess = zoddy(
       context,
       sort: 'DESC',
       start: 0,
-      stop: 1000,
+      stop: 20,
       username,
     });
 
@@ -682,7 +682,7 @@ export const giveUp = zoddy(
       context,
       sort: 'DESC',
       start: 0,
-      stop: 1000,
+      stop: 20,
       username,
     });
 
