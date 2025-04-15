@@ -12,6 +12,7 @@
     "dev:classic": "concurrently -p \"[{name}]\" -n \"DEVVIT,GAME\" -c \"bgBlue.bold,bgMagenta.bold\" \"npm run dev --workspace packages/classic \" \"npm run dev --workspace packages/classic-webview\" --restart-tries 30",
     "dev:raid": "concurrently -p \"[{name}]\" -n \"DEVVIT,GAME\" -c \"bgBlue.bold,bgMagenta.bold\" \"npm run dev --workspace packages/raid \" \"npm run dev --workspace packages/raid-webview\" --restart-tries 30",
     "prettier": "sort-package-json 'package.json' 'packages/*/package.json' && npm run prettier --workspaces --if-present",
+    "lint": "npm run lint --workspaces --if-present",
     "publish": "devvit publish",
     "scripts:appendPCAToWords": "tsx ./scripts/appendPCAToWords.ts",
     "scripts:embeddingsDownload": "tsx ./scripts/embeddingsDownload.ts",
