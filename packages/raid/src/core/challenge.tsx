@@ -11,7 +11,7 @@ import {
 import { API } from '../core/api.js';
 import { Preview } from '../components/Preview.js';
 import { stringifyValues } from '@hotandcold/shared/utils';
-import { Devvit, Post } from '@devvit/public-api';
+import { Post } from '@devvit/public-api';
 import { WordList } from './wordList.js';
 import { ChallengeToWord } from './challengeToWord.js';
 import { ChallengeToPost } from './challengeToPost.js';
