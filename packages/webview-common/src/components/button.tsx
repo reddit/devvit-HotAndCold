@@ -10,7 +10,7 @@ export const PrimaryButton = ({
   return (
     <button
       className={cn(
-        'relative inline-flex h-12 overflow-hidden rounded-full p-[2px] focus:outline-none focus:ring-2 focus:ring-slate-400 focus:ring-offset-2 focus:ring-offset-slate-50',
+        'relative inline-flex overflow-hidden rounded-full bg-gray-800 p-[2px] focus:outline-none focus:ring-2 focus:ring-slate-400 focus:ring-offset-2 focus:ring-offset-slate-50',
         className
       )}
       disabled={disabled}
@@ -18,9 +18,8 @@ export const PrimaryButton = ({
     >
       <span
         className={cn(
-          'absolute inset-[-1000%] animate-[spin_2s_linear_infinite] bg-gray-800',
-          !disabled &&
-            'bg-[conic-gradient(from_135deg_at_50%_50%,#4CE1F2_0%,#FFFFFF_33%,#DE3232_66%,#4CE1F2_100%)]'
+          'absolute inset-[-1000%] animate-[spin_2s_linear_infinite] bg-[conic-gradient(from_135deg_at_50%_50%,#4CE1F2_0%,#FFFFFF_33%,#DE3232_66%,#4CE1F2_100%)] transition-opacity duration-300',
+          disabled ? 'opacity-0' : 'opacity-100'
         )}
       />
       <span className="inline-flex h-full w-full cursor-pointer items-center justify-center rounded-full bg-gray-800 px-4 py-3 text-sm font-medium text-white backdrop-blur-3xl">
