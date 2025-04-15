@@ -48,7 +48,7 @@ const addWordsToDictionaryFormId = Devvit.createForm(
 
     wordsToAdd.forEach((word) => {
       // Don't wait, this just heats up the cache for the third party API
-      API.getWordConfig({ context, word });
+      void API.getWordConfig({ context, word });
     });
 
     const resp = await WordList.addToCurrentWordList({
@@ -67,7 +67,7 @@ Devvit.addMenuItem({
   label: 'HotAndCold: Add to Word List',
   location: 'subreddit',
   forUserType: 'moderator',
-  onPress: async (_event, context) => {
+  onPress: (_event, context) => {
     context.ui.showForm(addWordsToDictionaryFormId);
   },
 });

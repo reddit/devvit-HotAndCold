@@ -65,7 +65,7 @@ export function calculateScore({
   }
 
   // Calculate base score
-  let baseScore = solvingBonus + timeBonus + guessBonus;
+  const baseScore = solvingBonus + timeBonus + guessBonus;
 
   const penaltyMultiplier = Math.pow(0.7, totalHints);
   const finalScore = Math.round(baseScore * penaltyMultiplier);

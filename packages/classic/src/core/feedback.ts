@@ -75,19 +75,33 @@ export const sendMessage = zoddy(
       heat: getHeatForGuess(x),
     }));
 
-    const isFirstColdGuess = firstOfTargetHeatHelper({ guesses: guessesWithHeat, target: 'COLD' });
-    const isFirstWarmGuess = firstOfTargetHeatHelper({ guesses: guessesWithHeat, target: 'WARM' });
-    const isFirstHotGuess = firstOfTargetHeatHelper({ guesses: guessesWithHeat, target: 'HOT' });
+    const isFirstColdGuess = firstOfTargetHeatHelper({
+      guesses: guessesWithHeat,
+      target: 'COLD',
+    });
+    const isFirstWarmGuess = firstOfTargetHeatHelper({
+      guesses: guessesWithHeat,
+      target: 'WARM',
+    });
+    const isFirstHotGuess = firstOfTargetHeatHelper({
+      guesses: guessesWithHeat,
+      target: 'HOT',
+    });
 
-    const coldStreakLength = heatStreakHelper({ guesses: guessesWithHeat, target: 'COLD' });
-    const hotStreakLength = heatStreakHelper({ guesses: guessesWithHeat, target: 'HOT' });
+    const coldStreakLength = heatStreakHelper({
+      guesses: guessesWithHeat,
+      target: 'COLD',
+    });
+    const hotStreakLength = heatStreakHelper({
+      guesses: guessesWithHeat,
+      target: 'HOT',
+    });
     // If you guess hot, then it's still warm!
     const warmStreakLength =
       heatStreakHelper({ guesses: guessesWithHeat, target: 'WARM' }) + hotStreakLength;
 
     const totalHotGuesses = guessesWithHeat.filter((x) => x.heat === 'HOT').length;
     const totalWarmGuesses = guessesWithHeat.filter((x) => x.heat === 'WARM').length;
-    const totalColdGuesses = guessesWithHeat.filter((x) => x.heat === 'COLD').length;
 
     const totalGuesses = newGuesses.length;
     const totalHints = newGuesses.filter((x) => x.isHint).length;

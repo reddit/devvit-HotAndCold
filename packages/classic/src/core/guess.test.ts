@@ -124,5 +124,3 @@ describe('selectNextHint', () => {
     expect(result?.word).toBe('ok');
   });
 });
-
-type Guess = z.infer<typeof guessSchema>;

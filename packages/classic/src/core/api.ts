@@ -69,7 +69,7 @@ export const getWordConfig = zoddy(
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${secret}`,
+        Authorization: `Bearer ${String(secret)}`,
       },
       body: JSON.stringify({ word }),
     });
@@ -140,7 +140,7 @@ export const compareWords = zoddy(
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${secret}`,
+        Authorization: `Bearer ${String(secret)}`,
       },
       body: JSON.stringify({ wordA, wordB }),
     });

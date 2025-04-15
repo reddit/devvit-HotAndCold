@@ -12,8 +12,8 @@
     "./eslint-config": "./eslint-config/index.js"
   },
   "scripts": {
-    "prettier": "prettier --write .",
     "lint": "eslint ./src/",
+    "prettier": "prettier --write .",
     "type-check": "tsc --noEmit"
   },
   "devDependencies": {
