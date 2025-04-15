@@ -8,6 +8,7 @@
     "playtest": "dotenvx run -f ../../.env.development -- sh -c 'devvit playtest $SUBREDDIT --config=../../$RAID_DEVVIT_CONFIG'",
     "dev:upload": "dotenvx run -f ../../.env.development -- sh -c 'devvit upload --config=../../$RAID_DEVVIT_CONFIG'",
     "prettier": "prettier --write .",
+    "lint": "eslint ./src/",
     "test": "vitest run",
     "type-check": "tsc --noEmit"
   },
@@ -16,5 +17,7 @@
     "@hotandcold/shared": "*",
     "@hotandcold/raid-shared": "*"
   },
-  "devDependencies": {}
+  "devDependencies": {
+    "eslint": "^9.24.0"
+  }
 }

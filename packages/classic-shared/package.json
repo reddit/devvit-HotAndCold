@@ -8,7 +8,12 @@
   },
   "scripts": {
     "prettier": "prettier --write .",
+    "lint": "eslint ./src/",
     "type-check": "tsc --noEmit"
   },
-  "dependencies": {}
+  "devDependencies": {
+    "@hotandcold/shared": "*",
+    "eslint": "^9.24.0",
+    "typescript-eslint": "^8.30.1"
+  }
 }

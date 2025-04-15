@@ -8,6 +8,7 @@
     "playtest": "dotenvx run -f ../../.env.development -- sh -c 'devvit playtest $SUBREDDIT --config=../../$CLASSIC_DEVVIT_CONFIG'",
     "dev:upload": "dotenvx run -f ../../.env.development -- sh -c 'devvit upload --config=../../$CLASSIC_DEVVIT_CONFIG'",
     "prettier": "prettier --write .",
+    "lint": "eslint ./src/",
     "test": "vitest run",
     "type-check": "tsc --noEmit"
   },
@@ -15,5 +16,8 @@
     "@devvit/public-api": "0.11.12",
     "@hotandcold/classic-shared": "*",
     "@hotandcold/shared": "*"
+  },
+  "devDependencies": {
+    "eslint": "^9.24.0"
   }
 }
