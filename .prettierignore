@@ -1,0 +1,3 @@
+# Don't format assets, which are often large, minified css or js files.
+packages/classic/webroot/assets/*
+packages/raid/webroot/assets/*
