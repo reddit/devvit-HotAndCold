@@ -11,6 +11,9 @@
     "vite": "vite --mode detached"
   },
   "dependencies": {
+    "@hotandcold/classic-shared": "*",
+    "@hotandcold/shared": "*",
+    "@hotandcold/webview-common": "*",
     "clsx": "^2.1.1",
     "motion": "11.11.15",
     "react": "^18.3.1",
@@ -18,9 +21,6 @@
     "tailwind-merge": "^2.5.4",
     "tsx": "4.19.2",
     "zod": "3.23.8",
-    "@hotandcold/shared": "*",
-    "@hotandcold/webview-common": "*",
-    "@hotandcold/classic-shared": "*",
     "zod-validation-error": "3.4.0"
   },
   "devDependencies": {
