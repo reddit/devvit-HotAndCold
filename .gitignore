@@ -9,3 +9,5 @@ yarn-error.log*
 venv
 .env
 words/output/openai/** 
+*.devvit.yaml
+.env.development
