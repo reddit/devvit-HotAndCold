@@ -21,3 +21,25 @@ You can install this game on your own subreddit if you would like to give it a t
 ## Source Code
 
 The [code for HotAndCold is open source](https://github.com/reddit/devvit-HotAndCold)! Feel free to suggest improvements, fork, and submit PRs of new features and improvements.
+
+## Development
+
+This app is set up to allow you to upload your own app based on this source code and playtest it in your own subreddit. In order to do so, create a `.env.development` file similar to below:
+
+```
+# The subreddit you use to playtest.
+SUBREDDIT=chicagohighwaytest
+
+# The file specifying your app.
+# Replace "dan" with whatever you like.
+DEVVIT_CONFIG=dan.devvit.yaml
+```
+
+Then create your yaml file:
+```
+# Name of your app - must be unique on devvit.
+name: h-c-dan
+version: 0.0.0
+```
+
+After which, you can run from the root `npm run dev:upload:classic` and `npm run dev:classic`.

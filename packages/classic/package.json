@@ -6,7 +6,7 @@
   "type": "module",
   "scripts": {
     "dev": "MY_PORTAL=0 mydevvit playtest HotAndColdDev --employee-update --config devvit.dev.yaml",
-    "playtest": "dotenvx run -f ../../.env.development -- sh -c 'devvit playtest $SUBREDDIT --config=$DEVVIT_CONFIG'",
+    "playtest": "dotenvx run -f ../../.env.development -- sh -c 'devvit playtest $SUBREDDIT --config=../../$DEVVIT_CONFIG'",
     "upload": "dotenvx run -f ../../.env.development -- sh -c 'devvit upload --config=../../$DEVVIT_CONFIG'",
     "prettier": "prettier --write .",
     "test": "vitest run",

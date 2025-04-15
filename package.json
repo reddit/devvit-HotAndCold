@@ -9,8 +9,7 @@
   ],
   "scripts": {
     "dev": "npm run dev --workspaces --if-present",
-    "dev:classic": "concurrently -p \"[{name}]\" -n \"DEVVIT,GAME\" -c \"bgBlue.bold,bgMagenta.bold\" \"npm run dev --workspace packages/classic \" \"npm run dev --workspace packages/classic-webview\" --restart-tries 30",
-    "playtest:classic": "dotenvx run -f .env.development --quiet -- sh -c 'npm run playtest --workspace packages/classic'",
+    "dev:classic": "concurrently -p \"[{name}]\" -n \"DEVVIT,GAME\" -c \"bgBlue.bold,bgMagenta.bold\" \"dotenvx run -f .env.development --quiet -- sh -c 'npm run playtest --workspace packages/classic' \" \"npm run dev --workspace packages/classic-webview\" --restart-tries 30",
     "dev:raid": "concurrently -p \"[{name}]\" -n \"DEVVIT,GAME\" -c \"bgBlue.bold,bgMagenta.bold\" \"npm run dev --workspace packages/raid \" \"npm run dev --workspace packages/raid-webview\" --restart-tries 30",
     "prettier": "sort-package-json 'package.json' 'packages/*/package.json' && npm run prettier --workspaces --if-present",
     "publish": "devvit publish",
@@ -29,7 +28,8 @@
     "supabase": "supabase",
     "test": "npm run type-check --workspaces --if-present",
     "type-check": "npm run type-check --workspaces --if-present",
-    "upload:classic": "npm run type-check && npm run test && npm run upload --workspace packages/classic",
+    "upload:classic": "npm run type-check && npm run test && cd packages/classic && devvit upload",
+    "dev:upload:classic": "npm run type-check && npm run test && npm run upload --workspace packages/classic",
     "upload:raid": "npm run type-check && npm run test && cd packages/raid && devvit upload"
   },
   "dependencies": {
