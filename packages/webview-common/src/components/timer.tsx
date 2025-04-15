@@ -138,8 +138,8 @@ interface DigitProps {
 }
 
 function Digit({ place, value, config }: DigitProps) {
-  let valueRoundedToPlace = Math.floor(value / place);
-  let animatedValue = useSpring(valueRoundedToPlace);
+  const valueRoundedToPlace = Math.floor(value / place);
+  const animatedValue = useSpring(valueRoundedToPlace);
 
   useEffect(() => {
     animatedValue.set(valueRoundedToPlace);
@@ -167,9 +167,9 @@ interface NumberProps {
 }
 
 function Number({ mv, number, config }: NumberProps) {
-  let y = useTransform(mv, (latest) => {
-    let placeValue = latest % 10;
-    let offset = (10 + number - placeValue) % 10;
+  const y = useTransform(mv, (latest) => {
+    const placeValue = latest % 10;
+    const offset = (10 + number - placeValue) % 10;
     let memo = offset * config.height;
 
     if (offset > 5) {

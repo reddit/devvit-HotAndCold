@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-argument */ // The logger can log any type
 export type LogLevel = 'debug' | 'log' | 'info' | 'warn' | 'error' | 'off';
 const logLevels: LogLevel[] = ['debug', 'log', 'info', 'warn', 'error', 'off'];
 
@@ -170,9 +171,8 @@ export const createLogger = (
 
     return (...args: any[]) => {
       const now = Date.now();
-      if (now - lastLogTime > delay && isLogLevel(level)) {
+      if (now - lastLogTime > delay && isLogLevel(level) && level !== 'off') {
         // Use direct console method binding to preserve call site
-        // @ts-expect-error
         console[level].bind(console, `${name}:`)(...args);
 
         // UI Stream logging

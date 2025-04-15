@@ -54,35 +54,40 @@ export const HelpMenu = ({
     if (!toggled) return;
 
     switch (event.key) {
-      case 'ArrowDown':
+      case 'ArrowDown': {
         event.preventDefault();
         const nextDownIndex = findNextEnabledIndex(focusIndex, 'next');
         buttonRefs.current[nextDownIndex]?.focus();
         setFocusIndex(nextDownIndex);
         break;
-      case 'ArrowUp':
+      }
+      case 'ArrowUp': {
         event.preventDefault();
         const nextUpIndex = findNextEnabledIndex(focusIndex, 'prev');
         buttonRefs.current[nextUpIndex]?.focus();
         setFocusIndex(nextUpIndex);
         break;
-      case 'Tab':
+      }
+      case 'Tab': {
         event.preventDefault();
         const nextTabIndex = findNextEnabledIndex(focusIndex, 'next');
         buttonRefs.current[nextTabIndex]?.focus();
         setFocusIndex(nextTabIndex);
         break;
-      case 'Enter':
+      }
+      case 'Enter': {
         event.preventDefault();
         const currentButton = buttonRefs.current[focusIndex];
         if (currentButton && !items[focusIndex].disabled) {
-          handleItemClick(items[focusIndex].action, items[focusIndex].disabled);
+          void handleItemClick(items[focusIndex].action, items[focusIndex].disabled);
         }
         break;
-      case 'Escape':
+      }
+      case 'Escape': {
         event.preventDefault();
         setToggled(false);
         break;
+      }
     }
   };
 
@@ -134,7 +139,7 @@ export const HelpMenu = ({
                 item.disabled ? 'cursor-not-allowed opacity-50 hover:bg-transparent' : ''
               }`}
               key={item.name}
-              onClick={() => handleItemClick(item.action, item.disabled)}
+              onClick={() => void handleItemClick(item.action, item.disabled)}
               ref={(el) => (buttonRefs.current[index] = el)}
               role="menuitem"
               tabIndex={item.disabled ? -1 : 0}
