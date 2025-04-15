@@ -272,43 +272,14 @@ export function WordInput({
       <PrimaryButton
         disabled={!internalValue}
         type="submit"
-        className="z-50 flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full bg-black transition duration-200 disabled:bg-gray-100 dark:bg-zinc-900 dark:disabled:bg-zinc-800"
+        className="z-50 flex flex-shrink-0 items-center justify-center rounded-full bg-black transition duration-200 disabled:bg-gray-100 dark:bg-zinc-900 dark:disabled:bg-zinc-800"
         onMouseDown={(e) => {
           // Workaround for ios and android blurring the input on button click
           e.preventDefault();
           handleSubmit();
         }}
       >
-        <motion.svg
-          xmlns="http://www.w3.org/2000/svg"
-          width="24"
-          height="24"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          className="h-5 w-5 text-gray-300"
-        >
-          <path stroke="none" d="M0 0h24v24H0z" fill="none" />
-          <motion.path
-            d="M5 12l14 0"
-            initial={{
-              strokeDasharray: '50%',
-              strokeDashoffset: '50%',
-            }}
-            animate={{
-              strokeDashoffset: internalValue ? 0 : '50%',
-            }}
-            transition={{
-              duration: 0.3,
-              ease: 'linear',
-            }}
-          />
-          <path d="M13 18l6 -6" />
-          <path d="M13 6l6 6" />
-        </motion.svg>
+        Guess
       </PrimaryButton>
 
       <div className="pointer-events-none absolute inset-0 z-[1010] flex items-center rounded-full">

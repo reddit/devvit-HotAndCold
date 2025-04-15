@@ -23,7 +23,7 @@ export const PrimaryButton = ({
             'bg-[conic-gradient(from_135deg_at_50%_50%,#4CE1F2_0%,#FFFFFF_33%,#DE3232_66%,#4CE1F2_100%)]'
         )}
       />
-      <span className="inline-flex h-full w-full cursor-pointer items-center justify-center rounded-full bg-gray-800 px-3 py-1 text-sm font-medium text-white backdrop-blur-3xl">
+      <span className="inline-flex h-full w-full cursor-pointer items-center justify-center rounded-full bg-gray-800 px-4 py-3 text-sm font-medium text-white backdrop-blur-3xl">
         {children}
       </span>
     </button>
