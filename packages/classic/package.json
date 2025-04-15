@@ -7,7 +7,7 @@
   "scripts": {
     "dev": "MY_PORTAL=0 mydevvit playtest HotAndColdDev --employee-update --config devvit.dev.yaml",
     "prettier": "prettier --write .",
-    "lint": "npx eslint ./src/",
+    "lint": "eslint ./src/",
     "test": "vitest run",
     "type-check": "tsc --noEmit"
   },

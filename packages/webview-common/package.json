@@ -18,7 +18,7 @@
   },
   "scripts": {
     "prettier": "prettier --write .",
-    "lint": "npx eslint ./src/",
+    "lint": "eslint ./src/",
     "test": "vitest run",
     "type-check": "tsc --noEmit"
   },

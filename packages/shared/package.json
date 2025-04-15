@@ -13,7 +13,7 @@
   },
   "scripts": {
     "prettier": "prettier --write .",
-    "lint": "npx eslint ./src/",
+    "lint": "eslint ./src/",
     "type-check": "tsc --noEmit"
   },
   "devDependencies": {
