@@ -17,11 +17,6 @@
     "@hotandcold/shared": "*"
   },
   "devDependencies": {
-    "@eslint/js": "^9.24.0",
-    "eslint": "^9.24.0",
-    "eslint-config-prettier": "^10.1.2",
-    "eslint-plugin-react": "^7.37.5",
-    "globals": "^16.0.0",
-    "typescript-eslint": "^8.30.1"
+    "eslint": "^9.24.0"
   }
 }

@@ -12,6 +12,7 @@
     "type-check": "tsc --noEmit"
   },
   "devDependencies": {
-    "eslint-config-prettier": "^10.1.2"
+    "@hotandcold/shared": "*",
+    "eslint": "^9.24.0"
   }
 }

@@ -12,9 +12,8 @@
     "type-check": "tsc --noEmit"
   },
   "devDependencies": {
-    "@eslint/js": "^9.24.0",
+    "@hotandcold/shared": "*",
     "eslint": "^9.24.0",
-    "eslint-config-prettier": "^10.1.2",
     "typescript-eslint": "^8.30.1"
   }
 }
