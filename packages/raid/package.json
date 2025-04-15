@@ -5,7 +5,8 @@
   "license": "BSD-3-Clause",
   "type": "module",
   "scripts": {
-    "dev": "MY_PORTAL=0 mydevvit playtest HotAndColdDev --employee-update --config devvit.dev.yaml",
+    "playtest": "dotenvx run -f ../../.env.development -- sh -c 'devvit playtest $SUBREDDIT --config=../../$RAID_DEVVIT_CONFIG'",
+    "dev:upload": "dotenvx run -f ../../.env.development -- sh -c 'devvit upload --config=../../$RAID_DEVVIT_CONFIG'",
     "prettier": "prettier --write .",
     "test": "vitest run",
     "type-check": "tsc --noEmit"

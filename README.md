@@ -30,16 +30,22 @@ This app is set up to allow you to upload your own app based on this source code
 # The subreddit you use to playtest.
 SUBREDDIT=chicagohighwaytest
 
-# The file specifying your app.
+# The file specifying your classic app.
 # Replace "dan" with whatever you like.
-DEVVIT_CONFIG=dan.devvit.yaml
+CLASSIC_DEVVIT_CONFIG=dan.devvit.yaml
+
+# The file specifying your raid app.
+RAID_DEVVIT_CONFIG=raid.devvit.yaml
 ```
 
 Then create your yaml file:
+
 ```
 # Name of your app - must be unique on devvit.
 name: h-c-dan
 version: 0.0.0
 ```
 
-After which, you can run from the root `npm run dev:upload:classic` and `npm run dev:classic`.
+Both files should be at the root, adjacent to this README file.
+
+After which, you can run from the root `npm run dev:upload:classic` and `npm run dev:classic` from the root of the project.
