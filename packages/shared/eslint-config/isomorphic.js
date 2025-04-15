@@ -9,6 +9,19 @@ export const isomorphicConfig = defineConfig([
     plugins: { js },
     extends: ['js/recommended'],
   },
-  tseslint.configs.recommended,
+  tseslint.configs.recommendedTypeChecked,
+  tseslint.config({
+    rules: {
+      '@typescript-eslint/no-floating-promises': 'error',
+    },
+  }),
+  {
+    languageOptions: {
+      parserOptions: {
+        projectService: true,
+        tsconfigRootDir: import.meta.dirname,
+      },
+    },
+  },
   eslintConfigPrettier,
 ]);

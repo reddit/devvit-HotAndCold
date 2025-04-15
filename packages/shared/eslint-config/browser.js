@@ -15,7 +15,20 @@ export const browserConfig = defineConfig([
     files: ['**/*.{js,mjs,cjs,ts,jsx,tsx}'],
     languageOptions: { globals: globals.browser },
   },
-  tseslint.configs.recommended,
+  tseslint.configs.recommendedTypeChecked,
+  tseslint.config({
+    rules: {
+      '@typescript-eslint/no-floating-promises': 'error',
+    },
+  }),
+  {
+    languageOptions: {
+      parserOptions: {
+        projectService: true,
+        tsconfigRootDir: import.meta.dirname,
+      },
+    },
+  },
   pluginReact.configs.flat['jsx-runtime'],
   { settings: { react: { version: 'detect' } } },
   eslintConfigPrettier,
