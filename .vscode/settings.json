@@ -31,5 +31,9 @@
     "zoddy",
     "zstack"
   ],
-  "vitest.disableWorkspaceWarning": true
+  "vitest.disableWorkspaceWarning": true,
+  "tailwindCSS.experimental.configFile": {
+    "packages/raid-webview/tailwind.config.js": "packages/raid*/**",
+    "packages/classic-webview/tailwind.config.js": "**"
+  }
 }
