@@ -7,13 +7,20 @@
   "scripts": {
     "dev": "MY_PORTAL=0 mydevvit playtest HotAndColdDev --employee-update --config devvit.dev.yaml",
     "prettier": "prettier --write .",
+    "lint": "npx eslint ./src/",
     "test": "vitest run",
     "type-check": "tsc --noEmit"
   },
   "dependencies": {
     "@devvit/public-api": "0.11.10",
-    "@hotandcold/shared": "*",
-    "@hotandcold/raid-shared": "*"
+    "@hotandcold/raid-shared": "*",
+    "@hotandcold/shared": "*"
   },
-  "devDependencies": {}
+  "devDependencies": {
+    "@eslint/js": "^9.24.0",
+    "eslint": "^9.24.0",
+    "eslint-plugin-react": "^7.37.5",
+    "globals": "^16.0.0",
+    "typescript-eslint": "^8.30.1"
+  }
 }
