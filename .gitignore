@@ -11,3 +11,4 @@ venv
 words/output/openai/** 
 *.devvit.yaml
 .env.development
+webroot
