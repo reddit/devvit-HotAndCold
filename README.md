@@ -48,4 +48,4 @@ version: 0.0.0
 
 Both files should be at the root, adjacent to this README file.
 
-After which, you can run from the root `npm run dev:upload:classic` and `npm run dev:classic` from the root of the project.
+After which, you can run `npm run dev:upload:classic` and `npm run dev:classic` from the root of the project, and similar commands for raid.
