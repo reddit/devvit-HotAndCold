@@ -52,12 +52,13 @@ const FeedbackSection = () => {
 
 export const PlayPage = () => {
   const [word, setWord] = useState('');
-  const [animationCounter, setAnimationCounter] = useState(0);
   const { challengeUserInfo } = useGame();
   const guesses = challengeUserInfo?.guesses ?? [];
 
+  const [showGuesses, setShowGuesses] = useState(guesses.length > 0); // Initial state based on guesses
+
   return (
-    <div className="flex h-full flex-col items-center justify-center">
+    <div className="flex h-full flex-col items-center justify-center p-6">
       <div className="flex w-full max-w-md flex-grow-0 flex-col items-center justify-center gap-6">
         <p className="text-center text-2xl font-bold text-white">Can you guess the secret word?</p>
         <div className="flex w-full flex-col gap-2">
@@ -81,6 +82,7 @@ export const PlayPage = () => {
 
               setTimeout(() => {
                 setWord('');
+                setShowGuesses(true); // Show the guesses box after the submit animation
               }, animationDuration);
             }}
             placeholders={[
@@ -93,14 +95,14 @@ export const PlayPage = () => {
           <FeedbackSection />
         </div>
       </div>
-      <motion.div
+
+      <motion.div // Animates the guesses sliding up from the bottom, which also pushes the word input up
         initial={false}
-        animate={{ flexGrow: guesses.length > 0 ? 1 : 0, opacity: guesses.length > 0 ? 1 : 0 }}
-        transition={{ duration: 0.3 }}
+        animate={showGuesses ? { height: '100%', opacity: 1 } : { height: '0%', opacity: 0 }}
+        transition={{ duration: 0.6, ease: 'easeOut', delay: 0.6 }}
         className="overflow-hidden"
-        onAnimationComplete={() => setAnimationCounter((prev) => prev + 1)}
       >
-        <Guesses items={guesses} key={animationCounter} />
+        <Guesses items={guesses} />
       </motion.div>
     </div>
   );
