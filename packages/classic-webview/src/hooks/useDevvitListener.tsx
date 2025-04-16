@@ -61,8 +61,8 @@ export const useDevvitListener = <T extends BlocksToWebviewMessage['type']>(even
 
       const message = ev.data.data.message;
       if (message.type === eventType) {
-        // @eslint-disable-next-line @typescript-eslint/no-unsafe-argument
-        setData(message.payload as any);
+        // @ts-expect-error Message payload type doesn't match the expected type
+        setData(message.payload);
       }
     };
 
