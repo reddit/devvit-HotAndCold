@@ -27,7 +27,7 @@ const getPage = (page: Page) => {
     case 'loading':
       return <LoadingPage />;
     default:
-      throw new Error(`Invalid page: ${String(page)}`);
+      throw new Error(`Invalid page: ${String(page satisfies never)}`);
   }
 };
 
