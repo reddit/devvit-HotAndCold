@@ -1,10 +1,10 @@
 import { z } from 'zod';
 import { API } from '../core/api.js';
 import { ChallengeToWord } from './challengeToWord.js';
-import { WordList } from './wordList.js';
+import { WordListManager } from './wordList.js';
 import { ChallengeToPost } from './challengeToPost.js';
 import { Preview } from '../components/Preview.js';
-import { toMilliseconds, stringifyValues } from '@hotandcold/shared/utils';
+import { stringifyValues } from '@hotandcold/shared/utils';
 import {
   redisNumberString,
   zodContext,
@@ -13,16 +13,17 @@ import {
   zodRedis,
   zodTransaction,
 } from '@hotandcold/shared/utils/zoddy';
-
 import { Streaks } from './streaks.js';
 import { Devvit, Post, RichTextBuilder } from '@devvit/public-api';
+import type { GameMode } from './types.js';
+import { zodGameMode } from './types.js';
 
-export * as Challenge from './challenge.js';
+// Infer Redis types from Zod schemas
+const zodRedisOrTransaction = z.union([zodRedis, zodTransaction]);
+type RedisType = z.infer<typeof zodRedisOrTransaction>;
+type RedisClientType = z.infer<typeof zodRedis>; // Non-transaction type
 
-export const getCurrentChallengeNumberKey = () => 'current_challenge_number' as const;
-
-export const getChallengeKey = (challenge: number) => `challenge:${challenge}` as const;
-
+// Schema definition (outside class)
 const challengeSchema = z
   .object({
     word: z.string().trim().toLowerCase(),
@@ -34,254 +35,232 @@ const challengeSchema = z
     totalGiveUps: redisNumberString.optional(),
   })
   .strict();
+type ChallengeConfig = z.infer<typeof challengeSchema>;
 
-export const getCurrentChallengeNumber = zoddy(
-  z.object({
-    redis: zodRedis,
-  }),
-  async ({ redis }) => {
-    const currentChallengeNumber = await redis.get(getCurrentChallengeNumberKey());
+export class ChallengeManager {
+  private redis: RedisType;
+  private mode: GameMode;
 
-    if (!currentChallengeNumber) {
-      throw new Error('No current challenge number found');
+  constructor(redis: RedisType, mode: GameMode) {
+    this.redis = redis;
+    this.mode = zodGameMode.parse(mode); // Validate mode
+  }
+
+  // --- Key Generation Methods ---
+  private getCurrentChallengeNumberKey(): string {
+    const prefix = this.mode === 'regular' ? '' : `${this.mode}:`;
+    return `${prefix}current_challenge_number`;
+  }
+
+  private getChallengeKey(challengeNumber: number): string {
+    const prefix = this.mode === 'regular' ? '' : `${this.mode}:`;
+    return `${prefix}challenge:${challengeNumber}`;
+  }
+
+  // --- Instance Methods ---
+  async getCurrentChallengeNumber(): Promise<number> {
+    const redisClient = this.redis as RedisClientType;
+    const currentChallengeNumberStr = await redisClient.get(this.getCurrentChallengeNumberKey());
+    if (!currentChallengeNumberStr) {
+      throw new Error(`No current challenge number found for mode ${this.mode}`);
     }
-
-    return parseInt(currentChallengeNumber);
+    return parseInt(currentChallengeNumberStr);
   }
-);
 
-export const incrementCurrentChallengeNumber = zoddy(
-  z.object({
-    redis: zodRedis,
-  }),
-  async ({ redis }) => {
-    await redis.incrBy(getCurrentChallengeNumberKey(), 1);
-  }
-);
+  incrementCurrentChallengeNumber = zoddy(z.object({}), async ({}) => {
+    const redisClient = this.redis as RedisClientType;
+    await redisClient.incrBy(this.getCurrentChallengeNumberKey(), 1);
+  });
 
-export const setCurrentChallengeNumber = zoddy(
-  z.object({
-    redis: z.union([zodRedis, zodTransaction]),
-    number: z.number().gt(0),
-  }),
-  async ({ redis, number }) => {
-    await redis.set(getCurrentChallengeNumberKey(), number.toString());
-  }
-);
-
-export const getChallenge = zoddy(
-  z.object({
-    redis: zodRedis,
-    challenge: z.number().gt(0),
-  }),
-  async ({ redis, challenge }) => {
-    const result = await redis.hGetAll(getChallengeKey(challenge));
-
-    if (!result) {
-      throw new Error('No challenge found');
+  setCurrentChallengeNumber = zoddy(
+    z.object({
+      number: z.number().int().gte(0),
+    }),
+    async ({ number }) => {
+      await this.redis.set(this.getCurrentChallengeNumberKey(), number.toString());
     }
-    return challengeSchema.parse(result);
-  }
-);
+  );
 
-export const setChallenge = zoddy(
-  z.object({
-    redis: z.union([zodRedis, zodTransaction]),
-    challenge: z.number().gt(0),
-    config: challengeSchema,
-  }),
-  async ({ redis, challenge, config }) => {
-    await redis.hSet(getChallengeKey(challenge), stringifyValues(config));
-  }
-);
-
-export const initialize = zoddy(
-  z.object({
-    redis: zodRedis,
-  }),
-  async ({ redis }) => {
-    const result = await redis.get(getCurrentChallengeNumberKey());
-    if (!result) {
-      await redis.set(getCurrentChallengeNumberKey(), '0');
-    } else {
-      console.log('Challenge key already initialized');
+  getChallenge = zoddy(
+    z.object({
+      challenge: z.number().int().gt(0),
+    }),
+    async ({ challenge }) => {
+      const redisClient = this.redis as RedisClientType;
+      const result = await redisClient.hGetAll(this.getChallengeKey(challenge));
+      if (!result || Object.keys(result).length === 0) {
+        throw new Error(`No challenge data found for challenge ${challenge}, mode ${this.mode}`);
+      }
+      // Use the predefined schema here
+      return challengeSchema.parse(result);
     }
-  }
-);
+  );
 
-export const incrementChallengeTotalPlayers = zoddy(
-  z.object({
-    redis: z.union([zodRedis, zodTransaction]),
-    challenge: z.number().gt(0),
-  }),
-  async ({ redis, challenge }) => {
-    await redis.hIncrBy(getChallengeKey(challenge), 'totalPlayers', 1);
-  }
-);
-
-export const incrementChallengeTotalSolves = zoddy(
-  z.object({
-    redis: z.union([zodRedis, zodTransaction]),
-    challenge: z.number().gt(0),
-  }),
-  async ({ redis, challenge }) => {
-    await redis.hIncrBy(getChallengeKey(challenge), 'totalSolves', 1);
-  }
-);
-
-export const incrementChallengeTotalGuesses = zoddy(
-  z.object({
-    redis: z.union([zodRedis, zodTransaction]),
-    challenge: z.number().gt(0),
-  }),
-  async ({ redis, challenge }) => {
-    await redis.hIncrBy(getChallengeKey(challenge), 'totalGuesses', 1);
-  }
-);
-
-export const incrementChallengeTotalHints = zoddy(
-  z.object({
-    redis: z.union([zodRedis, zodTransaction]),
-    challenge: z.number().gt(0),
-  }),
-  async ({ redis, challenge }) => {
-    await redis.hIncrBy(getChallengeKey(challenge), 'totalHints', 1);
-  }
-);
-
-export const incrementChallengeTotalGiveUps = zoddy(
-  z.object({
-    redis: z.union([zodRedis, zodTransaction]),
-    challenge: z.number().gt(0),
-  }),
-  async ({ redis, challenge }) => {
-    await redis.hIncrBy(getChallengeKey(challenge), 'totalGiveUps', 1);
-  }
-);
-
-export const makeNewChallenge = zoddy(
-  z.object({
-    context: z.union([zodJobContext, zodContext]),
-  }),
-  async ({ context }) => {
-    console.log('Making new challenge...');
-    const [wordList, usedWords, currentChallengeNumber, currentSubreddit] = await Promise.all([
-      WordList.getCurrentWordList({
-        redis: context.redis,
-      }),
-      ChallengeToWord.getAllUsedWords({
-        redis: context.redis,
-      }),
-      getCurrentChallengeNumber({ redis: context.redis }),
-      context.reddit.getCurrentSubreddit(),
-    ]);
-
-    console.log('Current challenge number:', currentChallengeNumber);
-
-    // Find index of first unused word
-    const unusedWordIndex = wordList.findIndex((word: string) => !usedWords.includes(word));
-
-    if (unusedWordIndex === -1) {
-      throw new Error('No unused words available in the word list. Please add more and try again.');
+  setChallenge = zoddy(
+    z.object({
+      challenge: z.number().int().gt(0),
+      // Use the inferred type for config
+      config: challengeSchema,
+    }),
+    async ({ challenge, config }) => {
+      await this.redis.hSet(this.getChallengeKey(challenge), stringifyValues(config));
     }
+  );
 
-    const newWord = wordList[unusedWordIndex];
-    const newChallengeNumber = currentChallengeNumber + 1;
+  private incrementChallengeField = zoddy(
+    z.object({
+      challenge: z.number().int().gt(0),
+      field: z.enum(['totalPlayers', 'totalSolves', 'totalGuesses', 'totalHints', 'totalGiveUps']),
+      amount: z.number().int().default(1),
+    }),
+    async ({ challenge, field, amount }) => {
+      await this.redis.hIncrBy(this.getChallengeKey(challenge), field, amount);
+    }
+  );
 
-    console.log('Current challenge number:', currentChallengeNumber);
+  // Public incrementers using the private helper
+  incrementChallengeTotalPlayers = (params: { challenge: number }) =>
+    this.incrementChallengeField({ ...params, field: 'totalPlayers' });
+  incrementChallengeTotalSolves = (params: { challenge: number }) =>
+    this.incrementChallengeField({ ...params, field: 'totalSolves' });
+  incrementChallengeTotalGuesses = (params: { challenge: number }) =>
+    this.incrementChallengeField({ ...params, field: 'totalGuesses' });
+  incrementChallengeTotalHints = (params: { challenge: number }) =>
+    this.incrementChallengeField({ ...params, field: 'totalHints' });
+  incrementChallengeTotalGiveUps = (params: { challenge: number }) =>
+    this.incrementChallengeField({ ...params, field: 'totalGiveUps' });
 
-    // Get it once to warm the Devvit cache in our system
-    await API.getWordConfigCached({ context, word: newWord });
+  // --- Static Methods ---
+  static initialize = zoddy(
+    z.object({
+      redis: zodRedis,
+      mode: zodGameMode,
+    }),
+    async ({ redis, mode }) => {
+      // Instantiate manager locally to access key generation
+      const manager = new ChallengeManager(redis as RedisClientType, mode);
+      const key = manager.getCurrentChallengeNumberKey();
+      const result = await (redis as RedisClientType).get(key);
+      if (!result) {
+        console.log(`Initializing challenge number for mode: ${mode}`);
+        await (redis as RedisClientType).set(key, '0');
+      } else {
+        console.log(`Challenge number for mode ${mode} already initialized`);
+      }
+    }
+  );
 
-    let post: Post | undefined;
+  static makeNewChallenge = zoddy(
+    z.object({
+      context: z.union([zodJobContext, zodContext]),
+      mode: zodGameMode,
+    }),
+    async ({ context, mode }) => {
+      console.log(`Making new challenge for mode: ${mode}...`);
+      const typedContext = context as z.infer<typeof zodContext>;
+      const challengeManager = new ChallengeManager(typedContext.redis, mode);
+      const wordListManager = new WordListManager(typedContext.redis, mode);
 
-    try {
-      // TODO: Transactions are broken
-      const txn = context.redis;
-      // const txn = await context.redis.watch();
-      // await txn.multi();
+      const [wordList, usedWords, currentChallengeNumber, currentSubreddit] = await Promise.all([
+        wordListManager.getCurrentWordList(),
+        ChallengeToWord.getAllUsedWords({ redis: typedContext.redis }),
+        challengeManager.getCurrentChallengeNumber(),
+        typedContext.reddit.getCurrentSubreddit(),
+      ]);
 
-      // Clean up the word list while we have the data to do so
-      await WordList.setCurrentWordListWords({
-        redis: txn,
-        // Remove all words up to and including the found word
-        words: wordList.slice(unusedWordIndex + 1),
-      });
+      console.log(`Current challenge number (${mode}):`, currentChallengeNumber);
+      const unusedWordIndex = wordList.findIndex((word: string) => !usedWords.includes(word));
+      if (unusedWordIndex === -1) {
+        throw new Error(`No unused words available in the ${mode} word list.`);
+      }
+      const newWord = wordList[unusedWordIndex];
+      const newChallengeNumber = currentChallengeNumber + 1;
+      console.log(`New challenge number (${mode}):`, newChallengeNumber);
 
-      post = await context.reddit.submitPost({
-        subredditName: currentSubreddit.name,
-        title: `Hot and cold #${newChallengeNumber}`,
-        preview: <Preview />,
-      });
+      await API.getWordConfigCached({ context: typedContext, word: newWord });
 
-      const winnersCircleComment = await post.addComment({
-        richtext: new RichTextBuilder().paragraph((c) => c.text({ text: `🏆 Winner's Circle 🏆` })),
-      });
-      await winnersCircleComment.distinguish(true);
+      let post: Post | undefined;
+      try {
+        const txn = typedContext.redis;
+        const txnChallengeManager = new ChallengeManager(txn, mode);
+        const txnWordListManager = new WordListManager(txn, mode);
 
-      await setChallenge({
-        redis: txn,
-        challenge: newChallengeNumber,
-        config: {
-          word: newWord,
-          winnersCircleCommentId: winnersCircleComment.id,
-          totalPlayers: '0',
-          totalSolves: '0',
-          totalGuesses: '0',
-          totalHints: '0',
-          totalGiveUps: '0',
-        },
-      });
-
-      await setCurrentChallengeNumber({ number: newChallengeNumber, redis: txn });
-      await ChallengeToWord.setChallengeNumberForWord({
-        challenge: newChallengeNumber,
-        redis: txn,
-        word: newWord,
-      });
-      await ChallengeToPost.setChallengeNumberForPost({
-        challenge: newChallengeNumber,
-        postId: post.id,
-        redis: txn,
-      });
-
-      // Edge case handling for the first time
-      if (currentChallengeNumber > 0) {
-        await Streaks.expireStreaks({
-          redis: context.redis,
-          // @ts-expect-error THis is due to the workaround
-          txn,
-          challengeNumberBeforeTheNewestChallenge: currentChallengeNumber,
+        await txnWordListManager.setCurrentWordListWords({
+          words: wordList.slice(unusedWordIndex + 1),
         });
+
+        const postTitle = `Hot and cold${mode !== 'regular' ? ` (${mode})` : ''} #${newChallengeNumber}`;
+        post = await typedContext.reddit.submitPost({
+          subredditName: currentSubreddit.name,
+          title: postTitle,
+          preview: <Preview />,
+        });
+
+        const winnersCircleComment = await post.addComment({
+          richtext: new RichTextBuilder().paragraph((c) =>
+            c.text({ text: `🏆 Winner's Circle (${mode}) 🏆` })
+          ),
+        });
+        await winnersCircleComment.distinguish(true);
+
+        await txnChallengeManager.setChallenge({
+          challenge: newChallengeNumber,
+          config: {
+            word: newWord,
+            winnersCircleCommentId: winnersCircleComment.id,
+            totalPlayers: '0',
+            totalSolves: '0',
+            totalGuesses: '0',
+            totalHints: '0',
+            totalGiveUps: '0',
+          },
+        });
+
+        await txnChallengeManager.setCurrentChallengeNumber({ number: newChallengeNumber });
+
+        await ChallengeToWord.setChallengeNumberForWord({
+          challenge: newChallengeNumber,
+          redis: txn,
+          word: newWord,
+        });
+        await ChallengeToPost.setChallengeNumberForPost({
+          challenge: newChallengeNumber,
+          postId: post.id,
+          redis: txn,
+        });
+
+        if (currentChallengeNumber > 0) {
+          await Streaks.expireStreaks({
+            redis: typedContext.redis,
+            txn: txn as any,
+            challengeNumberBeforeTheNewestChallenge: currentChallengeNumber,
+          });
+        }
+
+        console.log(
+          `New challenge created (${mode}):`,
+          'Challenge:',
+          newChallengeNumber,
+          'Word:',
+          newWord,
+          'Post ID:',
+          post.id
+        );
+
+        return {
+          postId: post.id,
+          postUrl: post.url,
+          challenge: newChallengeNumber,
+          mode: mode,
+        };
+      } catch (error) {
+        console.error(`Error making new ${mode} challenge:`, error);
+        if (post) {
+          console.log(`Removing post ${post.id} due to new ${mode} challenge error`);
+          await typedContext.reddit.remove(post.id, false);
+        }
+        throw error;
       }
-
-      // await txn.exec();
-
-      console.log(
-        'New challenge created:',
-        'New Challenge Number:',
-        newChallengeNumber,
-        'New word:',
-        newWord,
-        'Post ID:',
-        post.id
-      );
-
-      return {
-        postId: post.id,
-        postUrl: post.url,
-        challenge: newChallengeNumber,
-      };
-    } catch (error) {
-      console.error('Error making new challenge:', error);
-
-      // If the transaction fails, remove the post if created
-      if (post) {
-        console.log(`Removing post ${post.id} due to new challenge error`);
-        await context.reddit.remove(post.id, false);
-      }
-
-      throw error;
     }
-  }
-);
+  );
+}

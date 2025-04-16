@@ -1,5 +1,5 @@
 import { Devvit, TriggerContext } from '@devvit/public-api';
-import { WordList } from '../core/wordList.js';
+import { WordListManager } from '../core/wordList.js';
 import { Challenge } from '../core/challenge.js';
 import { Reminders } from '../core/reminders.js';
 import { processInChunks } from '@hotandcold/shared/utils';
@@ -53,7 +53,15 @@ Devvit.addSchedulerJob({
 
 export const initialize = async (context: TriggerContext) => {
   // Certain things need to be initialized in Redis to run correctly
-  await WordList.initialize({ context });
+
+  // Initialize WordList for 'regular' mode
+  const wordListManager = new WordListManager(context.redis, 'regular');
+  await wordListManager.initialize({ context });
+
+  // TODO: Initialize WordList for 'hardcore' mode when ready
+  // const hardcoreWordListManager = new WordListManager(context.redis, 'hardcore');
+  // await hardcoreWordListManager.initialize({ context });
+
   await Challenge.initialize({
     redis: context.redis,
   });

@@ -1,13 +1,15 @@
 import { Devvit } from '@devvit/public-api';
-import { WordList } from '../core/wordList.js';
+import { WordListManager } from '../core/wordList.js';
 import { API } from '../core/api.js';
+
+// TODO: Add a similar action/form for Hardcore mode word list
 
 const addWordsToDictionaryFormId = Devvit.createForm(
   {
     acceptLabel: 'Create',
-    title: 'Add Words to Dictionary',
+    title: 'Add Words to Classic Dictionary',
     description:
-      'Adds words to the dictionary to be used by challenges. If you want the word you are adding to be used immediately, select prepend.',
+      'Adds words to the Classic mode dictionary. If you want the word you are adding to be used immediately, select prepend.',
     fields: [
       {
         type: 'paragraph',
@@ -51,9 +53,10 @@ const addWordsToDictionaryFormId = Devvit.createForm(
       API.getWordConfig({ context, word });
     });
 
-    const resp = await WordList.addToCurrentWordList({
-      mode: prepend ? 'prepend' : 'append',
-      redis: context.redis,
+    // Use WordListManager for 'regular' mode
+    const wordListManager = new WordListManager(context.redis, 'regular');
+    const resp = await wordListManager.addToCurrentWordList({
+      addMode: prepend ? 'prepend' : 'append',
       words: wordsToAdd,
     });
 
@@ -64,7 +67,7 @@ const addWordsToDictionaryFormId = Devvit.createForm(
 );
 
 Devvit.addMenuItem({
-  label: 'HotAndCold: Add to Word List',
+  label: 'HotAndCold: Add to Classic Word List',
   location: 'subreddit',
   forUserType: 'moderator',
   onPress: async (_event, context) => {
