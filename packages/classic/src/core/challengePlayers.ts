@@ -28,6 +28,8 @@ export const setPlayer = zoddy(
   }
 );
 
+type PlayerSchema = z.infer<typeof playersSchema>;
+
 export const getAll = zoddy(
   z.object({
     redis: zodRedis,
@@ -36,10 +38,10 @@ export const getAll = zoddy(
   async ({ redis, challenge }) => {
     const items = await redis.hGetAll(getChallengePlayersKey(challenge));
 
-    const players: z.infer<typeof playersSchema> = {};
+    const players: PlayerSchema = {};
 
     Object.entries(items).forEach(([username, data]) => {
-      players[username] = JSON.parse(data) as (typeof players)['string'];
+      players[username] = JSON.parse(data) as PlayerSchema[string];
     });
 
     return playersSchema.parse(players);

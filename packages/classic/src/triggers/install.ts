@@ -26,14 +26,15 @@ Devvit.addSchedulerJob({
         console.log(`Successfully sent message to ${username}.`);
       },
       onError: async (error, username) => {
+        const err = error as Error;
         if (
-          (error as Error).message.includes('INVALID_USER') ||
-          (error as Error).message.includes('NO_USER') ||
-          (error as Error).message.includes('NOT_WHITELISTED_BY_USER_MESSAGE')
+          err.message.includes('INVALID_USER') ||
+          err.message.includes('NO_USER') ||
+          err.message.includes('NOT_WHITELISTED_BY_USER_MESSAGE')
         ) {
           try {
             console.log(
-              `Removing user "${username}" from reminder list due to error: ${(error as Error).message}`
+              `Removing user "${username}" from reminder list due to error: ${err.message}`
             );
 
             await Reminders.removeReminderForUsername({
