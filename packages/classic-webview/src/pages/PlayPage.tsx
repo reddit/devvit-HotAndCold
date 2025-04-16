@@ -6,6 +6,7 @@ import { useGame } from '../hooks/useGame';
 import { useDevvitListener } from '../hooks/useDevvitListener';
 import clsx from 'clsx';
 import { FeedbackResponse } from '@hotandcold/classic-shared';
+import { motion } from 'motion/react';
 
 const FeedbackSection = () => {
   const [feedback, setFeedback] = useState<FeedbackResponse | null>(null);
@@ -36,7 +37,9 @@ const FeedbackSection = () => {
               case 'NONE':
                 break;
               default:
-                throw new Error(`Unknown action type: ${feedback.action!.type satisfies never}`);
+                throw new Error(
+                  `Unknown action type: ${String(feedback.action!.type satisfies never)}`
+                );
             }
           }}
         >
@@ -49,13 +52,15 @@ const FeedbackSection = () => {
 
 export const PlayPage = () => {
   const [word, setWord] = useState('');
+  const [animationCounter, setAnimationCounter] = useState(0);
   const { challengeUserInfo } = useGame();
+  const guesses = challengeUserInfo?.guesses ?? [];
 
   return (
-    <div className="flex h-full flex-col justify-center gap-6">
-      <div className="flex flex-col items-center justify-center gap-6">
-        <p className="mt-4 text-center text-xl text-white">Can you guess the secret word?</p>
-        <div className="flex w-full max-w-xl flex-col gap-2">
+    <div className="flex h-full flex-col items-center justify-center">
+      <div className="flex w-full max-w-md flex-grow-0 flex-col items-center justify-center gap-6">
+        <p className="text-center text-2xl font-bold text-white">Can you guess the secret word?</p>
+        <div className="flex w-full flex-col gap-2">
           <WordInput
             value={word}
             onChange={(e) => setWord(e.target.value)}
@@ -88,7 +93,15 @@ export const PlayPage = () => {
           <FeedbackSection />
         </div>
       </div>
-      <Guesses items={challengeUserInfo?.guesses ?? []} />
+      <motion.div
+        initial={false}
+        animate={{ flexGrow: guesses.length > 0 ? 1 : 0, opacity: guesses.length > 0 ? 1 : 0 }}
+        transition={{ duration: 0.3 }}
+        className="overflow-hidden"
+        onAnimationComplete={() => setAnimationCounter((prev) => prev + 1)}
+      >
+        <Guesses items={guesses} key={animationCounter} />
+      </motion.div>
     </div>
   );
 };
