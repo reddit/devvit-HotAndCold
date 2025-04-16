@@ -17,7 +17,16 @@ export type MockConfig = {
   };
   mocks?: {
     game?: Partial<Game>;
-    challengeLeaderboardResponse?: any;
+    challengeLeaderboardResponse?: {
+      type: 'CHALLENGE_LEADERBOARD_RESPONSE';
+      payload: {
+        leaderboard: Array<{
+          username: string;
+          progress: number;
+          avatar?: string;
+        }>;
+      };
+    };
     generateMockProgressData?: ReturnType<typeof generateMockProgressData>;
   };
 };

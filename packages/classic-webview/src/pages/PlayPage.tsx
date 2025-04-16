@@ -36,7 +36,7 @@ const FeedbackSection = () => {
               case 'NONE':
                 break;
               default:
-                throw new Error(`Unknown action type: ${feedback.action!.type satisfies never}`);
+                throw new Error(`Unknown action type: ${String(feedback.action!.type)}`);
             }
           }}
         >

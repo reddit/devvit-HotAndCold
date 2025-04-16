@@ -27,7 +27,7 @@ const getPage = (page: Page) => {
     case 'loading':
       return <LoadingPage />;
     default:
-      throw new Error(`Invalid page: ${page satisfies never}`);
+      throw new Error(`Invalid page: ${String(page)}`);
   }
 };
 
@@ -87,7 +87,7 @@ export const App = () => {
                 {
                   name: `Sort by ${sortType === 'TIMESTAMP' ? 'Similarity' : 'Time'}`,
                   disabled: !isActivelyPlaying,
-                  action: async () => {
+                  action: () => {
                     setUserSettings((x) => ({
                       ...x,
                       sortType: x.sortType === 'SIMILARITY' ? 'TIMESTAMP' : 'SIMILARITY',
