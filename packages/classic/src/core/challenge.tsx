@@ -15,7 +15,7 @@ import {
 } from '@hotandcold/shared/utils/zoddy';
 
 import { Streaks } from './streaks.js';
-import { Post, RichTextBuilder } from '@devvit/public-api';
+import { Devvit, Post, RichTextBuilder } from '@devvit/public-api';
 
 export * as Challenge from './challenge.js';
 
