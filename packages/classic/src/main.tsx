@@ -156,7 +156,7 @@ Devvit.addCustomPostType({
             const data = event as unknown as WebviewToBlocksMessage;
 
             switch (data.type) {
-              case 'GAME_INIT':
+              case 'GAME_INIT': {
                 const { challengeInfo, challengeUserInfo, challengeProgress, challenge } =
                   initialState;
 
@@ -183,7 +183,8 @@ Devvit.addCustomPostType({
                 });
 
                 break;
-              case 'WORD_SUBMITTED':
+              }
+              case 'WORD_SUBMITTED': {
                 try {
                   sendMessageToWebview(context, {
                     type: 'WORD_SUBMITTED_RESPONSE',
@@ -218,10 +219,12 @@ Devvit.addCustomPostType({
                   });
                 }
                 break;
-              case 'SHOW_TOAST':
+              }
+              case 'SHOW_TOAST': {
                 context.ui.showToast(data.string);
                 break;
-              case 'HINT_REQUEST':
+              }
+              case 'HINT_REQUEST': {
                 try {
                   sendMessageToWebview(context, {
                     type: 'HINT_RESPONSE',
@@ -252,7 +255,8 @@ Devvit.addCustomPostType({
                   });
                 }
                 break;
-              case 'GIVE_UP_REQUEST':
+              }
+              case 'GIVE_UP_REQUEST': {
                 try {
                   sendMessageToWebview(context, {
                     type: 'GIVE_UP_RESPONSE',
@@ -281,7 +285,8 @@ Devvit.addCustomPostType({
                   });
                 }
                 break;
-              case 'LEADERBOARD_FOR_CHALLENGE':
+              }
+              case 'LEADERBOARD_FOR_CHALLENGE': {
                 const leaderboardByScore = await ChallengeLeaderboard.getLeaderboardByScore({
                   challenge: initialState?.challenge,
                   redis: context.redis,
@@ -316,7 +321,8 @@ Devvit.addCustomPostType({
                   },
                 });
                 break;
-              case 'TOGGLE_USER_REMINDER':
+              }
+              case 'TOGGLE_USER_REMINDER': {
                 const resp = await Reminders.toggleReminderForUsername({
                   redis: context.redis,
                   username: initialState.user.username,
@@ -335,9 +341,10 @@ Devvit.addCustomPostType({
                   context.ui.showToast(`You will no longer receive reminders to play.`);
                 }
                 break;
+              }
 
               default:
-                throw new Error(`Unknown message type: ${data satisfies never}`);
+                throw new Error(`Unknown message type: ${String(data satisfies never)}`);
             }
           }}
         />

@@ -32,7 +32,7 @@ export const getCurrentWordList = zoddy(
       throw new Error('No word list found');
     }
 
-    return JSON.parse(wordList);
+    return JSON.parse(wordList) as string[];
   }
 );
 
@@ -55,7 +55,7 @@ export const initialize = zoddy(
     if (!wordList) {
       DEFAULT_WORD_LIST.forEach((word) => {
         // Don't wait, this just heats up the cache for the third party API
-        API.getWordConfig({ context, word });
+        void API.getWordConfig({ context, word });
       });
       await context.redis.set(getWordListKey(), JSON.stringify(DEFAULT_WORD_LIST));
     } else {

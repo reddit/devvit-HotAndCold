@@ -4,7 +4,7 @@ import { ChallengeToWord } from './challengeToWord.js';
 import { WordList } from './wordList.js';
 import { ChallengeToPost } from './challengeToPost.js';
 import { Preview } from '../components/Preview.js';
-import { toMilliseconds, stringifyValues } from '@hotandcold/shared/utils';
+import { stringifyValues } from '@hotandcold/shared/utils';
 import {
   redisNumberString,
   zodContext,
@@ -233,7 +233,10 @@ export const makeNewChallenge = zoddy(
         },
       });
 
-      await setCurrentChallengeNumber({ number: newChallengeNumber, redis: txn });
+      await setCurrentChallengeNumber({
+        number: newChallengeNumber,
+        redis: txn,
+      });
       await ChallengeToWord.setChallengeNumberForWord({
         challenge: newChallengeNumber,
         redis: txn,
