@@ -79,8 +79,7 @@ export const App = () => {
                   name: isUserOptedIntoReminders ? 'Unsubscribe' : 'Subscribe',
                   action: () => {
                     sendMessageToDevvit({
-                      type: 'TOGGLE_USER_REMINDER',
-                      payload: {},
+                      type: 'TOGGLE_USER_REMINDER'
                     });
                   },
                 },
