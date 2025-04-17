@@ -62,32 +62,28 @@ const FeedbackSection = ({ feedback }: { feedback: FeedbackResponse | null }) =>
 /** Shows the percentage of players who have solved the challenge */
 const PlayerSuccessRate = () => {
   const { challengeInfo } = useGame();
+  const { totalPlayers, totalSolves } = challengeInfo ?? {};
+  let message = '';
   if (
-    !challengeInfo ||
-    challengeInfo.totalPlayers === undefined ||
-    challengeInfo.totalSolves === undefined ||
-    challengeInfo.totalPlayers === 0
+    totalPlayers === undefined ||
+    totalSolves === undefined ||
+    totalPlayers === 0 ||
+    totalSolves === 0
   ) {
-    return null;
+    message = 'Be the first to solve this challenge!';
+  } else {
+    const percentOfWinners = Math.round((totalSolves / totalPlayers) * 100);
+    message = `${percentOfWinners}% of ${totalPlayers} players have succeeded`;
   }
-  const { totalPlayers, totalSolves } = challengeInfo;
-  const percentOfWinners = Math.round((totalSolves / totalPlayers) * 100);
-  return (
-    <p className="text-center text-base text-[#8BA2AD]">
-      {percentOfWinners}% of {totalPlayers} players have succeeded
-    </p>
-  );
+
+  return <p className="text-center text-base text-[#8BA2AD]">{message}</p>;
 };
 
 const GuessCounter = ({ children, fontSize }: { children: number; fontSize: number }) => {
   return (
     <span className="flex items-center justify-center gap-2">
       Guesses:{' '}
-      <AnimatedNumber
-        value={children}
-        size={fontSize}
-        className="translate-y-px"
-      ></AnimatedNumber>
+      <AnimatedNumber value={children} size={fontSize} className="translate-y-px"></AnimatedNumber>
     </span>
   );
 };
