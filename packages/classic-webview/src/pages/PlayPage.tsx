@@ -87,7 +87,6 @@ const GuessCounter = ({ children, fontSize }: { children: number; fontSize: numb
         value={children}
         size={fontSize}
         className="translate-y-px"
-        animateOnMount
       ></AnimatedNumber>
     </span>
   );
