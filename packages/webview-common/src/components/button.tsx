@@ -18,7 +18,7 @@ export const PrimaryButton = ({
     >
       <span
         className={cn(
-          'absolute inset-[-1000%] animate-[spin_2s_linear_infinite] bg-[conic-gradient(from_135deg_at_50%_50%,#4CE1F2_0%,#FFFFFF_33%,#DE3232_66%,#4CE1F2_100%)] transition-opacity duration-300',
+          'absolute inset-[-1000%] animate-[spin_2s_linear_infinite] bg-[conic-gradient(from_135deg_at_50%_50%,#4CE1F2_0%,#FFBF0B_33%,#DE3232_66%,#4CE1F2_100%)] transition-opacity duration-300',
           disabled ? 'opacity-0' : 'opacity-100'
         )}
       />
