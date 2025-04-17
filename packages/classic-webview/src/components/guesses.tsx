@@ -58,10 +58,22 @@ const GuessItem = ({ item, latestGuess }: { item: Guess; latestGuess?: Guess }) 
   );
 };
 
-export const Guesses = ({ items }: { items: Guess[] }) => {
+export const Guesses = ({
+  items,
+  updatePaginationSeed,
+}: {
+  items: Guess[];
+  /**
+   * Used to trigger re-measurement of the pagination.
+   * This is a workaround for the fact that the pagination is animated into the view,
+   * and the height of the container is not updated until the animation is complete.
+   * Without this, the pagination only holds one item per page.
+   */
+  updatePaginationSeed: number;
+}) => {
   const { sortDirection, sortType, layout } = useUserSettings();
   const [currentPage, setCurrentPage] = useState(1);
-  const [ref, dimensions] = useDimensions();
+  const [ref, dimensions, reMeasure] = useDimensions();
 
   const GUESS_HEIGHT = layout == 'CONDENSED' ? 16 : 22;
 
@@ -94,6 +106,13 @@ export const Guesses = ({ items }: { items: Guess[] }) => {
   useEffect(() => {
     setCurrentPage(1);
   }, [sortDirection, sortType, itemsPerPage]);
+
+  // Re-measure the available height when the parent asks for it
+  useEffect(() => {
+    if (updatePaginationSeed > 0) {
+      reMeasure();
+    }
+  }, [updatePaginationSeed]);
 
   return (
     <div

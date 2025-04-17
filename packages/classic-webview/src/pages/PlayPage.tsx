@@ -58,7 +58,8 @@ const FeedbackSection = ({ feedback }: { feedback: FeedbackResponse | null }) =>
   );
 };
 
-const ChallengeStat = () => {
+/** Shows the percentage of players who have solved the challenge */
+const PlayerSuccessRate = () => {
   const { challengeInfo } = useGame();
   if (
     !challengeInfo ||
@@ -84,6 +85,8 @@ export const PlayPage = () => {
 
   const guesses = challengeUserInfo?.guesses ?? [];
   const hasGuessed = guesses.length > 0;
+  const [guessesAnimationCount, setGuessesAnimationCount] = useState(0); // Used to trigger re-measurement of the pagination
+
   const showFeedback = feedback || hasGuessed;
 
   return (
@@ -126,7 +129,7 @@ export const PlayPage = () => {
             ]}
           />
           <div className="mt-3 min-h-7">
-            {showFeedback ? <FeedbackSection feedback={feedback} /> : <ChallengeStat />}
+            {showFeedback ? <FeedbackSection feedback={feedback} /> : <PlayerSuccessRate />}
           </div>
         </div>
       </div>
@@ -136,8 +139,11 @@ export const PlayPage = () => {
         animate={hasGuessed ? { height: '100%', opacity: 1 } : { height: '0', opacity: 0 }}
         transition={{ duration: 0.8, ease: 'easeOut', delay: 0.2 }}
         className="overflow-hidden"
+        onAnimationComplete={() => {
+          setGuessesAnimationCount((c) => c + 1);
+        }}
       >
-        <Guesses items={guesses} />
+        <Guesses items={guesses} updatePaginationSeed={guessesAnimationCount} />
       </motion.div>
     </div>
   );
