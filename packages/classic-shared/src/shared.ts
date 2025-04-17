@@ -40,6 +40,7 @@ export type ScoreExplanation = {
 
 export type Game = {
   number: number;
+  mode: 'regular' | 'hardcore';
   // TODO: Need to get this
   // userStreak: number;
   // latestChallengeNumber: number;
