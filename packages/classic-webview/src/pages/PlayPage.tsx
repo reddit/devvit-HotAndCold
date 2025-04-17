@@ -7,6 +7,7 @@ import { useDevvitListener } from '../hooks/useDevvitListener';
 import clsx from 'clsx';
 import { FeedbackResponse } from '@hotandcold/classic-shared';
 import { motion } from 'motion/react';
+import { AnimatedNumber } from '@hotandcold/webview-common/components/timer';
 
 const useFeedback = (): { feedback: FeedbackResponse | null; dismissFeedback: () => void } => {
   const [feedback, setFeedback] = useState<FeedbackResponse | null>(null);
@@ -78,6 +79,20 @@ const PlayerSuccessRate = () => {
   );
 };
 
+const GuessCounter = ({ children, fontSize }: { children: number; fontSize: number }) => {
+  return (
+    <span className="flex items-center justify-center gap-2">
+      Guesses:{' '}
+      <AnimatedNumber
+        value={children}
+        size={fontSize}
+        className="translate-y-px"
+        animateOnMount
+      ></AnimatedNumber>
+    </span>
+  );
+};
+
 export const PlayPage = () => {
   const [word, setWord] = useState('');
   const { challengeUserInfo } = useGame();
@@ -93,7 +108,11 @@ export const PlayPage = () => {
     <div className="flex h-full flex-col items-center justify-center p-6">
       <div className="flex w-full max-w-md flex-grow-0 flex-col items-center justify-center gap-6">
         <p className="text-center text-2xl font-bold text-white">
-          {hasGuessed ? `Guesses: ${guesses.length}` : `Can you guess the secret word?`}
+          {hasGuessed ? (
+            <GuessCounter fontSize={21}>{guesses.length}</GuessCounter>
+          ) : (
+            `Can you guess the secret word?`
+          )}
         </p>
         <div className="flex w-full flex-col gap-2">
           <WordInput
