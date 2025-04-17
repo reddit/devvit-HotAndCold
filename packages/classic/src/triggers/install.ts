@@ -1,13 +1,19 @@
 import { Devvit, TriggerContext } from '@devvit/public-api';
 import { WordListManager } from '../core/wordList.js';
-import { Challenge } from '../core/challenge.js';
+import { ChallengeManager } from '../core/challenge.js';
 import { Reminders } from '../core/reminders.js';
 import { processInChunks } from '@hotandcold/shared/utils';
 
 Devvit.addSchedulerJob({
   name: 'DAILY_GAME_DROP',
   onRun: async (_, context) => {
-    const newChallenge = await Challenge.makeNewChallenge({ context });
+    // TODO: Determine if this job should run for both modes or be duplicated/parameterized
+
+    // Instantiate ChallengeManager for 'regular' mode
+    const challengeManager = new ChallengeManager(context.redis, 'regular');
+
+    // Create the new challenge using the instance method
+    const newChallenge = await challengeManager.makeNewChallenge({ context });
 
     const usernames = await Reminders.getUsersOptedIntoReminders({
       redis: context.redis,
@@ -58,13 +64,15 @@ export const initialize = async (context: TriggerContext) => {
   const wordListManager = new WordListManager(context.redis, 'regular');
   await wordListManager.initialize({ context });
 
-  // TODO: Initialize WordList for 'hardcore' mode when ready
+  // TODO: Initialize WordList for 'hardcore' mode
   // const hardcoreWordListManager = new WordListManager(context.redis, 'hardcore');
   // await hardcoreWordListManager.initialize({ context });
 
-  await Challenge.initialize({
-    redis: context.redis,
-  });
+  // Initialize Challenge number for 'regular' mode
+  await ChallengeManager.initialize({ redis: context.redis, mode: 'regular' });
+
+  // TODO: Initialize Challenge number for 'hardcore' mode
+  // await ChallengeManager.initialize({ redis: context.redis, mode: 'hardcore' });
 
   let jobs = await context.scheduler.listJobs();
   for (let job of jobs) {

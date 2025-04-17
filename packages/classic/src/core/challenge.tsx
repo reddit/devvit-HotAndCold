@@ -130,42 +130,28 @@ export class ChallengeManager {
   incrementChallengeTotalGiveUps = (params: { challenge: number }) =>
     this.incrementChallengeField({ ...params, field: 'totalGiveUps' });
 
-  // --- Static Methods ---
-  static initialize = zoddy(
+  // makeNewChallenge is an instance method related to managing challenges for this mode
+  makeNewChallenge = zoddy(
     z.object({
-      redis: zodRedis,
-      mode: zodGameMode,
-    }),
-    async ({ redis, mode }) => {
-      // Instantiate manager locally to access key generation
-      const manager = new ChallengeManager(redis as RedisClientType, mode);
-      const key = manager.getCurrentChallengeNumberKey();
-      const result = await (redis as RedisClientType).get(key);
-      if (!result) {
-        console.log(`Initializing challenge number for mode: ${mode}`);
-        await (redis as RedisClientType).set(key, '0');
-      } else {
-        console.log(`Challenge number for mode ${mode} already initialized`);
-      }
-    }
-  );
-
-  static makeNewChallenge = zoddy(
-    z.object({
+      // Still needs context for Reddit API, etc.
       context: z.union([zodJobContext, zodContext]),
-      mode: zodGameMode,
     }),
-    async ({ context, mode }) => {
+    async ({ context }) => {
+      // Use instance mode
+      const mode = this.mode;
       console.log(`Making new challenge for mode: ${mode}...`);
-      const typedContext = context as z.infer<typeof zodContext>;
-      const challengeManager = new ChallengeManager(typedContext.redis, mode);
-      const wordListManager = new WordListManager(typedContext.redis, mode);
+
+      // Use instance redis for WordListManager
+      const wordListManager = new WordListManager(this.redis, mode);
+
+      // Use instance methods where possible
 
       const [wordList, usedWords, currentChallengeNumber, currentSubreddit] = await Promise.all([
         wordListManager.getCurrentWordList(),
-        ChallengeToWord.getAllUsedWords({ redis: typedContext.redis }),
-        challengeManager.getCurrentChallengeNumber(),
-        typedContext.reddit.getCurrentSubreddit(),
+        // TODO: Update ChallengeToWord to be mode-aware
+        ChallengeToWord.getAllUsedWords({ redis: context.redis }), // Keep context.redis if needed by helper
+        this.getCurrentChallengeNumber(), // Use instance method
+        context.reddit.getCurrentSubreddit(),
       ]);
 
       console.log(`Current challenge number (${mode}):`, currentChallengeNumber);
@@ -177,12 +163,13 @@ export class ChallengeManager {
       const newChallengeNumber = currentChallengeNumber + 1;
       console.log(`New challenge number (${mode}):`, newChallengeNumber);
 
-      await API.getWordConfigCached({ context: typedContext, word: newWord });
+      await API.getWordConfigCached({ context: context, word: newWord });
 
       let post: Post | undefined;
       try {
-        const txn = typedContext.redis;
-        const txnChallengeManager = new ChallengeManager(txn, mode);
+        const txn = context.redis; // Using context.redis, assumes no transaction for now
+        // Create a manager instance for the transaction, using the same mode
+        const txnChallengeManager = new ChallengeManager(txn, this.mode);
         const txnWordListManager = new WordListManager(txn, mode);
 
         await txnWordListManager.setCurrentWordListWords({
@@ -190,7 +177,7 @@ export class ChallengeManager {
         });
 
         const postTitle = `Hot and cold${mode !== 'regular' ? ` (${mode})` : ''} #${newChallengeNumber}`;
-        post = await typedContext.reddit.submitPost({
+        post = await context.reddit.submitPost({
           subredditName: currentSubreddit.name,
           title: postTitle,
           preview: <Preview />,
@@ -218,6 +205,7 @@ export class ChallengeManager {
 
         await txnChallengeManager.setCurrentChallengeNumber({ number: newChallengeNumber });
 
+        // TODO: Update dependent modules for mode awareness
         await ChallengeToWord.setChallengeNumberForWord({
           challenge: newChallengeNumber,
           redis: txn,
@@ -230,9 +218,10 @@ export class ChallengeManager {
         });
 
         if (currentChallengeNumber > 0) {
+          // TODO: Update Streaks for mode awareness
           await Streaks.expireStreaks({
-            redis: typedContext.redis,
-            txn: txn as any,
+            redis: context.redis,
+            txn: txn as any, // Keep workaround for transaction type
             challengeNumberBeforeTheNewestChallenge: currentChallengeNumber,
           });
         }
@@ -257,9 +246,31 @@ export class ChallengeManager {
         console.error(`Error making new ${mode} challenge:`, error);
         if (post) {
           console.log(`Removing post ${post.id} due to new ${mode} challenge error`);
-          await typedContext.reddit.remove(post.id, false);
+          // Use the context passed into the method
+          await context.reddit.remove(post.id, false);
         }
         throw error;
+      }
+    }
+  );
+
+  // --- Static Methods ---
+  // initialize remains static as it sets up before an instance might exist
+  static initialize = zoddy(
+    z.object({
+      redis: zodRedis,
+      mode: zodGameMode,
+    }),
+    async ({ redis, mode }) => {
+      // Instantiate manager locally to access key generation
+      const manager = new ChallengeManager(redis as RedisClientType, mode);
+      const key = manager.getCurrentChallengeNumberKey();
+      const result = await (redis as RedisClientType).get(key);
+      if (!result) {
+        console.log(`Initializing challenge number for mode: ${mode}`);
+        await (redis as RedisClientType).set(key, '0');
+      } else {
+        console.log(`Challenge number for mode ${mode} already initialized`);
       }
     }
   );
