@@ -8,7 +8,7 @@ import clsx from 'clsx';
 import { FeedbackResponse } from '@hotandcold/classic-shared';
 import { motion } from 'motion/react';
 
-const FeedbackSection = () => {
+const useFeedback = (): { feedback: FeedbackResponse | null; dismissFeedback: () => void } => {
   const [feedback, setFeedback] = useState<FeedbackResponse | null>(null);
   const message = useDevvitListener('FEEDBACK');
 
@@ -17,8 +17,16 @@ const FeedbackSection = () => {
     setFeedback(message);
   }, [message]);
 
+  const dismissFeedback = () => {
+    setFeedback(null);
+  };
+
+  return { feedback, dismissFeedback };
+};
+
+const FeedbackSection = ({ feedback }: { feedback: FeedbackResponse | null }) => {
   return (
-    <div className="flex h-7 items-start justify-between gap-2">
+    <div className="flex items-start justify-between gap-2">
       <p className="text-left text-xs text-[#EEF1F3]">{feedback?.feedback}</p>
       {feedback?.action != null && (
         <p
@@ -50,21 +58,47 @@ const FeedbackSection = () => {
   );
 };
 
+const ChallengeStat = () => {
+  const { challengeInfo } = useGame();
+  if (
+    !challengeInfo ||
+    challengeInfo.totalPlayers === undefined ||
+    challengeInfo.totalSolves === undefined ||
+    challengeInfo.totalPlayers === 0
+  ) {
+    return null;
+  }
+  const { totalPlayers, totalSolves } = challengeInfo;
+  const percentOfWinners = Math.round((totalSolves / totalPlayers) * 100);
+  return (
+    <p className="text-center text-base text-[#8BA2AD]">
+      {percentOfWinners}% of {totalPlayers} players have succeeded
+    </p>
+  );
+};
+
 export const PlayPage = () => {
   const [word, setWord] = useState('');
   const { challengeUserInfo } = useGame();
-  const guesses = challengeUserInfo?.guesses ?? [];
+  const { feedback, dismissFeedback } = useFeedback();
 
-  const [showGuesses, setShowGuesses] = useState(guesses.length > 0); // Initial state based on guesses
+  const guesses = challengeUserInfo?.guesses ?? [];
+  const hasGuessed = guesses.length > 0;
+  const showFeedback = feedback || hasGuessed;
 
   return (
     <div className="flex h-full flex-col items-center justify-center p-6">
       <div className="flex w-full max-w-md flex-grow-0 flex-col items-center justify-center gap-6">
-        <p className="text-center text-2xl font-bold text-white">Can you guess the secret word?</p>
+        <p className="text-center text-2xl font-bold text-white">
+          {hasGuessed ? `Guesses: ${guesses.length}` : `Can you guess the secret word?`}
+        </p>
         <div className="flex w-full flex-col gap-2">
           <WordInput
             value={word}
-            onChange={(e) => setWord(e.target.value)}
+            onChange={(e) => {
+              setWord(e.target.value);
+              dismissFeedback(); // Hide feedback when typing
+            }}
             onSubmit={(animationDuration) => {
               if (word.trim().split(' ').length > 1) {
                 sendMessageToDevvit({
@@ -82,7 +116,6 @@ export const PlayPage = () => {
 
               setTimeout(() => {
                 setWord('');
-                setShowGuesses(true); // Show the guesses box after the submit animation
               }, animationDuration);
             }}
             placeholders={[
@@ -92,14 +125,16 @@ export const PlayPage = () => {
               'Or cat',
             ]}
           />
-          <FeedbackSection />
+          <div className="mt-3 min-h-7">
+            {showFeedback ? <FeedbackSection feedback={feedback} /> : <ChallengeStat />}
+          </div>
         </div>
       </div>
 
       <motion.div // Animates the guesses sliding up from the bottom, which also pushes the word input up
         initial={false}
-        animate={showGuesses ? { height: '100%', opacity: 1 } : { height: '0%', opacity: 0 }}
-        transition={{ duration: 0.6, ease: 'easeOut', delay: 0.6 }}
+        animate={hasGuessed ? { height: '100%', opacity: 1 } : { height: '0', opacity: 0 }}
+        transition={{ duration: 0.8, ease: 'easeOut', delay: 0.2 }}
         className="overflow-hidden"
       >
         <Guesses items={guesses} />
