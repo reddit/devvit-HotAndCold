@@ -7,18 +7,16 @@ export const useDimensions = () => {
   const ref = useCallback((nodeElem: HTMLDivElement | null) => {
     setNode(nodeElem);
   }, []);
-
+  const measure = () => {
+    window.requestAnimationFrame(() => {
+      setDimensions({
+        width: node?.clientWidth ?? 0,
+        height: node?.clientHeight ?? 0,
+      });
+    });
+  };
   useEffect(() => {
     if (!node) return;
-
-    const measure = () => {
-      window.requestAnimationFrame(() => {
-        setDimensions({
-          width: node.clientWidth,
-          height: node.clientHeight,
-        });
-      });
-    };
 
     measure();
 
@@ -31,5 +29,9 @@ export const useDimensions = () => {
     };
   }, [node]);
 
-  return [ref, dimensions] as const;
+  const reMeasure = () => {
+    if (!node) return;
+    measure();
+  };
+  return [ref, dimensions, reMeasure] as const;
 };
