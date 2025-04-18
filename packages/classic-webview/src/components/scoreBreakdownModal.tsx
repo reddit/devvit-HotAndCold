@@ -2,7 +2,7 @@ import { ComponentProps } from 'react';
 import { Modal } from '@hotandcold/webview-common/components/modal';
 import { useGame } from '../hooks/useGame';
 
-interface ScoreBreakdownModalProps extends Omit<ComponentProps<typeof Modal>, 'children'> {}
+type ScoreBreakdownModalProps = Omit<ComponentProps<typeof Modal>, 'children'>;
 
 const formatTime = (seconds: number): string => {
   return seconds.toFixed(3);
