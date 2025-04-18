@@ -8,6 +8,7 @@ import clsx from 'clsx';
 import { FeedbackResponse } from '@hotandcold/classic-shared';
 import { motion } from 'motion/react';
 import { AnimatedNumber } from '@hotandcold/webview-common/components/timer';
+import { PageContentContainer } from '../components/pageContentContainer';
 
 const useFeedback = (): { feedback: FeedbackResponse | null; dismissFeedback: () => void } => {
   const [feedback, setFeedback] = useState<FeedbackResponse | null>(null);
@@ -90,7 +91,7 @@ const GuessCounter = ({ children, fontSize }: { children: number; fontSize: numb
 
 export const PlayPage = () => {
   const [word, setWord] = useState('');
-  const { challengeUserInfo } = useGame();
+  const { challengeUserInfo, mode } = useGame();
   const { feedback, dismissFeedback } = useFeedback();
 
   const guesses = challengeUserInfo?.guesses ?? [];
@@ -100,65 +101,67 @@ export const PlayPage = () => {
   const showFeedback = feedback || hasGuessed;
 
   return (
-    <div className="flex h-full flex-col items-center justify-center p-6">
-      <div className="flex w-full max-w-md flex-grow-0 flex-col items-center justify-center gap-6">
-        <p className="text-center text-2xl font-bold text-white">
-          {hasGuessed ? (
-            <GuessCounter fontSize={21}>{guesses.length}</GuessCounter>
-          ) : (
-            `Can you guess the secret word?`
-          )}
-        </p>
-        <div className="flex w-full flex-col gap-2">
-          <WordInput
-            value={word}
-            onChange={(e) => {
-              setWord(e.target.value);
-              dismissFeedback(); // Hide feedback when typing
-            }}
-            onSubmit={(animationDuration) => {
-              if (word.trim().split(' ').length > 1) {
+    <PageContentContainer showContainer={mode === 'hardcore'}>
+      <div className="flex h-full flex-col items-center justify-center p-6">
+        <div className="flex w-full max-w-md flex-grow-0 flex-col items-center justify-center gap-6">
+          <p className="text-center text-2xl font-bold text-white">
+            {hasGuessed ? (
+              <GuessCounter fontSize={21}>{guesses.length}</GuessCounter>
+            ) : (
+              `Can you guess the secret word?`
+            )}
+          </p>
+          <div className="flex w-full flex-col gap-2">
+            <WordInput
+              value={word}
+              onChange={(e) => {
+                setWord(e.target.value);
+                dismissFeedback(); // Hide feedback when typing
+              }}
+              onSubmit={(animationDuration) => {
+                if (word.trim().split(' ').length > 1) {
+                  sendMessageToDevvit({
+                    type: 'SHOW_TOAST',
+                    string: 'I only understand one word at a time.',
+                  });
+                  return;
+                }
+
                 sendMessageToDevvit({
-                  type: 'SHOW_TOAST',
-                  string: 'I only understand one word at a time.',
+                  type: 'WORD_SUBMITTED',
+                  value: word.trim().toLowerCase(),
                 });
-                return;
-              }
+                // TODO Store previous in case we need to replenish due to errors
 
-              sendMessageToDevvit({
-                type: 'WORD_SUBMITTED',
-                value: word.trim().toLowerCase(),
-              });
-              // TODO Store previous in case we need to replenish due to errors
-
-              setTimeout(() => {
-                setWord('');
-              }, animationDuration);
-            }}
-            placeholders={[
-              'Can you guess the word?',
-              'Any word will do to get started',
-              'Try banana',
-              'Or cat',
-            ]}
-          />
-          <div className="mt-3 min-h-7">
-            {showFeedback ? <FeedbackSection feedback={feedback} /> : <PlayerSuccessRate />}
+                setTimeout(() => {
+                  setWord('');
+                }, animationDuration);
+              }}
+              placeholders={[
+                'Can you guess the word?',
+                'Any word will do to get started',
+                'Try banana',
+                'Or cat',
+              ]}
+            />
+            <div className="mt-3 min-h-7">
+              {showFeedback ? <FeedbackSection feedback={feedback} /> : <PlayerSuccessRate />}
+            </div>
           </div>
         </div>
-      </div>
 
-      <motion.div // Animates the guesses sliding up from the bottom, which also pushes the word input up
-        initial={false}
-        animate={hasGuessed ? { height: '100%', opacity: 1 } : { height: '0', opacity: 0 }}
-        transition={{ duration: 0.8, ease: 'easeOut', delay: 0.2 }}
-        className="overflow-hidden"
-        onAnimationComplete={() => {
-          setGuessesAnimationCount((c) => c + 1);
-        }}
-      >
-        <Guesses items={guesses} updatePaginationSeed={guessesAnimationCount} />
-      </motion.div>
-    </div>
+        <motion.div // Animates the guesses sliding up from the bottom, which also pushes the word input up
+          initial={false}
+          animate={hasGuessed ? { height: '100%', opacity: 1 } : { height: '0', opacity: 0 }}
+          transition={{ duration: 0.8, ease: 'easeOut', delay: 0.2 }}
+          className="overflow-hidden"
+          onAnimationComplete={() => {
+            setGuessesAnimationCount((c) => c + 1);
+          }}
+        >
+          <Guesses items={guesses} updatePaginationSeed={guessesAnimationCount} />
+        </motion.div>
+      </div>
+    </PageContentContainer>
   );
 };
