@@ -50,7 +50,7 @@ export const App = () => {
       className={cn(
         'relative flex h-full min-h-0 flex-1 flex-col p-6',
         mode === 'hardcore' &&
-          'bg-black/60 bg-[url(/assets/hardcore_background.jpeg)] bg-cover bg-center bg-no-repeat bg-blend-multiply'
+          'bg-black/50 bg-[url(/assets/hardcore_background.jpeg)] bg-cover bg-center bg-no-repeat bg-blend-multiply'
       )}
     >
       <div>
