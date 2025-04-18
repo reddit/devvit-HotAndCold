@@ -5,10 +5,12 @@ import { Guesses } from '../components/guesses';
 import { useGame } from '../hooks/useGame';
 import { useDevvitListener } from '../hooks/useDevvitListener';
 import clsx from 'clsx';
-import { FeedbackResponse } from '@hotandcold/classic-shared';
+import { FeedbackResponse, GameMode } from '@hotandcold/classic-shared';
 import { motion } from 'motion/react';
 import { AnimatedNumber } from '@hotandcold/webview-common/components/timer';
 import { PageContentContainer } from '../components/pageContentContainer';
+import { cn } from '@hotandcold/webview-common/utils';
+import { HARDCORE_MAX_GUESSES } from '../constants';
 
 const useFeedback = (): { feedback: FeedbackResponse | null; dismissFeedback: () => void } => {
   const [feedback, setFeedback] = useState<FeedbackResponse | null>(null);
@@ -60,24 +62,26 @@ const FeedbackSection = ({ feedback }: { feedback: FeedbackResponse | null }) =>
   );
 };
 
-/** Shows the percentage of players who have solved the challenge */
-const PlayerSuccessRate = () => {
-  const { challengeInfo } = useGame();
-  const { totalPlayers, totalSolves } = challengeInfo ?? {};
-  let message = '';
+const getWelcomeMessage = (
+  mode?: GameMode,
+  totalPlayers?: number,
+  totalSolves?: number
+): string => {
+  if (mode === 'hardcore') {
+    return `${HARDCORE_MAX_GUESSES} guesses. No hints. No mercy.`;
+  }
+
   if (
     totalPlayers === undefined ||
     totalSolves === undefined ||
     totalPlayers === 0 ||
     totalSolves === 0
   ) {
-    message = 'Be the first to solve this challenge!';
-  } else {
-    const percentOfWinners = Math.round((totalSolves / totalPlayers) * 100);
-    message = `${percentOfWinners}% of ${totalPlayers} players have succeeded`;
+    return 'Be the first to solve this challenge!';
   }
 
-  return <p className="text-center text-base text-[#8BA2AD]">{message}</p>;
+  const percentOfWinners = Math.round((totalSolves / totalPlayers) * 100);
+  return `${percentOfWinners}% of ${totalPlayers} players have succeeded`;
 };
 
 const GuessCounter = ({ children, fontSize }: { children: number; fontSize: number }) => {
@@ -91,7 +95,7 @@ const GuessCounter = ({ children, fontSize }: { children: number; fontSize: numb
 
 export const PlayPage = () => {
   const [word, setWord] = useState('');
-  const { challengeUserInfo, mode } = useGame();
+  const { challengeUserInfo, mode, challengeInfo } = useGame();
   const { feedback, dismissFeedback } = useFeedback();
 
   const guesses = challengeUserInfo?.guesses ?? [];
@@ -99,6 +103,11 @@ export const PlayPage = () => {
   const [guessesAnimationCount, setGuessesAnimationCount] = useState(0); // Used to trigger re-measurement of the pagination
 
   const showFeedback = feedback || hasGuessed;
+  const welcomeMessage = getWelcomeMessage(
+    mode,
+    challengeInfo?.totalPlayers,
+    challengeInfo?.totalSolves
+  );
 
   return (
     <PageContentContainer showContainer={mode === 'hardcore'}>
@@ -145,7 +154,18 @@ export const PlayPage = () => {
               ]}
             />
             <div className="mt-3 min-h-7">
-              {showFeedback ? <FeedbackSection feedback={feedback} /> : <PlayerSuccessRate />}
+              {showFeedback ? (
+                <FeedbackSection feedback={feedback} />
+              ) : (
+                <p
+                  className={cn(
+                    'text-center text-base',
+                    mode === 'hardcore' ? 'font-bold text-white' : 'text-[#8BA2AD]'
+                  )}
+                >
+                  {welcomeMessage}
+                </p>
+              )}
             </div>
           </div>
         </div>
