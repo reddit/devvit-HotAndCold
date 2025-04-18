@@ -15,6 +15,7 @@ import {
 } from '@hotandcold/shared/utils/zoddy';
 
 import { Streaks } from './streaks.js';
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { Devvit, Post, RichTextBuilder } from '@devvit/public-api';
 
 export * as Challenge from './challenge.js';
