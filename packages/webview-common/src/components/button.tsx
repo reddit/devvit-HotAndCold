@@ -5,12 +5,16 @@ export const PrimaryButton = ({
   children,
   className,
   disabled,
+  isHighContrast,
   ...rest
-}: ComponentProps<'button'>) => {
+}: ComponentProps<'button'> & {
+  isHighContrast?: boolean;
+}) => {
   return (
     <button
       className={cn(
-        'relative inline-flex overflow-hidden rounded-full bg-gray-800 p-[2px] focus:outline-none focus:ring-2 focus:ring-slate-400 focus:ring-offset-2 focus:ring-offset-slate-50',
+        'relative inline-flex overflow-hidden rounded-full p-[2px] font-[inherit] text-sm font-medium text-black focus:outline-none focus:ring-2 focus:ring-slate-400 focus:ring-offset-2 focus:ring-offset-slate-50 dark:text-white',
+        isHighContrast ? 'bg-white dark:bg-black' : 'bg-gray-50 dark:bg-gray-800',
         className
       )}
       disabled={disabled}
@@ -22,9 +26,7 @@ export const PrimaryButton = ({
           disabled ? 'opacity-0' : 'opacity-100'
         )}
       />
-      <span className="inline-flex h-full w-full cursor-pointer items-center justify-center rounded-full bg-gray-800 px-4 py-3 text-sm font-medium text-white backdrop-blur-3xl">
-        {children}
-      </span>
+      <span className="z-10 rounded-full bg-inherit px-4 py-3">{children}</span>
     </button>
   );
 };
