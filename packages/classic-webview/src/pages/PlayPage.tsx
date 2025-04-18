@@ -5,7 +5,7 @@ import { Guesses } from '../components/guesses';
 import { useGame } from '../hooks/useGame';
 import { useDevvitListener } from '../hooks/useDevvitListener';
 import clsx from 'clsx';
-import { FeedbackResponse, GameMode } from '@hotandcold/classic-shared';
+import { FeedbackResponse } from '@hotandcold/classic-shared';
 import { motion } from 'motion/react';
 import { AnimatedNumber } from '@hotandcold/webview-common/components/timer';
 import { PageContentContainer } from '../components/pageContentContainer';
@@ -63,11 +63,11 @@ const FeedbackSection = ({ feedback }: { feedback: FeedbackResponse | null }) =>
 };
 
 const getWelcomeMessage = (
-  mode?: GameMode,
+  isHardcore: boolean,
   totalPlayers?: number,
   totalSolves?: number
 ): string => {
-  if (mode === 'hardcore') {
+  if (isHardcore) {
     return `${HARDCORE_MAX_GUESSES} guesses. No hints. No mercy.`;
   }
 
@@ -84,11 +84,23 @@ const getWelcomeMessage = (
   return `${percentOfWinners}% of ${totalPlayers} players have succeeded`;
 };
 
-const GuessCounter = ({ children, fontSize }: { children: number; fontSize: number }) => {
+const GuessCounter = ({
+  children,
+  fontSize,
+  isHardcore,
+}: {
+  children: number;
+  fontSize: number;
+  isHardcore: boolean;
+}) => {
+  const value = isHardcore ? HARDCORE_MAX_GUESSES - children : children;
+  const label = isHardcore ? ' guesses remaining' : 'Guesses: ';
+
   return (
     <span className="flex items-center justify-center gap-2">
-      Guesses:{' '}
-      <AnimatedNumber value={children} size={fontSize} className="translate-y-px"></AnimatedNumber>
+      {!isHardcore && label}
+      <AnimatedNumber value={value} size={fontSize} className="translate-y-px" />
+      {isHardcore && label}
     </span>
   );
 };
@@ -102,13 +114,13 @@ export const PlayPage = () => {
   const hasGuessed = guesses.length > 0;
   const [guessesAnimationCount, setGuessesAnimationCount] = useState(0); // Used to trigger re-measurement of the pagination
 
+  const isHardcore = mode === 'hardcore';
   const showFeedback = feedback || hasGuessed;
   const welcomeMessage = getWelcomeMessage(
-    mode,
+    isHardcore,
     challengeInfo?.totalPlayers,
     challengeInfo?.totalSolves
   );
-  const isHardcore = mode === 'hardcore';
 
   return (
     <PageContentContainer showContainer={isHardcore}>
@@ -116,7 +128,9 @@ export const PlayPage = () => {
         <div className="flex w-full max-w-md flex-grow-0 flex-col items-center justify-center gap-6">
           <p className="text-center text-2xl font-bold text-white">
             {hasGuessed ? (
-              <GuessCounter fontSize={21}>{guesses.length}</GuessCounter>
+              <GuessCounter fontSize={21} isHardcore={isHardcore}>
+                {guesses.length}
+              </GuessCounter>
             ) : (
               `Can you guess the secret word?`
             )}

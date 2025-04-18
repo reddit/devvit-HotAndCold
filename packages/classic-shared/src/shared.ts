@@ -38,11 +38,9 @@ export type ScoreExplanation = {
   };
 };
 
-export type GameMode = 'regular' | 'hardcore';
-
 export type Game = {
   number: number;
-  mode: GameMode;
+  mode: 'regular' | 'hardcore';
   // TODO: Need to get this
   // userStreak: number;
   // latestChallengeNumber: number;
