@@ -49,7 +49,8 @@ export const App = () => {
     <div
       className={cn(
         'relative flex h-full min-h-0 flex-1 flex-col p-6',
-        mode === 'hardcore' && 'bg-[url(/assets/hardcore_background.jpeg)] bg-cover bg-center bg-no-repeat bg-black/60 bg-blend-multiply',
+        mode === 'hardcore' &&
+          'bg-black/60 bg-[url(/assets/hardcore_background.jpeg)] bg-cover bg-center bg-no-repeat bg-blend-multiply'
       )}
     >
       <div>
@@ -84,7 +85,7 @@ export const App = () => {
                   name: isUserOptedIntoReminders ? 'Unsubscribe' : 'Subscribe',
                   action: () => {
                     sendMessageToDevvit({
-                      type: 'TOGGLE_USER_REMINDER'
+                      type: 'TOGGLE_USER_REMINDER',
                     });
                   },
                 },
