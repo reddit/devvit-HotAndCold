@@ -108,9 +108,10 @@ export const PlayPage = () => {
     challengeInfo?.totalPlayers,
     challengeInfo?.totalSolves
   );
+  const isHardcore = mode === 'hardcore';
 
   return (
-    <PageContentContainer showContainer={mode === 'hardcore'}>
+    <PageContentContainer showContainer={isHardcore}>
       <div className="flex h-full flex-col items-center justify-center p-6">
         <div className="flex w-full max-w-md flex-grow-0 flex-col items-center justify-center gap-6">
           <p className="text-center text-2xl font-bold text-white">
@@ -123,6 +124,7 @@ export const PlayPage = () => {
           <div className="flex w-full flex-col gap-2">
             <WordInput
               value={word}
+              isHighContrast={isHardcore}
               onChange={(e) => {
                 setWord(e.target.value);
                 dismissFeedback(); // Hide feedback when typing
@@ -160,7 +162,7 @@ export const PlayPage = () => {
                 <p
                   className={cn(
                     'text-center text-base',
-                    mode === 'hardcore' ? 'font-bold text-white' : 'text-[#8BA2AD]'
+                    isHardcore ? 'font-bold text-white' : 'text-[#8BA2AD]'
                   )}
                 >
                   {welcomeMessage}
