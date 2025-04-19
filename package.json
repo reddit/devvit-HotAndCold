@@ -33,9 +33,11 @@
     "upload:classic": "npm run pre-upload && cd packages/classic && devvit upload --config=prod.devvit.yaml",
     "dev:upload:classic": "npm run pre-upload && npm run dev:upload --workspace packages/classic",
     "upload:raid": "npm run pre-upload && cd packages/raid && devvit upload --config=prod.devvit.yaml",
-    "dev:upload:raid": "npm run pre-upload && npm run dev:upload --workspace packages/raid"
+    "dev:upload:raid": "npm run pre-upload && npm run dev:upload --workspace packages/raid",
+    "prepare": "husky"
   },
   "dependencies": {
+    "@dotenvx/dotenvx": "^1.39.0",
     "csv-parse": "^5.5.6",
     "csv-stringify": "^6.5.1",
     "dotenv": "16.4.5",
@@ -47,8 +49,7 @@
     "tsx": "4.19.2",
     "wink-lemmatizer": "^3.0.4",
     "zod": "3.23.8",
-    "zod-validation-error": "3.4.0",
-    "@dotenvx/dotenvx": "^1.39.0"
+    "zod-validation-error": "3.4.0"
   },
   "devDependencies": {
     "@types/fast-levenshtein": "^0.0.4",
@@ -60,6 +61,8 @@
     "autoprefixer": "^10.4.20",
     "browser-sync": "3.0.3",
     "concurrently": "9.1.0",
+    "husky": "^9.1.7",
+    "lint-staged": "^15.5.1",
     "postcss": "^8.4.49",
     "prettier": "^3.3.3",
     "prettier-plugin-tailwindcss": "^0.6.8",
@@ -69,5 +72,11 @@
     "typescript": "5.7.3",
     "vite": "^5.4.10",
     "vitest": "2.0.5"
+  },
+  "lint-staged": {
+    "packages/{classic,classic-shared,classic-webview}/**/*.{js,jsx,ts,tsx}": [
+      "eslint --fix",
+      "prettier --write"
+    ]
   }
 }
