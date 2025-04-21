@@ -16,12 +16,14 @@ export function WordInput({
   onSubmit,
   autoFocusOnKeypress = true,
   value: externalValue = '', // New prop for controlled input
+  isHighContrast = false,
 }: {
   placeholders: string[];
   onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
   onSubmit: (animationDuration: number) => void;
   autoFocusOnKeypress?: boolean;
   value?: string; // Add to props interface
+  isHighContrast?: boolean;
 }) {
   const [currentPlaceholder, setCurrentPlaceholder] = useState(0);
   const [animating, setAnimating] = useState(false);
@@ -259,13 +261,15 @@ export function WordInput({
         autoComplete="off"
         enterKeyHint="send"
         className={cn(
-          'text-md relative z-50 h-14 w-full rounded-full border-none bg-transparent px-4 text-black shadow-[0px_2px_3px_-1px_rgba(0,0,0,0.1),_0px_1px_0px_0px_rgba(25,28,33,0.02),_0px_0px_0px_1px_rgba(25,28,33,0.08)] transition duration-200 focus:outline-none focus:ring-0 dark:bg-gray-800 dark:text-white',
+          'text-md relative z-50 h-14 w-full rounded-full border-none px-4 text-black shadow-[0px_2px_3px_-1px_rgba(0,0,0,0.1),_0px_1px_0px_0px_rgba(25,28,33,0.02),_0px_0px_0px_1px_rgba(25,28,33,0.08)] transition duration-200 focus:outline-none focus:ring-0 dark:text-white',
           animating && 'text-transparent dark:text-transparent',
-          internalValue && 'bg-gray-50'
+          internalValue && 'bg-gray-50 dark:bg-gray-800',
+          isHighContrast ? 'bg-white dark:bg-black' : 'bg-gray-50 dark:bg-gray-800'
         )}
       />
 
       <PrimaryButton
+        isHighContrast={isHighContrast}
         disabled={!internalValue}
         type="submit"
         className="z-50 flex-shrink-0"

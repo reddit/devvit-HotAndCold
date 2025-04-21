@@ -7,7 +7,7 @@ import { Progress } from './components/progress';
 import { useGame } from './hooks/useGame';
 import { Logo } from '@hotandcold/webview-common/components/logo';
 import { sendMessageToDevvit } from './utils';
-import { prettyNumber } from '@hotandcold/webview-common/utils';
+import { cn, prettyNumber } from '@hotandcold/webview-common/utils';
 import { useConfirmation } from '@hotandcold/webview-common/hooks/useConfirmation';
 import { AnimatedNumber } from '@hotandcold/webview-common/components/timer';
 import { HelpMenu } from '@hotandcold/webview-common/components/helpMenu';
@@ -35,7 +35,7 @@ export const App = () => {
   const page = usePage();
   const { layout, sortType, isUserOptedIntoReminders } = useUserSettings();
   const setUserSettings = useSetUserSettings();
-  const { challengeUserInfo, challengeInfo } = useGame();
+  const { challengeUserInfo, challengeInfo, mode } = useGame();
   const isActivelyPlaying =
     challengeUserInfo?.guesses &&
     challengeUserInfo?.guesses?.length > 0 &&
@@ -46,7 +46,13 @@ export const App = () => {
   // const [friendsModalOpen, setFriendsModalOpen] = useState(false);
 
   return (
-    <div className="relative flex h-full min-h-0 flex-1 flex-col p-6">
+    <div
+      className={cn(
+        'relative flex h-full min-h-0 flex-1 flex-col p-6',
+        mode === 'hardcore' &&
+          'bg-[url(/assets/hardcore_background.png)] bg-cover bg-center bg-no-repeat bg-blend-multiply'
+      )}
+    >
       <div>
         <div className="flex h-4 items-center justify-between">
           <p className="text-sm text-gray-500">
@@ -79,7 +85,7 @@ export const App = () => {
                   name: isUserOptedIntoReminders ? 'Unsubscribe' : 'Subscribe',
                   action: () => {
                     sendMessageToDevvit({
-                      type: 'TOGGLE_USER_REMINDER'
+                      type: 'TOGGLE_USER_REMINDER',
                     });
                   },
                 },
