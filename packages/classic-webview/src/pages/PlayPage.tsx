@@ -84,16 +84,16 @@ const getWelcomeMessage = (
   return `${percentOfWinners}% of ${totalPlayers} players have succeeded`;
 };
 
-const GuessCounter = ({
-  children,
+const GuessesMessage = ({
+  guessCount,
   fontSize,
   isHardcore,
 }: {
-  children: number;
+  guessCount: number;
   fontSize: number;
   isHardcore: boolean;
 }) => {
-  const value = isHardcore ? HARDCORE_MAX_GUESSES - children : children;
+  const value = isHardcore ? HARDCORE_MAX_GUESSES - guessCount : guessCount;
   const label = isHardcore ? ' guesses remaining' : 'Guesses: ';
 
   return (
@@ -128,9 +128,7 @@ export const PlayPage = () => {
         <div className="flex w-full max-w-md flex-grow-0 flex-col items-center justify-center gap-6">
           <p className="text-center text-2xl font-bold text-white">
             {hasGuessed ? (
-              <GuessCounter fontSize={21} isHardcore={isHardcore}>
-                {guesses.length}
-              </GuessCounter>
+              <GuessesMessage fontSize={21} isHardcore={isHardcore} guessCount={guesses.length} />
             ) : (
               `Can you guess the secret word?`
             )}
