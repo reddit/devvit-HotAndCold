@@ -1,11 +1,11 @@
 import { z } from 'zod';
 import { zoddy, zodRedditUsername, zodRedis, zodTransaction } from '@hotandcold/shared/utils/zoddy';
-import { Challenge } from './challenge.js';
+import { ChallengeService } from './challenge.js';
 
 export * as ChallengePlayers from './challengePlayers.js';
 
 export const getChallengePlayersKey = (challenge: number) =>
-  `${Challenge.getChallengeKey(challenge)}:players` as const;
+  `${ChallengeService.getChallengeKey(challenge)}:players` as const;
 
 export const playersSchema = z.record(
   z.string(),

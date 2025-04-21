@@ -6,14 +6,14 @@ import {
   zodRedis,
   zodTransaction,
 } from '@hotandcold/shared/utils/zoddy';
-import { getChallengeKey } from './challenge.js';
+import { ChallengeService } from './challenge.js';
 import { ChallengePlayers } from './challengePlayers.js';
 import { RedditApiCache } from './redditApiCache.js';
 
 export * as ChallengeProgress from './challengeProgress.js';
 
 export const getChallengePlayerProgressKey = (challenge: number) =>
-  `${getChallengeKey(challenge)}:players:progress` as const;
+  `${ChallengeService.getChallengeKey(challenge)}:players:progress` as const;
 
 export const getPlayerProgress = zoddy(
   z.object({

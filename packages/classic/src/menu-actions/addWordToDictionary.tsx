@@ -1,5 +1,5 @@
 import { Devvit } from '@devvit/public-api';
-import { WordList } from '../core/wordList.js';
+import { WordListService } from '../core/wordList.js';
 import { API } from '../core/api.js';
 
 const addWordsToDictionaryFormId = Devvit.createForm(
@@ -51,9 +51,8 @@ const addWordsToDictionaryFormId = Devvit.createForm(
       API.getWordConfig({ context, word });
     });
 
-    const resp = await WordList.addToCurrentWordList({
+    const resp = await new WordListService(context.redis).addToCurrentWordList({
       mode: prepend ? 'prepend' : 'append',
-      redis: context.redis,
       words: wordsToAdd,
     });
 

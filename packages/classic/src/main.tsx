@@ -13,7 +13,7 @@ import { WebviewToBlocksMessage } from '@hotandcold/classic-shared';
 import { Guess } from './core/guess.js';
 import { ChallengeToPost } from './core/challengeToPost.js';
 import { Preview } from './components/Preview.js';
-import { Challenge } from './core/challenge.js';
+import { ChallengeService } from './core/challenge.js';
 import { ChallengeProgress } from './core/challengeProgress.js';
 import { ChallengeLeaderboard } from './core/challengeLeaderboard.js';
 import { Streaks } from './core/streaks.js';
@@ -61,6 +61,7 @@ Devvit.addCustomPostType({
   name: 'HotAndCold',
   height: 'tall',
   render: (context) => {
+    const challengeService = new ChallengeService(context.redis);
     const [initialState] = useState<InitialState>(async () => {
       const [user, challenge] = await Promise.all([
         context.reddit.getCurrentUser(),
@@ -83,9 +84,8 @@ Devvit.addCustomPostType({
           context,
           username: user.username,
         }),
-        Challenge.getChallenge({
+        challengeService.getChallenge({
           challenge: challenge,
-          redis: context.redis,
         }),
         Guess.getChallengeUserInfo({
           challenge: challenge,

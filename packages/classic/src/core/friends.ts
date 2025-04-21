@@ -7,7 +7,7 @@ import {
   zodRedditUsername,
   zodRedis,
 } from '@hotandcold/shared/utils/zoddy';
-import { Challenge } from './challenge.js';
+import { ChallengeService } from './challenge.js';
 import { ChallengeToPost } from './challengeToPost.js';
 
 export * as Friends from './friends.js';
@@ -39,6 +39,8 @@ export const makeFriendRequest = zoddy(
       redis: context.redis,
     });
 
+    const challengeService = new ChallengeService(context.redis);
+
     if (existingFriendship.status === 'PENDING') {
       throw new Error('Friend request already sent. Please wait for a response.');
     }
@@ -49,9 +51,7 @@ export const makeFriendRequest = zoddy(
       throw new Error(`Error sending friend request`);
     }
 
-    const currentChallenge = await Challenge.getCurrentChallengeNumber({
-      redis: context.redis,
-    });
+    const currentChallenge = await challengeService.getCurrentChallengeNumber();
     const currentPost = await ChallengeToPost.getPostForChallengeNumber({
       redis: context.redis,
       challenge: currentChallenge,
