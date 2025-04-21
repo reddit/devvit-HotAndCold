@@ -42,9 +42,10 @@ export const useDevvitListener = <T extends BlocksToWebviewMessage['type']>(even
   useEffect(() => {
     const allMocks = mocks.getMock('mocks');
     if (eventType === 'PLAYER_PROGRESS_UPDATE') {
-      // @ts-expect-error
+      // @ts-expect-error Mock data structure doesn't match the expected type
       setData({ challengeProgress: allMocks?.generateMockProgressData });
     } else if (eventType === 'CHALLENGE_LEADERBOARD_RESPONSE') {
+      // @ts-expect-error Mock data structure doesn't match the expected type
       setData(allMocks?.challengeLeaderboardResponse);
     }
   }, [eventType, mocks]);
@@ -52,13 +53,16 @@ export const useDevvitListener = <T extends BlocksToWebviewMessage['type']>(even
   useEffect(() => {
     const messageHandler = (ev: MessageEvent<DevvitMessage>) => {
       if (ev.data.type !== 'devvit-message') {
-        logger.warn(`Received message with type ${ev.data.type} but expected 'devvit-message'`);
+        logger.warn(
+          `Received message with type ${String(ev.data.type)} but expected 'devvit-message'`
+        );
         return;
       }
 
       const message = ev.data.data.message;
       if (message.type === eventType) {
-        setData(message.payload as any);
+        // @ts-expect-error Message payload type doesn't match the expected type
+        setData(message.payload);
       }
     };
 

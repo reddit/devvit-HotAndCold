@@ -5,8 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite build --watch",
-    "prettier": "prettier --write .",
     "lint": "eslint ./src/",
+    "prettier": "prettier --write .",
     "test": "vitest run",
     "type-check": "tsc --noEmit",
     "vite": "vite --mode detached"

@@ -16,12 +16,14 @@ export function WordInput({
   onSubmit,
   autoFocusOnKeypress = true,
   value: externalValue = '', // New prop for controlled input
+  isHighContrast = false,
 }: {
   placeholders: string[];
   onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
   onSubmit: (animationDuration: number) => void;
   autoFocusOnKeypress?: boolean;
   value?: string; // Add to props interface
+  isHighContrast?: boolean;
 }) {
   const [currentPlaceholder, setCurrentPlaceholder] = useState(0);
   const [animating, setAnimating] = useState(false);
@@ -236,11 +238,7 @@ export function WordInput({
   };
 
   return (
-    <div
-      className={cn(
-        'relative mx-auto flex h-12 w-full max-w-xl items-center gap-4 overflow-hidden'
-      )}
-    >
+    <div className={cn('relative mx-auto flex w-full max-w-xl items-center gap-2 overflow-hidden')}>
       <canvas
         className={cn(
           'pointer-events-none absolute left-[5px] top-[15%] z-[1000] origin-top-left scale-50 transform pr-20 text-base invert filter dark:invert-0',
@@ -263,52 +261,25 @@ export function WordInput({
         autoComplete="off"
         enterKeyHint="send"
         className={cn(
-          'text-md relative z-50 h-full w-full rounded-3xl border-none bg-transparent px-4 text-black shadow-[0px_2px_3px_-1px_rgba(0,0,0,0.1),_0px_1px_0px_0px_rgba(25,28,33,0.02),_0px_0px_0px_1px_rgba(25,28,33,0.08)] transition duration-200 focus:outline-none focus:ring-0 dark:bg-gray-800 dark:text-white',
+          'text-md relative z-50 h-14 w-full rounded-full border-none px-4 text-black shadow-[0px_2px_3px_-1px_rgba(0,0,0,0.1),_0px_1px_0px_0px_rgba(25,28,33,0.02),_0px_0px_0px_1px_rgba(25,28,33,0.08)] transition duration-200 focus:outline-none focus:ring-0 dark:text-white',
           animating && 'text-transparent dark:text-transparent',
-          internalValue && 'bg-gray-50'
+          internalValue && 'bg-gray-50 dark:bg-gray-800',
+          isHighContrast ? 'bg-white dark:bg-black' : 'bg-gray-50 dark:bg-gray-800'
         )}
       />
 
       <PrimaryButton
+        isHighContrast={isHighContrast}
         disabled={!internalValue}
         type="submit"
-        className="z-50 flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full bg-black transition duration-200 disabled:bg-gray-100 dark:bg-zinc-900 dark:disabled:bg-zinc-800"
+        className="z-50 flex-shrink-0"
         onMouseDown={(e) => {
           // Workaround for ios and android blurring the input on button click
           e.preventDefault();
           handleSubmit();
         }}
       >
-        <motion.svg
-          xmlns="http://www.w3.org/2000/svg"
-          width="24"
-          height="24"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          className="h-5 w-5 text-gray-300"
-        >
-          <path stroke="none" d="M0 0h24v24H0z" fill="none" />
-          <motion.path
-            d="M5 12l14 0"
-            initial={{
-              strokeDasharray: '50%',
-              strokeDashoffset: '50%',
-            }}
-            animate={{
-              strokeDashoffset: internalValue ? 0 : '50%',
-            }}
-            transition={{
-              duration: 0.3,
-              ease: 'linear',
-            }}
-          />
-          <path d="M13 18l6 -6" />
-          <path d="M13 6l6 6" />
-        </motion.svg>
+        Guess
       </PrimaryButton>
 
       <div className="pointer-events-none absolute inset-0 z-[1010] flex items-center rounded-full">

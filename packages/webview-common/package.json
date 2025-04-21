@@ -17,8 +17,8 @@
     "./utils/createLogger": "./src/utils/createLogger.ts"
   },
   "scripts": {
-    "prettier": "prettier --write .",
     "lint": "eslint ./src/",
+    "prettier": "prettier --write .",
     "test": "vitest run",
     "type-check": "tsc --noEmit"
   },

@@ -219,7 +219,6 @@ export const WinPage = () => {
                     checked={isUserOptedIntoReminders}
                     onChange={() => {
                       sendMessageToDevvit({
-                        payload: {},
                         type: 'TOGGLE_USER_REMINDER',
                       });
                     }}

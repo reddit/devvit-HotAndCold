@@ -6,8 +6,13 @@ import { useGame } from '../hooks/useGame';
 import { useDevvitListener } from '../hooks/useDevvitListener';
 import clsx from 'clsx';
 import { FeedbackResponse } from '@hotandcold/classic-shared';
+import { motion } from 'motion/react';
+import { AnimatedNumber } from '@hotandcold/webview-common/components/timer';
+import { PageContentContainer } from '../components/pageContentContainer';
+import { cn } from '@hotandcold/webview-common/utils';
+import { HARDCORE_MAX_GUESSES } from '../constants';
 
-const FeedbackSection = () => {
+const useFeedback = (): { feedback: FeedbackResponse | null; dismissFeedback: () => void } => {
   const [feedback, setFeedback] = useState<FeedbackResponse | null>(null);
   const message = useDevvitListener('FEEDBACK');
 
@@ -16,8 +21,16 @@ const FeedbackSection = () => {
     setFeedback(message);
   }, [message]);
 
+  const dismissFeedback = () => {
+    setFeedback(null);
+  };
+
+  return { feedback, dismissFeedback };
+};
+
+const FeedbackSection = ({ feedback }: { feedback: FeedbackResponse | null }) => {
   return (
-    <div className="flex h-7 items-start justify-between gap-2">
+    <div className="flex items-start justify-between gap-2">
       <p className="text-left text-xs text-[#EEF1F3]">{feedback?.feedback}</p>
       {feedback?.action != null && (
         <p
@@ -36,7 +49,9 @@ const FeedbackSection = () => {
               case 'NONE':
                 break;
               default:
-                throw new Error(`Unknown action type: ${feedback.action!.type satisfies never}`);
+                throw new Error(
+                  `Unknown action type: ${String(feedback.action!.type satisfies never)}`
+                );
             }
           }}
         >
@@ -47,48 +62,140 @@ const FeedbackSection = () => {
   );
 };
 
-export const PlayPage = () => {
-  const [word, setWord] = useState('');
-  const { challengeUserInfo } = useGame();
+const getWelcomeMessage = (
+  isHardcore: boolean,
+  totalPlayers?: number,
+  totalSolves?: number
+): string => {
+  if (isHardcore) {
+    return `${HARDCORE_MAX_GUESSES} guesses. No hints. No mercy.`;
+  }
+
+  if (
+    totalPlayers === undefined ||
+    totalSolves === undefined ||
+    totalPlayers === 0 ||
+    totalSolves === 0
+  ) {
+    return 'Be the first to solve this challenge!';
+  }
+
+  const percentOfWinners = Math.round((totalSolves / totalPlayers) * 100);
+  return `${percentOfWinners}% of ${totalPlayers} players have succeeded`;
+};
+
+const GuessesMessage = ({
+  guessCount,
+  fontSize,
+  isHardcore,
+}: {
+  guessCount: number;
+  fontSize: number;
+  isHardcore: boolean;
+}) => {
+  const value = isHardcore ? HARDCORE_MAX_GUESSES - guessCount : guessCount;
+  const label = isHardcore ? ' guesses remaining' : 'Guesses: ';
 
   return (
-    <div className="flex h-full flex-col justify-center gap-6">
-      <div className="flex flex-col items-center justify-center gap-6">
-        <p className="mt-4 text-center text-xl text-white">Can you guess the secret word?</p>
-        <div className="flex w-full max-w-xl flex-col gap-2">
-          <WordInput
-            value={word}
-            onChange={(e) => setWord(e.target.value)}
-            onSubmit={(animationDuration) => {
-              if (word.trim().split(' ').length > 1) {
+    <span className="flex items-center justify-center gap-2">
+      {!isHardcore && label}
+      <AnimatedNumber value={value} size={fontSize} className="translate-y-px" />
+      {isHardcore && label}
+    </span>
+  );
+};
+
+export const PlayPage = () => {
+  const [word, setWord] = useState('');
+  const { challengeUserInfo, mode, challengeInfo } = useGame();
+  const { feedback, dismissFeedback } = useFeedback();
+
+  const guesses = challengeUserInfo?.guesses ?? [];
+  const hasGuessed = guesses.length > 0;
+  const [guessesAnimationCount, setGuessesAnimationCount] = useState(0); // Used to trigger re-measurement of the pagination
+
+  const isHardcore = mode === 'hardcore';
+  const showFeedback = feedback || hasGuessed;
+  const welcomeMessage = getWelcomeMessage(
+    isHardcore,
+    challengeInfo?.totalPlayers,
+    challengeInfo?.totalSolves
+  );
+
+  return (
+    <PageContentContainer showContainer={isHardcore}>
+      <div className="flex h-full flex-col items-center justify-center p-6">
+        <div className="flex w-full max-w-md flex-grow-0 flex-col items-center justify-center gap-6">
+          <p className="text-center text-2xl font-bold text-white">
+            {hasGuessed ? (
+              <GuessesMessage fontSize={21} isHardcore={isHardcore} guessCount={guesses.length} />
+            ) : (
+              `Can you guess the secret word?`
+            )}
+          </p>
+          <div className="flex w-full flex-col gap-2">
+            <WordInput
+              value={word}
+              isHighContrast={isHardcore}
+              onChange={(e) => {
+                setWord(e.target.value);
+                dismissFeedback(); // Hide feedback when typing
+              }}
+              onSubmit={(animationDuration) => {
+                if (word.trim().split(' ').length > 1) {
+                  sendMessageToDevvit({
+                    type: 'SHOW_TOAST',
+                    string: 'I only understand one word at a time.',
+                  });
+                  return;
+                }
+
                 sendMessageToDevvit({
-                  type: 'SHOW_TOAST',
-                  string: 'I only understand one word at a time.',
+                  type: 'WORD_SUBMITTED',
+                  value: word.trim().toLowerCase(),
                 });
-                return;
-              }
+                // TODO Store previous in case we need to replenish due to errors
 
-              sendMessageToDevvit({
-                type: 'WORD_SUBMITTED',
-                value: word.trim().toLowerCase(),
-              });
-              // TODO Store previous in case we need to replenish due to errors
-
-              setTimeout(() => {
-                setWord('');
-              }, animationDuration);
-            }}
-            placeholders={[
-              'Can you guess the word?',
-              'Any word will do to get started',
-              'Try banana',
-              'Or cat',
-            ]}
-          />
-          <FeedbackSection />
+                setTimeout(() => {
+                  setWord('');
+                }, animationDuration);
+              }}
+              placeholders={[
+                'Can you guess the word?',
+                'Any word will do to get started',
+                'Try banana',
+                'Or cat',
+              ]}
+            />
+            <div className="mt-3 min-h-7">
+              {showFeedback ? (
+                <FeedbackSection feedback={feedback} />
+              ) : (
+                <p
+                  className={cn(
+                    'text-center text-base',
+                    isHardcore ? 'font-bold text-white' : 'text-[#8BA2AD]'
+                  )}
+                >
+                  {welcomeMessage}
+                </p>
+              )}
+            </div>
+          </div>
         </div>
+
+        <motion.div // Animates the guesses sliding up from the bottom, which also pushes the word input up
+          initial={false}
+          animate={hasGuessed ? { height: '100%', opacity: 1 } : { height: '0', opacity: 0 }}
+          transition={{ duration: 0.8, ease: 'easeOut', delay: 0.2 }}
+          className="overflow-hidden"
+          onAnimationComplete={() => {
+            setGuessesAnimationCount((c) => c + 1);
+          }}
+        >
+          <Guesses items={guesses} updatePaginationSeed={guessesAnimationCount} />
+        </motion.div>
       </div>
-      <Guesses items={challengeUserInfo?.guesses ?? []} />
-    </div>
+    </PageContentContainer>
   );
 };

@@ -35,7 +35,7 @@ const challengeUserInfoSchema = z
         if (val === undefined) return undefined;
         if (val === '') return undefined;
 
-        const parsed = JSON.parse(val);
+        const parsed = JSON.parse(val) as Score.ScoreExplanation;
 
         return Score.scoreSchema.parse(parsed);
       })
@@ -47,7 +47,7 @@ const challengeUserInfoSchema = z
     guesses: z
       .string()
       .transform((val) => {
-        const maybeArray = JSON.parse(val);
+        const maybeArray = JSON.parse(val) as unknown;
 
         if (!Array.isArray(maybeArray)) {
           return [];

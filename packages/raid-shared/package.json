@@ -7,8 +7,8 @@
     ".": "./src/index.ts"
   },
   "scripts": {
-    "prettier": "prettier --write .",
     "lint": "eslint ./src/",
+    "prettier": "prettier --write .",
     "type-check": "tsc --noEmit"
   },
   "devDependencies": {
