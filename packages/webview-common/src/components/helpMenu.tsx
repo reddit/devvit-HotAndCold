@@ -118,6 +118,7 @@ export const HelpMenu = ({
         onClick={() => setToggled((x) => !x)}
         aria-expanded={toggled}
         aria-haspopup="true"
+        aria-label="Menu"
         type="button"
         className="flex items-center gap-2 rounded-full bg-gray-50 px-4 py-3 text-current sm:px-3 sm:py-2 dark:bg-black"
       >
