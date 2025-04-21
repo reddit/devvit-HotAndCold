@@ -28,18 +28,19 @@ Devvit.addSchedulerJob({
           text: `The new challenge is up! Go to [this link](${newChallenge.postUrl}) to play!\n\nUnsubscribe from these messages any time by going to the challenge, tapping the three dots, and selecting "Unsubscribe".`,
           to: username,
         }),
-      onSuccess: async (result: any, username: string, index: number, chunkIndex: number) => {
+      onSuccess: (_, username) => {
         console.log(`Successfully sent message to ${username}.`);
       },
-      onError: async (error: any, username: string, index: number, chunkIndex: number) => {
+      onError: async (error, username) => {
+        const err = error as Error;
         if (
-          error.message.includes('INVALID_USER') ||
-          error.message.includes('NO_USER') ||
-          error.message.includes('NOT_WHITELISTED_BY_USER_MESSAGE')
+          err.message.includes('INVALID_USER') ||
+          err.message.includes('NO_USER') ||
+          err.message.includes('NOT_WHITELISTED_BY_USER_MESSAGE')
         ) {
           try {
             console.log(
-              `Removing user "${username}" from reminder list due to error: ${error.message}`
+              `Removing user "${username}" from reminder list due to error: ${err.message}`
             );
 
             await Reminders.removeReminderForUsername({
@@ -47,7 +48,7 @@ Devvit.addSchedulerJob({
               username,
             });
           } catch (removeError) {
-            console.error(`Failed to remove user from reminder list: ${removeError}`);
+            console.error(`Failed to remove user from reminder list: ${String(removeError)}`);
           }
         } else {
           console.error(`Failed to send message to ${username}: ${JSON.stringify(error)}`);
@@ -74,8 +75,8 @@ export const initialize = async (context: TriggerContext) => {
   // TODO: Initialize Challenge number for 'hardcore' mode
   // await ChallengeManager.initialize({ redis: context.redis, mode: 'hardcore' });
 
-  let jobs = await context.scheduler.listJobs();
-  for (let job of jobs) {
+  const jobs = await context.scheduler.listJobs();
+  for (const job of jobs) {
     await context.scheduler.cancelJob(job.id);
   }
 

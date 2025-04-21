@@ -139,7 +139,7 @@ export class WordListManager {
           // Don't wait, this just heats up the cache for the third party API
           // Consider if API call should be mode-dependent
           // Pass the context provided to the method
-          API.getWordConfig({ context: context, word });
+          void API.getWordConfig({ context: context, word });
         });
         await redisClient.set(this.wordListKey, JSON.stringify(DEFAULT_WORD_LIST));
       } else {

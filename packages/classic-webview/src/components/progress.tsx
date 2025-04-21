@@ -119,8 +119,8 @@ const ProgressBar = ({
     const otherPlayers = players.filter((p) => !p.isPlayer);
 
     // Initialize groups and visible players
-    let groups: GroupedPlayers[] = [];
-    let visiblePlayers: PlayerProgress[] = [activePlayer];
+    const groups: GroupedPlayers[] = [];
+    const visiblePlayers: PlayerProgress[] = [activePlayer];
 
     // Helper function to create groups
     const createGroup = (players: PlayerProgress[], progressRange: number) => {

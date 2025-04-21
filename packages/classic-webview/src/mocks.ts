@@ -5,6 +5,7 @@ import { ChallengeLeaderboardResponse, Game, PlayerProgress } from '@hotandcold/
  */
 export const PLAYING_GAME: Partial<Game> = {
   'number': 14,
+  'mode': 'regular',
   'challengeUserInfo': {
     'username': 'UnluckyHuckleberry53',
     'score': undefined,
@@ -159,6 +160,7 @@ export const PLAYING_GAME: Partial<Game> = {
 
 export const WINNING_GAME: Partial<Game> = {
   'number': 14,
+  'mode': 'regular',
   'challengeUserInfo': {
     'username': 'UnluckyHuckleberry53',
     'score': {
@@ -342,6 +344,7 @@ export const WINNING_GAME: Partial<Game> = {
 
 export const GIVE_UP_GAME: Partial<Game> = {
   'number': 10,
+  'mode': 'regular',
   'challengeUserInfo': {
     'username': 'UnluckyHuckleberry53',
     'score': undefined,

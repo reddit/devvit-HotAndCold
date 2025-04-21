@@ -40,6 +40,7 @@ export type ScoreExplanation = {
 
 export type Game = {
   number: number;
+  mode: 'regular' | 'hardcore';
   // TODO: Need to get this
   // userStreak: number;
   // latestChallengeNumber: number;
@@ -98,7 +99,6 @@ export type WebviewToBlocksMessage =
   | { type: 'LEADERBOARD_FOR_CHALLENGE' }
   | {
       type: 'TOGGLE_USER_REMINDER';
-      payload: {};
     };
 
 export type FeedbackResponse = {

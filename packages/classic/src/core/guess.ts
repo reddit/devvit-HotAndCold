@@ -18,8 +18,6 @@ import { Similarity } from './similarity.js';
 import { ChallengePlayers } from './challengePlayers.js';
 import { ChallengeProgress } from './challengeProgress.js';
 import { Comment, RichTextBuilder } from '@devvit/public-api';
-import { Feedback } from './feedback.js';
-import { ChallengeToPost } from './challengeToPost.js';
 import { sendMessageToWebview } from '../utils/index.js';
 import { guessSchema } from '../utils/guessSchema.js';
 
@@ -37,7 +35,7 @@ const challengeUserInfoSchema = z
         if (val === undefined) return undefined;
         if (val === '') return undefined;
 
-        const parsed = JSON.parse(val);
+        const parsed = JSON.parse(val) as Score.ScoreExplanation;
 
         return Score.scoreSchema.parse(parsed);
       })
@@ -49,7 +47,7 @@ const challengeUserInfoSchema = z
     guesses: z
       .string()
       .transform((val) => {
-        const maybeArray = JSON.parse(val);
+        const maybeArray = JSON.parse(val) as unknown;
 
         if (!Array.isArray(maybeArray)) {
           return [];

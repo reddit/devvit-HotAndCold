@@ -172,8 +172,28 @@ export class ChallengeManager {
         const txnChallengeManager = new ChallengeManager(txn, this.mode);
         const txnWordListManager = new WordListManager(txn, mode);
 
-        await txnWordListManager.setCurrentWordListWords({
-          words: wordList.slice(unusedWordIndex + 1),
+      await setCurrentChallengeNumber({
+        number: newChallengeNumber,
+        redis: txn,
+      });
+      await ChallengeToWord.setChallengeNumberForWord({
+        challenge: newChallengeNumber,
+        redis: txn,
+        word: newWord,
+      });
+      await ChallengeToPost.setChallengeNumberForPost({
+        challenge: newChallengeNumber,
+        postId: post.id,
+        redis: txn,
+      });
+
+      // Edge case handling for the first time
+      if (currentChallengeNumber > 0) {
+        await Streaks.expireStreaks({
+          redis: context.redis,
+          // @ts-expect-error THis is due to the workaround
+          txn,
+          challengeNumberBeforeTheNewestChallenge: currentChallengeNumber,
         });
 
         const postTitle = `Hot and cold${mode !== 'regular' ? ` (${mode})` : ''} #${newChallengeNumber}`;
