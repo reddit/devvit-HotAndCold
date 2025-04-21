@@ -51,7 +51,7 @@ type InitialState =
         avatar: string | null;
       };
       challenge: number;
-      challengeInfo: Awaited<ReturnType<(typeof Challenge)['getChallenge']>>;
+      challengeInfo: Awaited<ReturnType<ChallengeService['getChallenge']>>;
       challengeUserInfo: Awaited<ReturnType<(typeof Guess)['getChallengeUserInfo']>>;
       challengeProgress: Awaited<ReturnType<(typeof ChallengeProgress)['getPlayerProgress']>>;
     };

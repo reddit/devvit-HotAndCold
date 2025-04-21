@@ -239,7 +239,7 @@ export const getHintForUser = zoddy(
     // await txn.multi();
     const txn = context.redis;
 
-    challengeService.incrementChallengeTotalHints({ challenge });
+    await challengeService.incrementChallengeTotalHints({ challenge });
 
     const newGuesses = z
       .array(guessSchema)

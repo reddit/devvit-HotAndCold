@@ -15,17 +15,16 @@ import {
 } from '@hotandcold/shared/utils/zoddy';
 
 import { Streaks } from './streaks.js';
-import { Devvit, Post, RichTextBuilder } from '@devvit/public-api';
+import { Post, RichTextBuilder } from '@devvit/public-api';
+
+export * as Challenge from './challenge.js';
 
 // Define base Zod schemas
-const zodRedisClient = zodRedis;
-const zodTransactionClient = zodTransaction;
-const zodRedisOrTransactionClient = z.union([zodRedisClient, zodTransactionClient]);
 const zodAppContext = z.union([zodContext, zodJobContext]); // Combined context types
 
 // Infer types from Zod schemas
-type RedisClientType = z.infer<typeof zodRedisClient>;
-type RedisOrTransactionClientType = z.infer<typeof zodRedisOrTransactionClient>;
+type RedisClientType = z.infer<typeof zodRedis>;
+type RedisOrTransactionClientType = z.infer<typeof zodRedis> | z.infer<typeof zodTransaction>;
 
 // Define challenge schema
 const challengeSchema = z
@@ -71,7 +70,7 @@ export class ChallengeService {
     return parseInt(currentChallengeNumber);
   }
 
-  incrementCurrentChallengeNumber = zoddy(z.object({}), async ({}) => {
+  incrementCurrentChallengeNumber = zoddy(z.object({}), async () => {
     const redisClient = this.redis as RedisClientType;
     await redisClient.incrBy(ChallengeService.getCurrentChallengeNumberKey(), 1);
   });
@@ -112,7 +111,7 @@ export class ChallengeService {
     }
   );
 
-  initialize = zoddy(z.object({}), async ({}) => {
+  initialize = zoddy(z.object({}), async () => {
     const redisClient = this.redis as RedisClientType;
     const key = ChallengeService.getCurrentChallengeNumberKey();
     const result = await redisClient.get(key);
@@ -156,12 +155,10 @@ export class ChallengeService {
 
       // Instantiate WordListService with the same redis client (might be transaction)
       const wordListService = new WordListService(this.redis);
-      // Create a separate instance with non-transactional redis if needed for gets
-      const wordListServiceForGet = new WordListService(context.redis as RedisClientType);
 
       // Use instance methods where possible, pass context redis if needed by helpers
       const [wordList, usedWords, currentChallengeNumber, currentSubreddit] = await Promise.all([
-        wordListServiceForGet.getCurrentWordList({}),
+        wordListService.getCurrentWordList({}),
         ChallengeToWord.getAllUsedWords({ redis: context.redis }),
         this.getCurrentChallengeNumber(),
         context.reddit.getCurrentSubreddit(),
@@ -237,7 +234,8 @@ export class ChallengeService {
           // Pass transaction-aware redis if Streaks supports it
           await Streaks.expireStreaks({
             redis: context.redis, // Base redis might be needed?
-            txn: txnRedis as any, // Cast may be needed depending on Streaks signature
+            // @ts-expect-error THis is due to the workaround
+            txn: txnRedis, // Cast may be needed depending on Streaks signature
             challengeNumberBeforeTheNewestChallenge: currentChallengeNumber,
           });
         }

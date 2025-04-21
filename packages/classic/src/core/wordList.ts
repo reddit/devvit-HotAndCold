@@ -10,15 +10,11 @@ import { DEFAULT_WORD_LIST } from '../constants.js';
 import { API } from './api.js';
 
 // Define base Zod schemas
-const zodRedisClient = zodRedis;
-const zodTransactionClient = zodTransaction;
-const zodRedisOrTransactionClient = z.union([zodRedisClient, zodTransactionClient]);
 const zodAppContext = z.union([zodContext, zodTriggerContext]);
 
 // Infer Redis types from Zod schemas
-type RedisClientType = z.infer<typeof zodRedisClient>;
-type RedisOrTransactionClientType = z.infer<typeof zodRedisOrTransactionClient>;
-type AppContextType = z.infer<typeof zodAppContext>;
+type RedisClientType = z.infer<typeof zodRedis>;
+type RedisOrTransactionClientType = z.infer<typeof zodRedis> | z.infer<typeof zodTransaction>;
 
 /**
  * NOTE: Word lists a mutable! There is no way to know what the original word list was.
@@ -41,7 +37,7 @@ export class WordListService {
   }
 
   // Instance method
-  getCurrentWordList = zoddy(z.object({}), async ({}) => {
+  getCurrentWordList = zoddy(z.object({}), async () => {
     // Cast to non-transaction type if needed for .get
     const redisClient = this.redis as RedisClientType;
     const wordListKey = WordListService.getWordListKey(); // Use static method
@@ -80,7 +76,7 @@ export class WordListService {
         DEFAULT_WORD_LIST.forEach((word) => {
           // Pass the full context provided to the method
           // Cast context to the specific type API expects if necessary
-          void API.getWordConfig({ context: context as AppContextType, word });
+          void API.getWordConfig({ context: context, word });
         });
         await redisClient.set(wordListKey, JSON.stringify(DEFAULT_WORD_LIST));
       } else {
