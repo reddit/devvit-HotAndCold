@@ -26,7 +26,6 @@ const zodAppContext = z.union([zodContext, zodJobContext]); // Combined context 
 // Infer types from Zod schemas
 type RedisClientType = z.infer<typeof zodRedisClient>;
 type RedisOrTransactionClientType = z.infer<typeof zodRedisOrTransactionClient>;
-type AppContextType = z.infer<typeof zodAppContext>;
 
 // Define challenge schema
 const challengeSchema = z
@@ -40,7 +39,6 @@ const challengeSchema = z
     totalGiveUps: redisNumberString.optional(),
   })
   .strict();
-type ChallengeConfig = z.infer<typeof challengeSchema>;
 
 export class ChallengeService {
   private redis: RedisOrTransactionClientType;
@@ -154,7 +152,6 @@ export class ChallengeService {
     // Requires AppContextType for Reddit API access etc.
     z.object({ context: zodAppContext }),
     async ({ context }) => {
-      const typedContext = context as AppContextType; // Cast for internal use
       console.log('Making new challenge...');
 
       // Instantiate WordListService with the same redis client (might be transaction)
@@ -165,9 +162,9 @@ export class ChallengeService {
       // Use instance methods where possible, pass context redis if needed by helpers
       const [wordList, usedWords, currentChallengeNumber, currentSubreddit] = await Promise.all([
         wordListServiceForGet.getCurrentWordList({}),
-        ChallengeToWord.getAllUsedWords({ redis: typedContext.redis }),
+        ChallengeToWord.getAllUsedWords({ redis: context.redis }),
         this.getCurrentChallengeNumber(),
-        typedContext.reddit.getCurrentSubreddit(),
+        context.reddit.getCurrentSubreddit(),
       ]);
 
       console.log('Current challenge number:', currentChallengeNumber);
@@ -182,7 +179,7 @@ export class ChallengeService {
       const newChallengeNumber = currentChallengeNumber + 1;
 
       console.log('Current challenge number:', currentChallengeNumber);
-      await API.getWordConfigCached({ context: typedContext, word: newWord });
+      await API.getWordConfigCached({ context: context, word: newWord });
 
       let post: Post | undefined;
       try {
@@ -195,7 +192,7 @@ export class ChallengeService {
           words: wordList.slice(unusedWordIndex + 1),
         });
 
-        post = await typedContext.reddit.submitPost({
+        post = await context.reddit.submitPost({
           subredditName: currentSubreddit.name,
           title: `Hot and cold #${newChallengeNumber}`,
           preview: <Preview />,
@@ -239,7 +236,7 @@ export class ChallengeService {
         if (currentChallengeNumber > 0) {
           // Pass transaction-aware redis if Streaks supports it
           await Streaks.expireStreaks({
-            redis: typedContext.redis, // Base redis might be needed?
+            redis: context.redis, // Base redis might be needed?
             txn: txnRedis as any, // Cast may be needed depending on Streaks signature
             challengeNumberBeforeTheNewestChallenge: currentChallengeNumber,
           });
@@ -266,7 +263,7 @@ export class ChallengeService {
         console.error('Error making new challenge:', error);
         if (post) {
           console.log(`Removing post ${post.id} due to new challenge error`);
-          await typedContext.reddit.remove(post.id, false);
+          await context.reddit.remove(post.id, false);
         }
         throw error;
       }
