@@ -6,8 +6,10 @@ import { useGame } from '../hooks/useGame';
 import { useDevvitListener } from '../hooks/useDevvitListener';
 import clsx from 'clsx';
 import { FeedbackResponse } from '@hotandcold/classic-shared';
+import { motion } from 'motion/react';
+import { AnimatedNumber } from '@hotandcold/webview-common/components/timer';
 
-const FeedbackSection = () => {
+const useFeedback = (): { feedback: FeedbackResponse | null; dismissFeedback: () => void } => {
   const [feedback, setFeedback] = useState<FeedbackResponse | null>(null);
   const message = useDevvitListener('FEEDBACK');
 
@@ -16,8 +18,16 @@ const FeedbackSection = () => {
     setFeedback(message);
   }, [message]);
 
+  const dismissFeedback = () => {
+    setFeedback(null);
+  };
+
+  return { feedback, dismissFeedback };
+};
+
+const FeedbackSection = ({ feedback }: { feedback: FeedbackResponse | null }) => {
   return (
-    <div className="flex h-7 items-start justify-between gap-2">
+    <div className="flex items-start justify-between gap-2">
       <p className="text-left text-xs text-[#EEF1F3]">{feedback?.feedback}</p>
       {feedback?.action != null && (
         <p
@@ -49,18 +59,63 @@ const FeedbackSection = () => {
   );
 };
 
+/** Shows the percentage of players who have solved the challenge */
+const PlayerSuccessRate = () => {
+  const { challengeInfo } = useGame();
+  const { totalPlayers, totalSolves } = challengeInfo ?? {};
+  let message = '';
+  if (
+    totalPlayers === undefined ||
+    totalSolves === undefined ||
+    totalPlayers === 0 ||
+    totalSolves === 0
+  ) {
+    message = 'Be the first to solve this challenge!';
+  } else {
+    const percentOfWinners = Math.round((totalSolves / totalPlayers) * 100);
+    message = `${percentOfWinners}% of ${totalPlayers} players have succeeded`;
+  }
+
+  return <p className="text-center text-base text-[#8BA2AD]">{message}</p>;
+};
+
+const GuessCounter = ({ children, fontSize }: { children: number; fontSize: number }) => {
+  return (
+    <span className="flex items-center justify-center gap-2">
+      Guesses:{' '}
+      <AnimatedNumber value={children} size={fontSize} className="translate-y-px"></AnimatedNumber>
+    </span>
+  );
+};
+
 export const PlayPage = () => {
   const [word, setWord] = useState('');
   const { challengeUserInfo } = useGame();
+  const { feedback, dismissFeedback } = useFeedback();
+
+  const guesses = challengeUserInfo?.guesses ?? [];
+  const hasGuessed = guesses.length > 0;
+  const [guessesAnimationCount, setGuessesAnimationCount] = useState(0); // Used to trigger re-measurement of the pagination
+
+  const showFeedback = feedback || hasGuessed;
 
   return (
-    <div className="flex h-full flex-col justify-center gap-6">
-      <div className="flex flex-col items-center justify-center gap-6">
-        <p className="mt-4 text-center text-xl text-white">Can you guess the secret word?</p>
-        <div className="flex w-full max-w-xl flex-col gap-2">
+    <div className="flex h-full flex-col items-center justify-center p-6">
+      <div className="flex w-full max-w-md flex-grow-0 flex-col items-center justify-center gap-6">
+        <p className="text-center text-2xl font-bold text-white">
+          {hasGuessed ? (
+            <GuessCounter fontSize={21}>{guesses.length}</GuessCounter>
+          ) : (
+            `Can you guess the secret word?`
+          )}
+        </p>
+        <div className="flex w-full flex-col gap-2">
           <WordInput
             value={word}
-            onChange={(e) => setWord(e.target.value)}
+            onChange={(e) => {
+              setWord(e.target.value);
+              dismissFeedback(); // Hide feedback when typing
+            }}
             onSubmit={(animationDuration) => {
               if (word.trim().split(' ').length > 1) {
                 sendMessageToDevvit({
@@ -87,10 +142,23 @@ export const PlayPage = () => {
               'Or cat',
             ]}
           />
-          <FeedbackSection />
+          <div className="mt-3 min-h-7">
+            {showFeedback ? <FeedbackSection feedback={feedback} /> : <PlayerSuccessRate />}
+          </div>
         </div>
       </div>
-      <Guesses items={challengeUserInfo?.guesses ?? []} />
+
+      <motion.div // Animates the guesses sliding up from the bottom, which also pushes the word input up
+        initial={false}
+        animate={hasGuessed ? { height: '100%', opacity: 1 } : { height: '0', opacity: 0 }}
+        transition={{ duration: 0.8, ease: 'easeOut', delay: 0.2 }}
+        className="overflow-hidden"
+        onAnimationComplete={() => {
+          setGuessesAnimationCount((c) => c + 1);
+        }}
+      >
+        <Guesses items={guesses} updatePaginationSeed={guessesAnimationCount} />
+      </motion.div>
     </div>
   );
 };
