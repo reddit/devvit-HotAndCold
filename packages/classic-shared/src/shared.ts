@@ -41,9 +41,6 @@ export type ScoreExplanation = {
 export type Game = {
   number: number;
   mode: 'regular' | 'hardcore';
-  // TODO: Need to get this
-  // userStreak: number;
-  // latestChallengeNumber: number;
   challengeInfo: {
     // DO NOT SEND THE WORD HERE!
     // THAT WOULD BE SILLY
@@ -75,7 +72,6 @@ export type UserSettings = {
 
 export type ChallengeLeaderboardResponse = {
   // TODO: Community streak to see if the entire community can keep a solve per day going?
-  userStreak: number;
   userRank: {
     score: number;
     timeToSolve: number;

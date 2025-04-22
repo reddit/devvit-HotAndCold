@@ -9,7 +9,6 @@ import {
 } from '@hotandcold/shared/utils/zoddy';
 import { ChallengeService } from './challenge.js';
 import { API } from './api.js';
-import { Streaks } from './streaks.js';
 import { ChallengeLeaderboard } from './challengeLeaderboard.js';
 import { Score } from './score.js';
 import { GameResponse, Guess } from '@hotandcold/classic-shared';
@@ -427,8 +426,6 @@ export const submitGuess = zoddy(
 
       console.log(`Marking challenge as solved for user ${username}`);
 
-      const currentChallengeNumber = await challengeService.getCurrentChallengeNumber();
-
       // NOTE: This is bad for perf and should really be a background job or something
       // Users might see a delay in seeing the winning screen
       let winnersCircleComment: Comment | undefined;
@@ -506,16 +503,6 @@ export const submitGuess = zoddy(
         score,
         winnersCircleCommentId: winnersCircleComment?.id,
       });
-
-      console.log(`Incrementing streak for user ${username}`);
-
-      // Only increment streak if the user solved the current day's challenge
-      if (currentChallengeNumber === challenge) {
-        console.log(`User ${username} solved today's challenge, incrementing streak`);
-        await Streaks.incrementEntry({ redis: context.redis, username });
-      } else {
-        console.log(`User ${username} solved a past challenge, skipping streak increment`);
-      }
 
       console.log(`Incrementing total solves for challenge ${challenge}`);
 
