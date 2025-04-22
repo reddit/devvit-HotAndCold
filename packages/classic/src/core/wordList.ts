@@ -14,13 +14,7 @@ const zodAppContext = z.union([zodContext, zodTriggerContext]);
  * if you really need to pull this.
  */
 export class WordListService {
-  // Use the specific inferred type for the instance variable
-  private redis: RedisClient;
-
-  // Constructor expects the union type
-  constructor(redis: RedisClient) {
-    this.redis = redis;
-  }
+  constructor(private redis: RedisClient) {}
 
   // Static utility method for key generation
   static getWordListKey(dictionary = 'default'): string {
