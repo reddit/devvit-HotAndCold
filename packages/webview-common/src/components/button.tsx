@@ -52,6 +52,7 @@ export const IconButton = ({
   ...rest
 }: ComponentProps<'button'> & {
   icon: React.ReactNode;
+  'aria-label': string; // Require label for accessibility since the text is often hidden.
 }) => (
   <button
     className={cn(

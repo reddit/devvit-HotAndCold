@@ -30,7 +30,12 @@ export const Header = () => {
         </div>
 
         <div className="flex flex-1 items-center justify-end gap-2">
-          <IconButton type="button" onClick={() => setHowToPlayOpen(true)} icon={<InfoIcon />}>
+          <IconButton
+            type="button"
+            onClick={() => setHowToPlayOpen(true)}
+            icon={<InfoIcon />}
+            aria-label="How to Play"
+          >
             How to Play
           </IconButton>
           <HelpMenu
