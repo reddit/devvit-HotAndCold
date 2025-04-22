@@ -21,8 +21,23 @@ class PaymentsRepo {
       console.log('User already has lifetime access to hardcore mode');
       return;
     }
-    const baseTime = existingAccess ? DateTime.fromISO(existingAccess) : DateTime.now();
-    const newExpiry = baseTime.plus({ days: 7 });
+
+    // If the user doesn't have access, set it to 7 days from now
+    if (existingAccess == null) {
+      const newExpiry = DateTime.now().plus({ days: 7 });
+      await this.#redis.set(PaymentsRepo.hardcoreModeAccessKey(userId), newExpiry.toISO());
+      return;
+    }
+
+    // If the existing access is expired, also set it to 7 days from now
+    if (DateTime.fromISO(existingAccess) < DateTime.now()) {
+      const newExpiry = DateTime.now().plus({ days: 7 });
+      await this.#redis.set(PaymentsRepo.hardcoreModeAccessKey(userId), newExpiry.toISO());
+      return;
+    }
+
+    // If the existing access is not expired, add 7 days to it
+    const newExpiry = DateTime.fromISO(existingAccess).plus({ days: 7 });
     await this.#redis.set(PaymentsRepo.hardcoreModeAccessKey(userId), newExpiry.toISO()!);
   }
 }
