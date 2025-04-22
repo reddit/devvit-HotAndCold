@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { API } from '../core/api.js';
-import { ChallengeToWord } from './challengeToWord.js';
+import { ChallengeToWordService } from './challengeToWord.js';
 import { WordListService } from './wordList.js';
 import { ChallengeToPost } from './challengeToPost.js';
 import { Preview } from '../components/Preview.js';
@@ -12,7 +12,7 @@ import {
   zodJobContext,
 } from '@hotandcold/shared/utils/zoddy';
 
-import { Post, RedisClient, RichTextBuilder } from '@devvit/public-api';
+import { Devvit, Post, RedisClient, RichTextBuilder } from '@devvit/public-api';
 
 export * as Challenge from './challenge.js';
 
@@ -33,7 +33,13 @@ const challengeSchema = z
   .strict();
 
 export class ChallengeService {
-  constructor(private redis: RedisClient) {}
+  private redis: RedisClient;
+  private challengeToWordService: ChallengeToWordService;
+
+  constructor(redis: RedisClient) {
+    this.redis = redis;
+    this.challengeToWordService = new ChallengeToWordService(this.redis);
+  }
 
   // --- Static Key Generators ---
   static getCurrentChallengeNumberKey(): string {
@@ -139,7 +145,7 @@ export class ChallengeService {
 
       const [wordList, usedWords, currentChallengeNumber, currentSubreddit] = await Promise.all([
         wordListService.getCurrentWordList({}),
-        ChallengeToWord.getAllUsedWords({ redis: context.redis }),
+        this.challengeToWordService.getAllUsedWords({}),
         this.getCurrentChallengeNumber(),
         context.reddit.getCurrentSubreddit(),
       ]);
@@ -192,9 +198,8 @@ export class ChallengeService {
 
         await this.setCurrentChallengeNumber({ number: newChallengeNumber });
 
-        await ChallengeToWord.setChallengeNumberForWord({
+        await this.challengeToWordService.setChallengeNumberForWord({
           challenge: newChallengeNumber,
-          redis: this.redis,
           word: newWord,
         });
         await ChallengeToPost.setChallengeNumberForPost({

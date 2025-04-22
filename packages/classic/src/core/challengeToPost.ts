@@ -4,7 +4,7 @@ import { zoddy, zodRedis } from '@hotandcold/shared/utils/zoddy';
 export * as ChallengeToPost from './challengeToPost.js';
 
 // Original to make it super explicit since we might let people play the archive on any postId
-export const getChallengeToOriginalPostKey = () => `challenge_to_original_post` as const;
+const getChallengeToOriginalPostKey = () => `challenge_to_original_post` as const;
 
 export const getChallengeNumberForPost = zoddy(
   z.object({
