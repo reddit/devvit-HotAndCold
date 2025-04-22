@@ -20,6 +20,9 @@ import { Streaks } from './core/streaks.js';
 import { Reminders } from './core/reminders.js';
 import { RedditApiCache } from './core/redditApiCache.js';
 import { sendMessageToWebview } from './utils/index.js';
+import { initPayments } from './payments.js';
+
+initPayments();
 
 Devvit.configure({
   redditAPI: true,
