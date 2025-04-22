@@ -34,11 +34,7 @@ const challengeSchema = z
   .strict();
 
 export class ChallengeService {
-  private redis: RedisClient;
-
-  constructor(redis: RedisClient) {
-    this.redis = redis;
-  }
+  constructor(private redis: RedisClient) {}
 
   // --- Static Key Generators ---
   static getCurrentChallengeNumberKey(): string {
