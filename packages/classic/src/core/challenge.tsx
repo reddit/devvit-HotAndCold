@@ -211,8 +211,6 @@ export class ChallengeService {
         if (currentChallengeNumber > 0) {
           await Streaks.expireStreaks({
             redis: context.redis,
-            // @ts-expect-error THis is due to the workaround
-            txn: txnRedis, // Cast may be needed depending on Streaks signature
             challengeNumberBeforeTheNewestChallenge: currentChallengeNumber,
           });
         }
