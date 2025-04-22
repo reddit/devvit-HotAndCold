@@ -1,0 +1,25 @@
+{
+  "$schema": "https://developers.reddit.com/schema/products.json",
+  "products": [
+    {
+      "sku": "hardcore-mode-lifetime-access",
+      "displayName": "Unlock HARDCORE (forever)",
+      "description": "Unlocks HARDCORE mode indefinitely. Takes effect immediately. HARDCORE puzzles are limited to 100 guesses and no hints.",
+      "price": 250,
+      "accountingType": "DURABLE",
+      "images": {
+        "icon": "unlock-seven-days.png"
+      }
+    },
+    {
+      "sku": "hardcore-mode-seven-day-access",
+      "displayName": "Unlock HARDCORE (7 days)",
+      "description": "Unlocks HARDCORE mode for 7 days. Takes effect immediately. HARDCORE puzzles are limited to 100 guesses and no hints.",
+      "price": 50,
+      "accountingType": "VALID_FOR_7D",
+      "images": {
+        "icon": "unlock-forever.png"
+      }
+    }
+  ]
+}
