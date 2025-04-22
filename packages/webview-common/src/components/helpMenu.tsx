@@ -1,5 +1,11 @@
 import { useState, useRef, useEffect } from 'react';
 
+const HamburgerIcon = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="11" fill="currentColor">
+    <path d="M13.667 6.333H.333v-1h13.334v1Zm0-5.666H.333v1h13.334v-1Zm0 9.333H.333v1h13.334v-1Z" />
+  </svg>
+);
+
 export const HelpMenu = ({
   items,
 }: {
@@ -99,36 +105,22 @@ export const HelpMenu = ({
   };
 
   return (
-    <div className="relative h-[18px]" ref={menuRef} onKeyDown={handleKeyDown}>
+    <div className="relative text-gray-900 dark:text-white" ref={menuRef} onKeyDown={handleKeyDown}>
       <button
         onClick={() => setToggled((x) => !x)}
         aria-expanded={toggled}
         aria-haspopup="true"
-        aria-label="Help menu"
+        aria-label="Menu"
         type="button"
-        className="h-[18px]"
+        className="flex items-center gap-2 rounded-full bg-gray-50 px-4 py-3 text-current sm:px-3 sm:py-2 dark:bg-black"
       >
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          width="18"
-          height="18"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="2"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-        >
-          <path stroke="none" d="M0 0h24v24H0z" fill="none" />
-          <path d="M5 12m-1 0a1 1 0 1 0 2 0a1 1 0 1 0 -2 0" />
-          <path d="M12 12m-1 0a1 1 0 1 0 2 0a1 1 0 1 0 -2 0" />
-          <path d="M19 12m-1 0a1 1 0 1 0 2 0a1 1 0 1 0 -2 0" />
-        </svg>
+        <HamburgerIcon />
+        <span className="hidden sm:inline">Menu</span>
       </button>
 
       {toggled && (
         <div
-          className="absolute -left-36 top-full z-[10000] mt-1 w-36 rounded-md border border-gray-800 bg-gray-900 py-1 shadow-lg"
+          className="absolute right-0 top-full z-[10000] mt-1 w-36 rounded-md border border-gray-800 bg-gray-900 py-1 shadow-lg"
           role="menu"
           aria-orientation="vertical"
           aria-labelledby="menu-button"
