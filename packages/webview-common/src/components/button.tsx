@@ -44,3 +44,24 @@ export const SecondaryButton = ({ children, className, ...rest }: ComponentProps
     </button>
   );
 };
+
+export const IconButton = ({
+  children,
+  className,
+  icon,
+  ...rest
+}: ComponentProps<'button'> & {
+  icon: React.ReactNode;
+  'aria-label': string; // Require label for accessibility since the text is often hidden.
+}) => (
+  <button
+    className={cn(
+      'flex items-center gap-2 rounded-full bg-gray-50 p-3 text-current sm:px-3 sm:py-2 dark:bg-black',
+      className
+    )}
+    {...rest}
+  >
+    {icon}
+    <span className="hidden sm:inline">{children}</span>
+  </button>
+);

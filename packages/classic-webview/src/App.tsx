@@ -5,16 +5,9 @@ import { WinPage } from './pages/WinPage';
 import { usePage } from './hooks/usePage';
 import { Progress } from './components/progress';
 import { useGame } from './hooks/useGame';
-import { Logo } from '@hotandcold/webview-common/components/logo';
-import { sendMessageToDevvit } from './utils';
-import { cn, prettyNumber } from '@hotandcold/webview-common/utils';
-import { useConfirmation } from '@hotandcold/webview-common/hooks/useConfirmation';
-import { AnimatedNumber } from '@hotandcold/webview-common/components/timer';
-import { HelpMenu } from '@hotandcold/webview-common/components/helpMenu';
-import { useState } from 'react';
-import { HowToPlayModal } from './components/howToPlayModal';
+import { cn } from '@hotandcold/webview-common/utils';
+import { Header } from './components/header';
 import { LoadingPage } from './pages/LoadingPage';
-import { useSetUserSettings, useUserSettings } from './hooks/useUserSettings';
 
 const getPage = (page: Page) => {
   switch (page) {
@@ -33,16 +26,7 @@ const getPage = (page: Page) => {
 
 export const App = () => {
   const page = usePage();
-  const { layout, sortType, isUserOptedIntoReminders } = useUserSettings();
-  const setUserSettings = useSetUserSettings();
-  const { challengeUserInfo, challengeInfo, mode } = useGame();
-  const isActivelyPlaying =
-    challengeUserInfo?.guesses &&
-    challengeUserInfo?.guesses?.length > 0 &&
-    !challengeUserInfo?.solvedAtMs &&
-    !challengeUserInfo?.gaveUpAtMs;
-  const { showConfirmation } = useConfirmation();
-  const [howToPlayOpen, setHowToPlayOpen] = useState(false);
+  const { mode } = useGame();
   // const [friendsModalOpen, setFriendsModalOpen] = useState(false);
 
   return (
@@ -53,99 +37,9 @@ export const App = () => {
           'bg-[url(/assets/hardcore_background.png)] bg-cover bg-center bg-no-repeat bg-blend-multiply'
       )}
     >
-      <div>
-        <div className="flex h-4 items-center justify-between">
-          <p className="text-sm text-gray-500">
-            Players:&nbsp;
-            {/* 1 since the person viewing it could be the first and we don't count until there's a guess */}
-            {challengeInfo?.totalPlayers ? prettyNumber(challengeInfo.totalPlayers) : '1'}
-          </p>
-
-          <div className="flex gap-3">
-            <div className="flex items-end">
-              <p className="text-sm text-gray-500">Guesses:&nbsp;</p>
-              <AnimatedNumber
-                className="text-gray-500"
-                size={12.25}
-                value={challengeUserInfo?.guesses?.length ?? 0}
-              />
-            </div>
-            <HelpMenu
-              items={[
-                { name: 'How to Play', action: () => setHowToPlayOpen(true) },
-                {
-                  name: 'Toggle Size',
-                  action: () =>
-                    setUserSettings((x) => ({
-                      ...x,
-                      layout: layout === 'CONDENSED' ? 'EXPANDED' : 'CONDENSED',
-                    })),
-                },
-                {
-                  name: isUserOptedIntoReminders ? 'Unsubscribe' : 'Subscribe',
-                  action: () => {
-                    sendMessageToDevvit({
-                      type: 'TOGGLE_USER_REMINDER',
-                    });
-                  },
-                },
-                {
-                  name: `Sort by ${sortType === 'TIMESTAMP' ? 'Similarity' : 'Time'}`,
-                  disabled: !isActivelyPlaying,
-                  action: () => {
-                    setUserSettings((x) => ({
-                      ...x,
-                      sortType: x.sortType === 'SIMILARITY' ? 'TIMESTAMP' : 'SIMILARITY',
-                    }));
-                  },
-                },
-                {
-                  name: 'Hint',
-                  disabled: !isActivelyPlaying,
-                  action: async () => {
-                    const response = await showConfirmation({
-                      title: 'Are you sure?',
-                      description: `Receiving a hint will reduce your final score. Please use them sparingly to stay competitive on the leaderboard.`,
-                      confirmText: 'Request Hint',
-                      cancelText: 'Cancel',
-                    });
-
-                    if (!response.confirmed) return;
-
-                    sendMessageToDevvit({
-                      type: 'HINT_REQUEST',
-                    });
-                  },
-                },
-                {
-                  name: 'Give Up',
-                  disabled: !isActivelyPlaying,
-                  action: async () => {
-                    const response = await showConfirmation({
-                      title: 'Are you sure?',
-                      description: `This will end the game and reveal the word. You won't receive a score for this game and your streak will be reset.`,
-                      confirmText: 'Give Up',
-                      cancelText: 'Cancel',
-                    });
-
-                    if (!response.confirmed) return;
-
-                    sendMessageToDevvit({
-                      type: 'GIVE_UP_REQUEST',
-                    });
-                  },
-                },
-              ]}
-            />
-          </div>
-        </div>
-        <div className="-mt-4 mb-[10px] flex justify-center">
-          <Logo />
-        </div>
-      </div>
+      <Header />
       {getPage(page)}
       <Progress />
-      <HowToPlayModal isOpen={howToPlayOpen} onClose={() => setHowToPlayOpen(false)} />
       {/* <FriendsModal isOpen={friendsModalOpen} onClose={() => setFriendsModalOpen(false)} /> */}
     </div>
   );

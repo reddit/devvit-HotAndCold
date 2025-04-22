@@ -6,6 +6,7 @@
   "exports": {
     "./components/button": "./src/components/button.tsx",
     "./components/helpMenu": "./src/components/helpMenu.tsx",
+    "./components/icon": "./src/components/icon.tsx",
     "./components/logo": "./src/components/logo.tsx",
     "./components/modal": "./src/components/modal.tsx",
     "./components/switcher": "./src/components/switcher.tsx",
