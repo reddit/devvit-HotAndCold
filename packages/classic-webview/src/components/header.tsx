@@ -90,7 +90,7 @@ export const Header = () => {
                 action: async () => {
                   const response = await showConfirmation({
                     title: 'Are you sure?',
-                    description: `This will end the game and reveal the word. You won't receive a score for this game and your streak will be reset.`,
+                    description: `This will end the game and reveal the word. You won't receive a score for this game.`,
                     confirmText: 'Give Up',
                     cancelText: 'Cancel',
                   });
