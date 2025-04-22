@@ -426,8 +426,6 @@ export const submitGuess = zoddy(
 
       console.log(`Marking challenge as solved for user ${username}`);
 
-      const currentChallengeNumber = await challengeService.getCurrentChallengeNumber();
-
       // NOTE: This is bad for perf and should really be a background job or something
       // Users might see a delay in seeing the winning screen
       let winnersCircleComment: Comment | undefined;
