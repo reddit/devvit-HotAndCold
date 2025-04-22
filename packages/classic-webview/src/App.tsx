@@ -27,7 +27,6 @@ const getPage = (page: Page) => {
 export const App = () => {
   const page = usePage();
   const { mode } = useGame();
-  // const [friendsModalOpen, setFriendsModalOpen] = useState(false);
 
   return (
     <div
@@ -37,7 +36,9 @@ export const App = () => {
           'bg-[url(/assets/hardcore_background.png)] bg-cover bg-center bg-no-repeat bg-blend-multiply'
       )}
     >
-      <Header />
+      <div className="mb-4 sm:mb-6">
+        <Header />
+      </div>
       {getPage(page)}
       <Progress />
       {/* <FriendsModal isOpen={friendsModalOpen} onClose={() => setFriendsModalOpen(false)} /> */}
