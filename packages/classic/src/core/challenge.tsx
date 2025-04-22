@@ -11,20 +11,15 @@ import {
   zoddy,
   zodJobContext,
   zodRedis,
-  zodTransaction,
 } from '@hotandcold/shared/utils/zoddy';
 
 import { Streaks } from './streaks.js';
-import { Devvit, Post, RichTextBuilder } from '@devvit/public-api';
+import { Devvit, Post, RedisClient, RichTextBuilder } from '@devvit/public-api';
 
 export * as Challenge from './challenge.js';
 
 // Define base Zod schemas
 const zodAppContext = z.union([zodContext, zodJobContext]); // Combined context types
-
-// Infer types from Zod schemas
-type RedisClientType = z.infer<typeof zodRedis>;
-type RedisOrTransactionClientType = z.infer<typeof zodRedis> | z.infer<typeof zodTransaction>;
 
 // Define challenge schema
 const challengeSchema = z
@@ -40,9 +35,9 @@ const challengeSchema = z
   .strict();
 
 export class ChallengeService {
-  private redis: RedisOrTransactionClientType;
+  private redis: RedisClient;
 
-  constructor(redis: RedisOrTransactionClientType) {
+  constructor(redis: RedisClient) {
     this.redis = redis;
   }
 
@@ -58,8 +53,7 @@ export class ChallengeService {
   // --- Instance Methods ---
 
   async getCurrentChallengeNumber(): Promise<number> {
-    const redisClient = this.redis as RedisClientType;
-    const currentChallengeNumber = await redisClient.get(
+    const currentChallengeNumber = await this.redis.get(
       ChallengeService.getCurrentChallengeNumberKey()
     );
 
@@ -71,8 +65,7 @@ export class ChallengeService {
   }
 
   incrementCurrentChallengeNumber = zoddy(z.object({}), async () => {
-    const redisClient = this.redis as RedisClientType;
-    await redisClient.incrBy(ChallengeService.getCurrentChallengeNumberKey(), 1);
+    await this.redis.incrBy(ChallengeService.getCurrentChallengeNumberKey(), 1);
   });
 
   setCurrentChallengeNumber = zoddy(
@@ -80,7 +73,6 @@ export class ChallengeService {
       number: z.number().gt(0),
     }),
     async ({ number }) => {
-      // Uses this.redis which can be transaction or regular
       await this.redis.set(ChallengeService.getCurrentChallengeNumberKey(), number.toString());
     }
   );
@@ -90,8 +82,7 @@ export class ChallengeService {
       challenge: z.number().gt(0),
     }),
     async ({ challenge }) => {
-      const redisClient = this.redis as RedisClientType;
-      const result = await redisClient.hGetAll(ChallengeService.getChallengeKey(challenge));
+      const result = await this.redis.hGetAll(ChallengeService.getChallengeKey(challenge));
 
       if (!result || Object.keys(result).length === 0) {
         throw new Error('No challenge found');
@@ -106,17 +97,15 @@ export class ChallengeService {
       config: challengeSchema,
     }),
     async ({ challenge, config }) => {
-      // Uses this.redis which can be transaction or regular
       await this.redis.hSet(ChallengeService.getChallengeKey(challenge), stringifyValues(config));
     }
   );
 
   initialize = zoddy(z.object({}), async () => {
-    const redisClient = this.redis as RedisClientType;
     const key = ChallengeService.getCurrentChallengeNumberKey();
-    const result = await redisClient.get(key);
+    const result = await this.redis.get(key);
     if (!result) {
-      await redisClient.set(key, '0');
+      await this.redis.set(key, '0');
     } else {
       console.log('Challenge key already initialized');
     }
@@ -152,7 +141,6 @@ export class ChallengeService {
     async ({ context }) => {
       console.log('Making new challenge...');
 
-      // Instantiate WordListService with the same redis client (might be transaction)
       const wordListService = new WordListService(this.redis);
 
       const [wordList, usedWords, currentChallengeNumber, currentSubreddit] = await Promise.all([
@@ -178,12 +166,7 @@ export class ChallengeService {
 
       let post: Post | undefined;
       try {
-        // Assume this.redis might be a transaction passed to constructor
-        const txnRedis = this.redis;
-        const txnChallengeService = new ChallengeService(txnRedis); // Use the same redis instance
-        const txnWordListService = new WordListService(txnRedis);
-
-        await txnWordListService.setCurrentWordListWords({
+        await wordListService.setCurrentWordListWords({
           words: wordList.slice(unusedWordIndex + 1),
         });
 
@@ -200,8 +183,7 @@ export class ChallengeService {
         });
         await winnersCircleComment.distinguish(true);
 
-        // Use the transaction-aware service instances
-        await txnChallengeService.setChallenge({
+        await this.setChallenge({
           challenge: newChallengeNumber,
           config: {
             word: newWord,
@@ -214,31 +196,27 @@ export class ChallengeService {
           },
         });
 
-        await txnChallengeService.setCurrentChallengeNumber({ number: newChallengeNumber });
+        await this.setCurrentChallengeNumber({ number: newChallengeNumber });
 
-        // Pass transaction-aware redis to helpers
         await ChallengeToWord.setChallengeNumberForWord({
           challenge: newChallengeNumber,
-          redis: txnRedis,
+          redis: this.redis,
           word: newWord,
         });
         await ChallengeToPost.setChallengeNumberForPost({
           challenge: newChallengeNumber,
           postId: post.id,
-          redis: txnRedis,
+          redis: this.redis,
         });
 
         if (currentChallengeNumber > 0) {
-          // Pass transaction-aware redis if Streaks supports it
           await Streaks.expireStreaks({
-            redis: context.redis, // Base redis might be needed?
+            redis: context.redis,
             // @ts-expect-error THis is due to the workaround
             txn: txnRedis, // Cast may be needed depending on Streaks signature
             challengeNumberBeforeTheNewestChallenge: currentChallengeNumber,
           });
         }
-
-        // if (txn is transaction) await txn.exec();
 
         console.log(
           'New challenge created:',

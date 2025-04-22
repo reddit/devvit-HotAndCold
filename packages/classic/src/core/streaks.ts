@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { zoddy, zodRedditUsername, zodRedis, zodTransaction } from '@hotandcold/shared/utils/zoddy';
+import { zoddy, zodRedditUsername, zodRedis } from '@hotandcold/shared/utils/zoddy';
 import { ChallengeLeaderboard } from './challengeLeaderboard.js';
 
 export * as Streaks from './streaks.js';
@@ -66,7 +66,7 @@ export const addEntry = zoddy(
 
 export const incrementEntry = zoddy(
   z.object({
-    redis: z.union([zodRedis, zodTransaction]),
+    redis: zodRedis,
     username: zodRedditUsername,
   }),
   async ({ redis, username }) => {
@@ -77,8 +77,6 @@ export const incrementEntry = zoddy(
 export const expireStreaks = zoddy(
   z.object({
     redis: zodRedis,
-    // Since txn can't read you have to pass in both based on where this is going to be called
-    txn: zodTransaction,
     /**
      * We don't want the newly created challenge. We want the one before that because
      * we want to expire streaks for the challenge that just ended.
@@ -87,7 +85,7 @@ export const expireStreaks = zoddy(
      */
     challengeNumberBeforeTheNewestChallenge: z.number().gt(0),
   }),
-  async ({ redis, txn, challengeNumberBeforeTheNewestChallenge }) => {
+  async ({ redis, challengeNumberBeforeTheNewestChallenge }) => {
     const [allStreaks, leaderboard] = await Promise.all([
       getStreaks({
         redis: redis,
@@ -119,7 +117,7 @@ export const expireStreaks = zoddy(
     const thirtyDaysFromNow = new Date();
     thirtyDaysFromNow.setDate(thirtyDaysFromNow.getDate() + 30);
 
-    await txn.set(
+    await redis.set(
       getStreaksBackupKey(challengeNumberBeforeTheNewestChallenge),
       JSON.stringify({
         streaksToExpire,
@@ -130,7 +128,7 @@ export const expireStreaks = zoddy(
       { expiration: thirtyDaysFromNow }
     );
 
-    await txn.zRem(
+    await redis.zRem(
       getStreakKey(),
       streaksToExpire.map((entry) => entry.member)
     );
