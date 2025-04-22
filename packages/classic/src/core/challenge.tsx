@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { API } from '../core/api.js';
 import { ChallengeToWordService } from './challengeToWord.js';
 import { WordListService } from './wordList.js';
-import { ChallengeToPost } from './challengeToPost.js';
+import { ChallengeToPost, ChallengeToPostService } from './challengeToPost.js';
 import { Preview } from '../components/Preview.js';
 import { stringifyValues } from '@hotandcold/shared/utils';
 import {
@@ -35,10 +35,12 @@ const challengeSchema = z
 export class ChallengeService {
   private redis: RedisClient;
   private challengeToWordService: ChallengeToWordService;
+  private challengeToPostService: ChallengeToPostService;
 
   constructor(redis: RedisClient) {
     this.redis = redis;
     this.challengeToWordService = new ChallengeToWordService(this.redis);
+    this.challengeToPostService = new ChallengeToPostService(this.redis);
   }
 
   // --- Static Key Generators ---
@@ -202,10 +204,9 @@ export class ChallengeService {
           challenge: newChallengeNumber,
           word: newWord,
         });
-        await ChallengeToPost.setChallengeNumberForPost({
+        this.challengeToPostService.setChallengeNumberForPost({
           challenge: newChallengeNumber,
           postId: post.id,
-          redis: this.redis,
         });
 
         console.log(

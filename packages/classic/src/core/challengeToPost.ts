@@ -1,11 +1,13 @@
 import { z } from 'zod';
 import { zoddy, zodRedis } from '@hotandcold/shared/utils/zoddy';
+import { RedisClient } from '@devvit/public-api';
 
 export * as ChallengeToPost from './challengeToPost.js';
 
 // Original to make it super explicit since we might let people play the archive on any postId
 const getChallengeToOriginalPostKey = () => `challenge_to_original_post` as const;
 
+// TODO: this should also be returning whether the post is hardcore or not.
 export const getChallengeNumberForPost = zoddy(
   z.object({
     redis: zodRedis,
@@ -21,38 +23,25 @@ export const getChallengeNumberForPost = zoddy(
   }
 );
 
-export const getPostForChallengeNumber = zoddy(
-  z.object({
-    redis: zodRedis,
-    challenge: z.number().gt(0),
-  }),
-  async ({ redis, challenge }) => {
-    const posts = await redis.zRange(getChallengeToOriginalPostKey(), challenge, challenge, {
-      by: 'score',
-    });
+/**
+ * There's some asymmetry here - when we're setting the number, we already know via context
+ * whether it's hardcore or not, but when we're getting the number, we don't know.
+ *
+ * So, we keep the setters here, but the getters are in free functions.
+ */
+export class ChallengeToPostService {
+  constructor(private redis: RedisClient) {}
 
-    if (!posts) {
-      throw new Error('No post found for challenge number');
+  setChallengeNumberForPost = zoddy(
+    z.object({
+      challenge: z.number().gt(0),
+      postId: z.string().trim(),
+    }),
+    async ({ challenge, postId }) => {
+      await this.redis.zAdd(getChallengeToOriginalPostKey(), {
+        member: postId,
+        score: challenge,
+      });
     }
-
-    if (posts.length !== 1) {
-      throw new Error('Multiple posts found for the same challenge number');
-    }
-
-    return posts[0].member;
-  }
-);
-
-export const setChallengeNumberForPost = zoddy(
-  z.object({
-    redis: zodRedis,
-    challenge: z.number().gt(0),
-    postId: z.string().trim(),
-  }),
-  async ({ redis, challenge, postId }) => {
-    await redis.zAdd(getChallengeToOriginalPostKey(), {
-      member: postId,
-      score: challenge,
-    });
-  }
-);
+  );
+}
