@@ -2,15 +2,8 @@ import { useState, useRef, useEffect } from 'react';
 
 const HamburgerIcon = () => {
   return (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      width="14"
-      height="11"
-      viewBox="0 0 14 11"
-      fill="currentColor"
-      stroke="none"
-    >
-      <path d="M13.6666 6.33334H0.333252V5.33334H13.6666V6.33334ZM13.6666 0.666672H0.333252V1.66667H13.6666V0.666672ZM13.6666 10H0.333252V11H13.6666V10Z" />
+    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="11" fill="currentColor">
+      <path d="M13.667 6.333H.333v-1h13.334v1Zm0-5.666H.333v1h13.334v-1Zm0 9.333H.333v1h13.334v-1Z" />
     </svg>
   );
 };
