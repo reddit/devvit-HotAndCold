@@ -9,7 +9,6 @@ import {
 } from '@hotandcold/shared/utils/zoddy';
 import { ChallengeService } from './challenge.js';
 import { API } from './api.js';
-import { Streaks } from './streaks.js';
 import { ChallengeLeaderboard } from './challengeLeaderboard.js';
 import { Score } from './score.js';
 import { GameResponse, Guess } from '@hotandcold/classic-shared';
@@ -506,16 +505,6 @@ export const submitGuess = zoddy(
         score,
         winnersCircleCommentId: winnersCircleComment?.id,
       });
-
-      console.log(`Incrementing streak for user ${username}`);
-
-      // Only increment streak if the user solved the current day's challenge
-      if (currentChallengeNumber === challenge) {
-        console.log(`User ${username} solved today's challenge, incrementing streak`);
-        await Streaks.incrementEntry({ redis: context.redis, username });
-      } else {
-        console.log(`User ${username} solved a past challenge, skipping streak increment`);
-      }
 
       console.log(`Incrementing total solves for challenge ${challenge}`);
 

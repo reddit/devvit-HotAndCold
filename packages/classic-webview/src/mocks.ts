@@ -507,7 +507,6 @@ export const generateTestScenarios = () => {
 };
 
 export const CHALLENGE_LEADERBOARD_RESPONSE: ChallengeLeaderboardResponse = {
-  'userStreak': 6,
   'leaderboardByScore': [
     {
       'score': 451,

@@ -12,7 +12,6 @@ import {
   zodJobContext,
 } from '@hotandcold/shared/utils/zoddy';
 
-import { Streaks } from './streaks.js';
 import { Devvit, Post, RedisClient, RichTextBuilder } from '@devvit/public-api';
 
 export * as Challenge from './challenge.js';
@@ -203,13 +202,6 @@ export class ChallengeService {
           postId: post.id,
           redis: this.redis,
         });
-
-        if (currentChallengeNumber > 0) {
-          await Streaks.expireStreaks({
-            redis: context.redis,
-            challengeNumberBeforeTheNewestChallenge: currentChallengeNumber,
-          });
-        }
 
         console.log(
           'New challenge created:',
