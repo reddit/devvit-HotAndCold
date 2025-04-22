@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { zoddy, zodRedditUsername, zodRedis, zodTransaction } from '@hotandcold/shared/utils/zoddy';
+import { zoddy, zodRedditUsername, zodRedis } from '@hotandcold/shared/utils/zoddy';
 import { ChallengeService } from './challenge.js';
 
 export * as ChallengePlayers from './challengePlayers.js';
@@ -16,7 +16,7 @@ export const playersSchema = z.record(
 
 export const setPlayer = zoddy(
   z.object({
-    redis: z.union([zodRedis, zodTransaction]),
+    redis: zodRedis,
     username: zodRedditUsername,
     avatar: z.string().nullable(),
     challenge: z.number().gt(0),

@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { zoddy, zodRedditUsername, zodRedis, zodTransaction } from '@hotandcold/shared/utils/zoddy';
+import { zoddy, zodRedditUsername, zodRedis } from '@hotandcold/shared/utils/zoddy';
 
 export * as Reminders from './reminders.js';
 
@@ -8,7 +8,7 @@ export const getRemindersKey = () => `reminders` as const;
 
 export const setReminderForUsername = zoddy(
   z.object({
-    redis: z.union([zodRedis, zodTransaction]),
+    redis: zodRedis,
     username: zodRedditUsername,
   }),
   async ({ redis, username }) => {
@@ -33,7 +33,7 @@ export const isUserOptedIntoReminders = zoddy(
 
 export const removeReminderForUsername = zoddy(
   z.object({
-    redis: z.union([zodRedis, zodTransaction]),
+    redis: zodRedis,
     username: zodRedditUsername,
   }),
   async ({ redis, username }) => {

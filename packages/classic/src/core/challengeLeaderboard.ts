@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { zoddy, zodRedditUsername, zodRedis, zodTransaction } from '@hotandcold/shared/utils/zoddy';
+import { zoddy, zodRedditUsername, zodRedis } from '@hotandcold/shared/utils/zoddy';
 
 export * as ChallengeLeaderboard from './challengeLeaderboard.js';
 
@@ -54,7 +54,7 @@ export const getLeaderboardByFastest = zoddy(
 
 export const addEntry = zoddy(
   z.object({
-    redis: z.union([zodRedis, zodTransaction]),
+    redis: zodRedis,
     challenge: z.number().gt(0),
     username: zodRedditUsername,
     score: z.number().gte(0),

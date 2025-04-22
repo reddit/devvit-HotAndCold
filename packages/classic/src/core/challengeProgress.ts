@@ -1,11 +1,5 @@
 import { z } from 'zod';
-import {
-  zodContext,
-  zoddy,
-  zodRedditUsername,
-  zodRedis,
-  zodTransaction,
-} from '@hotandcold/shared/utils/zoddy';
+import { zodContext, zoddy, zodRedditUsername, zodRedis } from '@hotandcold/shared/utils/zoddy';
 import { ChallengeService } from './challenge.js';
 import { ChallengePlayers } from './challengePlayers.js';
 import { RedditApiCache } from './redditApiCache.js';
@@ -96,7 +90,7 @@ export const getEntry = zoddy(
 
 export const upsertEntry = zoddy(
   z.object({
-    redis: z.union([zodRedis, zodTransaction]),
+    redis: zodRedis,
     challenge: z.number().gt(0),
     username: zodRedditUsername,
     // -1 means gave up

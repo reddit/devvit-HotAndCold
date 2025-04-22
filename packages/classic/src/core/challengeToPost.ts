@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { zoddy, zodRedis, zodTransaction } from '@hotandcold/shared/utils/zoddy';
+import { zoddy, zodRedis } from '@hotandcold/shared/utils/zoddy';
 
 export * as ChallengeToPost from './challengeToPost.js';
 
@@ -45,7 +45,7 @@ export const getPostForChallengeNumber = zoddy(
 
 export const setChallengeNumberForPost = zoddy(
   z.object({
-    redis: z.union([zodRedis, zodTransaction]),
+    redis: zodRedis,
     challenge: z.number().gt(0),
     postId: z.string().trim(),
   }),

@@ -1,20 +1,11 @@
 import { z } from 'zod';
-import {
-  zodContext,
-  zoddy,
-  zodRedis,
-  zodTransaction,
-  zodTriggerContext,
-} from '@hotandcold/shared/utils/zoddy';
+import { zodContext, zoddy, zodTriggerContext } from '@hotandcold/shared/utils/zoddy';
 import { DEFAULT_WORD_LIST } from '../constants.js';
 import { API } from './api.js';
+import { RedisClient } from '@devvit/public-api';
 
 // Define base Zod schemas
 const zodAppContext = z.union([zodContext, zodTriggerContext]);
-
-// Infer Redis types from Zod schemas
-type RedisClientType = z.infer<typeof zodRedis>;
-type RedisOrTransactionClientType = z.infer<typeof zodRedis> | z.infer<typeof zodTransaction>;
 
 /**
  * NOTE: Word lists a mutable! There is no way to know what the original word list was.
@@ -23,13 +14,7 @@ type RedisOrTransactionClientType = z.infer<typeof zodRedis> | z.infer<typeof zo
  * if you really need to pull this.
  */
 export class WordListService {
-  // Use the specific inferred type for the instance variable
-  private redis: RedisOrTransactionClientType;
-
-  // Constructor expects the union type
-  constructor(redis: RedisOrTransactionClientType) {
-    this.redis = redis;
-  }
+  constructor(private redis: RedisClient) {}
 
   // Static utility method for key generation
   static getWordListKey(dictionary = 'default'): string {
@@ -38,10 +23,8 @@ export class WordListService {
 
   // Instance method
   getCurrentWordList = zoddy(z.object({}), async () => {
-    // Cast to non-transaction type if needed for .get
-    const redisClient = this.redis as RedisClientType;
     const wordListKey = WordListService.getWordListKey();
-    const wordList = await redisClient.get(wordListKey);
+    const wordList = await this.redis.get(wordListKey);
 
     if (!wordList) {
       throw new Error('No word list found');
@@ -68,15 +51,14 @@ export class WordListService {
     z.object({ context: zodAppContext }),
     async ({ context }) => {
       // Use the redis instance provided in the constructor
-      const redisClient = this.redis as RedisClientType;
       const wordListKey = WordListService.getWordListKey();
-      const wordList = await redisClient.get(wordListKey);
+      const wordList = await this.redis.get(wordListKey);
       if (!wordList) {
         DEFAULT_WORD_LIST.forEach((word) => {
           // Don't wait, this just heas up the cache for the third party API
           void API.getWordConfig({ context: context, word });
         });
-        await redisClient.set(wordListKey, JSON.stringify(DEFAULT_WORD_LIST));
+        await this.redis.set(wordListKey, JSON.stringify(DEFAULT_WORD_LIST));
       } else {
         console.log('Word list already exists. Skipping initialization.');
       }

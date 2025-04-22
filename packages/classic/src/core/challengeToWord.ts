@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { zoddy, zodRedis, zodTransaction } from '@hotandcold/shared/utils/zoddy';
+import { zoddy, zodRedis } from '@hotandcold/shared/utils/zoddy';
 
 export * as ChallengeToWord from './challengeToWord.js';
 
@@ -23,7 +23,7 @@ export const getChallengeNumberForWord = zoddy(
 
 export const setChallengeNumberForWord = zoddy(
   z.object({
-    redis: z.union([zodRedis, zodTransaction]),
+    redis: zodRedis,
     challenge: z.number().gt(0),
     word: z.string().trim(),
   }),
