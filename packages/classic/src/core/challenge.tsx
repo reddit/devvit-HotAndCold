@@ -13,7 +13,7 @@ import {
 } from '@hotandcold/shared/utils/zoddy';
 
 import { Streaks } from './streaks.js';
-import { Devvit, Post, RedisClient, RichTextBuilder } from '@devvit/public-api';
+import { Post, RedisClient, RichTextBuilder } from '@devvit/public-api';
 
 export * as Challenge from './challenge.js';
 
