@@ -37,6 +37,7 @@
     "prepare": "husky"
   },
   "dependencies": {
+    "@devvit/payments": "^0.11.13",
     "@dotenvx/dotenvx": "^1.39.0",
     "csv-parse": "^5.5.6",
     "csv-stringify": "^6.5.1",
@@ -72,11 +73,5 @@
     "typescript": "5.7.3",
     "vite": "^5.4.10",
     "vitest": "2.0.5"
-  },
-  "lint-staged": {
-    "packages/{classic,classic-shared,classic-webview}/**/*.{js,jsx,ts,tsx}": [
-      "eslint --fix",
-      "prettier --write"
-    ]
   }
 }

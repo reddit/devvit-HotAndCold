@@ -15,9 +15,11 @@
   "dependencies": {
     "@devvit/public-api": "0.11.12",
     "@hotandcold/classic-shared": "*",
-    "@hotandcold/shared": "*"
+    "@hotandcold/shared": "*",
+    "luxon": "^3.6.1"
   },
   "devDependencies": {
+    "@types/luxon": "^3.6.2",
     "eslint": "^9.24.0"
   }
 }
