@@ -12,7 +12,7 @@ import {
   zodJobContext,
 } from '@hotandcold/shared/utils/zoddy';
 
-import { Devvit, Post, RedisClient, RichTextBuilder } from '@devvit/public-api';
+import { Post, RedisClient, RichTextBuilder } from '@devvit/public-api';
 
 export * as Challenge from './challenge.js';
 
