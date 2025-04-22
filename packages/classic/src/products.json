@@ -8,7 +8,7 @@
       "price": 250,
       "accountingType": "DURABLE",
       "images": {
-        "icon": "unlock-seven-days.png"
+        "icon": "unlock-forever.png"
       }
     },
     {
@@ -18,7 +18,7 @@
       "price": 50,
       "accountingType": "VALID_FOR_7D",
       "images": {
-        "icon": "unlock-forever.png"
+        "icon": "unlock-seven-days.png"
       }
     }
   ]
