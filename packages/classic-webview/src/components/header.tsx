@@ -1,4 +1,4 @@
-import { Logo } from '@hotandcold/webview-common/components/logo';
+import { Logo, HardcoreMascot } from '@hotandcold/webview-common/components/logo';
 import { HelpMenu } from '@hotandcold/webview-common/components/helpMenu';
 import { useConfirmation } from '@hotandcold/webview-common/hooks/useConfirmation';
 import { sendMessageToDevvit } from '../utils';
@@ -9,6 +9,18 @@ import type { UserSettings } from '@hotandcold/classic-shared';
 import { HowToPlayModal } from './howToPlayModal';
 import { IconButton } from '@hotandcold/webview-common/components/button';
 import { InfoIcon } from '@hotandcold/webview-common/components/icon';
+
+const SpeechBubbleTail = ({ className }: { className?: string }) => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    fill="none"
+    stroke-linecap="round"
+    viewBox="0 0 6 6"
+    className={className}
+  >
+    <path d="M5 1a4 4 0 0 1-4 4" />
+  </svg>
+);
 
 export const Header = () => {
   const { layout, sortType, isUserOptedIntoReminders } = useUserSettings();
@@ -25,8 +37,15 @@ export const Header = () => {
   return (
     <>
       <div className="flex items-center justify-between">
-        <div className="flex h-10">
+        <div className="flex h-6 gap-2 sm:h-10 sm:gap-4">
           <Logo />
+          <div className="flex gap-1">
+            <HardcoreMascot />
+            <span className="relative -translate-y-1/2 self-center rounded-full border border-gray-500 px-2 text-[10px] italic text-gray-400">
+              Pssst...
+              <SpeechBubbleTail className="absolute left-2 top-full h-2 w-2 stroke-gray-500 stroke-1" />
+            </span>
+          </div>
         </div>
 
         <div className="flex flex-1 items-center justify-end gap-2">
