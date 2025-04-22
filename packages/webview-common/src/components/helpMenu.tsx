@@ -1,10 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
-
-const HamburgerIcon = () => (
-  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="11" fill="currentColor">
-    <path d="M13.667 6.333H.333v-1h13.334v1Zm0-5.666H.333v1h13.334v-1Zm0 9.333H.333v1h13.334v-1Z" />
-  </svg>
-);
+import { IconButton } from './button';
+import { HamburgerIcon } from './icon';
 
 export const HelpMenu = ({
   items,
@@ -106,17 +102,16 @@ export const HelpMenu = ({
 
   return (
     <div className="relative text-gray-900 dark:text-white" ref={menuRef} onKeyDown={handleKeyDown}>
-      <button
+      <IconButton
         onClick={() => setToggled((x) => !x)}
         aria-expanded={toggled}
         aria-haspopup="true"
         aria-label="Menu"
         type="button"
-        className="flex items-center gap-2 rounded-full bg-gray-50 px-4 py-3 text-current sm:px-3 sm:py-2 dark:bg-black"
+        icon={<HamburgerIcon />}
       >
-        <HamburgerIcon />
-        <span className="hidden sm:inline">Menu</span>
-      </button>
+        Menu
+      </IconButton>
 
       {toggled && (
         <div
