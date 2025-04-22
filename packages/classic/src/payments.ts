@@ -3,16 +3,27 @@ import { type RedisClient } from '@devvit/public-api';
 import { DateTime } from 'luxon';
 
 class PaymentsRepo {
+  static hardcoreModeAccessKey(userId: string) {
+    return `hardcore-mode-access:${userId}`;
+  }
+
   #redis: RedisClient;
   constructor(redis: RedisClient) {
     this.#redis = redis;
   }
   async addHardcoreModeLifetimeAccess(userId: string) {
-    await this.#redis.set(`hardcore-mode-lifetime-access:${userId}`, `1`);
+    await this.#redis.set(PaymentsRepo.hardcoreModeAccessKey(userId), '-1');
   }
-  async addHardcoreMode7DayAccess(userId: string) {
-    const sevenDaysFromNow = DateTime.now().plus({ days: 7 });
-    await this.#redis.set(`hardcore-mode-seven-day-access:${userId}`, sevenDaysFromNow.toISO());
+
+  async incrHardcoreModeAccessBy7Days(userId: string) {
+    const existingAccess = await this.#redis.get(PaymentsRepo.hardcoreModeAccessKey(userId));
+    if (existingAccess === '-1') {
+      console.log('User already has lifetime access to hardcore mode');
+      return;
+    }
+    const baseTime = existingAccess ? DateTime.fromISO(existingAccess) : DateTime.now();
+    const newExpiry = baseTime.plus({ days: 7 });
+    await this.#redis.set(PaymentsRepo.hardcoreModeAccessKey(userId), newExpiry.toISO()!);
   }
 }
 
@@ -36,7 +47,7 @@ export function initPayments() {
             success: true,
           };
         case 'hardcore-mode-seven-day-access':
-          await pr.addHardcoreMode7DayAccess(ctx.userId!);
+          await pr.incrHardcoreModeAccessBy7Days(ctx.userId!);
           return {
             success: true,
           };
