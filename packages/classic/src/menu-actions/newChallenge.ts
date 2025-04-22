@@ -1,5 +1,5 @@
 import { Devvit } from '@devvit/public-api';
-import { Challenge } from '../core/challenge.js';
+import { ChallengeService } from '../core/challenge.js';
 
 Devvit.addMenuItem({
   label: 'HotAndCold: New challenge',
@@ -7,7 +7,7 @@ Devvit.addMenuItem({
   location: 'subreddit',
   onPress: async (_event, context) => {
     try {
-      const newChallenge = await Challenge.makeNewChallenge({ context });
+      const newChallenge = await new ChallengeService(context.redis).makeNewChallenge({context: context});
 
       context.ui.navigateTo(newChallenge.postUrl);
     } catch (error) {

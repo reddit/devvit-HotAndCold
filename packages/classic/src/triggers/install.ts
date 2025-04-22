@@ -1,13 +1,13 @@
 import { Devvit, TriggerContext } from '@devvit/public-api';
-import { WordList } from '../core/wordList.js';
-import { Challenge } from '../core/challenge.js';
+import { WordListService } from '../core/wordList.js';
+import { ChallengeService } from '../core/challenge.js';
 import { Reminders } from '../core/reminders.js';
 import { processInChunks } from '@hotandcold/shared/utils';
 
 Devvit.addSchedulerJob({
   name: 'DAILY_GAME_DROP',
   onRun: async (_, context) => {
-    const newChallenge = await Challenge.makeNewChallenge({ context });
+    const newChallenge = await new ChallengeService(context.redis).makeNewChallenge({ context });
 
     const usernames = await Reminders.getUsersOptedIntoReminders({
       redis: context.redis,
@@ -54,10 +54,8 @@ Devvit.addSchedulerJob({
 
 export const initialize = async (context: TriggerContext) => {
   // Certain things need to be initialized in Redis to run correctly
-  await WordList.initialize({ context });
-  await Challenge.initialize({
-    redis: context.redis,
-  });
+  await new WordListService(context.redis).initialize({ context });
+  await new ChallengeService(context.redis).initialize({ context });
 
   const jobs = await context.scheduler.listJobs();
   for (const job of jobs) {

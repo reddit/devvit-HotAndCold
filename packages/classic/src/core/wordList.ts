@@ -9,7 +9,12 @@ import {
 import { DEFAULT_WORD_LIST } from '../constants.js';
 import { API } from './api.js';
 
-export * as WordList from './wordList.js';
+// Define base Zod schemas
+const zodAppContext = z.union([zodContext, zodTriggerContext]);
+
+// Infer Redis types from Zod schemas
+type RedisClientType = z.infer<typeof zodRedis>;
+type RedisOrTransactionClientType = z.infer<typeof zodRedis> | z.infer<typeof zodTransaction>;
 
 /**
  * NOTE: Word lists a mutable! There is no way to know what the original word list was.
@@ -17,91 +22,106 @@ export * as WordList from './wordList.js';
  * You can use ChallengeToWord.getAllUsedWords to get all the words that have been used in challenges
  * if you really need to pull this.
  */
+export class WordListService {
+  // Use the specific inferred type for the instance variable
+  private redis: RedisOrTransactionClientType;
 
-// Adding default just in case we want to add more dictionaries in the future
-export const getWordListKey = (dictionary = 'default') => `word_list:${dictionary}` as const;
+  // Constructor expects the union type
+  constructor(redis: RedisOrTransactionClientType) {
+    this.redis = redis;
+  }
 
-export const getCurrentWordList = zoddy(
-  z.object({
-    redis: zodRedis,
-  }),
-  async ({ redis }) => {
-    const wordList = await redis.get(getWordListKey());
+  // Static utility method for key generation
+  static getWordListKey(dictionary = 'default'): string {
+    return `word_list:${dictionary}`;
+  }
+
+  // Instance method
+  getCurrentWordList = zoddy(z.object({}), async () => {
+    // Cast to non-transaction type if needed for .get
+    const redisClient = this.redis as RedisClientType;
+    const wordListKey = WordListService.getWordListKey();
+    const wordList = await redisClient.get(wordListKey);
 
     if (!wordList) {
       throw new Error('No word list found');
     }
 
     return JSON.parse(wordList) as string[];
-  }
-);
+  });
 
-export const setCurrentWordListWords = zoddy(
-  z.object({
-    redis: z.union([zodRedis, zodTransaction]),
-    words: z.array(z.string().trim().toLowerCase()),
-  }),
-  async ({ redis, words }) => {
-    await redis.set(getWordListKey(), JSON.stringify(words));
-  }
-);
-
-export const initialize = zoddy(
-  z.object({
-    context: z.union([zodContext, zodTriggerContext]),
-  }),
-  async ({ context }) => {
-    const wordList = await context.redis.get(getWordListKey());
-    if (!wordList) {
-      DEFAULT_WORD_LIST.forEach((word) => {
-        // Don't wait, this just heats up the cache for the third party API
-        void API.getWordConfig({ context, word });
-      });
-      await context.redis.set(getWordListKey(), JSON.stringify(DEFAULT_WORD_LIST));
-    } else {
-      console.log('Word list already exists. Skipping initialization.');
+  // Instance method allowing transaction or regular redis
+  setCurrentWordListWords = zoddy(
+    z.object({
+      words: z.array(z.string().trim().toLowerCase()),
+    }),
+    async ({ words }) => {
+      const wordListKey = WordListService.getWordListKey();
+      await this.redis.set(wordListKey, JSON.stringify(words));
     }
-  }
-);
+  );
 
-/**
- * Use if you want to add the next word that will be chosen.
- */
-export const addToCurrentWordList = zoddy(
-  z.object({
-    redis: zodRedis,
-    words: z.array(z.string().trim().toLowerCase()),
-    /** Prepend means the words will be used before words already in the list */
-    mode: z.enum(['prepend', 'append']).default('append'),
-  }),
-  async ({ redis, words, mode }) => {
-    const wordList = await getCurrentWordList({ redis });
+  // Instance method, likely needs non-transactional redis for `get`
+  // Also needs the original context for API call
+  initialize = zoddy(
+    // Ensure the input schema matches expected type
+    z.object({ context: zodAppContext }),
+    async ({ context }) => {
+      // Use the redis instance provided in the constructor
+      const redisClient = this.redis as RedisClientType;
+      const wordListKey = WordListService.getWordListKey();
+      const wordList = await redisClient.get(wordListKey);
+      if (!wordList) {
+        DEFAULT_WORD_LIST.forEach((word) => {
+          // Don't wait, this just heas up the cache for the third party API
+          void API.getWordConfig({ context: context, word });
+        });
+        await redisClient.set(wordListKey, JSON.stringify(DEFAULT_WORD_LIST));
+      } else {
+        console.log('Word list already exists. Skipping initialization.');
+      }
+    }
+  );
 
-    // Filter out words that already exist
-    const newWords = words.filter((word) => !wordList.includes(word));
+  /**
+   * Use if you want to add the next word that will be chosen.
+   */
+  // Instance method, needs non-transactional redis for getCurrentWordList
+  addToCurrentWordList = zoddy(
+    z.object({
+      words: z.array(z.string().trim().toLowerCase()),
+      /** Prepend means the words will be used before words already in the list */
+      mode: z.enum(['prepend', 'append']).default('append'),
+    }),
+    async ({ words, mode }) => {
+      const wordList = await this.getCurrentWordList({});
 
-    if (newWords.length === 0) {
-      console.log('All words already in list. Nothing to add.');
+      // Filter out words that already exist
+      const newWords = words.filter((word) => !wordList.includes(word));
+
+      if (newWords.length === 0) {
+        console.log('All words already in list. Nothing to add.');
+        return {
+          wordsAdded: 0,
+          wordsSkipped: words.length,
+        };
+      }
+
+      // Log skipped words
+      const skippedWords = words.filter((word) => wordList.includes(word));
+      if (skippedWords.length > 0) {
+        console.log(`Skipping existing words: ${skippedWords.join(', ')}`);
+      }
+
+      await this.redis.set(
+        WordListService.getWordListKey(),
+        JSON.stringify(mode === 'prepend' ? [...newWords, ...wordList] : [...wordList, ...newWords])
+      );
+
       return {
-        wordsAdded: 0,
-        wordsSkipped: words.length,
+        wordsAdded: newWords.length,
+        wordsSkipped: skippedWords.length,
       };
     }
-
-    // Log skipped words
-    const skippedWords = words.filter((word) => wordList.includes(word));
-    if (skippedWords.length > 0) {
-      console.log(`Skipping existing words: ${skippedWords.join(', ')}`);
-    }
-
-    await redis.set(
-      getWordListKey(),
-      JSON.stringify(mode === 'prepend' ? [...newWords, ...wordList] : [...wordList, ...newWords])
-    );
-
-    return {
-      wordsAdded: newWords.length,
-      wordsSkipped: skippedWords.length,
-    };
-  }
-);
+  );
+}

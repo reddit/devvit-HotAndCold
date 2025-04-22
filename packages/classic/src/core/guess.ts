@@ -8,7 +8,7 @@ import {
   zodRedis,
   zodTransaction,
 } from '@hotandcold/shared/utils/zoddy';
-import { Challenge } from './challenge.js';
+import { ChallengeService } from './challenge.js';
 import { API } from './api.js';
 import { Streaks } from './streaks.js';
 import { ChallengeLeaderboard } from './challengeLeaderboard.js';
@@ -24,7 +24,7 @@ import { guessSchema } from '../utils/guessSchema.js';
 export * as Guess from './guess.js';
 
 export const getChallengeUserKey = (challengeNumber: number, username: string) =>
-  `${Challenge.getChallengeKey(challengeNumber)}:user:${username}` as const;
+  `${ChallengeService.getChallengeKey(challengeNumber)}:user:${username}` as const;
 
 const challengeUserInfoSchema = z
   .object({
@@ -199,8 +199,8 @@ export const getHintForUser = zoddy(
     challenge: z.number().gt(0),
   }),
   async ({ context, username, challenge }): Promise<GameResponse> => {
-    const challengeInfo = await Challenge.getChallenge({
-      redis: context.redis,
+    const challengeService = new ChallengeService(context.redis);
+    const challengeInfo = await challengeService.getChallenge({
       challenge,
     });
     const wordConfig = await API.getWordConfigCached({
@@ -239,7 +239,7 @@ export const getHintForUser = zoddy(
     // await txn.multi();
     const txn = context.redis;
 
-    await Challenge.incrementChallengeTotalHints({ redis: txn, challenge });
+    await challengeService.incrementChallengeTotalHints({ challenge });
 
     const newGuesses = z
       .array(guessSchema)
@@ -303,6 +303,7 @@ export const submitGuess = zoddy(
     guess: z.string().trim().toLowerCase(),
   }),
   async ({ context, username, challenge, guess: rawGuess, avatar }): Promise<GameResponse> => {
+    const challengeService = new ChallengeService(context.redis);
     await maybeInitForUser({ redis: context.redis, username, challenge });
 
     // const txn = await context.redis.watch();
@@ -327,12 +328,11 @@ export const submitGuess = zoddy(
         avatar,
         challenge,
       });
-      await Challenge.incrementChallengeTotalPlayers({ redis: txn, challenge });
+      await challengeService.incrementChallengeTotalPlayers({ challenge });
       await markChallengePlayedForUser({ challenge, redis: txn, username });
     }
 
-    const challengeInfo = await Challenge.getChallenge({
-      redis: context.redis,
+    const challengeInfo = await challengeService.getChallenge({
       challenge,
     });
 
@@ -378,7 +378,7 @@ export const submitGuess = zoddy(
       word: challengeInfo.word,
     });
 
-    await Challenge.incrementChallengeTotalGuesses({ redis: txn, challenge });
+    await challengeService.incrementChallengeTotalGuesses({ challenge });
 
     console.log(`Username: ${username}:`, 'increment total guess complete');
 
@@ -449,9 +449,7 @@ export const submitGuess = zoddy(
 
       console.log(`Marking challenge as solved for user ${username}`);
 
-      const currentChallengeNumber = await Challenge.getCurrentChallengeNumber({
-        redis: txn,
-      });
+      const currentChallengeNumber = await challengeService.getCurrentChallengeNumber();
 
       // NOTE: This is bad for perf and should really be a background job or something
       // Users might see a delay in seeing the winning screen
@@ -543,7 +541,7 @@ export const submitGuess = zoddy(
 
       console.log(`Incrementing total solves for challenge ${challenge}`);
 
-      await Challenge.incrementChallengeTotalSolves({ redis: txn, challenge });
+      await challengeService.incrementChallengeTotalSolves({ challenge });
 
       console.log(`Adding entry to leaderboard for user ${username}`);
 
@@ -618,6 +616,7 @@ export const giveUp = zoddy(
     challenge: z.number().gt(0),
   }),
   async ({ context, username, challenge }): Promise<GameResponse> => {
+    const challengeService = new ChallengeService(context.redis);
     // TODO: Transactions are broken
     // const txn = await context.redis.watch();
     // await txn.multi();
@@ -633,8 +632,7 @@ export const giveUp = zoddy(
       throw new Error(`User ${username} has not started playing yet`);
     }
 
-    const challengeInfo = await Challenge.getChallenge({
-      redis: context.redis,
+    const challengeInfo = await challengeService.getChallenge({
       challenge,
     });
 
@@ -663,7 +661,7 @@ export const giveUp = zoddy(
       guesses: JSON.stringify(newGuesses),
     });
 
-    await Challenge.incrementChallengeTotalGiveUps({ redis: txn, challenge });
+    await challengeService.incrementChallengeTotalGiveUps({ challenge });
 
     await ChallengeProgress.upsertEntry({
       redis: txn,

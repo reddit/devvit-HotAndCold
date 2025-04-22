@@ -1,6 +1,6 @@
 import { Devvit } from '@devvit/public-api';
 import { ChallengeToPost } from '../core/challengeToPost.js';
-import { Challenge } from '../core/challenge.js';
+import { ChallengeService } from '../core/challenge.js';
 
 Devvit.addTrigger({
   event: 'CommentSubmit',
@@ -19,8 +19,7 @@ Devvit.addTrigger({
       postId: event.post.id,
     });
 
-    const challengeInfo = await Challenge.getChallenge({
-      redis: context.redis,
+    const challengeInfo = await new ChallengeService(context.redis).getChallenge({
       challenge: info,
     });
 
