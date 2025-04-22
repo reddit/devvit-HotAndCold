@@ -40,7 +40,7 @@ export class WordListService {
   getCurrentWordList = zoddy(z.object({}), async () => {
     // Cast to non-transaction type if needed for .get
     const redisClient = this.redis as RedisClientType;
-    const wordListKey = WordListService.getWordListKey(); // Use static method
+    const wordListKey = WordListService.getWordListKey();
     const wordList = await redisClient.get(wordListKey);
 
     if (!wordList) {
@@ -72,10 +72,8 @@ export class WordListService {
       const wordListKey = WordListService.getWordListKey();
       const wordList = await redisClient.get(wordListKey);
       if (!wordList) {
-        console.log('Initializing word list...');
         DEFAULT_WORD_LIST.forEach((word) => {
-          // Pass the full context provided to the method
-          // Cast context to the specific type API expects if necessary
+          // Don't wait, this just heas up the cache for the third party API
           void API.getWordConfig({ context: context, word });
         });
         await redisClient.set(wordListKey, JSON.stringify(DEFAULT_WORD_LIST));
@@ -96,9 +94,7 @@ export class WordListService {
       mode: z.enum(['prepend', 'append']).default('append'),
     }),
     async ({ words, mode }) => {
-      // Create a temporary instance with the strictly non-transactional type for the get call
-      const serviceForGet = new WordListService(this.redis as RedisClientType);
-      const wordList = await serviceForGet.getCurrentWordList({});
+      const wordList = await this.getCurrentWordList({});
 
       // Filter out words that already exist
       const newWords = words.filter((word) => !wordList.includes(word));
@@ -117,9 +113,8 @@ export class WordListService {
         console.log(`Skipping existing words: ${skippedWords.join(', ')}`);
       }
 
-      const wordListKey = WordListService.getWordListKey();
       await this.redis.set(
-        wordListKey,
+        WordListService.getWordListKey(),
         JSON.stringify(mode === 'prepend' ? [...newWords, ...wordList] : [...wordList, ...newWords])
       );
 

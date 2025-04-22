@@ -15,7 +15,7 @@ import {
 } from '@hotandcold/shared/utils/zoddy';
 
 import { Streaks } from './streaks.js';
-import { Post, RichTextBuilder } from '@devvit/public-api';
+import { Devvit, Post, RichTextBuilder } from '@devvit/public-api';
 
 export * as Challenge from './challenge.js';
 
@@ -130,7 +130,6 @@ export class ChallengeService {
       amount: z.number().int().default(1),
     }),
     async ({ challenge, field, amount }) => {
-      // Uses this.redis which can be transaction or regular
       await this.redis.hIncrBy(ChallengeService.getChallengeKey(challenge), field, amount);
     }
   );
@@ -156,7 +155,6 @@ export class ChallengeService {
       // Instantiate WordListService with the same redis client (might be transaction)
       const wordListService = new WordListService(this.redis);
 
-      // Use instance methods where possible, pass context redis if needed by helpers
       const [wordList, usedWords, currentChallengeNumber, currentSubreddit] = await Promise.all([
         wordListService.getCurrentWordList({}),
         ChallengeToWord.getAllUsedWords({ redis: context.redis }),
