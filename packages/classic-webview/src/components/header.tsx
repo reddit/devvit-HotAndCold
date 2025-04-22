@@ -1,4 +1,4 @@
-import { Logo, HardcoreMascot } from '@hotandcold/webview-common/components/logo';
+import { Logo, HardcoreMascot, HardcoreLogo } from '@hotandcold/webview-common/components/logo';
 import { HelpMenu } from '@hotandcold/webview-common/components/helpMenu';
 import { useConfirmation } from '@hotandcold/webview-common/hooks/useConfirmation';
 import { sendMessageToDevvit } from '../utils';
@@ -25,7 +25,7 @@ const SpeechBubbleTail = ({ className }: { className?: string }) => (
 export const Header = () => {
   const { layout, sortType, isUserOptedIntoReminders } = useUserSettings();
   const setUserSettings = useSetUserSettings();
-  const { challengeUserInfo } = useGame();
+  const { challengeUserInfo, mode } = useGame();
   const isActivelyPlaying =
     challengeUserInfo?.guesses &&
     challengeUserInfo?.guesses?.length > 0 &&
@@ -34,18 +34,26 @@ export const Header = () => {
   const { showConfirmation } = useConfirmation();
   const [howToPlayOpen, setHowToPlayOpen] = useState(false);
 
+  const isHardcore = mode === 'hardcore';
+
   return (
     <>
       <div className="flex items-center justify-between">
         <div className="flex h-6 gap-2 sm:h-10 sm:gap-4">
-          <Logo />
-          <div className="flex gap-1">
-            <HardcoreMascot />
-            <span className="relative -translate-y-1/2 self-center rounded-full border border-gray-500 px-2 text-[10px] italic text-gray-400">
-              Pssst...
-              <SpeechBubbleTail className="absolute left-2 top-full h-2 w-2 stroke-gray-500 stroke-1" />
-            </span>
-          </div>
+          {isHardcore ? (
+            <HardcoreLogo />
+          ) : (
+            <>
+              <Logo />
+              <div className="flex gap-1">
+                <HardcoreMascot />
+                <span className="relative -translate-y-1/2 self-center rounded-full border border-gray-500 px-2 text-[10px] italic text-gray-400">
+                  Pssst...
+                  <SpeechBubbleTail className="absolute left-2 top-full h-2 w-2 stroke-gray-500 stroke-1" />
+                </span>
+              </div>
+            </>
+          )}
         </div>
 
         <div className="flex flex-1 items-center justify-end gap-2">
