@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { API } from '../core/api.js';
 import { ChallengeToWordService } from './challengeToWord.js';
 import { WordListService } from './wordList.js';
-import { ChallengeToPost, ChallengeToPostService } from './challengeToPost.js';
+import { ChallengeToPostService } from './challengeToPost.js';
 import { Preview } from '../components/Preview.js';
 import { stringifyValues } from '@hotandcold/shared/utils';
 import {
@@ -12,7 +12,7 @@ import {
   zodJobContext,
 } from '@hotandcold/shared/utils/zoddy';
 
-import { Devvit, Post, RedisClient, RichTextBuilder } from '@devvit/public-api';
+import { Post, RedisClient, RichTextBuilder } from '@devvit/public-api';
 
 export * as Challenge from './challenge.js';
 
@@ -204,7 +204,7 @@ export class ChallengeService {
           challenge: newChallengeNumber,
           word: newWord,
         });
-        this.challengeToPostService.setChallengeNumberForPost({
+        await this.challengeToPostService.setChallengeNumberForPost({
           challenge: newChallengeNumber,
           postId: post.id,
         });
