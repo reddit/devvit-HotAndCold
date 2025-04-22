@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { zodContext, zoddy, zodRedis, zodTriggerContext } from '@hotandcold/shared/utils/zoddy';
+import { zodContext, zoddy, zodTriggerContext } from '@hotandcold/shared/utils/zoddy';
 import { DEFAULT_WORD_LIST } from '../constants.js';
 import { API } from './api.js';
 import { RedisClient } from '@devvit/public-api';

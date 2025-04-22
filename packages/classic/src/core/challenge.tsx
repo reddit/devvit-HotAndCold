@@ -10,7 +10,6 @@ import {
   zodContext,
   zoddy,
   zodJobContext,
-  zodRedis,
 } from '@hotandcold/shared/utils/zoddy';
 
 import { Streaks } from './streaks.js';
