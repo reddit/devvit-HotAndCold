@@ -59,6 +59,7 @@ export type Game = {
     username: string;
   };
   challengeProgress: PlayerProgress;
+  hardcoreModeAccess: HardcoreAccessStatus;
 };
 
 export type GameResponse = Game;
@@ -79,6 +80,11 @@ export type ChallengeLeaderboardResponse = {
   leaderboardByScore: { member: string; score: number }[];
   leaderboardByFastest: { member: string; score: number }[];
 };
+
+export type HardcoreAccessStatus =
+  | { status: 'lifetime' }
+  | { status: 'active'; expires: number }
+  | { status: 'inactive' };
 
 export type WebviewToBlocksMessage =
   | { type: 'GAME_INIT' }

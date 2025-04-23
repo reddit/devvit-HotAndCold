@@ -1,8 +1,9 @@
 import { addPaymentHandler } from '@devvit/payments';
 import { type RedisClient } from '@devvit/public-api';
+import { HardcoreAccessStatus } from '@hotandcold/classic-shared';
 import { DateTime } from 'luxon';
 
-class PaymentsRepo {
+export class PaymentsRepo {
   static hardcoreModeAccessKey(userId: string) {
     return `hardcore-mode-access:${userId}`;
   }
@@ -41,6 +42,26 @@ class PaymentsRepo {
       PaymentsRepo.hardcoreModeAccessKey(userId),
       newExpiry.valueOf().toString()
     );
+  }
+
+  async getHardcoreAccessStatus(userId: string): Promise<HardcoreAccessStatus> {
+    const key = PaymentsRepo.hardcoreModeAccessKey(userId);
+    const currentAccess = await this.#redis.get(key);
+
+    if (currentAccess === '-1') {
+      return { status: 'lifetime' };
+    }
+
+    if (!currentAccess) {
+      return { status: 'inactive' };
+    }
+
+    const expiryMillis = Number(currentAccess);
+    const expiryDate = DateTime.fromMillis(expiryMillis);
+    if (expiryDate <= DateTime.now()) {
+      return { status: 'inactive' };
+    }
+    return { status: 'active', expires: expiryDate.valueOf() };
   }
 }
 
