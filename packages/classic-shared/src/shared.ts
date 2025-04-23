@@ -1,4 +1,4 @@
-export type Page = 'loading' | 'play' | 'stats' | 'win';
+export type Page = 'loading' | 'play' | 'stats' | 'win' | 'unlock-hardcore';
 
 export type Guess = {
   word: string;

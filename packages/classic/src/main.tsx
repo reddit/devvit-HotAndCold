@@ -159,7 +159,7 @@ Devvit.addCustomPostType({
                 sendMessageToWebview(context, {
                   type: 'GAME_INIT_RESPONSE',
                   payload: {
-                    mode: 'regular', // TODO: Get this from the backend
+                    mode: 'hardcore', // TODO: Get this from the backend
                     challengeInfo: omit(challengeInfo, ['word']),
                     challengeUserInfo,
                     number: challenge,
