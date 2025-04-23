@@ -22,23 +22,25 @@ class PaymentsRepo {
       return;
     }
 
-    // If the user doesn't have access, set it to 7 days from now
-    if (existingAccess == null) {
+    // If the user doesn't have access, or their access has expired, set the expiry to 7 days from now
+    const hasExistingAccess = existingAccess != null;
+    const isExpired =
+      hasExistingAccess && DateTime.fromMillis(Number(existingAccess)) < DateTime.now();
+    if (!hasExistingAccess || isExpired) {
       const newExpiry = DateTime.now().plus({ days: 7 });
-      await this.#redis.set(PaymentsRepo.hardcoreModeAccessKey(userId), newExpiry.toISO());
-      return;
-    }
-
-    // If the existing access is expired, also set it to 7 days from now
-    if (DateTime.fromISO(existingAccess) < DateTime.now()) {
-      const newExpiry = DateTime.now().plus({ days: 7 });
-      await this.#redis.set(PaymentsRepo.hardcoreModeAccessKey(userId), newExpiry.toISO());
+      await this.#redis.set(
+        PaymentsRepo.hardcoreModeAccessKey(userId),
+        newExpiry.valueOf().toString()
+      );
       return;
     }
 
     // If the existing access is not expired, add 7 days to it
-    const newExpiry = DateTime.fromISO(existingAccess).plus({ days: 7 });
-    await this.#redis.set(PaymentsRepo.hardcoreModeAccessKey(userId), newExpiry.toISO()!);
+    const newExpiry = DateTime.fromMillis(Number(existingAccess)).plus({ days: 7 });
+    await this.#redis.set(
+      PaymentsRepo.hardcoreModeAccessKey(userId),
+      newExpiry.valueOf().toString()
+    );
   }
 }
 
