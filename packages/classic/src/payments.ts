@@ -3,16 +3,44 @@ import { type RedisClient } from '@devvit/public-api';
 import { DateTime } from 'luxon';
 
 class PaymentsRepo {
+  static hardcoreModeAccessKey(userId: string) {
+    return `hardcore-mode-access:${userId}`;
+  }
+
   #redis: RedisClient;
   constructor(redis: RedisClient) {
     this.#redis = redis;
   }
   async addHardcoreModeLifetimeAccess(userId: string) {
-    await this.#redis.set(`hardcore-mode-lifetime-access:${userId}`, `1`);
+    await this.#redis.set(PaymentsRepo.hardcoreModeAccessKey(userId), '-1');
   }
-  async addHardcoreMode7DayAccess(userId: string) {
-    const sevenDaysFromNow = DateTime.now().plus({ days: 7 });
-    await this.#redis.set(`hardcore-mode-seven-day-access:${userId}`, sevenDaysFromNow.toISO());
+
+  async incrHardcoreModeAccessBy7Days(userId: string) {
+    const existingAccess = await this.#redis.get(PaymentsRepo.hardcoreModeAccessKey(userId));
+    if (existingAccess === '-1') {
+      console.log('User already has lifetime access to hardcore mode');
+      return;
+    }
+
+    // If the user doesn't have access, or their access has expired, set the expiry to 7 days from now
+    const hasExistingAccess = existingAccess != null;
+    const isExpired =
+      hasExistingAccess && DateTime.fromMillis(Number(existingAccess)) < DateTime.now();
+    if (!hasExistingAccess || isExpired) {
+      const newExpiry = DateTime.now().plus({ days: 7 });
+      await this.#redis.set(
+        PaymentsRepo.hardcoreModeAccessKey(userId),
+        newExpiry.valueOf().toString()
+      );
+      return;
+    }
+
+    // If the existing access is not expired, add 7 days to it
+    const newExpiry = DateTime.fromMillis(Number(existingAccess)).plus({ days: 7 });
+    await this.#redis.set(
+      PaymentsRepo.hardcoreModeAccessKey(userId),
+      newExpiry.valueOf().toString()
+    );
   }
 }
 
@@ -36,7 +64,7 @@ export function initPayments() {
             success: true,
           };
         case 'hardcore-mode-seven-day-access':
-          await pr.addHardcoreMode7DayAccess(ctx.userId!);
+          await pr.incrHardcoreModeAccessBy7Days(ctx.userId!);
           return {
             success: true,
           };
