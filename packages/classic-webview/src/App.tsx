@@ -26,7 +26,11 @@ const getPage = (page: Page) => {
 
 export const App = () => {
   const page = usePage();
-  const { mode } = useGame();
+  const { mode, hardcoreModeAccess } = useGame();
+
+  if (mode === 'hardcore' && hardcoreModeAccess?.status === 'inactive') {
+    return <div>UNLOCK HARDCORE</div>;
+  }
 
   return (
     <div
