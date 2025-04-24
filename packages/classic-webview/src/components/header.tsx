@@ -9,6 +9,7 @@ import type { UserSettings } from '@hotandcold/classic-shared';
 import { HowToPlayModal } from './howToPlayModal';
 import { IconButton } from '@hotandcold/webview-common/components/button';
 import { InfoIcon } from '@hotandcold/webview-common/components/icon';
+import { useModal } from '../hooks/useModal';
 
 const SpeechBubbleTail = ({ className }: { className?: string }) => (
   <svg
@@ -33,6 +34,7 @@ export const Header = () => {
     !challengeUserInfo?.gaveUpAtMs;
   const { showConfirmation } = useConfirmation();
   const [howToPlayOpen, setHowToPlayOpen] = useState(false);
+  const { setModal } = useModal();
 
   const isHardcore = mode === 'hardcore';
 
@@ -45,7 +47,10 @@ export const Header = () => {
           ) : (
             <>
               <Logo />
-              <div className="flex gap-1">
+              <div
+                className="flex gap-1 hover:cursor-pointer"
+                onClick={() => setModal('unlock-hardcore')}
+              >
                 <HardcoreMascot />
                 <span className="relative -translate-y-1/2 self-center rounded-full border border-gray-500 px-2 text-[10px] italic text-gray-400">
                   Pssst...
