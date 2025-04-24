@@ -14,6 +14,7 @@ Devvit.addTrigger({
       return;
     }
 
+    // TODO: we need to eventually getChallengeInfoForPost and have it return both number & mode.
     const info = await ChallengeToPost.getChallengeNumberForPost({
       redis: context.redis,
       postId: event.post.id,
