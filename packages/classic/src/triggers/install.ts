@@ -7,7 +7,7 @@ import { processInChunks } from '@hotandcold/shared/utils';
 Devvit.addSchedulerJob({
   name: 'DAILY_GAME_DROP',
   onRun: async (_, context) => {
-    // TODO: add hardcore daily post.
+    // TODO: this shouldn't be hardcoding mode.
     const newChallenge = await new ChallengeService(context.redis, 'regular').makeNewChallenge({
       context,
     });
@@ -58,7 +58,7 @@ Devvit.addSchedulerJob({
 export const initialize = async (context: TriggerContext) => {
   // Certain things need to be initialized in Redis to run correctly
 
-  // TODO: Pass correct mode ('regular' or 'hardcore')
+  // TODO: this shouldn't be hardcoding mode.
   await new ChallengeService(context.redis, 'regular').initialize({ context });
   await new WordListService(context.redis, 'regular').initialize({ context });
 
