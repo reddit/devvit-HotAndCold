@@ -25,7 +25,7 @@ export const Tablist = ({ activeIndex, onChange, items }: TablistProps) => {
           onClick={() => onChange(index)}
           onKeyDown={(e) => handleKeyDown(e, index)}
           className={cn(
-            `border-b px-6 py-2 text-sm font-medium outline-none ring-0 transition-colors duration-200 ease-in-out`,
+            `border-b px-3 py-2 text-sm font-medium outline-none ring-0 transition-colors duration-200 ease-in-out sm:px-6`,
             activeIndex === index
               ? 'border-current text-black dark:text-white'
               : 'border-gray-200 hover:border-current hover:text-slate-300 dark:border-gray-800'
