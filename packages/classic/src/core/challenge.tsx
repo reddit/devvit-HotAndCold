@@ -41,29 +41,33 @@ export class ChallengeService {
   #challengeToWordService: ChallengeToWordService;
   #challengeToPostService: ChallengeToPostService;
   #mode: GameMode;
+  #currentChallengeNumberKey: string;
+  #challengeKeyPrefix: string;
 
   constructor(redis: RedisClient, mode: GameMode) {
     this.#redis = redis;
     this.#mode = mode;
     this.#challengeToWordService = new ChallengeToWordService(redis, mode);
     this.#challengeToPostService = new ChallengeToPostService(redis, mode);
+
+    const prefix = mode === 'hardcore' ? 'hc:' : '';
+    this.#currentChallengeNumberKey = `${prefix}current_challenge_number`;
+    this.#challengeKeyPrefix = `${prefix}challenge:`;
   }
 
-  // --- Static Key Generators ---
-  static getCurrentChallengeNumberKey(): string {
-    return 'current_challenge_number';
+  // --- Instance Key Generators ---
+  getCurrentChallengeNumberKey(): string {
+    return this.#currentChallengeNumberKey;
   }
 
-  static getChallengeKey(challenge: number): string {
-    return `challenge:${challenge}`;
+  getChallengeKey(challenge: number): string {
+    return `${this.#challengeKeyPrefix}${challenge}`;
   }
 
   // --- Instance Methods ---
 
   async getCurrentChallengeNumber(): Promise<number> {
-    const currentChallengeNumber = await this.#redis.get(
-      ChallengeService.getCurrentChallengeNumberKey()
-    );
+    const currentChallengeNumber = await this.#redis.get(this.getCurrentChallengeNumberKey());
 
     if (!currentChallengeNumber) {
       throw new Error('No current challenge number found');
@@ -73,7 +77,7 @@ export class ChallengeService {
   }
 
   incrementCurrentChallengeNumber = zoddy(z.object({}), async () => {
-    await this.#redis.incrBy(ChallengeService.getCurrentChallengeNumberKey(), 1);
+    await this.#redis.incrBy(this.getCurrentChallengeNumberKey(), 1);
   });
 
   setCurrentChallengeNumber = zoddy(
@@ -81,7 +85,7 @@ export class ChallengeService {
       number: z.number().gt(0),
     }),
     async ({ number }) => {
-      await this.#redis.set(ChallengeService.getCurrentChallengeNumberKey(), number.toString());
+      await this.#redis.set(this.getCurrentChallengeNumberKey(), number.toString());
     }
   );
 
@@ -90,7 +94,7 @@ export class ChallengeService {
       challenge: z.number().gt(0),
     }),
     async ({ challenge }) => {
-      const result = await this.#redis.hGetAll(ChallengeService.getChallengeKey(challenge));
+      const result = await this.#redis.hGetAll(this.getChallengeKey(challenge));
 
       if (!result || Object.keys(result).length === 0) {
         throw new Error('No challenge found');
@@ -105,12 +109,12 @@ export class ChallengeService {
       config: challengeSchema,
     }),
     async ({ challenge, config }) => {
-      await this.#redis.hSet(ChallengeService.getChallengeKey(challenge), stringifyValues(config));
+      await this.#redis.hSet(this.getChallengeKey(challenge), stringifyValues(config));
     }
   );
 
   initialize = zoddy(z.object({}), async () => {
-    const key = ChallengeService.getCurrentChallengeNumberKey();
+    const key = this.getCurrentChallengeNumberKey();
     const result = await this.#redis.get(key);
     if (!result) {
       await this.#redis.set(key, '0');
@@ -127,7 +131,7 @@ export class ChallengeService {
       amount: z.number().int().default(1),
     }),
     async ({ challenge, field, amount }) => {
-      await this.#redis.hIncrBy(ChallengeService.getChallengeKey(challenge), field, amount);
+      await this.#redis.hIncrBy(this.getChallengeKey(challenge), field, amount);
     }
   );
 
