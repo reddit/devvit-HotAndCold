@@ -10,7 +10,7 @@ import { Devvit, useInterval, useState } from '@devvit/public-api';
 import { DEVVIT_SETTINGS_KEYS } from './constants.js';
 import { isServerCall, omit } from '@hotandcold/shared/utils';
 import { WebviewToBlocksMessage } from '@hotandcold/classic-shared';
-import { Guess } from './core/guess.js';
+import { GuessService } from './core/guess.js';
 import { ChallengeToPost } from './core/challengeToPost.js';
 import { Preview } from './components/Preview.js';
 import { ChallengeService } from './core/challenge.js';
@@ -54,7 +54,7 @@ type InitialState =
       };
       challenge: number;
       challengeInfo: Awaited<ReturnType<ChallengeService['getChallenge']>>;
-      challengeUserInfo: Awaited<ReturnType<(typeof Guess)['getChallengeUserInfo']>>;
+      challengeUserInfo: Awaited<ReturnType<GuessService['getChallengeUserInfo']>>;
       challengeProgress: Awaited<ReturnType<(typeof ChallengeProgress)['getPlayerProgress']>>;
     };
 
@@ -65,7 +65,7 @@ Devvit.addCustomPostType({
   render: (context) => {
     // TODO: this shouldn't be hardcoding mode.
     const challengeService = new ChallengeService(context.redis, 'regular');
-
+    const guessService = new GuessService(context.redis, 'regular');
     const [initialState] = useState<InitialState>(async () => {
       const [user, challenge] = await Promise.all([
         context.reddit.getCurrentUser(),
@@ -91,9 +91,8 @@ Devvit.addCustomPostType({
         challengeService.getChallenge({
           challenge: challenge,
         }),
-        Guess.getChallengeUserInfo({
+        guessService.getChallengeUserInfo({
           challenge: challenge,
-          redis: context.redis,
           username: user.username,
         }),
         ChallengeProgress.getPlayerProgress({
@@ -193,7 +192,7 @@ Devvit.addCustomPostType({
                 try {
                   sendMessageToWebview(context, {
                     type: 'WORD_SUBMITTED_RESPONSE',
-                    payload: await Guess.submitGuess({
+                    payload: await guessService.submitGuess({
                       context,
                       challenge: initialState.challenge,
                       guess: data.value,
@@ -233,7 +232,7 @@ Devvit.addCustomPostType({
                 try {
                   sendMessageToWebview(context, {
                     type: 'HINT_RESPONSE',
-                    payload: await Guess.getHintForUser({
+                    payload: await guessService.getHintForUser({
                       context,
                       challenge: initialState.challenge,
                       username: initialState.user.username,
@@ -265,7 +264,7 @@ Devvit.addCustomPostType({
                 try {
                   sendMessageToWebview(context, {
                     type: 'GIVE_UP_RESPONSE',
-                    payload: await Guess.giveUp({
+                    payload: await guessService.giveUp({
                       context,
                       challenge: initialState.challenge,
                       username: initialState.user.username,
