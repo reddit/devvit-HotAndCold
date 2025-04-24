@@ -39,7 +39,7 @@ export class ChallengeProgressService {
       stop: z.number().gte(-1).optional().default(10),
       sort: z.enum(['ASC', 'DESC']).optional().default('ASC'),
     }),
-    async ({ challenge, sort, start, stop, username }) => {
+    async ({ challenge, sort, start, stop, username }): Promise<PlayerProgressData[]> => {
       const result = await this.#redis.zRange(
         this.getChallengePlayerProgressKey(challenge),
         start,
@@ -108,15 +108,7 @@ export class ChallengeProgressService {
       // -1 means gave up
       progress: z.number().gte(-1).lte(100),
     }),
-    async ({
-      challenge,
-      username,
-      progress,
-    }: {
-      challenge: number;
-      username: string;
-      progress: number;
-    }) => {
+    async ({ challenge, username, progress }) => {
       await this.#redis.zAdd(this.getChallengePlayerProgressKey(challenge), {
         member: username,
         score: progress,

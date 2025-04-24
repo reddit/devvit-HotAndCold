@@ -66,9 +66,7 @@ Devvit.addCustomPostType({
     // TODO: this shouldn't be hardcoding mode.
     const gameMode = 'regular'; // Define gameMode
     const challengeService = new ChallengeService(context.redis, gameMode);
-    // Pass context to GuessService constructor
     const guessService = new GuessService(context.redis, gameMode, context);
-    // Instantiate ChallengeProgressService
     const challengeProgressService = new ChallengeProgressService(context, gameMode);
 
     const [initialState] = useState<InitialState>(async () => {
