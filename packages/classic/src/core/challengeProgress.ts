@@ -26,37 +26,27 @@ export class ChallengeProgressService {
   }
 
   private getChallengePlayerProgressKey(challenge: number): string {
-    // Use the instance method from challengeService
     return `${this.#challengeService.getChallengeKey(challenge)}:players:progress`;
   }
 
   getPlayerProgress = zoddy(
     z.object({
-      // context removed, use this.#context
       challenge: z.number().gt(0),
       username: zodRedditUsername,
       start: z.number().gte(0).optional().default(0),
       stop: z.number().gte(-1).optional().default(10),
       sort: z.enum(['ASC', 'DESC']).optional().default('ASC'),
     }),
-    async ({
-      challenge,
-      sort,
-      start,
-      stop,
-      username,
-    }: {
-      challenge: number;
-      sort: 'ASC' | 'DESC';
-      start: number;
-      stop: number;
-      username: string;
-    }): Promise<PlayerProgressData[]> => {
-      const key = this.getChallengePlayerProgressKey(challenge);
-      const result = await this.#redis.zRange(key, start, stop, {
-        by: 'score',
-        reverse: sort === 'DESC',
-      });
+    async ({ challenge, sort, start, stop, username }) => {
+      const result = await this.#redis.zRange(
+        this.getChallengePlayerProgressKey(challenge),
+        start,
+        stop,
+        {
+          by: 'score',
+          reverse: sort === 'DESC',
+        }
+      );
 
       if (!result) {
         throw new Error(`No leaderboard found challenge ${challenge}`);
@@ -87,7 +77,10 @@ export class ChallengeProgressService {
       // only want to see it in the UI.
       if (results.some((x) => x.isPlayer) === false) {
         // Sometimes users won't be in the returned sample so we do a check here to see if they have a score
-        const score = await this.#redis.zScore(key, username);
+        const score = await this.#redis.zScore(
+          this.getChallengePlayerProgressKey(challenge),
+          username
+        );
 
         const avatar = await RedditApiCache.getSnoovatarCached({
           context: this.#context,
