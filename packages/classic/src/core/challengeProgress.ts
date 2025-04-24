@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { ChallengeService } from './challenge.js';
 import { zodRedditUsername, zoddy } from '@hotandcold/shared/utils/zoddy';
-import { ChallengePlayers } from './challengePlayers.js';
+import { ChallengePlayers, ChallengePlayersService } from './challengePlayers.js';
 import { RedditApiCache } from './redditApiCache.js';
 import { GameMode } from '@hotandcold/classic-shared';
 import { Context, RedisClient } from '@devvit/public-api';
@@ -18,11 +18,13 @@ export class ChallengeProgressService {
   readonly #context: Context;
   readonly #redis: RedisClient;
   readonly #challengeService: ChallengeService;
+  #challengePlayersService: ChallengePlayers.ChallengePlayersService;
 
   constructor(context: Context, mode: GameMode) {
     this.#context = context;
     this.#redis = context.redis;
     this.#challengeService = new ChallengeService(this.#redis, mode);
+    this.#challengePlayersService = new ChallengePlayersService(this.#redis, mode);
   }
 
   private getChallengePlayerProgressKey(challenge: number): string {
@@ -52,8 +54,7 @@ export class ChallengeProgressService {
         throw new Error(`No leaderboard found challenge ${challenge}`);
       }
 
-      const players = await ChallengePlayers.getSome({
-        redis: this.#redis,
+      const players = await this.#challengePlayersService.getSome({
         challenge,
         usernames: result.map((x) => x.member),
       });
@@ -102,7 +103,6 @@ export class ChallengeProgressService {
 
   upsertEntry = zoddy(
     z.object({
-      // redis removed, use this.#redis
       challenge: z.number().gt(0),
       username: zodRedditUsername,
       // -1 means gave up

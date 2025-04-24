@@ -12,7 +12,7 @@ import { ChallengeLeaderboard } from './challengeLeaderboard.js';
 import { Score } from './score.js';
 import { GameMode, GameResponse, Guess } from '@hotandcold/classic-shared';
 import { Similarity } from './similarity.js';
-import { ChallengePlayers } from './challengePlayers.js';
+import { ChallengePlayersService } from './challengePlayers.js';
 import { ChallengeProgressService } from './challengeProgress.js';
 import { Comment, Context, RedisClient, RichTextBuilder } from '@devvit/public-api';
 import { sendMessageToWebview } from '../utils/index.js';
@@ -54,6 +54,7 @@ const challengeUserInfoSchema = z
 export class GuessService {
   readonly #challengeService: ChallengeService;
   readonly #challengeProgressService: ChallengeProgressService;
+  readonly #challengePlayersService: ChallengePlayersService;
 
   constructor(
     private readonly redis: RedisClient,
@@ -62,6 +63,7 @@ export class GuessService {
   ) {
     this.#challengeService = new ChallengeService(redis, mode);
     this.#challengeProgressService = new ChallengeProgressService(context, mode);
+    this.#challengePlayersService = new ChallengePlayersService(redis, mode);
   }
 
   #getChallengeUserKey = (challengeNumber: number, username: string) =>
@@ -237,8 +239,7 @@ export class GuessService {
       if (!challengeUserInfo.startedPlayingAtMs) {
         isFirstGuess = true;
         startedPlayingAtMs = Date.now();
-        await ChallengePlayers.setPlayer({
-          redis: context.redis,
+        await this.#challengePlayersService.setPlayer({
           username,
           avatar,
           challenge,
