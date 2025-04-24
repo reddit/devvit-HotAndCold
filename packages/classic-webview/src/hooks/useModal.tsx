@@ -1,6 +1,6 @@
 import { createContext, useContext, useState } from 'react';
 
-export type Modal = 'unlock-hardcore' | undefined;
+export type Modal = 'unlock-hardcore' | 'how-to-play' | 'score-breakdown' | undefined;
 
 type ModalContext = {
   modal: Modal;

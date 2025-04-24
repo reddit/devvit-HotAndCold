@@ -8,8 +8,11 @@ import { useGame } from './hooks/useGame';
 import { cn } from '@hotandcold/webview-common/utils';
 import { Header } from './components/header';
 import { LoadingPage } from './pages/LoadingPage';
+
+import { Modal, useModal } from './hooks/useModal';
 import { UnlockHardcoreModal } from './components/UnlockHardcoreModal';
-import { useModal } from './hooks/useModal';
+import { HowToPlayModal } from './components/howToPlayModal';
+import { ScoreBreakdownModal } from './components/scoreBreakdownModal';
 
 const getPage = (page: Page) => {
   switch (page) {
@@ -29,13 +32,24 @@ const getPage = (page: Page) => {
   }
 };
 
+const getModal = (modal: Modal) => {
+  switch (modal) {
+    case 'unlock-hardcore':
+      return <UnlockHardcoreModal />;
+    case 'how-to-play':
+      return <HowToPlayModal isOpen={true} onClose={() => {}} />;
+    case 'score-breakdown':
+      return <ScoreBreakdownModal clickAnywhereToClose={false} isOpen={true} onClose={() => {}} />;
+  }
+};
+
 export const App = () => {
   const page = usePage();
   const { mode } = useGame();
   const { modal } = useModal();
 
-  if (modal === 'unlock-hardcore') {
-    return <UnlockHardcoreModal />;
+  if (modal != null) {
+    return getModal(modal);
   }
 
   return (

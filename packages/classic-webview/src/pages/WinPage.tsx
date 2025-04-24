@@ -6,7 +6,7 @@ import { useDevvitListener } from '../hooks/useDevvitListener';
 import PillSwitch from '@hotandcold/webview-common/components/switcher';
 import { AnimatedNumber } from '@hotandcold/webview-common/components/timer';
 import { useUserSettings } from '../hooks/useUserSettings';
-import { ScoreBreakdownModal } from '../components/scoreBreakdownModal';
+import { useModal } from '../hooks/useModal';
 
 const prettyNumber = (num: number): string => {
   return num.toLocaleString('en-US');
@@ -94,7 +94,7 @@ export const WinPage = () => {
   const { challengeInfo, challengeUserInfo } = useGame();
   const [activeIndex, setActiveIndex] = React.useState(0);
   const { isUserOptedIntoReminders } = useUserSettings();
-  const [isScoreBreakdownOpen, setIsScoreBreakdownOpen] = React.useState(false);
+  const { setModal } = useModal();
   const leaderboardData = useDevvitListener('CHALLENGE_LEADERBOARD_RESPONSE');
 
   if (!challengeUserInfo || !challengeInfo) return null;
@@ -154,7 +154,7 @@ export const WinPage = () => {
                       Your Score (
                       <span
                         className="cursor-pointer text-gray-500 underline"
-                        onClick={() => setIsScoreBreakdownOpen(true)}
+                        onClick={() => setModal('score-breakdown')}
                       >
                         breakdown
                       </span>
@@ -374,11 +374,6 @@ export const WinPage = () => {
           )}
         </div>
       </div>
-      <ScoreBreakdownModal
-        clickAnywhereToClose={false}
-        isOpen={isScoreBreakdownOpen}
-        onClose={() => setIsScoreBreakdownOpen(false)}
-      />
     </>
   );
 };
