@@ -20,7 +20,8 @@ Devvit.addTrigger({
       postId: event.post.id,
     });
 
-    const challengeInfo = await new ChallengeService(context.redis).getChallenge({
+    // TODO: this should not be hardcoding mode.
+    const challengeInfo = await new ChallengeService(context.redis, 'regular').getChallenge({
       challenge: info,
     });
 

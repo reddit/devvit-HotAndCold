@@ -7,7 +7,10 @@ import { processInChunks } from '@hotandcold/shared/utils';
 Devvit.addSchedulerJob({
   name: 'DAILY_GAME_DROP',
   onRun: async (_, context) => {
-    const newChallenge = await new ChallengeService(context.redis).makeNewChallenge({ context });
+    // TODO: add hardcore daily post.
+    const newChallenge = await new ChallengeService(context.redis, 'regular').makeNewChallenge({
+      context,
+    });
 
     const usernames = await Reminders.getUsersOptedIntoReminders({
       redis: context.redis,
@@ -54,8 +57,10 @@ Devvit.addSchedulerJob({
 
 export const initialize = async (context: TriggerContext) => {
   // Certain things need to be initialized in Redis to run correctly
-  await new WordListService(context.redis).initialize({ context });
-  await new ChallengeService(context.redis).initialize({ context });
+
+  // TODO: Pass correct mode ('regular' or 'hardcore')
+  await new ChallengeService(context.redis, 'regular').initialize({ context });
+  await new WordListService(context.redis, 'regular').initialize({ context });
 
   const jobs = await context.scheduler.listJobs();
   for (const job of jobs) {

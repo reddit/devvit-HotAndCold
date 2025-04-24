@@ -63,7 +63,9 @@ Devvit.addCustomPostType({
   name: 'HotAndCold',
   height: 'tall',
   render: (context) => {
-    const challengeService = new ChallengeService(context.redis);
+    // TODO: this shouldn't be hardcoding mode.
+    const challengeService = new ChallengeService(context.redis, 'regular');
+
     const [initialState] = useState<InitialState>(async () => {
       const [user, challenge] = await Promise.all([
         context.reddit.getCurrentUser(),

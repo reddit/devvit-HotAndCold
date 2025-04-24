@@ -197,7 +197,8 @@ export const getHintForUser = zoddy(
     challenge: z.number().gt(0),
   }),
   async ({ context, username, challenge }): Promise<GameResponse> => {
-    const challengeService = new ChallengeService(context.redis);
+    // TODO: this shouldn't be hardcoding mode.
+    const challengeService = new ChallengeService(context.redis, 'regular');
     const challengeInfo = await challengeService.getChallenge({
       challenge,
     });
@@ -261,6 +262,8 @@ export const getHintForUser = zoddy(
     });
 
     return {
+      // TODO: this shouldn't be hardcoding mode.
+      mode: 'regular',
       number: challenge,
       challengeUserInfo: {
         ...challengeUserInfo,
@@ -284,7 +287,8 @@ export const submitGuess = zoddy(
     guess: z.string().trim().toLowerCase(),
   }),
   async ({ context, username, challenge, guess: rawGuess, avatar }): Promise<GameResponse> => {
-    const challengeService = new ChallengeService(context.redis);
+    // TODO: this shouldn't be hardcoding mode.
+    const challengeService = new ChallengeService(context.redis, 'regular');
     await maybeInitForUser({ redis: context.redis, username, challenge });
 
     const challengeUserInfo = await getChallengeUserInfo({
@@ -553,6 +557,8 @@ export const submitGuess = zoddy(
     // });
 
     return {
+      // TODO: this shouldn't be hardcoding mode.
+      mode: 'regular',
       number: challenge,
       challengeUserInfo: {
         ...challengeUserInfo,
@@ -581,7 +587,8 @@ export const giveUp = zoddy(
     challenge: z.number().gt(0),
   }),
   async ({ context, username, challenge }): Promise<GameResponse> => {
-    const challengeService = new ChallengeService(context.redis);
+    // TODO: this shouldn't be hardcoding mode.
+    const challengeService = new ChallengeService(context.redis, 'regular');
     const challengeUserInfo = await getChallengeUserInfo({
       redis: context.redis,
       username,
@@ -649,6 +656,8 @@ export const giveUp = zoddy(
     });
 
     return {
+      // TODO: this shouldn't be hardcoding mode.
+      mode: 'regular',
       number: challenge,
       challengeUserInfo: {
         ...challengeUserInfo,
