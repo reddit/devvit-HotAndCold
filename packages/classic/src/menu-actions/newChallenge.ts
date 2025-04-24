@@ -7,7 +7,10 @@ Devvit.addMenuItem({
   location: 'subreddit',
   onPress: async (_event, context) => {
     try {
-      const newChallenge = await new ChallengeService(context.redis).makeNewChallenge({context: context});
+      // TODO: this shouldn't be hardcoding mode.
+      const newChallenge = await new ChallengeService(context.redis, 'regular').makeNewChallenge({
+        context: context,
+      });
 
       context.ui.navigateTo(newChallenge.postUrl);
     } catch (error) {

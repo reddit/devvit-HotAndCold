@@ -11,6 +11,7 @@ import {
   zoddy,
   zodJobContext,
 } from '@hotandcold/shared/utils/zoddy';
+import { GameMode } from '@hotandcold/classic-shared';
 
 import { Post, RedisClient, RichTextBuilder } from '@devvit/public-api';
 
@@ -36,11 +37,13 @@ export class ChallengeService {
   #redis: RedisClient;
   #challengeToWordService: ChallengeToWordService;
   #challengeToPostService: ChallengeToPostService;
+  #mode: GameMode;
 
-  constructor(redis: RedisClient) {
+  constructor(redis: RedisClient, mode: GameMode) {
     this.#redis = redis;
-    this.#challengeToWordService = new ChallengeToWordService(redis);
-    this.#challengeToPostService = new ChallengeToPostService(redis);
+    this.#mode = mode;
+    this.#challengeToWordService = new ChallengeToWordService(redis, mode);
+    this.#challengeToPostService = new ChallengeToPostService(redis, mode);
   }
 
   // --- Static Key Generators ---
@@ -143,7 +146,7 @@ export class ChallengeService {
     async ({ context }) => {
       console.log('Making new challenge...');
 
-      const wordListService = new WordListService(this.#redis);
+      const wordListService = new WordListService(this.#redis, this.#mode);
 
       const [wordList, usedWords, currentChallengeNumber, currentSubreddit] = await Promise.all([
         wordListService.getCurrentWordList({}),

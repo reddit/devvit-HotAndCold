@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { zoddy, zodRedis } from '@hotandcold/shared/utils/zoddy';
 import { RedisClient } from '@devvit/public-api';
+import { GameMode } from '@hotandcold/classic-shared';
 
 export * as ChallengeToPost from './challengeToPost.js';
 
@@ -30,7 +31,10 @@ export const getChallengeNumberForPost = zoddy(
  * So, we keep the setters here, but the getters are in free functions.
  */
 export class ChallengeToPostService {
-  constructor(private redis: RedisClient) {}
+  constructor(
+    private redis: RedisClient,
+    private mode: GameMode
+  ) {}
 
   setChallengeNumberForPost = zoddy(
     z.object({
