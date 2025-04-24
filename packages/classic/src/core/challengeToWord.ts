@@ -1,47 +1,33 @@
 import { z } from 'zod';
-import { zoddy, zodRedis } from '@hotandcold/shared/utils/zoddy';
-
-export * as ChallengeToWord from './challengeToWord.js';
+import { zoddy } from '@hotandcold/shared/utils/zoddy';
+import { RedisClient } from '@devvit/public-api';
+import { GameMode } from '@hotandcold/classic-shared';
 
 // Original to make it super explicit since we might let people play the archive on any postId
-export const getChallengeToWord = () => `challenge_to_word` as const;
+const getChallengeToWord = () => `challenge_to_word` as const;
 
-export const getChallengeNumberForWord = zoddy(
-  z.object({
-    redis: zodRedis,
-    word: z.string().trim(),
-  }),
-  async ({ redis, word }) => {
-    const challengeNumber = await redis.zScore(getChallengeToWord(), word);
+export class ChallengeToWordService {
+  constructor(
+    private redis: RedisClient,
+    private mode: GameMode
+  ) {}
 
-    if (!challengeNumber) {
-      throw new Error('No challenge number found for word. Did you mean to create one?');
+  setChallengeNumberForWord = zoddy(
+    z.object({
+      challenge: z.number().gt(0),
+      word: z.string().trim(),
+    }),
+    async ({ challenge, word }) => {
+      await this.redis.zAdd(getChallengeToWord(), {
+        member: word,
+        score: challenge,
+      });
     }
-    return challengeNumber;
-  }
-);
+  );
 
-export const setChallengeNumberForWord = zoddy(
-  z.object({
-    redis: zodRedis,
-    challenge: z.number().gt(0),
-    word: z.string().trim(),
-  }),
-  async ({ redis, challenge, word }) => {
-    await redis.zAdd(getChallengeToWord(), {
-      member: word,
-      score: challenge,
-    });
-  }
-);
-
-export const getAllUsedWords = zoddy(
-  z.object({
-    redis: zodRedis,
-  }),
-  async ({ redis }) => {
-    const words = await redis.zRange(getChallengeToWord(), 0, -1);
+  getAllUsedWords = zoddy(z.object({}), async () => {
+    const words = await this.redis.zRange(getChallengeToWord(), 0, -1);
 
     return words.map((word) => word.member);
-  }
-);
+  });
+}

@@ -1,8 +1,8 @@
 import { z } from 'zod';
 import { API } from '../core/api.js';
-import { ChallengeToWord } from './challengeToWord.js';
+import { ChallengeToWordService } from './challengeToWord.js';
 import { WordListService } from './wordList.js';
-import { ChallengeToPost } from './challengeToPost.js';
+import { ChallengeToPostService } from './challengeToPost.js';
 import { Preview } from '../components/Preview.js';
 import { stringifyValues } from '@hotandcold/shared/utils';
 import {
@@ -11,8 +11,12 @@ import {
   zoddy,
   zodJobContext,
 } from '@hotandcold/shared/utils/zoddy';
+import { GameMode } from '@hotandcold/classic-shared';
 
 import { Post, RedisClient, RichTextBuilder } from '@devvit/public-api';
+// For some reason <Preview /> requires this import, but the import is being found as unused.
+// Suppress the check for it
+import { Devvit } from '@devvit/public-api'; // eslint-disable-line @typescript-eslint/no-unused-vars
 
 export * as Challenge from './challenge.js';
 
@@ -33,23 +37,37 @@ const challengeSchema = z
   .strict();
 
 export class ChallengeService {
-  constructor(private redis: RedisClient) {}
+  #redis: RedisClient;
+  #challengeToWordService: ChallengeToWordService;
+  #challengeToPostService: ChallengeToPostService;
+  #mode: GameMode;
+  #currentChallengeNumberKey: string;
+  #challengeKeyPrefix: string;
 
-  // --- Static Key Generators ---
-  static getCurrentChallengeNumberKey(): string {
-    return 'current_challenge_number';
+  constructor(redis: RedisClient, mode: GameMode) {
+    this.#redis = redis;
+    this.#mode = mode;
+    this.#challengeToWordService = new ChallengeToWordService(redis, mode);
+    this.#challengeToPostService = new ChallengeToPostService(redis, mode);
+
+    const prefix = mode === 'hardcore' ? 'hc:' : '';
+    this.#currentChallengeNumberKey = `${prefix}current_challenge_number`;
+    this.#challengeKeyPrefix = `${prefix}challenge:`;
   }
 
-  static getChallengeKey(challenge: number): string {
-    return `challenge:${challenge}`;
+  // --- Instance Key Generators ---
+  #getCurrentChallengeNumberKey(): string {
+    return this.#currentChallengeNumberKey;
+  }
+
+  getChallengeKey(challenge: number): string {
+    return `${this.#challengeKeyPrefix}${challenge}`;
   }
 
   // --- Instance Methods ---
 
   async getCurrentChallengeNumber(): Promise<number> {
-    const currentChallengeNumber = await this.redis.get(
-      ChallengeService.getCurrentChallengeNumberKey()
-    );
+    const currentChallengeNumber = await this.#redis.get(this.#getCurrentChallengeNumberKey());
 
     if (!currentChallengeNumber) {
       throw new Error('No current challenge number found');
@@ -59,7 +77,7 @@ export class ChallengeService {
   }
 
   incrementCurrentChallengeNumber = zoddy(z.object({}), async () => {
-    await this.redis.incrBy(ChallengeService.getCurrentChallengeNumberKey(), 1);
+    await this.#redis.incrBy(this.#getCurrentChallengeNumberKey(), 1);
   });
 
   setCurrentChallengeNumber = zoddy(
@@ -67,7 +85,7 @@ export class ChallengeService {
       number: z.number().gt(0),
     }),
     async ({ number }) => {
-      await this.redis.set(ChallengeService.getCurrentChallengeNumberKey(), number.toString());
+      await this.#redis.set(this.#getCurrentChallengeNumberKey(), number.toString());
     }
   );
 
@@ -76,7 +94,7 @@ export class ChallengeService {
       challenge: z.number().gt(0),
     }),
     async ({ challenge }) => {
-      const result = await this.redis.hGetAll(ChallengeService.getChallengeKey(challenge));
+      const result = await this.#redis.hGetAll(this.getChallengeKey(challenge));
 
       if (!result || Object.keys(result).length === 0) {
         throw new Error('No challenge found');
@@ -91,15 +109,15 @@ export class ChallengeService {
       config: challengeSchema,
     }),
     async ({ challenge, config }) => {
-      await this.redis.hSet(ChallengeService.getChallengeKey(challenge), stringifyValues(config));
+      await this.#redis.hSet(this.getChallengeKey(challenge), stringifyValues(config));
     }
   );
 
   initialize = zoddy(z.object({}), async () => {
-    const key = ChallengeService.getCurrentChallengeNumberKey();
-    const result = await this.redis.get(key);
+    const key = this.#getCurrentChallengeNumberKey();
+    const result = await this.#redis.get(key);
     if (!result) {
-      await this.redis.set(key, '0');
+      await this.#redis.set(key, '0');
     } else {
       console.log('Challenge key already initialized');
     }
@@ -113,7 +131,7 @@ export class ChallengeService {
       amount: z.number().int().default(1),
     }),
     async ({ challenge, field, amount }) => {
-      await this.redis.hIncrBy(ChallengeService.getChallengeKey(challenge), field, amount);
+      await this.#redis.hIncrBy(this.getChallengeKey(challenge), field, amount);
     }
   );
 
@@ -135,11 +153,11 @@ export class ChallengeService {
     async ({ context }) => {
       console.log('Making new challenge...');
 
-      const wordListService = new WordListService(this.redis);
+      const wordListService = new WordListService(this.#redis, this.#mode);
 
       const [wordList, usedWords, currentChallengeNumber, currentSubreddit] = await Promise.all([
         wordListService.getCurrentWordList({}),
-        ChallengeToWord.getAllUsedWords({ redis: context.redis }),
+        this.#challengeToWordService.getAllUsedWords({}),
         this.getCurrentChallengeNumber(),
         context.reddit.getCurrentSubreddit(),
       ]);
@@ -192,15 +210,13 @@ export class ChallengeService {
 
         await this.setCurrentChallengeNumber({ number: newChallengeNumber });
 
-        await ChallengeToWord.setChallengeNumberForWord({
+        await this.#challengeToWordService.setChallengeNumberForWord({
           challenge: newChallengeNumber,
-          redis: this.redis,
           word: newWord,
         });
-        await ChallengeToPost.setChallengeNumberForPost({
+        await this.#challengeToPostService.setChallengeNumberForPost({
           challenge: newChallengeNumber,
           postId: post.id,
-          redis: this.redis,
         });
 
         console.log(

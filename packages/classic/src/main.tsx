@@ -10,11 +10,11 @@ import { Devvit, useInterval, useState } from '@devvit/public-api';
 import { DEVVIT_SETTINGS_KEYS } from './constants.js';
 import { isServerCall, omit } from '@hotandcold/shared/utils';
 import { HardcoreAccessStatus, WebviewToBlocksMessage } from '@hotandcold/classic-shared';
-import { Guess } from './core/guess.js';
+import { GuessService } from './core/guess.js';
 import { ChallengeToPost } from './core/challengeToPost.js';
 import { Preview } from './components/Preview.js';
 import { ChallengeService } from './core/challenge.js';
-import { ChallengeProgress } from './core/challengeProgress.js';
+import { ChallengeProgressService } from './core/challengeProgress.js';
 import { ChallengeLeaderboard } from './core/challengeLeaderboard.js';
 import { Reminders } from './core/reminders.js';
 import { RedditApiCache } from './core/redditApiCache.js';
@@ -54,8 +54,8 @@ type InitialState =
       };
       challenge: number;
       challengeInfo: Awaited<ReturnType<ChallengeService['getChallenge']>>;
-      challengeUserInfo: Awaited<ReturnType<(typeof Guess)['getChallengeUserInfo']>>;
-      challengeProgress: Awaited<ReturnType<(typeof ChallengeProgress)['getPlayerProgress']>>;
+      challengeUserInfo: Awaited<ReturnType<GuessService['getChallengeUserInfo']>>;
+      challengeProgress: Awaited<ReturnType<ChallengeProgressService['getPlayerProgress']>>;
       hardcoreModeAccess: HardcoreAccessStatus;
     };
 
@@ -64,8 +64,13 @@ Devvit.addCustomPostType({
   name: 'HotAndCold',
   height: 'tall',
   render: (context) => {
-    const challengeService = new ChallengeService(context.redis);
+    // TODO: this shouldn't be hardcoding mode.
+    const gameMode = 'regular'; // Define gameMode
+    const challengeService = new ChallengeService(context.redis, gameMode);
+    const guessService = new GuessService(context.redis, gameMode, context);
+    const challengeProgressService = new ChallengeProgressService(context, gameMode);
     const paymentsRepo = new PaymentsRepo(context.redis);
+
     const [initialState] = useState<InitialState>(async () => {
       const [user, challenge, hardcoreModeAccess] = await Promise.all([
         context.reddit.getCurrentUser(),
@@ -92,14 +97,12 @@ Devvit.addCustomPostType({
         challengeService.getChallenge({
           challenge: challenge,
         }),
-        Guess.getChallengeUserInfo({
+        guessService.getChallengeUserInfo({
           challenge: challenge,
-          redis: context.redis,
           username: user.username,
         }),
-        ChallengeProgress.getPlayerProgress({
+        challengeProgressService.getPlayerProgress({
           challenge: challenge,
-          context,
           sort: 'DESC',
           start: 0,
           stop: 10_000,
@@ -124,9 +127,8 @@ Devvit.addCustomPostType({
     }
 
     useInterval(async () => {
-      const challengeProgress = await ChallengeProgress.getPlayerProgress({
+      const challengeProgress = await challengeProgressService.getPlayerProgress({
         challenge: initialState.challenge,
-        context,
         sort: 'DESC',
         start: 0,
         stop: 20,
@@ -186,7 +188,7 @@ Devvit.addCustomPostType({
                 try {
                   sendMessageToWebview(context, {
                     type: 'WORD_SUBMITTED_RESPONSE',
-                    payload: await Guess.submitGuess({
+                    payload: await guessService.submitGuess({
                       context,
                       challenge: initialState.challenge,
                       guess: data.value,
@@ -226,7 +228,7 @@ Devvit.addCustomPostType({
                 try {
                   sendMessageToWebview(context, {
                     type: 'HINT_RESPONSE',
-                    payload: await Guess.getHintForUser({
+                    payload: await guessService.getHintForUser({
                       context,
                       challenge: initialState.challenge,
                       username: initialState.user.username,
@@ -258,7 +260,7 @@ Devvit.addCustomPostType({
                 try {
                   sendMessageToWebview(context, {
                     type: 'GIVE_UP_RESPONSE',
-                    payload: await Guess.giveUp({
+                    payload: await guessService.giveUp({
                       context,
                       challenge: initialState.challenge,
                       username: initialState.user.username,

@@ -40,7 +40,7 @@ export type ScoreExplanation = {
 
 export type Game = {
   number: number;
-  mode: 'regular' | 'hardcore';
+  mode: GameMode;
   challengeInfo: {
     // DO NOT SEND THE WORD HERE!
     // THAT WOULD BE SILLY
@@ -156,3 +156,5 @@ export type DevvitMessage = {
   type: 'devvit-message';
   data: { message: BlocksToWebviewMessage };
 };
+
+export type GameMode = 'regular' | 'hardcore';
