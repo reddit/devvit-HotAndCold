@@ -138,14 +138,10 @@ export const WinPage = () => {
         <div className="mx-auto w-full max-w-xl px-4">
           {activeIndex === 0 && (
             <div className="flex flex-col items-center gap-6 text-center">
-              <div className="flex flex-col items-center gap-2">
-                <h1 className="text-xl font-bold text-white">
-                  {didWin ? 'Congratulations!' : 'Nice Try!'}
-                </h1>
-                <p className="text-lg font-semibold">
-                  The word was: <span className="text-[#dd4c4c]">{word.word}</span>
-                </p>
-              </div>
+              <h1 className="text-2xl font-bold text-white">
+                {didWin ? 'Congratulations!' : 'Nice Try!'} The word was:{' '}
+                <span className="text-[#dd4c4c]">{word.word}</span>
+              </h1>
 
               <div className="flex flex-col items-center gap-2">
                 {didWin ? (
