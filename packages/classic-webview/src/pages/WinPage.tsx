@@ -3,7 +3,7 @@ import { useGame } from '../hooks/useGame';
 import { sendMessageToDevvit } from '../utils';
 import { cn, getPrettyDuration } from '@hotandcold/webview-common/utils';
 import { useDevvitListener } from '../hooks/useDevvitListener';
-import PillSwitch from '@hotandcold/webview-common/components/switcher';
+import { Tablist } from '@hotandcold/webview-common/components/tablist';
 import { AnimatedNumber } from '@hotandcold/webview-common/components/timer';
 import { useUserSettings } from '../hooks/useUserSettings';
 import { ScoreBreakdownModal } from '../components/scoreBreakdownModal';
@@ -128,7 +128,7 @@ export const WinPage = () => {
     <>
       <div className="flex min-h-0 flex-1 flex-col gap-4">
         <div className="flex justify-center">
-          <PillSwitch
+          <Tablist
             activeIndex={activeIndex}
             onChange={setActiveIndex}
             items={[{ name: 'My Stats' }, { name: 'Challenge Stats' }, { name: 'Leaderboard' }]}
