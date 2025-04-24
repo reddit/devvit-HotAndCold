@@ -1,3 +1,4 @@
+import { Page } from '@hotandcold/classic-shared';
 import { PlayPage } from './pages/PlayPage';
 import { StatsPage } from './pages/StatsPage';
 import { WinPage } from './pages/WinPage';
@@ -7,62 +8,48 @@ import { useGame } from './hooks/useGame';
 import { cn } from '@hotandcold/webview-common/utils';
 import { Header } from './components/header';
 import { LoadingPage } from './pages/LoadingPage';
-import { UnlockHardcorePage } from './pages/UnlockHardcorePage';
+import { UnlockHardcoreModal } from './components/UnlockHardcoreModal';
+import { useModal } from './hooks/useModal';
 
-export const App = () => {
-  const page = usePage();
-  const { mode } = useGame();
-
+const getPage = (page: Page) => {
   switch (page) {
     case 'play':
-      return (
-        <BasePageLayout hardcore={mode === 'hardcore'}>
-          <PlayPage />
-        </BasePageLayout>
-      );
+      return <PlayPage />;
     case 'stats':
-      return (
-        <BasePageLayout hardcore={mode === 'hardcore'}>
-          <StatsPage />
-        </BasePageLayout>
-      );
+      return <StatsPage />;
     case 'win':
-      return (
-        <BasePageLayout hardcore={mode === 'hardcore'}>
-          <WinPage />
-        </BasePageLayout>
-      );
+      return <WinPage />;
     case 'loading':
-      return (
-        <BasePageLayout hardcore={mode === 'hardcore'}>
-          <LoadingPage />;
-        </BasePageLayout>
-      );
+      return <LoadingPage />;
     case 'unlock-hardcore':
-      return <UnlockHardcorePage />;
+      // TODO: Implement page for hardcore mode
+      return <div>UNLOCK HARDCORD</div>;
     default:
       throw new Error(`Invalid page: ${String(page satisfies never)}`);
   }
 };
 
-type BasePageLayoutProps = {
-  hardcore: boolean;
-  children: React.ReactNode;
-};
+export const App = () => {
+  const page = usePage();
+  const { mode } = useGame();
+  const { modal } = useModal();
 
-const BasePageLayout = (props: BasePageLayoutProps) => {
+  if (modal === 'unlock-hardcore') {
+    return <UnlockHardcoreModal />;
+  }
+
   return (
     <div
       className={cn(
         'relative flex h-full min-h-0 flex-1 flex-col p-6',
-        props.hardcore &&
+        mode === 'hardcore' &&
           'bg-[url(/assets/hardcore_background.png)] bg-cover bg-center bg-no-repeat bg-blend-multiply'
       )}
     >
       <div className="mb-4 sm:mb-6">
         <Header />
       </div>
-      {props.children}
+      {getPage(page)}
       <Progress />
     </div>
   );
