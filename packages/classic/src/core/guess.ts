@@ -12,14 +12,11 @@ import { ChallengeLeaderboard } from './challengeLeaderboard.js';
 import { Score } from './score.js';
 import { GameMode, GameResponse, Guess } from '@hotandcold/classic-shared';
 import { Similarity } from './similarity.js';
-import { ChallengePlayers } from './challengePlayers.js';
-import { ChallengeProgress } from './challengeProgress.js';
-import { Comment, RedisClient, RichTextBuilder } from '@devvit/public-api';
+import { ChallengePlayersService } from './challengePlayers.js';
+import { ChallengeProgressService } from './challengeProgress.js';
+import { Comment, Context, RedisClient, RichTextBuilder } from '@devvit/public-api';
 import { sendMessageToWebview } from '../utils/index.js';
 import { guessSchema } from '../utils/guessSchema.js';
-
-export const getChallengeUserKey = (challengeNumber: number, username: string) =>
-  `${ChallengeService.getChallengeKey(challengeNumber)}:user:${username}` as const;
 
 const challengeUserInfoSchema = z
   .object({
@@ -56,12 +53,21 @@ const challengeUserInfoSchema = z
 
 export class GuessService {
   readonly #challengeService: ChallengeService;
+  readonly #challengeProgressService: ChallengeProgressService;
+  readonly #challengePlayersService: ChallengePlayersService;
+
   constructor(
     private readonly redis: RedisClient,
-    private readonly mode: GameMode
+    private readonly mode: GameMode,
+    context: Context
   ) {
     this.#challengeService = new ChallengeService(redis, mode);
+    this.#challengeProgressService = new ChallengeProgressService(context, mode);
+    this.#challengePlayersService = new ChallengePlayersService(redis, mode);
   }
+
+  #getChallengeUserKey = (challengeNumber: number, username: string) =>
+    `${this.#challengeService.getChallengeKey(challengeNumber)}:user:${username}` as const;
 
   getChallengeUserInfo = zoddy(
     z.object({
@@ -69,7 +75,7 @@ export class GuessService {
       challenge: z.number().gt(0),
     }),
     async ({ username, challenge }) => {
-      const result = await this.redis.hGetAll(getChallengeUserKey(challenge, username));
+      const result = await this.redis.hGetAll(this.#getChallengeUserKey(challenge, username));
 
       if (!result) {
         throw new Error(`No user found for ${username} on day ${challenge}`);
@@ -88,10 +94,10 @@ export class GuessService {
       challenge: z.number().gt(0),
     }),
     async ({ username, challenge }) => {
-      const result = await this.redis.hGetAll(getChallengeUserKey(challenge, username));
+      const result = await this.redis.hGetAll(this.#getChallengeUserKey(challenge, username));
 
       if (!result || isEmptyObject(result)) {
-        await this.redis.hSet(getChallengeUserKey(challenge, username), {
+        await this.redis.hSet(this.#getChallengeUserKey(challenge, username), {
           username,
           guesses: '[]',
         });
@@ -108,7 +114,7 @@ export class GuessService {
       winnersCircleCommentId: z.string().optional(),
     }),
     async ({ username, challenge, completedAt, score, winnersCircleCommentId }) => {
-      await this.redis.hSet(getChallengeUserKey(challenge, username), {
+      await this.redis.hSet(this.#getChallengeUserKey(challenge, username), {
         solvedAtMs: completedAt.toString(),
         score: JSON.stringify(score),
         winnersCircleCommentId: winnersCircleCommentId ?? '',
@@ -122,7 +128,7 @@ export class GuessService {
       challenge: z.number().gt(0),
     }),
     async ({ username, challenge }) => {
-      await this.redis.hSet(getChallengeUserKey(challenge, username), {
+      await this.redis.hSet(this.#getChallengeUserKey(challenge, username), {
         startedPlayingAtMs: Date.now().toString(),
       });
     }
@@ -175,13 +181,12 @@ export class GuessService {
         .array(guessSchema)
         .parse([...(challengeUserInfo.guesses ?? []), hintToAdd]);
 
-      await context.redis.hSet(getChallengeUserKey(challenge, username), {
+      await context.redis.hSet(this.#getChallengeUserKey(challenge, username), {
         guesses: JSON.stringify(newGuesses),
       });
 
-      const challengeProgress = await ChallengeProgress.getPlayerProgress({
+      const challengeProgress = await this.#challengeProgressService.getPlayerProgress({
         challenge,
-        context,
         sort: 'DESC',
         start: 0,
         stop: 20,
@@ -234,8 +239,7 @@ export class GuessService {
       if (!challengeUserInfo.startedPlayingAtMs) {
         isFirstGuess = true;
         startedPlayingAtMs = Date.now();
-        await ChallengePlayers.setPlayer({
-          redis: context.redis,
+        await this.#challengePlayersService.setPlayer({
           username,
           avatar,
           challenge,
@@ -337,7 +341,7 @@ export class GuessService {
         ])
         .filter((x) => !(x.word === distance.wordA && x.similarity !== 1));
 
-      await context.redis.hSet(getChallengeUserKey(challenge, username), {
+      await context.redis.hSet(this.#getChallengeUserKey(challenge, username), {
         guesses: JSON.stringify(newGuesses),
       });
 
@@ -457,8 +461,7 @@ export class GuessService {
         console.log(`End of winning logic for user ${username}`);
       }
 
-      await ChallengeProgress.upsertEntry({
-        redis: context.redis,
+      await this.#challengeProgressService.upsertEntry({
         challenge,
         username,
         progress: Math.max(
@@ -469,9 +472,8 @@ export class GuessService {
         ),
       });
 
-      const challengeProgress = await ChallengeProgress.getPlayerProgress({
+      const challengeProgress = await this.#challengeProgressService.getPlayerProgress({
         challenge,
-        context,
         sort: 'DESC',
         start: 0,
         stop: 20,
@@ -535,7 +537,7 @@ export class GuessService {
         throw new Error(`Challenge ${challenge} not found`);
       }
 
-      await context.redis.hSet(getChallengeUserKey(challenge, username), {
+      await this.redis.hSet(this.#getChallengeUserKey(challenge, username), {
         gaveUpAtMs: Date.now().toString(),
       });
 
@@ -552,23 +554,21 @@ export class GuessService {
         .array(guessSchema)
         .parse([...(challengeUserInfo.guesses ?? []), guessToAdd]);
 
-      await context.redis.hSet(getChallengeUserKey(challenge, username), {
+      await this.redis.hSet(this.#getChallengeUserKey(challenge, username), {
         guesses: JSON.stringify(newGuesses),
       });
 
       await this.#challengeService.incrementChallengeTotalGiveUps({ challenge });
 
-      await ChallengeProgress.upsertEntry({
-        redis: context.redis,
+      await this.#challengeProgressService.upsertEntry({
         challenge,
         username,
         // Giving up doesn't count!
         progress: -1,
       });
 
-      const challengeProgress = await ChallengeProgress.getPlayerProgress({
+      const challengeProgress = await this.#challengeProgressService.getPlayerProgress({
         challenge,
-        context,
         sort: 'DESC',
         start: 0,
         stop: 20,

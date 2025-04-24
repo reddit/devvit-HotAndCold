@@ -14,7 +14,7 @@ import { GuessService } from './core/guess.js';
 import { ChallengeToPost } from './core/challengeToPost.js';
 import { Preview } from './components/Preview.js';
 import { ChallengeService } from './core/challenge.js';
-import { ChallengeProgress } from './core/challengeProgress.js';
+import { ChallengeProgressService } from './core/challengeProgress.js';
 import { ChallengeLeaderboard } from './core/challengeLeaderboard.js';
 import { Reminders } from './core/reminders.js';
 import { RedditApiCache } from './core/redditApiCache.js';
@@ -55,7 +55,7 @@ type InitialState =
       challenge: number;
       challengeInfo: Awaited<ReturnType<ChallengeService['getChallenge']>>;
       challengeUserInfo: Awaited<ReturnType<GuessService['getChallengeUserInfo']>>;
-      challengeProgress: Awaited<ReturnType<(typeof ChallengeProgress)['getPlayerProgress']>>;
+      challengeProgress: Awaited<ReturnType<ChallengeProgressService['getPlayerProgress']>>;
     };
 
 // Add a post type definition
@@ -64,8 +64,11 @@ Devvit.addCustomPostType({
   height: 'tall',
   render: (context) => {
     // TODO: this shouldn't be hardcoding mode.
-    const challengeService = new ChallengeService(context.redis, 'regular');
-    const guessService = new GuessService(context.redis, 'regular');
+    const gameMode = 'regular'; // Define gameMode
+    const challengeService = new ChallengeService(context.redis, gameMode);
+    const guessService = new GuessService(context.redis, gameMode, context);
+    const challengeProgressService = new ChallengeProgressService(context, gameMode);
+
     const [initialState] = useState<InitialState>(async () => {
       const [user, challenge] = await Promise.all([
         context.reddit.getCurrentUser(),
@@ -95,9 +98,8 @@ Devvit.addCustomPostType({
           challenge: challenge,
           username: user.username,
         }),
-        ChallengeProgress.getPlayerProgress({
+        challengeProgressService.getPlayerProgress({
           challenge: challenge,
-          context,
           sort: 'DESC',
           start: 0,
           stop: 10_000,
@@ -131,9 +133,8 @@ Devvit.addCustomPostType({
     }
 
     useInterval(async () => {
-      const challengeProgress = await ChallengeProgress.getPlayerProgress({
+      const challengeProgress = await challengeProgressService.getPlayerProgress({
         challenge: initialState.challenge,
-        context,
         sort: 'DESC',
         start: 0,
         stop: 20,
