@@ -11,7 +11,7 @@ import {
   zoddy,
   zodJobContext,
 } from '@hotandcold/shared/utils/zoddy';
-import { Mode } from '@hotandcold/classic-shared';
+import { GameMode } from '@hotandcold/classic-shared';
 
 import { Post, RedisClient, RichTextBuilder } from '@devvit/public-api';
 
@@ -37,9 +37,9 @@ export class ChallengeService {
   #redis: RedisClient;
   #challengeToWordService: ChallengeToWordService;
   #challengeToPostService: ChallengeToPostService;
-  #mode: Mode;
+  #mode: GameMode;
 
-  constructor(redis: RedisClient, mode: Mode) {
+  constructor(redis: RedisClient, mode: GameMode) {
     this.#redis = redis;
     this.#mode = mode;
     this.#challengeToWordService = new ChallengeToWordService(redis, mode);

@@ -3,7 +3,7 @@ import { zodContext, zoddy, zodTriggerContext } from '@hotandcold/shared/utils/z
 import { DEFAULT_WORD_LIST } from '../constants.js';
 import { API } from './api.js';
 import { RedisClient } from '@devvit/public-api';
-import { Mode } from '@hotandcold/classic-shared';
+import { GameMode } from '@hotandcold/classic-shared';
 
 // Define base Zod schemas
 const zodAppContext = z.union([zodContext, zodTriggerContext]);
@@ -17,7 +17,7 @@ const zodAppContext = z.union([zodContext, zodTriggerContext]);
 export class WordListService {
   constructor(
     private redis: RedisClient,
-    private mode: Mode
+    private mode: GameMode
   ) {}
 
   // Static utility method for key generation

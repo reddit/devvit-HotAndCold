@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { zoddy, zodRedis } from '@hotandcold/shared/utils/zoddy';
 import { RedisClient } from '@devvit/public-api';
-import { Mode } from '@hotandcold/classic-shared';
+import { GameMode } from '@hotandcold/classic-shared';
 
 export * as ChallengeToPost from './challengeToPost.js';
 
@@ -33,7 +33,7 @@ export const getChallengeNumberForPost = zoddy(
 export class ChallengeToPostService {
   constructor(
     private redis: RedisClient,
-    private mode: Mode
+    private mode: GameMode
   ) {}
 
   setChallengeNumberForPost = zoddy(

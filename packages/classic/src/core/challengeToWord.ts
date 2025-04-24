@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { zoddy } from '@hotandcold/shared/utils/zoddy';
 import { RedisClient } from '@devvit/public-api';
-import { Mode } from '@hotandcold/classic-shared';
+import { GameMode } from '@hotandcold/classic-shared';
 
 // Original to make it super explicit since we might let people play the archive on any postId
 const getChallengeToWord = () => `challenge_to_word` as const;
@@ -9,7 +9,7 @@ const getChallengeToWord = () => `challenge_to_word` as const;
 export class ChallengeToWordService {
   constructor(
     private redis: RedisClient,
-    private mode: Mode
+    private mode: GameMode
   ) {}
 
   setChallengeNumberForWord = zoddy(
