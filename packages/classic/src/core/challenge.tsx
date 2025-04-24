@@ -14,6 +14,9 @@ import {
 import { GameMode } from '@hotandcold/classic-shared';
 
 import { Post, RedisClient, RichTextBuilder } from '@devvit/public-api';
+// For some reason <Preview /> requires this import, but the import is being found as unused.
+// Suppress the check for it
+import { Devvit } from '@devvit/public-api'; // eslint-disable-line @typescript-eslint/no-unused-vars
 
 export * as Challenge from './challenge.js';
 
