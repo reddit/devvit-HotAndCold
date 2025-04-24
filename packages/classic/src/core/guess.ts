@@ -135,9 +135,7 @@ export class GuessService {
       challenge: z.number().gt(0),
     }),
     async ({ context, username, challenge }): Promise<GameResponse> => {
-      // TODO: this shouldn't be hardcoding mode.
-      const challengeService = new ChallengeService(this.redis, 'regular');
-      const challengeInfo = await challengeService.getChallenge({
+      const challengeInfo = await this.#challengeService.getChallenge({
         challenge,
       });
       const wordConfig = await API.getWordConfigCached({
@@ -171,7 +169,7 @@ export class GuessService {
         isHint: true,
       };
 
-      await challengeService.incrementChallengeTotalHints({ challenge });
+      await this.#challengeService.incrementChallengeTotalHints({ challenge });
 
       const newGuesses = z
         .array(guessSchema)
@@ -491,7 +489,6 @@ export class GuessService {
       // });
 
       return {
-        // TODO: this shouldn't be hardcoding mode.
         mode: this.mode,
         number: challenge,
         challengeUserInfo: {
