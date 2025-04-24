@@ -7,7 +7,14 @@ export default {
     '../webview-common/src/**/*.{js,ts,jsx,tsx}',
   ],
   theme: {
-    extend: {},
+    extend: {
+      colors: {
+        'mustard-gold': '#FFBF0B',
+        'slate-gray': '#8BA2AD',
+        'charcoal': '#2A3236',
+        'night': '#0E1113'
+      }
+    },
   },
   plugins: [],
 };

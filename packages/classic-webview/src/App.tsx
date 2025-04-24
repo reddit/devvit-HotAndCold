@@ -7,7 +7,7 @@ import { useGame } from './hooks/useGame';
 import { cn } from '@hotandcold/webview-common/utils';
 import { Header } from './components/header';
 import { LoadingPage } from './pages/LoadingPage';
-import UnlockHardcorePage from './pages/UnlockHardcorePage';
+import { UnlockHardcorePage } from './pages/UnlockHardcorePage';
 
 export const App = () => {
   const page = usePage();
