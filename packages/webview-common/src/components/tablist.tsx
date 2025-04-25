@@ -1,13 +1,13 @@
 import { KeyboardEvent } from 'react';
 import { cn } from '@hotandcold/webview-common/utils';
 
-interface PillSwitchProps {
+interface TablistProps {
   activeIndex: number;
   onChange: (index: number) => void;
   items: Array<{ name: string }>;
 }
 
-export const PillSwitch = ({ activeIndex, onChange, items }: PillSwitchProps) => {
+export const Tablist = ({ activeIndex, onChange, items }: TablistProps) => {
   const handleKeyDown = (e: KeyboardEvent<HTMLButtonElement>, index: number) => {
     if (e.key === 'Enter') {
       onChange(index);
@@ -15,7 +15,7 @@ export const PillSwitch = ({ activeIndex, onChange, items }: PillSwitchProps) =>
   };
 
   return (
-    <div role="tablist" className="inline-flex rounded-lg p-1">
+    <div role="tablist" className="inline-flex text-gray-600 dark:text-gray-400">
       {items.map((item, index) => (
         <button
           key={item.name}
@@ -25,8 +25,10 @@ export const PillSwitch = ({ activeIndex, onChange, items }: PillSwitchProps) =>
           onClick={() => onChange(index)}
           onKeyDown={(e) => handleKeyDown(e, index)}
           className={cn(
-            `rounded-md px-4 py-2 text-sm font-medium outline-none ring-0 transition-all duration-200 ease-in-out`,
-            activeIndex === index ? 'bg-gray-800 text-white' : 'text-gray-400 hover:text-slate-300'
+            `border-b px-3 py-2 text-sm font-medium outline-none ring-0 transition-colors duration-200 ease-in-out sm:px-6`,
+            activeIndex === index
+              ? 'border-current text-black dark:text-white'
+              : 'border-gray-200 hover:border-current hover:text-slate-300 dark:border-gray-800'
           )}
         >
           {item.name}
@@ -35,5 +37,3 @@ export const PillSwitch = ({ activeIndex, onChange, items }: PillSwitchProps) =>
     </div>
   );
 };
-
-export default PillSwitch;
