@@ -46,7 +46,7 @@ export const Header = () => {
             <>
               <Logo />
               <button
-                className="flex gap-1 hover:cursor-pointer"
+                className="flex gap-1 cursor-pointer"
                 onClick={() => showModal('unlock-hardcore')}
               >
                 <HardcoreMascot />
