@@ -1,5 +1,6 @@
 import { ComponentProps } from 'react';
 import { cn } from '@hotandcold/webview-common/utils';
+import { GradientBorder } from './gradientBorder';
 
 export const PrimaryButton = ({
   children,
@@ -13,20 +14,16 @@ export const PrimaryButton = ({
   return (
     <button
       className={cn(
-        'relative inline-flex overflow-hidden rounded-full p-[2px] font-[inherit] text-sm font-medium text-black focus:outline-none focus:ring-2 focus:ring-slate-400 focus:ring-offset-2 focus:ring-offset-slate-50 dark:text-white',
+        'cursor-pointer rounded-full font-[inherit] text-sm font-medium text-black focus:outline-none focus:ring-2 focus:ring-slate-400 focus:ring-offset-2 focus:ring-offset-slate-50 dark:text-white',
         isHighContrast ? 'bg-white dark:bg-black' : 'bg-gray-50 dark:bg-gray-800',
         className
       )}
       disabled={disabled}
       {...rest}
     >
-      <span
-        className={cn(
-          'absolute inset-[-1000%] animate-[spin_2s_linear_infinite] bg-[conic-gradient(from_135deg_at_50%_50%,#4CE1F2_0%,#FFBF0B_33%,#DE3232_66%,#4CE1F2_100%)] transition-opacity duration-300',
-          disabled ? 'opacity-0' : 'opacity-100'
-        )}
-      />
-      <span className="z-10 rounded-full bg-inherit px-4 py-3">{children}</span>
+      <GradientBorder isHidden={disabled}>
+        <span className="inline-block px-4 py-3">{children}</span>
+      </GradientBorder>
     </button>
   );
 };

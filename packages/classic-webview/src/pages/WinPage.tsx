@@ -6,6 +6,7 @@ import { useDevvitListener } from '../hooks/useDevvitListener';
 import { Tablist } from '@hotandcold/webview-common/components/tablist';
 import { useUserSettings } from '../hooks/useUserSettings';
 import { useModal } from '../hooks/useModal';
+import { GradientBorder } from '@hotandcold/webview-common/components/gradientBorder';
 
 const prettyNumber = (num: number): string => {
   return num.toLocaleString('en-US');
@@ -119,22 +120,22 @@ export const WinPage = () => {
                 />
               </div>
 
-              <div className="flex flex-col gap-3">
-                <label className="flex cursor-pointer items-center justify-center gap-2 px-4 py-2">
-                  <input
-                    type="checkbox"
-                    checked={isUserOptedIntoReminders}
-                    onChange={() => {
-                      sendMessageToDevvit({
-                        type: 'TOGGLE_USER_REMINDER',
-                      });
-                    }}
-                    className="h-4 w-4 rounded border-gray-600 bg-gray-700 text-blue-600"
-                  />
-                  <span className="select-none text-sm text-gray-300">
-                    Remind me to play tomorrow
-                  </span>
-                </label>
+              <div className="rounded-full bg-gray-50 text-sm text-black dark:bg-black dark:text-white">
+                <GradientBorder>
+                  <label className="flex cursor-pointer items-center justify-center gap-2 p-4">
+                    <input
+                      type="checkbox"
+                      checked={isUserOptedIntoReminders}
+                      onChange={() => {
+                        sendMessageToDevvit({
+                          type: 'TOGGLE_USER_REMINDER',
+                        });
+                      }}
+                      className="size-4 appearance-none rounded-sm border border-gray-900 accent-blue-500 checked:appearance-auto dark:border-white dark:accent-blue-600"
+                    />
+                    <span className="select-none">Remind me to play tomorrow</span>
+                  </label>
+                </GradientBorder>
               </div>
             </div>
           )}
