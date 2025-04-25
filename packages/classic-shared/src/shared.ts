@@ -104,6 +104,10 @@ export type WebviewToBlocksMessage =
     }
   | {
       type: 'NAVIGATE_TO_LATEST_HARDCORE';
+    }
+  | {
+      type: 'PURCHASE_PRODUCT';
+      sku: string;
     };
 
 export type FeedbackResponse = {
@@ -153,6 +157,12 @@ export type BlocksToWebviewMessage =
   | {
       type: 'FEEDBACK';
       payload: FeedbackResponse;
+    }
+  | {
+      type: 'PURCHASE_PRODUCT_SUCCESS_RESPONSE';
+      payload: {
+        access: HardcoreAccessStatus;
+      };
     };
 
 export type DevvitMessage = {

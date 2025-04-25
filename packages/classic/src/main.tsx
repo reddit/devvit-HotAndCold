@@ -20,6 +20,7 @@ import { Reminders } from './core/reminders.js';
 import { RedditApiCache } from './core/redditApiCache.js';
 import { sendMessageToWebview } from './utils/index.js';
 import { initPayments, PaymentsRepo } from './payments.js';
+import { OnPurchaseResult, OrderResultStatus, usePayments } from '@devvit/payments';
 
 initPayments();
 
@@ -64,6 +65,34 @@ Devvit.addCustomPostType({
   name: 'HotAndCold',
   height: 'tall',
   render: (context) => {
+    const paymentsRepo = new PaymentsRepo(context.redis);
+    const payments = usePayments(async (paymentsResult: OnPurchaseResult) => {
+      switch (paymentsResult.status) {
+        case OrderResultStatus.Success: {
+          context.ui.showToast(`Successfully purchased custom boards!`);
+          sendMessageToWebview(context, {
+            type: 'PURCHASE_PRODUCT_SUCCESS_RESPONSE',
+            payload: {
+              access: await paymentsRepo.getHardcoreAccessStatus(context.userId!),
+            },
+          });
+          break;
+        }
+        case OrderResultStatus.Error: {
+          context.ui.showToast(
+            'An error occured when trying to purchase your item. Please try again.'
+          );
+
+          break;
+        }
+        case OrderResultStatus.Cancelled:
+        default: {
+          // no-op
+          break;
+        }
+      }
+    });
+
     const [challengeIdentifier] = useState<PostIdentifier>(async () => {
       const identifier = await ChallengeToPost.getChallengeIdentifierForPost({
         redis: context.redis,
@@ -81,7 +110,6 @@ Devvit.addCustomPostType({
     const challengeService = new ChallengeService(context.redis, gameMode);
     const guessService = new GuessService(context.redis, gameMode, context);
     const challengeProgressService = new ChallengeProgressService(context, gameMode);
-    const paymentsRepo = new PaymentsRepo(context.redis);
 
     const [initialState] = useState<InitialState>(async () => {
       const [user, hardcoreModeAccess] = await Promise.all([
@@ -370,6 +398,10 @@ Devvit.addCustomPostType({
                 break;
               }
 
+              case 'PURCHASE_PRODUCT': {
+                payments.purchase(data.sku);
+                break;
+              }
               default:
                 throw new Error(`Unknown message type: ${String(data satisfies never)}`);
             }

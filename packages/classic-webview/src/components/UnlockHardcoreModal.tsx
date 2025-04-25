@@ -3,16 +3,24 @@ import { HardcoreLogo } from '@hotandcold/webview-common/components/logo';
 import { GoldIcon } from '@hotandcold/webview-common/components/icon';
 import { cn } from '@hotandcold/webview-common/utils';
 import { Modal } from '@hotandcold/webview-common/components/modal';
+import { sendMessageToDevvit } from '../utils';
 
 interface PurchaseButtonProps {
   children: React.ReactNode;
   style: 'primary' | 'secondary';
   price: number;
-  onClick?: () => void;
+  productSku: 'hardcore-mode-lifetime-access' | 'hardcore-mode-seven-day-access';
 }
 
 const PurchaseButton: React.FC<PurchaseButtonProps> = (props) => {
-  const { children, price, onClick, style } = props;
+  const { children, price, productSku, style } = props;
+
+  const onClick = () => {
+    sendMessageToDevvit({
+      type: 'PURCHASE_PRODUCT',
+      sku: productSku,
+    });
+  };
 
   return (
     <button
@@ -51,10 +59,10 @@ export const UnlockHardcoreModal = (props: UnlockHardcoreModalProps) => {
         </p>
         <hr className="h-px w-1/2 max-w-xs bg-white/20"></hr>
         <div className="flex w-full flex-col items-center gap-4 py-2 sm:w-auto sm:flex-row sm:items-start">
-          <PurchaseButton price={50} style="secondary">
+          <PurchaseButton price={50} style="secondary" productSku="hardcore-mode-seven-day-access">
             Unlock for 7 days
           </PurchaseButton>
-          <PurchaseButton price={250} style="primary">
+          <PurchaseButton price={250} style="primary" productSku="hardcore-mode-lifetime-access">
             Unlock FOREVER
           </PurchaseButton>
         </div>
