@@ -65,9 +65,14 @@ export const GameContextProvider = ({ children }: { children: React.ReactNode })
 
     if (isEmpty(game)) return;
 
-    // Keep in sync with usePage's initializer
-    if (game.challengeUserInfo?.solvedAtMs || game.challengeUserInfo?.gaveUpAtMs) {
+    if (
+      // Keep in sync with usePage's initializer
+      game.challengeUserInfo?.solvedAtMs ||
+      game.challengeUserInfo?.gaveUpAtMs
+    ) {
       setPage('win');
+    } else if (game.hardcoreModeAccess?.status === 'inactive' && game.mode === 'hardcore') {
+      setPage('unlock-hardcore');
     } else {
       setPage('play');
     }

@@ -5,7 +5,7 @@ import { cn, getPrettyDuration } from '@hotandcold/webview-common/utils';
 import { useDevvitListener } from '../hooks/useDevvitListener';
 import { Tablist } from '@hotandcold/webview-common/components/tablist';
 import { useUserSettings } from '../hooks/useUserSettings';
-import { ScoreBreakdownModal } from '../components/scoreBreakdownModal';
+import { useModal } from '../hooks/useModal';
 import { GradientBorder } from '@hotandcold/webview-common/components/gradientBorder';
 import { RightChevronIcon } from '@hotandcold/webview-common/components/icon';
 
@@ -35,7 +35,7 @@ export const WinPage = () => {
   const { challengeInfo, challengeUserInfo } = useGame();
   const [activeIndex, setActiveIndex] = React.useState(0);
   const { isUserOptedIntoReminders } = useUserSettings();
-  const [isScoreBreakdownOpen, setIsScoreBreakdownOpen] = React.useState(false);
+  const { showModal: setModal } = useModal();
   const leaderboardData = useDevvitListener('CHALLENGE_LEADERBOARD_RESPONSE');
 
   if (!challengeUserInfo || !challengeInfo) return null;
@@ -84,7 +84,7 @@ export const WinPage = () => {
                 <span className="text-[#dd4c4c]">{word.word}</span>
               </h1>
 
-              <div className="flex gap-2 sm:gap-4">
+              <div className="flex gap-2 md:gap-4">
                 {didWin && (
                   <StatCard
                     title={
@@ -94,7 +94,7 @@ export const WinPage = () => {
                           (
                           <button
                             className="cursor-pointer text-inherit underline"
-                            onClick={() => setIsScoreBreakdownOpen(true)}
+                            onClick={() => setModal('score-breakdown')}
                           >
                             breakdown
                           </button>
@@ -127,7 +127,7 @@ export const WinPage = () => {
                     <p className="text-xs">Try an even tougher puzzle</p>
                   </div>
                   <button
-                    className="shrink-0 rounded-full bg-gray-50 p-3 text-sm font-semibold text-black sm:py-2 dark:bg-gray-800 dark:text-white"
+                    className="shrink-0 rounded-full bg-gray-50 p-3 text-sm font-semibold text-black md:py-2 dark:bg-gray-800 dark:text-white"
                     onClick={() => {
                       sendMessageToDevvit({
                         type: 'NAVIGATE_TO_LATEST_HARDCORE',
@@ -135,8 +135,8 @@ export const WinPage = () => {
                     }}
                   >
                     {/* TODO: Show modal when clicked */}
-                    <span className="hidden sm:inline">Play Hardcore Mode</span>
-                    <span className="block size-4 sm:hidden">
+                    <span className="hidden md:inline">Play Hardcore Mode</span>
+                    <span className="block size-4 md:hidden">
                       <RightChevronIcon />
                     </span>
                   </button>
@@ -260,11 +260,6 @@ export const WinPage = () => {
           )}
         </div>
       </div>
-      <ScoreBreakdownModal
-        clickAnywhereToClose={false}
-        isOpen={isScoreBreakdownOpen}
-        onClose={() => setIsScoreBreakdownOpen(false)}
-      />
     </>
   );
 };

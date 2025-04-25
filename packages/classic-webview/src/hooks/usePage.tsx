@@ -10,15 +10,23 @@ export const PageContextProvider = ({ children }: { children: React.ReactNode })
     if (!GAME_INIT_DATA) {
       return 'loading';
     }
+
     // Keep in sync with useGame's use effect
     if (
       GAME_INIT_DATA.challengeUserInfo?.solvedAtMs ||
       GAME_INIT_DATA.challengeUserInfo?.gaveUpAtMs
     ) {
       return 'win';
-    } else {
-      return 'play';
     }
+
+    if (
+      GAME_INIT_DATA.mode === 'hardcore' &&
+      GAME_INIT_DATA.hardcoreModeAccess.status === 'inactive'
+    ) {
+      return 'unlock-hardcore';
+    }
+
+    return 'play';
   });
 
   return (
