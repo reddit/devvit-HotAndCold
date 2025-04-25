@@ -65,7 +65,7 @@ Devvit.addCustomPostType({
   height: 'tall',
   render: (context) => {
     // TODO: this shouldn't be hardcoding mode.
-    const gameMode = 'regular'; // Define gameMode
+    const gameMode = 'hardcore'; // Define gameMode
     const challengeService = new ChallengeService(context.redis, gameMode);
     const guessService = new GuessService(context.redis, gameMode, context);
     const challengeProgressService = new ChallengeProgressService(context, gameMode);
@@ -161,7 +161,7 @@ Devvit.addCustomPostType({
                 sendMessageToWebview(context, {
                   type: 'GAME_INIT_RESPONSE',
                   payload: {
-                    mode: 'hardcore', // TODO: Get this from the backend
+                    mode: 'regular', // TODO: Get this from the backend
                     challengeInfo: omit(challengeInfo, ['word']),
                     challengeUserInfo,
                     number: challenge,

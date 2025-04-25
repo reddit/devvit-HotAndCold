@@ -4,9 +4,7 @@ import { useConfirmation } from '@hotandcold/webview-common/hooks/useConfirmatio
 import { sendMessageToDevvit } from '../utils';
 import { useUserSettings, useSetUserSettings } from '../hooks/useUserSettings';
 import { useGame } from '../hooks/useGame';
-import { useState } from 'react';
 import type { UserSettings } from '@hotandcold/classic-shared';
-import { HowToPlayModal } from './howToPlayModal';
 import { IconButton } from '@hotandcold/webview-common/components/button';
 import { InfoIcon } from '@hotandcold/webview-common/components/icon';
 import { useModal } from '../hooks/useModal';
@@ -33,8 +31,8 @@ export const Header = () => {
     !challengeUserInfo?.solvedAtMs &&
     !challengeUserInfo?.gaveUpAtMs;
   const { showConfirmation } = useConfirmation();
-  const [howToPlayOpen, setHowToPlayOpen] = useState(false);
-  const { setModal } = useModal();
+
+  const { showModal: setModal } = useModal();
 
   const isHardcore = mode === 'hardcore';
 
@@ -64,7 +62,7 @@ export const Header = () => {
         <div className="flex flex-1 items-center justify-end gap-2">
           <IconButton
             type="button"
-            onClick={() => setHowToPlayOpen(true)}
+            onClick={() => setModal('how-to-play')}
             icon={<InfoIcon />}
             aria-label="How to Play"
           >
@@ -138,7 +136,6 @@ export const Header = () => {
           />
         </div>
       </div>
-      <HowToPlayModal isOpen={howToPlayOpen} onClose={() => setHowToPlayOpen(false)} />
     </>
   );
 };

@@ -21,19 +21,3 @@ export const GoldIcon = () => (
     />
   </svg>
 );
-
-export const CloseIcon = () => {
-  return (
-    <svg width="48" height="48" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <path
-        d="M0 24C0 10.7452 10.7452 0 24 0C37.2548 0 48 10.7452 48 24C48 37.2548 37.2548 48 24 48C10.7452 48 0 37.2548 0 24Z"
-        fill="black"
-        fill-opacity="0.6"
-      />
-      <path
-        d="M32.707 16.707L31.293 15.293L24 22.586L16.707 15.293L15.293 16.707L22.586 24L15.293 31.293L16.707 32.707L24 25.414L31.293 32.707L32.707 31.293L25.414 24L32.707 16.707Z"
-        fill="white"
-      />
-    </svg>
-  );
-};

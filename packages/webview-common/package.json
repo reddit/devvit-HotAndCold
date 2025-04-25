@@ -5,11 +5,12 @@
   "type": "module",
   "exports": {
     "./components/button": "./src/components/button.tsx",
+    "./components/gradientBorder": "./src/components/gradientBorder.tsx",
     "./components/helpMenu": "./src/components/helpMenu.tsx",
     "./components/icon": "./src/components/icon.tsx",
     "./components/logo": "./src/components/logo.tsx",
     "./components/modal": "./src/components/modal.tsx",
-    "./components/switcher": "./src/components/switcher.tsx",
+    "./components/tablist": "./src/components/tablist.tsx",
     "./components/timer": "./src/components/timer.tsx",
     "./components/wordInput": "./src/components/wordInput.tsx",
     "./hooks/useConfirmation": "./src/hooks/useConfirmation.tsx",
