@@ -47,7 +47,7 @@ export const Header = () => {
               <Logo />
               <div
                 className="flex gap-1 hover:cursor-pointer"
-                onClick={() => setModal('unlock-hardcore')}
+                onClick={() => showModal('unlock-hardcore')}
               >
                 <HardcoreMascot />
                 <span className="relative -translate-y-1/2 self-center rounded-full border border-gray-500 px-2 text-[10px] italic text-gray-400">
