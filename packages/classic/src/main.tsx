@@ -69,7 +69,7 @@ Devvit.addCustomPostType({
     const payments = usePayments(async (paymentsResult: OnPurchaseResult) => {
       switch (paymentsResult.status) {
         case OrderResultStatus.Success: {
-          context.ui.showToast(`Successfully purchased custom boards!`);
+          context.ui.showToast(`Purchase successful!`);
           sendMessageToWebview(context, {
             type: 'PURCHASE_PRODUCT_SUCCESS_RESPONSE',
             payload: {
