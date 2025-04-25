@@ -32,10 +32,81 @@ const StatCard = ({
   </div>
 );
 
+const CallToAction = ({ didWin }: { didWin: boolean }) => {
+  const { mode, hardcoreModeAccess } = useGame();
+  const { isUserOptedIntoReminders } = useUserSettings();
+  const { showModal } = useModal();
+  const isHardcore = mode === 'hardcore';
+
+  // Won regular mode
+  if (!isHardcore && didWin) {
+    return (
+      <div className="flex w-full max-w-md items-center justify-between gap-2 rounded-full border border-red-700 bg-red-900 bg-[url('/assets/win_bg.png')] bg-cover bg-right-bottom bg-no-repeat px-6 py-2">
+        <div className="flex-auto">
+          <p className="text-base font-semibold">Did that feel too easy?</p>
+          <p className="text-xs">Try an even tougher puzzle</p>
+        </div>
+        <button
+          className="shrink-0 rounded-full bg-gray-50 p-3 text-sm font-semibold text-black md:py-2 dark:bg-gray-800 dark:text-white"
+          onClick={() => {
+            sendMessageToDevvit({
+              type: 'NAVIGATE_TO_LATEST_HARDCORE',
+            });
+          }}
+        >
+          <span className="hidden md:inline">Play Hardcore Mode</span>
+          <span className="block size-4 md:hidden">
+            <RightChevronIcon />
+          </span>
+        </button>
+      </div>
+    );
+  }
+
+  // Is hardcore mode and does not have active hardcore mode
+  if (isHardcore && (!hardcoreModeAccess || hardcoreModeAccess.status === 'inactive')) {
+    return (
+      <button
+        className="rounded-full bg-gray-50 text-base font-semibold text-black dark:bg-black dark:text-white"
+        onClick={() => showModal('unlock-hardcore')}
+      >
+        <GradientBorder>
+          <span className="flex items-center justify-between gap-2 p-4">
+            Your Hardcore access has run out. Unlock{' '}
+            <span className="size-4">
+              <RightChevronIcon />
+            </span>
+          </span>
+        </GradientBorder>
+      </button>
+    );
+  }
+
+  // Gave up regular mode or has active hardcore mode
+  return (
+    <div className="rounded-full bg-gray-50 text-sm font-semibold text-black dark:bg-black dark:text-white">
+      <GradientBorder>
+        <label className="flex cursor-pointer items-center justify-center gap-2 p-4">
+          <input
+            type="checkbox"
+            checked={isUserOptedIntoReminders}
+            onChange={() => {
+              sendMessageToDevvit({
+                type: 'TOGGLE_USER_REMINDER',
+              });
+            }}
+            className="size-4 appearance-none rounded-sm border border-gray-900 accent-blue-500 checked:appearance-auto dark:border-white dark:accent-blue-600"
+          />
+          <span className="select-none">Remind me to play tomorrow</span>
+        </label>
+      </GradientBorder>
+    </div>
+  );
+};
+
 export const WinPage = () => {
   const { challengeInfo, challengeUserInfo, mode } = useGame();
   const [activeIndex, setActiveIndex] = React.useState(0);
-  const { isUserOptedIntoReminders } = useUserSettings();
   const { showModal: setModal } = useModal();
   const leaderboardData = useDevvitListener('CHALLENGE_LEADERBOARD_RESPONSE');
 
@@ -134,45 +205,7 @@ export const WinPage = () => {
                   value={didWin ? `#${leaderboardData?.userRank.score ?? '--'}` : '--'}
                 />
               </div>
-              {didWin ? (
-                <div className="flex w-full max-w-md items-center justify-between gap-2 rounded-full border border-red-700 bg-red-900 bg-[url('/assets/win_bg.png')] bg-cover bg-right-bottom bg-no-repeat px-6 py-2">
-                  <div className="flex-auto">
-                    <p className="text-base font-semibold">Did that feel too easy?</p>
-                    <p className="text-xs">Try an even tougher puzzle</p>
-                  </div>
-                  <button
-                    className="shrink-0 rounded-full bg-gray-50 p-3 text-sm font-semibold text-black md:py-2 dark:bg-gray-800 dark:text-white"
-                    onClick={() => {
-                      sendMessageToDevvit({
-                        type: 'NAVIGATE_TO_LATEST_HARDCORE',
-                      });
-                    }}
-                  >
-                    <span className="hidden md:inline">Play Hardcore Mode</span>
-                    <span className="block size-4 md:hidden">
-                      <RightChevronIcon />
-                    </span>
-                  </button>
-                </div>
-              ) : (
-                <div className="rounded-full bg-gray-50 text-sm text-black dark:bg-black dark:text-white">
-                  <GradientBorder>
-                    <label className="flex cursor-pointer items-center justify-center gap-2 p-4">
-                      <input
-                        type="checkbox"
-                        checked={isUserOptedIntoReminders}
-                        onChange={() => {
-                          sendMessageToDevvit({
-                            type: 'TOGGLE_USER_REMINDER',
-                          });
-                        }}
-                        className="size-4 appearance-none rounded-sm border border-gray-900 accent-blue-500 checked:appearance-auto dark:border-white dark:accent-blue-600"
-                      />
-                      <span className="select-none">Remind me to play tomorrow</span>
-                    </label>
-                  </GradientBorder>
-                </div>
-              )}
+              <CallToAction didWin={didWin} />
             </div>
           )}
 
