@@ -51,7 +51,8 @@ const addWordsToDictionaryFormId = Devvit.createForm(
       void API.getWordConfig({ context, word });
     });
 
-    const resp = await new WordListService(context.redis).addToCurrentWordList({
+    // TODO: fix this - it needs to work for hardcore & regular.
+    const resp = await new WordListService(context.redis, 'regular').addToCurrentWordList({
       mode: prepend ? 'prepend' : 'append',
       words: wordsToAdd,
     });
@@ -63,7 +64,7 @@ const addWordsToDictionaryFormId = Devvit.createForm(
 );
 
 Devvit.addMenuItem({
-  label: 'HotAndCold: Add to Word List',
+  label: 'HotAndCold: Add to Regular Word List',
   location: 'subreddit',
   forUserType: 'moderator',
   onPress: (_event, context) => {
