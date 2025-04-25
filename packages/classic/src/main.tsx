@@ -339,21 +339,16 @@ Devvit.addCustomPostType({
                 break;
               }
               case 'NAVIGATE_TO_LATEST_HARDCORE': {
-                const hardcoreChallengeService = new ChallengeService(context.redis, 'hardcore');
-                const latestHardcoreChallenge =
-                  await hardcoreChallengeService.getCurrentChallengeNumber();
-                const latestHardcoreChallengeInfo = await hardcoreChallengeService.getChallenge({
-                  challenge: latestHardcoreChallenge,
-                });
-                const latestHardcoreChallengePostId = latestHardcoreChallengeInfo.postId;
-                if (!latestHardcoreChallengePostId) {
-                  context.ui.showToast(
-                    'Seems like there has never been a hardcore challenge? Wait a day and then there will be!'
-                  );
-                  break;
+                try {
+                  await handleNavigateToLatestHardcore(context);
+                } catch (error) {
+                  if (error instanceof Error) {
+                    context.ui.showToast(error.message);
+                  } else {
+                    console.error('Unexpected error navigating to hardcore challenge:', error);
+                    context.ui.showToast('An unexpected error occurred.');
+                  }
                 }
-                const post = await context.reddit.getPostById(latestHardcoreChallengePostId);
-                context.ui.navigateTo(post);
                 break;
               }
 
@@ -366,5 +361,28 @@ Devvit.addCustomPostType({
     );
   },
 });
+
+async function handleNavigateToLatestHardcore(context: Devvit.Context): Promise<void> {
+  const hardcoreChallengeService = new ChallengeService(context.redis, 'hardcore');
+  const latestHardcoreChallenge = await hardcoreChallengeService.getCurrentChallengeNumber();
+
+  if (latestHardcoreChallenge == 0) {
+    throw new Error(
+      'Seems like there has never been a hardcore challenge? Wait a day and then there will be!'
+    );
+  }
+
+  const latestHardcoreChallengeInfo = await hardcoreChallengeService.getChallenge({
+    challenge: latestHardcoreChallenge,
+  });
+  const latestHardcoreChallengePostId = latestHardcoreChallengeInfo.postId;
+  if (!latestHardcoreChallengePostId) {
+    throw new Error(
+      'Seems like there has never been a hardcore challenge? Wait a day and then there will be!'
+    );
+  }
+  const post = await context.reddit.getPostById(latestHardcoreChallengePostId);
+  context.ui.navigateTo(post);
+}
 
 export default Devvit;
