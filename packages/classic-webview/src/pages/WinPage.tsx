@@ -84,7 +84,7 @@ export const WinPage = () => {
                 <span className="text-[#dd4c4c]">{word.word}</span>
               </h1>
 
-              <div className="flex gap-2 sm:gap-4">
+              <div className="flex gap-2 md:gap-4">
                 {didWin && (
                   <StatCard
                     title={
@@ -126,10 +126,10 @@ export const WinPage = () => {
                     <p className="text-base font-semibold">Did that feel too easy?</p>
                     <p className="text-xs">Try an even tougher puzzle</p>
                   </div>
-                  <button className="shrink-0 rounded-full bg-gray-50 p-3 text-sm font-semibold text-black sm:py-2 dark:bg-gray-800 dark:text-white">
+                  <button className="shrink-0 rounded-full bg-gray-50 p-3 text-sm font-semibold text-black md:py-2 dark:bg-gray-800 dark:text-white">
                     {/* TODO: Show modal when clicked */}
-                    <span className="hidden sm:inline">Play Hardcore Mode</span>
-                    <span className="block size-4 sm:hidden">
+                    <span className="hidden md:inline">Play Hardcore Mode</span>
+                    <span className="block size-4 md:hidden">
                       <RightChevronIcon />
                     </span>
                   </button>
