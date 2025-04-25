@@ -15,14 +15,17 @@ Devvit.addTrigger({
     }
 
     // TODO: we need to eventually getChallengeInfoForPost and have it return both number & mode.
-    const info = await ChallengeToPost.getChallengeNumberForPost({
+    const challengeIdentifier = await ChallengeToPost.getChallengeIdentifierForPost({
       redis: context.redis,
       postId: event.post.id,
     });
 
     // TODO: this should not be hardcoding mode.
-    const challengeInfo = await new ChallengeService(context.redis, 'regular').getChallenge({
-      challenge: info,
+    const challengeInfo = await new ChallengeService(
+      context.redis,
+      challengeIdentifier.mode
+    ).getChallenge({
+      challenge: challengeIdentifier.challenge,
     });
 
     const comment = await context.reddit.getCommentById(event.comment.id);
