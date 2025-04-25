@@ -9,7 +9,7 @@ import './menu-actions/totalReminders.js';
 import { Devvit, useInterval, useState } from '@devvit/public-api';
 import { DEVVIT_SETTINGS_KEYS } from './constants.js';
 import { isServerCall, omit } from '@hotandcold/shared/utils';
-import { WebviewToBlocksMessage } from '@hotandcold/classic-shared';
+import { HardcoreAccessStatus, WebviewToBlocksMessage } from '@hotandcold/classic-shared';
 import { GuessService } from './core/guess.js';
 import { ChallengeToPost, PostIdentifier } from './core/challengeToPost.js';
 import { Preview } from './components/Preview.js';
@@ -19,7 +19,7 @@ import { ChallengeLeaderboard } from './core/challengeLeaderboard.js';
 import { Reminders } from './core/reminders.js';
 import { RedditApiCache } from './core/redditApiCache.js';
 import { sendMessageToWebview } from './utils/index.js';
-import { initPayments } from './payments.js';
+import { initPayments, PaymentsRepo } from './payments.js';
 
 initPayments();
 
@@ -56,6 +56,7 @@ type InitialState =
       challengeInfo: Awaited<ReturnType<ChallengeService['getChallenge']>>;
       challengeUserInfo: Awaited<ReturnType<GuessService['getChallengeUserInfo']>>;
       challengeProgress: Awaited<ReturnType<ChallengeProgressService['getPlayerProgress']>>;
+      hardcoreModeAccess: HardcoreAccessStatus;
     };
 
 // Add a post type definition
@@ -80,9 +81,14 @@ Devvit.addCustomPostType({
     const challengeService = new ChallengeService(context.redis, gameMode);
     const guessService = new GuessService(context.redis, gameMode, context);
     const challengeProgressService = new ChallengeProgressService(context, gameMode);
+    const paymentsRepo = new PaymentsRepo(context.redis);
 
     const [initialState] = useState<InitialState>(async () => {
-      const user = await context.reddit.getCurrentUser();
+      const [user, hardcoreModeAccess] = await Promise.all([
+        context.reddit.getCurrentUser(),
+        paymentsRepo.getHardcoreAccessStatus(context.userId!),
+      ]);
+
       if (!user) {
         return {
           type: 'UNAUTHED' as const,
@@ -120,6 +126,7 @@ Devvit.addCustomPostType({
         challengeInfo,
         challengeUserInfo,
         challengeProgress,
+        hardcoreModeAccess,
       };
     });
 
@@ -168,6 +175,7 @@ Devvit.addCustomPostType({
                     challengeUserInfo,
                     number: challenge,
                     challengeProgress: challengeProgress,
+                    hardcoreModeAccess: initialState.hardcoreModeAccess,
                   },
                 });
 

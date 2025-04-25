@@ -15,6 +15,12 @@ export default {
         'lg': '600px',    // Large breakpoint
         'xl': '678px',    // Maximum width
       },
+      colors: {
+        'mustard-gold': '#FFBF0B',
+        'slate-gray': '#8BA2AD',
+        'charcoal': '#2A3236',
+        'night': '#0E1113'
+      }
     },
   },
   plugins: [],

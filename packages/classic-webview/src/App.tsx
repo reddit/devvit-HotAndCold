@@ -9,6 +9,11 @@ import { cn } from '@hotandcold/webview-common/utils';
 import { Header } from './components/header';
 import { LoadingPage } from './pages/LoadingPage';
 
+import { useModal } from './hooks/useModal';
+import { UnlockHardcoreModal } from './components/UnlockHardcoreModal';
+import { HowToPlayModal } from './components/howToPlayModal';
+import { ScoreBreakdownModal } from './components/scoreBreakdownModal';
+
 const getPage = (page: Page) => {
   switch (page) {
     case 'play':
@@ -19,6 +24,9 @@ const getPage = (page: Page) => {
       return <WinPage />;
     case 'loading':
       return <LoadingPage />;
+    case 'unlock-hardcore':
+      // TODO: Implement page for hardcore mode
+      return <div>UNLOCK HARDCORD</div>;
     default:
       throw new Error(`Invalid page: ${String(page satisfies never)}`);
   }
@@ -27,6 +35,18 @@ const getPage = (page: Page) => {
 export const App = () => {
   const page = usePage();
   const { mode } = useGame();
+  const { modal, closeModal } = useModal();
+
+  if (modal != null) {
+    switch (modal) {
+      case 'unlock-hardcore':
+        return <UnlockHardcoreModal isOpen onClose={closeModal} />;
+      case 'how-to-play':
+        return <HowToPlayModal isOpen onClose={closeModal} />;
+      case 'score-breakdown':
+        return <ScoreBreakdownModal isOpen clickAnywhereToClose={false} onClose={closeModal} />;
+    }
+  }
 
   return (
     <div
@@ -41,7 +61,6 @@ export const App = () => {
       </div>
       {getPage(page)}
       <Progress />
-      {/* <FriendsModal isOpen={friendsModalOpen} onClose={() => setFriendsModalOpen(false)} /> */}
     </div>
   );
 };
