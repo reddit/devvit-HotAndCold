@@ -7,8 +7,11 @@ import { processInChunks } from '@hotandcold/shared/utils';
 Devvit.addSchedulerJob({
   name: 'DAILY_GAME_DROP',
   onRun: async (_, context) => {
-    // TODO: this shouldn't be hardcoding mode.
-    const newChallenge = await new ChallengeService(context.redis, 'regular').makeNewChallenge({
+    const regularChallenge = await new ChallengeService(context.redis, 'regular').makeNewChallenge({
+      context,
+    });
+
+    await new ChallengeService(context.redis, 'hardcore').makeNewChallenge({
       context,
     });
 
@@ -21,8 +24,8 @@ Devvit.addSchedulerJob({
       chunkSize: 25,
       promiseGenerator: (username: string) =>
         context.reddit.sendPrivateMessage({
-          subject: `HotAndCold: Time to play challenge #${newChallenge.challenge}!`,
-          text: `The new challenge is up! Go to [this link](${newChallenge.postUrl}) to play!\n\nUnsubscribe from these messages any time by going to the challenge, tapping the three dots, and selecting "Unsubscribe".`,
+          subject: `HotAndCold: Time to play challenge #${regularChallenge.challenge}!`,
+          text: `The new challenge is up! Go to [this link](${regularChallenge.postUrl}) to play!\n\nUnsubscribe from these messages any time by going to the challenge, tapping the three dots, and selecting "Unsubscribe".`,
           to: username,
         }),
       onSuccess: (_, username) => {
@@ -57,10 +60,11 @@ Devvit.addSchedulerJob({
 
 export const initialize = async (context: TriggerContext) => {
   // Certain things need to be initialized in Redis to run correctly
-
-  // TODO: this shouldn't be hardcoding mode.
   await new ChallengeService(context.redis, 'regular').initialize({ context });
   await new WordListService(context.redis, 'regular').initialize({ context });
+
+  await new ChallengeService(context.redis, 'hardcore').initialize({ context });
+  await new WordListService(context.redis, 'hardcore').initialize({ context });
 
   const jobs = await context.scheduler.listJobs();
   for (const job of jobs) {

@@ -8,19 +8,44 @@ export * as ChallengeToPost from './challengeToPost.js';
 // Original to make it super explicit since we might let people play the archive on any postId
 const getChallengeToOriginalPostKey = () => `challenge_to_original_post` as const;
 
-// TODO: this should also be returning whether the post is hardcore or not.
-export const getChallengeNumberForPost = zoddy(
+// Maps a postId to the mode of a post.
+// If this isn't present, we assume the post is a regular challenge as regular challenges were the only ones before mode was introduced.
+const getPostToModeKey = (postId: string) => `mode:${postId}` as const;
+
+// Uniquely identifies a post.
+export type PostIdentifier = {
+  challenge: number;
+  mode: GameMode;
+};
+
+export const getChallengeIdentifierForPost = zoddy(
   z.object({
     redis: zodRedis,
     postId: z.string().trim(),
   }),
-  async ({ redis, postId }) => {
-    const challengeNumber = await redis.zScore(getChallengeToOriginalPostKey(), postId);
+  async ({ redis, postId }): Promise<PostIdentifier> => {
+    const [challengeNumber, mode] = await Promise.all([
+      redis.zScore(getChallengeToOriginalPostKey(), postId),
+      redis.get(getPostToModeKey(postId)),
+    ]);
 
     if (!challengeNumber) {
       throw new Error('No challenge number found for post. Did you mean to create one?');
     }
-    return challengeNumber;
+
+    if (!mode) {
+      // Prior to the introduction of mode, all puzzles were regular, so assume that for backwards compatibility.
+      return { challenge: challengeNumber, mode: 'regular' };
+    }
+
+    if (mode !== 'hardcore' && mode !== 'regular') {
+      throw new Error(`Invalid mode found for post. Found ${mode}`);
+    }
+
+    return {
+      challenge: challengeNumber,
+      mode: mode,
+    };
   }
 );
 
@@ -36,16 +61,19 @@ export class ChallengeToPostService {
     private mode: GameMode
   ) {}
 
-  setChallengeNumberForPost = zoddy(
+  setChallengeIdentifierForPost = zoddy(
     z.object({
       challenge: z.number().gt(0),
       postId: z.string().trim(),
     }),
     async ({ challenge, postId }) => {
-      await this.redis.zAdd(getChallengeToOriginalPostKey(), {
-        member: postId,
-        score: challenge,
-      });
+      await Promise.all([
+        this.redis.zAdd(getChallengeToOriginalPostKey(), {
+          member: postId,
+          score: challenge,
+        }),
+        this.redis.set(getPostToModeKey(postId), this.mode),
+      ]);
     }
   );
 }

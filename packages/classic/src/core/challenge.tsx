@@ -151,7 +151,7 @@ export class ChallengeService {
     // Requires AppContextType for Reddit API access etc.
     z.object({ context: zodAppContext }),
     async ({ context }) => {
-      console.log('Making new challenge...');
+      console.log(`Making new challenge for mode: ${this.#mode}`);
 
       const wordListService = new WordListService(this.#redis, this.#mode);
 
@@ -182,9 +182,14 @@ export class ChallengeService {
           words: wordList.slice(unusedWordIndex + 1),
         });
 
+        const title =
+          this.#mode === 'hardcore'
+            ? `Hot and Cold HARDCORE #${newChallengeNumber}`
+            : `Hot and Cold #${newChallengeNumber}`;
+
         post = await context.reddit.submitPost({
           subredditName: currentSubreddit.name,
-          title: `Hot and cold #${newChallengeNumber}`,
+          title: title,
           preview: <Preview />,
         });
 
@@ -214,7 +219,7 @@ export class ChallengeService {
           challenge: newChallengeNumber,
           word: newWord,
         });
-        await this.#challengeToPostService.setChallengeNumberForPost({
+        await this.#challengeToPostService.setChallengeIdentifierForPost({
           challenge: newChallengeNumber,
           postId: post.id,
         });
