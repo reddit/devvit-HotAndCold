@@ -3,19 +3,19 @@ import { UnlockHardcoreModal } from '../components/UnlockHardcoreModal';
 import { HowToPlayModal } from '../components/howToPlayModal';
 import { ScoreBreakdownModal } from '../components/scoreBreakdownModal';
 
-export type ModalType = 'unlock-hardcore' | 'how-to-play' | 'score-breakdown' | undefined;
+export type ModalType = 'unlock-hardcore' | 'how-to-play' | 'score-breakdown';
 
 type ModalContext = {
-  modal: ModalType;
+  modal: ModalType | undefined;
   /** set to `undefined` to indicate that no modal is showing */
-  showModal: React.Dispatch<React.SetStateAction<ModalType | undefined>>;
+  showModal: (m: ModalType) => void;
   closeModal: () => void;
 };
 
 const modalContext = createContext<ModalContext | null>(null);
 
 export const ModalContextProvider = (props: { children: React.ReactNode }) => {
-  const [modal, setModal] = useState<ModalType>(undefined);
+  const [modal, setModal] = useState<ModalType | undefined>(undefined);
 
   const closeModal = () => setModal(undefined);
 
@@ -33,7 +33,9 @@ export const ModalContextProvider = (props: { children: React.ReactNode }) => {
   };
 
   return (
-    <modalContext.Provider value={{ modal: modal, showModal: setModal, closeModal }}>
+    <modalContext.Provider
+      value={{ modal: modal, showModal: (m: ModalType) => setModal(m), closeModal }}
+    >
       {modal && <Modal />}
       {props.children}
     </modalContext.Provider>
