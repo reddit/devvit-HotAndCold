@@ -5,6 +5,7 @@
   "type": "module",
   "exports": {
     "./components/button": "./src/components/button.tsx",
+    "./components/gradientBorder": "./src/components/gradientBorder.tsx",
     "./components/helpMenu": "./src/components/helpMenu.tsx",
     "./components/icon": "./src/components/icon.tsx",
     "./components/logo": "./src/components/logo.tsx",
