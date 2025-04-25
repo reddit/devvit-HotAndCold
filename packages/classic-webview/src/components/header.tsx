@@ -45,7 +45,7 @@ export const Header = () => {
           ) : (
             <>
               <Logo />
-              <div
+              <button
                 className="flex gap-1 hover:cursor-pointer"
                 onClick={() => showModal('unlock-hardcore')}
               >
@@ -54,7 +54,7 @@ export const Header = () => {
                   Pssst...
                   <SpeechBubbleTail className="absolute left-2 top-full h-2 w-2 stroke-gray-500 stroke-1" />
                 </span>
-              </div>
+              </button>
             </>
           )}
         </div>
