@@ -115,7 +115,7 @@ export const getWordConfigCached = zoddy(
         console.error(`Error getting word config for word: "${word}".`, error);
       }
 
-      console.log(`Trying to get word config live from the API`);
+      console.log(`Trying to get word config live from the API for word: "${word}"`);
       const response = await getWordConfig({ context, word });
 
       console.log(`I got a response live from the API doe so returning that.`);
