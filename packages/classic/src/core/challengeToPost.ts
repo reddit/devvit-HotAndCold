@@ -8,6 +8,8 @@ export * as ChallengeToPost from './challengeToPost.js';
 // Original to make it super explicit since we might let people play the archive on any postId
 const getChallengeToOriginalPostKey = () => `challenge_to_original_post` as const;
 
+const getPostToModeKey = (postId: string) => `mode:${postId}` as const;
+
 // Uniquely identifies a post.
 export type PostIdentifier = {
   challenge: number;
@@ -22,7 +24,7 @@ export const getChallengeIdentifierForPost = zoddy(
   async ({ redis, postId }): Promise<PostIdentifier> => {
     const [challengeNumber, mode] = await Promise.all([
       redis.zScore(getChallengeToOriginalPostKey(), postId),
-      redis.get(`mode:${postId}`),
+      redis.get(getPostToModeKey(postId)),
     ]);
 
     if (!challengeNumber) {
@@ -68,7 +70,7 @@ export class ChallengeToPostService {
           member: postId,
           score: challenge,
         }),
-        this.redis.set(`mode:${postId}`, this.mode),
+        this.redis.set(getPostToModeKey(postId), this.mode),
       ]);
     }
   );
