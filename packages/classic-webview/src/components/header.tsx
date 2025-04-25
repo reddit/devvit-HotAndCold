@@ -94,7 +94,7 @@ export const Header = () => {
                 },
               },
               {
-                name: 'Hint',
+                name: isHardcore ? 'No hints in HARDCORE!' : 'Hint',
                 disabled: !isActivelyPlaying || isHardcore,
                 action: async () => {
                   const response = await showConfirmation({
