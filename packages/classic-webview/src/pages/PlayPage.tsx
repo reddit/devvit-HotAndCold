@@ -123,79 +123,80 @@ export const PlayPage = () => {
   );
 
   return (
-    <PageContentContainer showContainer={isHardcore}>
-      <div className="flex h-full flex-col items-center justify-center p-6">
-        <div className="flex w-full max-w-md flex-grow-0 flex-col items-center justify-center gap-6">
-          <p className="text-center text-2xl font-bold text-white">
-            {hasGuessed ? (
-              <GuessesMessage fontSize={21} isHardcore={isHardcore} guessCount={guesses.length} />
-            ) : (
-              `Can you guess the secret word?`
-            )}
-          </p>
-          <div className="flex w-full flex-col gap-2">
-            <WordInput
-              value={word}
-              isHighContrast={isHardcore}
-              onChange={(e) => {
-                setWord(e.target.value);
-                dismissFeedback(); // Hide feedback when typing
-              }}
-              onSubmit={(animationDuration) => {
-                if (word.trim().split(' ').length > 1) {
-                  sendMessageToDevvit({
-                    type: 'SHOW_TOAST',
-                    string: 'I only understand one word at a time.',
-                  });
-                  return;
-                }
-
+    <PageContentContainer
+      showContainer={isHardcore}
+      className="flex flex-col items-center justify-center"
+    >
+      <div className="flex w-full max-w-md flex-grow-0 flex-col items-center justify-center gap-6">
+        <p className="text-center text-2xl font-bold text-white">
+          {hasGuessed ? (
+            <GuessesMessage fontSize={21} isHardcore={isHardcore} guessCount={guesses.length} />
+          ) : (
+            `Can you guess the secret word?`
+          )}
+        </p>
+        <div className="flex w-full flex-col gap-2">
+          <WordInput
+            value={word}
+            isHighContrast={isHardcore}
+            onChange={(e) => {
+              setWord(e.target.value);
+              dismissFeedback(); // Hide feedback when typing
+            }}
+            onSubmit={(animationDuration) => {
+              if (word.trim().split(' ').length > 1) {
                 sendMessageToDevvit({
-                  type: 'WORD_SUBMITTED',
-                  value: word.trim().toLowerCase(),
+                  type: 'SHOW_TOAST',
+                  string: 'I only understand one word at a time.',
                 });
-                // TODO Store previous in case we need to replenish due to errors
+                return;
+              }
 
-                setTimeout(() => {
-                  setWord('');
-                }, animationDuration);
-              }}
-              placeholders={[
-                'Can you guess the word?',
-                'Any word will do to get started',
-                'Try banana',
-                'Or cat',
-              ]}
-            />
-            <div className="mt-3 min-h-7">
-              {showFeedback ? (
-                <FeedbackSection feedback={feedback} />
-              ) : (
-                <p
-                  className={cn(
-                    'text-center text-base',
-                    isHardcore ? 'font-bold text-white' : 'text-[#8BA2AD]'
-                  )}
-                >
-                  {welcomeMessage}
-                </p>
-              )}
-            </div>
+              sendMessageToDevvit({
+                type: 'WORD_SUBMITTED',
+                value: word.trim().toLowerCase(),
+              });
+              // TODO Store previous in case we need to replenish due to errors
+
+              setTimeout(() => {
+                setWord('');
+              }, animationDuration);
+            }}
+            placeholders={[
+              'Can you guess the word?',
+              'Any word will do to get started',
+              'Try banana',
+              'Or cat',
+            ]}
+          />
+          <div className="mt-3 min-h-7">
+            {showFeedback ? (
+              <FeedbackSection feedback={feedback} />
+            ) : (
+              <p
+                className={cn(
+                  'text-center text-base',
+                  isHardcore ? 'font-bold text-white' : 'text-[#8BA2AD]'
+                )}
+              >
+                {welcomeMessage}
+              </p>
+            )}
           </div>
         </div>
-
-        <motion.div // Animates the guesses sliding up from the bottom, which also pushes the word input up
-          initial={false}
-          animate={hasGuessed ? { height: '100%', opacity: 1 } : { height: '0', opacity: 0 }}
-          transition={{ duration: 0.8, ease: 'easeOut', delay: 0.2 }}
-          className="overflow-hidden"
-          onAnimationComplete={() => {
-            setGuessesAnimationCount((c) => c + 1);
-          }}
-        >
-          <Guesses items={guesses} updatePaginationSeed={guessesAnimationCount} />
-        </motion.div>
       </div>
+
+      <motion.div // Animates the guesses sliding up from the bottom, which also pushes the word input up
+        initial={false}
+        animate={hasGuessed ? { height: '100%', opacity: 1 } : { height: '0', opacity: 0 }}
+        transition={{ duration: 0.8, ease: 'easeOut', delay: 0.2 }}
+        className="overflow-hidden"
+        onAnimationComplete={() => {
+          setGuessesAnimationCount((c) => c + 1);
+        }}
+      >
+        <Guesses items={guesses} updatePaginationSeed={guessesAnimationCount} />
+      </motion.div>
     </PageContentContainer>
   );
 };
