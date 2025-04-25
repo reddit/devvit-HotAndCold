@@ -60,7 +60,7 @@ export class WordListService {
         const words = this.mode === 'hardcore' ? HARDCORE_WORD_LIST : DEFAULT_WORD_LIST;
 
         words.forEach((word) => {
-          // Don't wait, this just heas up the cache for the third party API
+          // Don't wait, this just heats up the cache for the third party API
           void API.getWordConfig({ context: context, word });
         });
         await this.redis.set(wordListKey, JSON.stringify(words));

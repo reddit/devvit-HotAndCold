@@ -6,12 +6,12 @@ import './menu-actions/newChallenge.js';
 import './menu-actions/addWordToDictionary.js';
 import './menu-actions/totalReminders.js';
 
-import { Devvit, JSONObject, useInterval, useState } from '@devvit/public-api';
+import { Devvit, useInterval, useState } from '@devvit/public-api';
 import { DEVVIT_SETTINGS_KEYS } from './constants.js';
 import { isServerCall, omit } from '@hotandcold/shared/utils';
-import { GameMode, WebviewToBlocksMessage } from '@hotandcold/classic-shared';
+import { WebviewToBlocksMessage } from '@hotandcold/classic-shared';
 import { GuessService } from './core/guess.js';
-import { ChallengeToPost } from './core/challengeToPost.js';
+import { ChallengeToPost, PostIdentifier } from './core/challengeToPost.js';
 import { Preview } from './components/Preview.js';
 import { ChallengeService } from './core/challenge.js';
 import { ChallengeProgressService } from './core/challengeProgress.js';
@@ -63,7 +63,7 @@ Devvit.addCustomPostType({
   name: 'HotAndCold',
   height: 'tall',
   render: (context) => {
-    const [challengeIdentifier] = useState<JSONObject>(async () => {
+    const [challengeIdentifier] = useState<PostIdentifier>(async () => {
       const identifier = await ChallengeToPost.getChallengeIdentifierForPost({
         redis: context.redis,
         postId: context.postId!,
@@ -71,9 +71,11 @@ Devvit.addCustomPostType({
 
       return identifier;
     });
-
-    const gameMode = challengeIdentifier.mode as GameMode;
-    const challengeNumber = challengeIdentifier.challenge as number;
+    if (!challengeIdentifier) {
+      throw new Error('No challenge identifier found');
+    }
+    const gameMode = challengeIdentifier.mode;
+    const challengeNumber = challengeIdentifier.challenge;
 
     const challengeService = new ChallengeService(context.redis, gameMode);
     const guessService = new GuessService(context.redis, gameMode, context);

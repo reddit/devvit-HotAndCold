@@ -9,7 +9,7 @@ export * as ChallengeToPost from './challengeToPost.js';
 const getChallengeToOriginalPostKey = () => `challenge_to_original_post` as const;
 
 // Uniquely identifies a post.
-type PostIdentifier = {
+export type PostIdentifier = {
   challenge: number;
   mode: GameMode;
 };
