@@ -14,7 +14,6 @@ type PostIdentifier = {
   mode: GameMode;
 };
 
-// TODO: this should also be returning whether the post is hardcore or not.
 export const getChallengeIdentifierForPost = zoddy(
   z.object({
     redis: zodRedis,
@@ -31,7 +30,8 @@ export const getChallengeIdentifierForPost = zoddy(
     }
 
     if (!mode) {
-      throw new Error('No mode found for post. Did you mean to set one?');
+      // Prior to the introduction of mode, all puzzles were regular, so assume that for backwards compatibility.
+      return { challenge: challengeNumber, mode: 'regular' };
     }
 
     if (mode !== 'hardcore' && mode !== 'regular') {
