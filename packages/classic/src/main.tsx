@@ -226,6 +226,14 @@ Devvit.addCustomPostType({
                 break;
               }
               case 'HINT_REQUEST': {
+                if (challengeIdentifier.mode === 'hardcore') {
+                  // We remove the UI affordance for hints in hardcore mode.
+                  // However, it's possible for users to manually send messages from a webview via the console.
+                  // So let's do some defensive programming here and make sure these users can't get hints.
+                  context.ui.showToast('No hints in hardcore mode!');
+                  break;
+                }
+
                 try {
                   sendMessageToWebview(context, {
                     type: 'HINT_RESPONSE',

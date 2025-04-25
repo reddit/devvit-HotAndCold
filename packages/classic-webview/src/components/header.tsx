@@ -95,7 +95,7 @@ export const Header = () => {
               },
               {
                 name: 'Hint',
-                disabled: !isActivelyPlaying,
+                disabled: !isActivelyPlaying || isHardcore,
                 action: async () => {
                   const response = await showConfirmation({
                     title: 'Are you sure?',
