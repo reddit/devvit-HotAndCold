@@ -11,7 +11,7 @@ import { DEVVIT_SETTINGS_KEYS } from './constants.js';
 import { isServerCall, omit } from '@hotandcold/shared/utils';
 import { HardcoreAccessStatus, WebviewToBlocksMessage } from '@hotandcold/classic-shared';
 import { GuessService } from './core/guess.js';
-import { ChallengeToPost } from './core/challengeToPost.js';
+import { ChallengeToPost, PostIdentifier } from './core/challengeToPost.js';
 import { Preview } from './components/Preview.js';
 import { ChallengeService } from './core/challenge.js';
 import { ChallengeProgressService } from './core/challengeProgress.js';
@@ -64,27 +64,36 @@ Devvit.addCustomPostType({
   name: 'HotAndCold',
   height: 'tall',
   render: (context) => {
-    // TODO: this shouldn't be hardcoding mode.
-    const gameMode = 'hardcore'; // Define gameMode
+    const [challengeIdentifier] = useState<PostIdentifier>(async () => {
+      const identifier = await ChallengeToPost.getChallengeIdentifierForPost({
+        redis: context.redis,
+        postId: context.postId!,
+      });
+
+      return identifier;
+    });
+    if (!challengeIdentifier) {
+      throw new Error('No challenge identifier found');
+    }
+    const gameMode = challengeIdentifier.mode;
+    const challengeNumber = challengeIdentifier.challenge;
+
     const challengeService = new ChallengeService(context.redis, gameMode);
     const guessService = new GuessService(context.redis, gameMode, context);
     const challengeProgressService = new ChallengeProgressService(context, gameMode);
     const paymentsRepo = new PaymentsRepo(context.redis);
 
     const [initialState] = useState<InitialState>(async () => {
-      const [user, challenge, hardcoreModeAccess] = await Promise.all([
+      const [user, hardcoreModeAccess] = await Promise.all([
         context.reddit.getCurrentUser(),
-        ChallengeToPost.getChallengeNumberForPost({
-          redis: context.redis,
-          postId: context.postId!,
-        }),
         paymentsRepo.getHardcoreAccessStatus(context.userId!),
       ]);
+
       if (!user) {
         return {
           type: 'UNAUTHED' as const,
           user: null,
-          challenge,
+          challenge: challengeNumber,
         };
       }
 
@@ -95,14 +104,14 @@ Devvit.addCustomPostType({
           username: user.username,
         }),
         challengeService.getChallenge({
-          challenge: challenge,
+          challenge: challengeNumber,
         }),
         guessService.getChallengeUserInfo({
-          challenge: challenge,
+          challenge: challengeNumber,
           username: user.username,
         }),
         challengeProgressService.getPlayerProgress({
-          challenge: challenge,
+          challenge: challengeNumber,
           sort: 'DESC',
           start: 0,
           stop: 10_000,
@@ -113,7 +122,7 @@ Devvit.addCustomPostType({
       return {
         type: 'AUTHED' as const,
         user: { username: user.username, avatar },
-        challenge,
+        challenge: challengeNumber,
         challengeInfo,
         challengeUserInfo,
         challengeProgress,

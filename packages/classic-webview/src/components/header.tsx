@@ -32,7 +32,7 @@ export const Header = () => {
     !challengeUserInfo?.gaveUpAtMs;
   const { showConfirmation } = useConfirmation();
 
-  const { showModal: setModal } = useModal();
+  const { showModal } = useModal();
 
   const isHardcore = mode === 'hardcore';
 
@@ -62,7 +62,7 @@ export const Header = () => {
         <div className="flex flex-1 items-center justify-end gap-2">
           <IconButton
             type="button"
-            onClick={() => setModal('how-to-play')}
+            onClick={() => showModal('how-to-play')}
             icon={<InfoIcon />}
             aria-label="How to Play"
           >

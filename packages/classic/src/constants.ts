@@ -303,3 +303,16 @@ export const DEFAULT_WORD_LIST: string[] = [
   'eager',
   'zesty',
 ];
+
+export const HARDCORE_WORD_LIST: string[] = [
+  // TODO: choose better words.
+  'hard',
+  'core',
+  'mode',
+  'rocks',
+  'and',
+  'is',
+  'worth',
+  'paying',
+  'for',
+];
