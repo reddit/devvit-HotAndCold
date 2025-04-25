@@ -15,7 +15,7 @@ type ModalContext = {
 const modalContext = createContext<ModalContext | null>(null);
 
 export const ModalContextProvider = (props: { children: React.ReactNode }) => {
-  const [modal, setModal] = useState<ModalType>('unlock-hardcore');
+  const [modal, setModal] = useState<ModalType>(undefined);
 
   const closeModal = () => setModal(undefined);
 
