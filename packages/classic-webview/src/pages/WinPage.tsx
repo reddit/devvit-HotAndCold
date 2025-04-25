@@ -5,7 +5,7 @@ import { cn, getPrettyDuration } from '@hotandcold/webview-common/utils';
 import { useDevvitListener } from '../hooks/useDevvitListener';
 import { Tablist } from '@hotandcold/webview-common/components/tablist';
 import { useUserSettings } from '../hooks/useUserSettings';
-import { ScoreBreakdownModal } from '../components/scoreBreakdownModal';
+import { useModal } from '../hooks/useModal';
 import { GradientBorder } from '@hotandcold/webview-common/components/gradientBorder';
 import { RightChevronIcon } from '@hotandcold/webview-common/components/icon';
 
@@ -35,7 +35,7 @@ export const WinPage = () => {
   const { challengeInfo, challengeUserInfo } = useGame();
   const [activeIndex, setActiveIndex] = React.useState(0);
   const { isUserOptedIntoReminders } = useUserSettings();
-  const [isScoreBreakdownOpen, setIsScoreBreakdownOpen] = React.useState(false);
+  const { showModal: setModal } = useModal();
   const leaderboardData = useDevvitListener('CHALLENGE_LEADERBOARD_RESPONSE');
 
   if (!challengeUserInfo || !challengeInfo) return null;
@@ -94,7 +94,7 @@ export const WinPage = () => {
                           (
                           <button
                             className="cursor-pointer text-inherit underline"
-                            onClick={() => setIsScoreBreakdownOpen(true)}
+                            onClick={() => setModal('score-breakdown')}
                           >
                             breakdown
                           </button>
@@ -253,11 +253,6 @@ export const WinPage = () => {
           )}
         </div>
       </div>
-      <ScoreBreakdownModal
-        clickAnywhereToClose={false}
-        isOpen={isScoreBreakdownOpen}
-        onClose={() => setIsScoreBreakdownOpen(false)}
-      />
     </>
   );
 };
