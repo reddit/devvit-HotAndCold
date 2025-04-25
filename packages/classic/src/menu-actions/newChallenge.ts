@@ -7,7 +7,7 @@ Devvit.addMenuItem({
   forUserType: 'moderator',
   location: 'subreddit',
   onPress: async (_event, context) => {
-    makeNewChallenge(context, 'regular');
+    await makeNewChallenge(context, 'regular');
   },
 });
 
@@ -16,7 +16,7 @@ Devvit.addMenuItem({
   forUserType: 'moderator',
   location: 'subreddit',
   onPress: async (_event, context) => {
-    makeNewChallenge(context, 'hardcore');
+    await makeNewChallenge(context, 'hardcore');
   },
 });
 
