@@ -70,7 +70,7 @@ export const WinPage = () => {
 
   return (
     <>
-      <div className="flex flex-1 flex-col gap-4">
+      <div className="flex flex-1 flex-col gap-4 px-4">
         <div className="mx-auto">
           <Tablist
             activeIndex={activeIndex}
@@ -79,9 +79,9 @@ export const WinPage = () => {
           />
         </div>
 
-        <div className="mx-auto w-full max-w-xl px-4">
+        <div className="mx-auto w-full max-w-xl flex-auto px-4">
           {activeIndex === 0 && (
-            <div className="flex flex-col items-center gap-8">
+            <div className="flex h-full flex-col items-center justify-center gap-8">
               <h1 className="text-center text-2xl font-bold text-white">
                 {didWin ? 'Congratulations!' : 'Nice Try!'} The word was:{' '}
                 <span className="text-[#dd4c4c]">{word.word}</span>
