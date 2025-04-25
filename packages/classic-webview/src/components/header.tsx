@@ -45,13 +45,16 @@ export const Header = () => {
           ) : (
             <>
               <Logo />
-              <div className="flex gap-1">
+              <button
+                className="flex gap-1 cursor-pointer"
+                onClick={() => showModal('unlock-hardcore')}
+              >
                 <HardcoreMascot />
                 <span className="relative -translate-y-1/2 self-center rounded-full border border-gray-500 px-2 text-[10px] italic text-gray-400">
                   Pssst...
                   <SpeechBubbleTail className="absolute left-2 top-full h-2 w-2 stroke-gray-500 stroke-1" />
                 </span>
-              </div>
+              </button>
             </>
           )}
         </div>
