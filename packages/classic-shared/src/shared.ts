@@ -95,6 +95,9 @@ export type WebviewToBlocksMessage =
   | { type: 'LEADERBOARD_FOR_CHALLENGE' }
   | {
       type: 'TOGGLE_USER_REMINDER';
+    }
+  | {
+      type: 'NAVIGATE_TO_LATEST_HARDCORE';
     };
 
 export type FeedbackResponse = {

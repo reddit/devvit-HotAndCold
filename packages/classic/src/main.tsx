@@ -338,6 +338,24 @@ Devvit.addCustomPostType({
                 }
                 break;
               }
+              case 'NAVIGATE_TO_LATEST_HARDCORE': {
+                const hardcoreChallengeService = new ChallengeService(context.redis, 'hardcore');
+                const latestHardcoreChallenge =
+                  await hardcoreChallengeService.getCurrentChallengeNumber();
+                const latestHardcoreChallengeInfo = await hardcoreChallengeService.getChallenge({
+                  challenge: latestHardcoreChallenge,
+                });
+                const latestHardcoreChallengePostId = latestHardcoreChallengeInfo.postId;
+                if (!latestHardcoreChallengePostId) {
+                  context.ui.showToast(
+                    'Seems like there has never been a hardcore challenge? Wait a day and then there will be!'
+                  );
+                  break;
+                }
+                const post = await context.reddit.getPostById(latestHardcoreChallengePostId);
+                context.ui.navigateTo(post);
+                break;
+              }
 
               default:
                 throw new Error(`Unknown message type: ${String(data satisfies never)}`);
