@@ -67,7 +67,7 @@ const CallToAction = ({ didWin }: { didWin: boolean }) => {
   if (isHardcore && (!hardcoreModeAccess || hardcoreModeAccess.status === 'inactive')) {
     return (
       <button
-        className="rounded-full bg-gray-50 text-base font-semibold text-black dark:bg-black dark:text-white"
+        className="cursor-pointer rounded-full bg-gray-50 text-base font-semibold text-black dark:bg-black dark:text-white"
         onClick={() => showModal('unlock-hardcore')}
       >
         <GradientBorder>
@@ -82,11 +82,10 @@ const CallToAction = ({ didWin }: { didWin: boolean }) => {
     );
   }
 
-  // Gave up regular mode or has active hardcore mode
   return (
-    <div className="rounded-full bg-gray-50 text-sm font-semibold text-black dark:bg-black dark:text-white">
+    <div className="cursor-pointer rounded-full bg-gray-50 text-sm font-semibold text-black dark:bg-black dark:text-white">
       <GradientBorder>
-        <label className="flex cursor-pointer items-center justify-center gap-2 p-4">
+        <label className="flex items-center justify-center gap-2 p-4">
           <input
             type="checkbox"
             checked={isUserOptedIntoReminders}
