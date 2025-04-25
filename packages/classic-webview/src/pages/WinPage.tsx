@@ -94,7 +94,7 @@ export const WinPage = () => {
   const { challengeInfo, challengeUserInfo } = useGame();
   const [activeIndex, setActiveIndex] = React.useState(0);
   const { isUserOptedIntoReminders } = useUserSettings();
-  const { setModal } = useModal();
+  const { showModal: setModal } = useModal();
   const leaderboardData = useDevvitListener('CHALLENGE_LEADERBOARD_RESPONSE');
 
   if (!challengeUserInfo || !challengeInfo) return null;

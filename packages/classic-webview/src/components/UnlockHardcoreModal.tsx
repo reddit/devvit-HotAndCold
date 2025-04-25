@@ -1,8 +1,7 @@
-import React from 'react';
+import React, { ComponentProps } from 'react';
 import { HardcoreLogo } from '@hotandcold/webview-common/components/logo';
 import { GoldIcon } from '@hotandcold/webview-common/components/icon';
 import { cn } from '@hotandcold/webview-common/utils';
-import { useModal } from '../hooks/useModal';
 import { Modal } from '@hotandcold/webview-common/components/modal';
 
 interface PurchaseButtonProps {
@@ -39,11 +38,11 @@ const PurchaseButton: React.FC<PurchaseButtonProps> = (props) => {
   );
 };
 
-export const UnlockHardcoreModal: React.FC = () => {
-  const { setModal } = useModal();
+type UnlockHardcoreModalProps = Omit<ComponentProps<typeof Modal>, 'children'>;
 
+export const UnlockHardcoreModal = (props: UnlockHardcoreModalProps) => {
   return (
-    <Modal isOpen={true} onClose={() => setModal(undefined)}>
+    <Modal {...props}>
       <div className="flex w-full max-w-md flex-col items-center justify-center gap-4 p-6 sm:gap-6 sm:p-8 md:max-w-2xl md:p-10">
         <HardcoreLogo />
         <p className="text-xl font-bold text-white sm:text-2xl">100 guesses. No hints. No mercy.</p>

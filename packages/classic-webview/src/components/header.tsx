@@ -32,7 +32,7 @@ export const Header = () => {
     !challengeUserInfo?.gaveUpAtMs;
   const { showConfirmation } = useConfirmation();
 
-  const { setModal } = useModal();
+  const { showModal: setModal } = useModal();
 
   const isHardcore = mode === 'hardcore';
 
