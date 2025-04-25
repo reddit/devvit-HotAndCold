@@ -126,7 +126,14 @@ export const WinPage = () => {
                     <p className="text-base font-semibold">Did that feel too easy?</p>
                     <p className="text-xs">Try an even tougher puzzle</p>
                   </div>
-                  <button className="shrink-0 rounded-full bg-gray-50 p-3 text-sm font-semibold text-black md:py-2 dark:bg-gray-800 dark:text-white">
+                  <button
+                    className="shrink-0 rounded-full bg-gray-50 p-3 text-sm font-semibold text-black md:py-2 dark:bg-gray-800 dark:text-white"
+                    onClick={() => {
+                      sendMessageToDevvit({
+                        type: 'NAVIGATE_TO_LATEST_HARDCORE',
+                      });
+                    }}
+                  >
                     {/* TODO: Show modal when clicked */}
                     <span className="hidden md:inline">Play Hardcore Mode</span>
                     <span className="block size-4 md:hidden">
