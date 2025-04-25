@@ -92,14 +92,17 @@ export const WinPage = () => {
                   <StatCard
                     title={
                       <>
-                        Score (
-                        <button
-                          className="cursor-pointer text-inherit underline"
-                          onClick={() => setIsScoreBreakdownOpen(true)}
-                        >
-                          breakdown
-                        </button>
-                        )
+                        Score{' '}
+                        <span className="whitespace-nowrap">
+                          (
+                          <button
+                            className="cursor-pointer text-inherit underline"
+                            onClick={() => setIsScoreBreakdownOpen(true)}
+                          >
+                            breakdown
+                          </button>
+                          )
+                        </span>
                       </>
                     }
                     value={challengeUserInfo.score?.finalScore ?? 0}
