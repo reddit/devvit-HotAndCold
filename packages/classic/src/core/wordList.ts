@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { zodContext, zoddy, zodTriggerContext } from '@hotandcold/shared/utils/zoddy';
-import { DEFAULT_WORD_LIST } from '../constants.js';
+import { DEFAULT_WORD_LIST, HARDCORE_WORD_LIST } from '../constants.js';
 import { API } from './api.js';
 import { RedisClient } from '@devvit/public-api';
 import { GameMode } from '@hotandcold/classic-shared';
@@ -15,19 +15,22 @@ const zodAppContext = z.union([zodContext, zodTriggerContext]);
  * if you really need to pull this.
  */
 export class WordListService {
+  readonly #wordListKey: string;
+
   constructor(
     private redis: RedisClient,
     private mode: GameMode
-  ) {}
-
-  // Static utility method for key generation
-  static getWordListKey(dictionary = 'default'): string {
-    return `word_list:${dictionary}`;
+  ) {
+    const wordListKeyPrefix = mode === 'hardcore' ? 'hc:' : '';
+    this.#wordListKey = `${wordListKeyPrefix}word_list`;
   }
 
-  // Instance method
+  getWordListKey(): string {
+    return `${this.#wordListKey}:default`;
+  }
+
   getCurrentWordList = zoddy(z.object({}), async () => {
-    const wordListKey = WordListService.getWordListKey();
+    const wordListKey = this.getWordListKey();
     const wordList = await this.redis.get(wordListKey);
 
     if (!wordList) {
@@ -37,32 +40,30 @@ export class WordListService {
     return JSON.parse(wordList) as string[];
   });
 
-  // Instance method allowing transaction or regular redis
   setCurrentWordListWords = zoddy(
     z.object({
       words: z.array(z.string().trim().toLowerCase()),
     }),
     async ({ words }) => {
-      const wordListKey = WordListService.getWordListKey();
+      const wordListKey = this.getWordListKey();
       await this.redis.set(wordListKey, JSON.stringify(words));
     }
   );
 
-  // Instance method, likely needs non-transactional redis for `get`
-  // Also needs the original context for API call
   initialize = zoddy(
     // Ensure the input schema matches expected type
     z.object({ context: zodAppContext }),
     async ({ context }) => {
-      // Use the redis instance provided in the constructor
-      const wordListKey = WordListService.getWordListKey();
+      const wordListKey = this.getWordListKey();
       const wordList = await this.redis.get(wordListKey);
       if (!wordList) {
-        DEFAULT_WORD_LIST.forEach((word) => {
-          // Don't wait, this just heas up the cache for the third party API
+        const words = this.mode === 'hardcore' ? HARDCORE_WORD_LIST : DEFAULT_WORD_LIST;
+
+        words.forEach((word) => {
+          // Don't wait, this just heats up the cache for the third party API
           void API.getWordConfig({ context: context, word });
         });
-        await this.redis.set(wordListKey, JSON.stringify(DEFAULT_WORD_LIST));
+        await this.redis.set(wordListKey, JSON.stringify(words));
       } else {
         console.log('Word list already exists. Skipping initialization.');
       }
@@ -72,7 +73,6 @@ export class WordListService {
   /**
    * Use if you want to add the next word that will be chosen.
    */
-  // Instance method, needs non-transactional redis for getCurrentWordList
   addToCurrentWordList = zoddy(
     z.object({
       words: z.array(z.string().trim().toLowerCase()),
@@ -100,7 +100,7 @@ export class WordListService {
       }
 
       await this.redis.set(
-        WordListService.getWordListKey(),
+        this.getWordListKey(),
         JSON.stringify(mode === 'prepend' ? [...newWords, ...wordList] : [...wordList, ...newWords])
       );
 
