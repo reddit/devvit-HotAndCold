@@ -8,6 +8,13 @@ export default {
   ],
   theme: {
     extend: {
+      screens: {
+        'xs': '322px',    // Minimum width
+        'sm': '400px',    // Small breakpoint
+        'md': '500px',    // Medium breakpoint
+        'lg': '600px',    // Large breakpoint
+        'xl': '678px',    // Maximum width
+      },
       colors: {
         'mustard-gold': '#FFBF0B',
         'slate-gray': '#8BA2AD',

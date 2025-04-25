@@ -53,12 +53,12 @@ export const IconButton = ({
 }) => (
   <button
     className={cn(
-      'flex items-center gap-2 rounded-full bg-gray-50 p-3 text-current sm:px-3 sm:py-2 dark:bg-black',
+      'flex items-center gap-2 rounded-full bg-gray-50 p-3 text-current md:px-3 md:py-2 dark:bg-black',
       className
     )}
     {...rest}
   >
     {icon}
-    <span className="hidden sm:inline">{children}</span>
+    <span className="hidden md:inline">{children}</span>
   </button>
 );
