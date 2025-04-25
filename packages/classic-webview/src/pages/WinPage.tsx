@@ -24,12 +24,7 @@ const StatCard = ({
     <div className="pb-1">{title}</div>
     <div>
       <span className="truncate text-2xl font-bold text-black dark:text-white">{value}</span>
-      {valueSubtext && (
-        <>
-          {' '}
-          <span>{valueSubtext}</span>
-        </>
-      )}
+      {valueSubtext && <> {valueSubtext}</>}
     </div>
   </div>
 );
