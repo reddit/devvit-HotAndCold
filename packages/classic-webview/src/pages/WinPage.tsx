@@ -122,7 +122,7 @@ export const WinPage = () => {
 
               <div className="rounded-full bg-gray-50 text-sm text-black dark:bg-black dark:text-white">
                 <GradientBorder>
-                  <label className="flex cursor-pointer items-center justify-center gap-2 rounded-full p-4">
+                  <label className="flex cursor-pointer items-center justify-center gap-2 p-4">
                     <input
                       type="checkbox"
                       checked={isUserOptedIntoReminders}
