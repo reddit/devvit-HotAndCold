@@ -27,8 +27,8 @@ export const Tablist = ({ activeIndex, onChange, items }: TablistProps) => {
           className={cn(
             `border-b px-3 py-2 text-sm font-medium outline-none ring-0 transition-colors duration-200 ease-in-out md:px-6`,
             activeIndex === index
-              ? 'border-current text-black dark:text-white'
-              : 'border-gray-200 hover:border-current hover:text-slate-300 dark:border-gray-800'
+              ? 'border-current bg-slate-950/80 text-black dark:text-white'
+              : 'border-gray-200 bg-slate-950/70 hover:border-current hover:bg-slate-950/80 hover:text-slate-300 dark:border-gray-800'
           )}
         >
           {item.name}
