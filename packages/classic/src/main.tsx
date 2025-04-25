@@ -170,7 +170,7 @@ Devvit.addCustomPostType({
                 sendMessageToWebview(context, {
                   type: 'GAME_INIT_RESPONSE',
                   payload: {
-                    mode: 'regular', // TODO: Get this from the backend
+                    mode: challengeIdentifier.mode,
                     challengeInfo: omit(challengeInfo, ['word']),
                     challengeUserInfo,
                     number: challenge,
@@ -234,6 +234,16 @@ Devvit.addCustomPostType({
                 break;
               }
               case 'HINT_REQUEST': {
+                if (challengeIdentifier.mode === 'hardcore') {
+                  // We remove the UI affordance for hints in hardcore mode.
+                  // However, it's possible for users to manually send messages from a webview via the console.
+                  // So let's do some defensive programming here and make sure these users can't get hints.
+                  context.ui.showToast(
+                    'Nice try using the console to send an event! Alas, we thought of that.'
+                  );
+                  break;
+                }
+
                 try {
                   sendMessageToWebview(context, {
                     type: 'HINT_RESPONSE',
@@ -346,6 +356,19 @@ Devvit.addCustomPostType({
                 }
                 break;
               }
+              case 'NAVIGATE_TO_LATEST_HARDCORE': {
+                try {
+                  await handleNavigateToLatestHardcore(context);
+                } catch (error) {
+                  if (error instanceof Error) {
+                    context.ui.showToast(error.message);
+                  } else {
+                    console.error('Unexpected error navigating to hardcore challenge:', error);
+                    context.ui.showToast('An unexpected error occurred.');
+                  }
+                }
+                break;
+              }
 
               default:
                 throw new Error(`Unknown message type: ${String(data satisfies never)}`);
@@ -356,5 +379,28 @@ Devvit.addCustomPostType({
     );
   },
 });
+
+async function handleNavigateToLatestHardcore(context: Devvit.Context): Promise<void> {
+  const hardcoreChallengeService = new ChallengeService(context.redis, 'hardcore');
+  const latestHardcoreChallenge = await hardcoreChallengeService.getCurrentChallengeNumber();
+
+  if (latestHardcoreChallenge == 0) {
+    throw new Error(
+      'Seems like there has never been a hardcore challenge? Wait a day and then there will be!'
+    );
+  }
+
+  const latestHardcoreChallengeInfo = await hardcoreChallengeService.getChallenge({
+    challenge: latestHardcoreChallenge,
+  });
+  const latestHardcoreChallengePostId = latestHardcoreChallengeInfo.postId;
+  if (!latestHardcoreChallengePostId) {
+    throw new Error(
+      'Seems like there has never been a hardcore challenge? Wait a day and then there will be!'
+    );
+  }
+  const post = await context.reddit.getPostById(latestHardcoreChallengePostId);
+  context.ui.navigateTo(post);
+}
 
 export default Devvit;
