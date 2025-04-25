@@ -59,7 +59,6 @@ export type Game = {
     username: string;
   };
   challengeProgress: PlayerProgress;
-  hardcoreModeAccess: HardcoreAccessStatus;
 };
 
 export type GameResponse = Game;
@@ -126,7 +125,9 @@ export type BlocksToWebviewMessage =
     }
   | {
       type: 'GAME_INIT_RESPONSE';
-      payload: GameResponse;
+      payload: GameResponse & {
+        hardcoreAccessStatus?: HardcoreAccessStatus;
+      };
     }
   | {
       type: 'TOGGLE_USER_REMINDER_RESPONSE';

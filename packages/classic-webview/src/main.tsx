@@ -26,11 +26,11 @@ createRoot(document.getElementById('root')!).render(
         <ModalContextProvider>
           <PageContextProvider>
             <UserSettingsContextProvider>
-              <GameContextProvider>
-                <HardcoreAccessContextProvider>
+              <HardcoreAccessContextProvider>
+                <GameContextProvider>
                   <App />
-                </HardcoreAccessContextProvider>
-              </GameContextProvider>
+                </GameContextProvider>
+              </HardcoreAccessContextProvider>
             </UserSettingsContextProvider>
           </PageContextProvider>
         </ModalContextProvider>

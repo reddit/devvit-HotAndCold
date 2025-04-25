@@ -17,8 +17,8 @@ export const HardcoreAccessContextProvider = (props: { children: React.ReactNode
   const { closeModal } = useModal();
 
   useEffect(() => {
-    if (initGameResponse != null) {
-      setAccess(initGameResponse.hardcoreModeAccess);
+    if (initGameResponse?.hardcoreAccessStatus != null) {
+      setAccess(initGameResponse.hardcoreAccessStatus);
     }
   }, [initGameResponse, setAccess]);
 

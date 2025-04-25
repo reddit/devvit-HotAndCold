@@ -203,7 +203,7 @@ Devvit.addCustomPostType({
                     challengeUserInfo,
                     number: challenge,
                     challengeProgress: challengeProgress,
-                    hardcoreModeAccess: initialState.hardcoreModeAccess,
+                    hardcoreAccessStatus: initialState.hardcoreModeAccess,
                   },
                 });
 

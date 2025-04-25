@@ -5,6 +5,7 @@ import { useDevvitListener } from './useDevvitListener';
 import { useSetPage } from './usePage';
 import { logger } from '../utils/logger';
 import { useMocks } from './useMocks';
+import { useHardcoreAccess } from './useHardcoreAccess';
 
 const isEmpty = (obj: object): boolean => {
   return Object.keys(obj).length === 0;
@@ -19,6 +20,7 @@ export const GameContextProvider = ({ children }: { children: React.ReactNode })
   const setPage = useSetPage();
   const mocks = useMocks();
   const [game, setGame] = useState<Partial<Game>>(mocks.getMock('mocks')?.game ?? {});
+  const { access: hardcoreAccess } = useHardcoreAccess();
   const initResponse = useDevvitListener('GAME_INIT_RESPONSE');
   const submissionResponse = useDevvitListener('WORD_SUBMITTED_RESPONSE');
   const hintResponse = useDevvitListener('HINT_RESPONSE');
@@ -71,7 +73,7 @@ export const GameContextProvider = ({ children }: { children: React.ReactNode })
       game.challengeUserInfo?.gaveUpAtMs
     ) {
       setPage('win');
-    } else if (game.hardcoreModeAccess?.status === 'inactive' && game.mode === 'hardcore') {
+    } else if (game.mode === 'hardcore' && hardcoreAccess.status === 'inactive') {
       setPage('unlock-hardcore');
     } else {
       setPage('play');
