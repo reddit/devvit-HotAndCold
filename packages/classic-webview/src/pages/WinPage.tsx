@@ -8,6 +8,7 @@ import { useUserSettings } from '../hooks/useUserSettings';
 import { useModal } from '../hooks/useModal';
 import { GradientBorder } from '@hotandcold/webview-common/components/gradientBorder';
 import { RightChevronIcon } from '@hotandcold/webview-common/components/icon';
+import { PageContentContainer } from '../components/pageContentContainer';
 
 const prettyNumber = (num: number): string => {
   return num.toLocaleString('en-US');
@@ -32,7 +33,7 @@ const StatCard = ({
 );
 
 export const WinPage = () => {
-  const { challengeInfo, challengeUserInfo } = useGame();
+  const { challengeInfo, challengeUserInfo, mode } = useGame();
   const [activeIndex, setActiveIndex] = React.useState(0);
   const { isUserOptedIntoReminders } = useUserSettings();
   const { showModal: setModal } = useModal();
@@ -64,9 +65,16 @@ export const WinPage = () => {
   const playerRank = leaderboardData?.userRank?.score || 0;
   const totalPlayers = challengeInfo.totalPlayers || 1;
   const percentageOutperformed = calculatePercentageOutperformed(playerRank, totalPlayers);
+  const isHardcore = mode === 'hardcore';
+  const hardcoreContainerClassNames = didWin
+    ? 'bg-[url("/assets/win_bg.png")] bg-red-950 border-red-800'
+    : 'bg-[url("/assets/lose_bg.png")] bg-blue-400 border-blue-500';
 
   return (
-    <>
+    <PageContentContainer
+      showContainer={isHardcore}
+      className={cn(isHardcore && hardcoreContainerClassNames)}
+    >
       <div className="flex flex-1 flex-col gap-4 px-4">
         <div className="mx-auto">
           <Tablist
@@ -81,7 +89,13 @@ export const WinPage = () => {
             <div className="flex h-full flex-col items-center justify-center gap-8">
               <h1 className="text-center text-2xl font-bold text-white">
                 {didWin ? 'Congratulations!' : 'Nice Try!'} The word was:{' '}
-                <span className="text-[#dd4c4c]">{word.word}</span>
+                <span
+                  className={cn(
+                    (!isHardcore || didWin) && 'text-[#dd4c4c]' // Show red on non-hardcore and only in hardcore win
+                  )}
+                >
+                  {word.word}
+                </span>
               </h1>
 
               <div className="flex gap-2 md:gap-4">
@@ -134,7 +148,6 @@ export const WinPage = () => {
                       });
                     }}
                   >
-                    {/* TODO: Show modal when clicked */}
                     <span className="hidden md:inline">Play Hardcore Mode</span>
                     <span className="block size-4 md:hidden">
                       <RightChevronIcon />
@@ -260,6 +273,6 @@ export const WinPage = () => {
           )}
         </div>
       </div>
-    </>
+    </PageContentContainer>
   );
 };
