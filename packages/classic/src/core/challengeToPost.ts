@@ -8,6 +8,8 @@ export * as ChallengeToPost from './challengeToPost.js';
 // Original to make it super explicit since we might let people play the archive on any postId
 const getChallengeToOriginalPostKey = () => `challenge_to_original_post` as const;
 
+// Maps a postId to the mode of a post.
+// If this isn't present, we assume the post is a regular challenge as regular challenges were the only ones before mode was introduced.
 const getPostToModeKey = (postId: string) => `mode:${postId}` as const;
 
 // Uniquely identifies a post.
