@@ -24,15 +24,15 @@ createRoot(document.getElementById('root')!).render(
     <MockProvider gameStatus="PLAYING" progressTestScenario="earlyProgress">
       <ConfirmationDialogProvider>
         <ModalContextProvider>
-          <PageContextProvider>
-            <UserSettingsContextProvider>
-              <HardcoreAccessContextProvider>
-                <GameContextProvider>
+          <UserSettingsContextProvider>
+            <HardcoreAccessContextProvider>
+              <GameContextProvider>
+                <PageContextProvider>
                   <App />
-                </GameContextProvider>
-              </HardcoreAccessContextProvider>
-            </UserSettingsContextProvider>
-          </PageContextProvider>
+                </PageContextProvider>
+              </GameContextProvider>
+            </HardcoreAccessContextProvider>
+          </UserSettingsContextProvider>
         </ModalContextProvider>
       </ConfirmationDialogProvider>
     </MockProvider>
