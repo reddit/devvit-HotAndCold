@@ -9,6 +9,7 @@ import { useModal } from '../hooks/useModal';
 import { GradientBorder } from '@hotandcold/webview-common/components/gradientBorder';
 import { RightChevronIcon } from '@hotandcold/webview-common/components/icon';
 import { PageContentContainer } from '../components/pageContentContainer';
+import { useHardcoreAccess } from '../hooks/useHardcoreAccess';
 
 const prettyNumber = (num: number): string => {
   return num.toLocaleString('en-US');
@@ -33,7 +34,8 @@ const StatCard = ({
 );
 
 const CallToAction = ({ didWin }: { didWin: boolean }) => {
-  const { mode, hardcoreModeAccess } = useGame();
+  const { mode } = useGame();
+  const { access } = useHardcoreAccess();
   const { isUserOptedIntoReminders } = useUserSettings();
   const { showModal } = useModal();
   const isHardcore = mode === 'hardcore';
@@ -64,7 +66,7 @@ const CallToAction = ({ didWin }: { didWin: boolean }) => {
   }
 
   // Is hardcore mode and does not have active hardcore mode
-  if (isHardcore && hardcoreModeAccess?.status !== 'active') {
+  if (isHardcore && access.status !== 'active') {
     return (
       <button
         className="cursor-pointer rounded-full bg-gray-50 text-base font-semibold text-black dark:bg-black dark:text-white"

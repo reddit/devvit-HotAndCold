@@ -17,6 +17,7 @@ import { ScoreBreakdownModal } from './components/scoreBreakdownModal';
 const getPage = (page: Page) => {
   switch (page) {
     case 'play':
+    case 'unlock-hardcore':
       return <PlayPage />;
     case 'stats':
       return <StatsPage />;
@@ -24,9 +25,9 @@ const getPage = (page: Page) => {
       return <WinPage />;
     case 'loading':
       return <LoadingPage />;
-    case 'unlock-hardcore':
-      // TODO: Implement page for hardcore mode
-      return <div>UNLOCK HARDCORD</div>;
+    // case 'unlock-hardcore':
+    //   // TODO: Implement page for hardcore mode
+    //   return <div>UNLOCK HARDCORD</div>;
     default:
       throw new Error(`Invalid page: ${String(page satisfies never)}`);
   }
