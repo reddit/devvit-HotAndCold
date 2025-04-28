@@ -9,7 +9,7 @@
     "dev:upload": "dotenvx run -f ../../.env.development -- sh -c 'devvit upload --config=../../$CLASSIC_DEVVIT_CONFIG'",
     "lint": "eslint ./src/",
     "prettier": "prettier --write .",
-    "test": "vitest run",
+    "test": "vitest run --passWithNoTests",
     "type-check": "tsc --noEmit"
   },
   "dependencies": {

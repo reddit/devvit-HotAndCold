@@ -61,7 +61,15 @@ export const MockProvider = ({
                   : PLAYING_GAME,
             generateMockProgressData:
               generateTestScenarios()[meta?.progressTestScenario ?? 'earlyProgress'],
-            challengeLeaderboardResponse: CHALLENGE_LEADERBOARD_RESPONSE,
+            challengeLeaderboardResponse: {
+              type: 'CHALLENGE_LEADERBOARD_RESPONSE',
+              payload: {
+                leaderboard: CHALLENGE_LEADERBOARD_RESPONSE.leaderboardByScore.map((item) => ({
+                  username: item.member,
+                  progress: item.score,
+                })),
+              },
+            },
           },
         }
       : {}

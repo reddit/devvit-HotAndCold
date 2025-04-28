@@ -7,7 +7,7 @@
     "dev": "vite build --watch",
     "lint": "eslint ./src/",
     "prettier": "prettier --write .",
-    "test": "vitest run",
+    "test": "vitest run --passWithNoTests",
     "type-check": "tsc --noEmit",
     "vite": "vite --mode detached"
   },
