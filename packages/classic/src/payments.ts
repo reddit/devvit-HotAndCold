@@ -49,7 +49,7 @@ export class PaymentsRepo {
     const currentAccess = await this.#redis.get(key);
 
     if (currentAccess === '-1') {
-      return { status: 'lifetime' };
+      return { status: 'active' };
     }
 
     if (!currentAccess) {
