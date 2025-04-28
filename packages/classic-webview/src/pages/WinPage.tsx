@@ -64,7 +64,7 @@ const CallToAction = ({ didWin }: { didWin: boolean }) => {
   }
 
   // Is hardcore mode and does not have active hardcore mode
-  if (isHardcore && (!hardcoreModeAccess || hardcoreModeAccess.status === 'inactive')) {
+  if (isHardcore && hardcoreModeAccess?.status !== 'active') {
     return (
       <button
         className="cursor-pointer rounded-full bg-gray-50 text-base font-semibold text-black dark:bg-black dark:text-white"
