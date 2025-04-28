@@ -203,6 +203,12 @@ Devvit.addCustomPostType({
                     challengeUserInfo,
                     number: challenge,
                     challengeProgress: challengeProgress,
+                  },
+                });
+
+                sendMessageToWebview(context, {
+                  type: 'HARDCORE_ACCESS_INIT_RESPONSE',
+                  payload: {
                     hardcoreAccessStatus: initialState.hardcoreModeAccess,
                   },
                 });
@@ -399,7 +405,7 @@ Devvit.addCustomPostType({
               }
 
               case 'PURCHASE_PRODUCT': {
-                payments.purchase(data.sku);
+                payments.purchase(data.payload.sku);
                 break;
               }
               default:

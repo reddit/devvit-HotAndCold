@@ -18,7 +18,9 @@ const PurchaseButton: React.FC<PurchaseButtonProps> = (props) => {
   const onClick = () => {
     sendMessageToDevvit({
       type: 'PURCHASE_PRODUCT',
-      sku: productSku,
+      payload: {
+        sku: productSku,
+      },
     });
   };
 

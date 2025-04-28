@@ -12,15 +12,15 @@ const hardcoreAccessContext = createContext<HardcoreAccessContext | null>(null);
 
 export const HardcoreAccessContextProvider = (props: { children: React.ReactNode }) => {
   const [access, setAccess] = useState<HardcoreAccessStatus>({ status: 'inactive' });
-  const initGameResponse = useDevvitListener('GAME_INIT_RESPONSE');
+  const hardcoreAccessInitResponse = useDevvitListener('HARDCORE_ACCESS_INIT_RESPONSE');
   const productPurchaseResponse = useDevvitListener('PURCHASE_PRODUCT_SUCCESS_RESPONSE');
   const { closeModal } = useModal();
 
   useEffect(() => {
-    if (initGameResponse?.hardcoreAccessStatus != null) {
-      setAccess(initGameResponse.hardcoreAccessStatus);
+    if (hardcoreAccessInitResponse?.hardcoreAccessStatus != null) {
+      setAccess(hardcoreAccessInitResponse.hardcoreAccessStatus);
     }
-  }, [initGameResponse, setAccess]);
+  }, [hardcoreAccessInitResponse, setAccess]);
 
   // When a purchase is successful, update state and close the "Unlock Hardcore" modal
   useEffect(() => {

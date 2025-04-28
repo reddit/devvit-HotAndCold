@@ -9,6 +9,7 @@ import { IconButton } from '@hotandcold/webview-common/components/button';
 import { InfoIcon } from '@hotandcold/webview-common/components/icon';
 import { useModal } from '../hooks/useModal';
 import { useHardcoreAccess } from '../hooks/useHardcoreAccess';
+import { cn } from '@hotandcold/webview-common/utils';
 
 const SpeechBubbleTail = ({ className }: { className?: string }) => (
   <svg
@@ -48,7 +49,10 @@ export const Header = () => {
             <>
               <Logo />
               <button
-                className="flex cursor-pointer gap-1"
+                className={cn(
+                  'flex cursor-pointer gap-1',
+                  access.status === 'inactive' && 'hover:cursor-pointer'
+                )}
                 onClick={() => showModal('unlock-hardcore')}
                 disabled={access.status !== 'inactive'}
               >

@@ -106,7 +106,9 @@ export type WebviewToBlocksMessage =
     }
   | {
       type: 'PURCHASE_PRODUCT';
-      sku: string;
+      payload: {
+        sku: string;
+      };
     };
 
 export type FeedbackResponse = {
@@ -125,7 +127,11 @@ export type BlocksToWebviewMessage =
     }
   | {
       type: 'GAME_INIT_RESPONSE';
-      payload: GameResponse & {
+      payload: GameResponse;
+    }
+  | {
+      type: 'HARDCORE_ACCESS_INIT_RESPONSE';
+      payload: {
         hardcoreAccessStatus?: HardcoreAccessStatus;
       };
     }
