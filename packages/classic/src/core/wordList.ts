@@ -50,20 +50,31 @@ export class WordListService {
     }
   );
 
+  clear = zoddy(z.object({}), async (): Promise<void> => {
+    await this.redis.del(this.getWordListKey());
+  });
+
+  /** Returns whether this word list has been initialized. */
+  isInitialized = zoddy(z.object({}), async () => {
+    const wordListKey = this.getWordListKey();
+    const wordList = await this.redis.get(wordListKey);
+    return !!wordList;
+  });
+
+  /** Initializes this word list if it is not already initialized. */
   initialize = zoddy(
     // Ensure the input schema matches expected type
     z.object({ context: zodAppContext }),
     async ({ context }) => {
-      const wordListKey = this.getWordListKey();
-      const wordList = await this.redis.get(wordListKey);
-      if (!wordList) {
+      if (!(await this.isInitialized({}))) {
         const words = this.mode === 'hardcore' ? HARDCORE_WORD_LIST : DEFAULT_WORD_LIST;
 
         words.forEach((word) => {
           // Don't wait, this just heats up the cache for the third party API
           void API.getWordConfig({ context: context, word });
         });
-        await this.redis.set(wordListKey, JSON.stringify(words));
+
+        await this.redis.set(this.getWordListKey(), JSON.stringify(words));
       } else {
         console.log('Word list already exists. Skipping initialization.');
       }
