@@ -26,7 +26,7 @@ export const PurchaseButton: React.FC<PurchaseButtonProps> = (props) => {
     <button
       onClick={onClick}
       className={cn(
-        'flex w-full flex-row items-center justify-between gap-4 whitespace-nowrap rounded-full border-2 border-current px-6 py-3 text-center font-sans font-semibold sm:w-auto',
+        'flex w-full cursor-pointer flex-row items-center justify-between gap-4 whitespace-nowrap rounded-full border-2 border-current px-6 py-3 text-center font-sans font-semibold sm:w-auto',
         style === 'primary' ? 'text-mustard-gold' : 'text-slate-gray'
       )}
     >
