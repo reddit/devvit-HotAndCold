@@ -1,29 +1,11 @@
-import { createContext, useContext, useEffect, useState } from 'react';
+import { createContext, useContext, useState } from 'react';
 import { Page } from '@hotandcold/classic-shared';
-import { useGame } from './useGame';
-import { useHardcoreAccess } from './useHardcoreAccess';
 
 const PageContext = createContext<Page | null>(null);
 const PageUpdaterContext = createContext<React.Dispatch<React.SetStateAction<Page>> | null>(null);
 
 export const PageContextProvider = ({ children }: { children: React.ReactNode }) => {
   const [page, setPage] = useState<Page>('loading');
-  const game = useGame();
-  const { access } = useHardcoreAccess();
-
-  useEffect(() => {
-    if (
-      // Keep in sync with usePage's initializer
-      game.challengeUserInfo?.solvedAtMs ||
-      game.challengeUserInfo?.gaveUpAtMs
-    ) {
-      setPage('win');
-    } else if (game.mode === 'hardcore' && access.status === 'inactive') {
-      setPage('unlock-hardcore');
-    } else {
-      setPage('play');
-    }
-  }, [game, access, setPage]);
 
   return (
     <PageUpdaterContext.Provider value={setPage}>

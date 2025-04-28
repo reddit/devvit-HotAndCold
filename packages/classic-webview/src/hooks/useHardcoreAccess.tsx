@@ -1,7 +1,6 @@
 import { HardcoreAccessStatus } from '@hotandcold/classic-shared';
-import { createContext, useContext, useEffect, useState } from 'react';
-import { useDevvitListener } from './useDevvitListener';
-import { useModal } from './useModal';
+import { createContext, useContext } from 'react';
+import { useAppState } from './useAppState';
 
 type HardcoreAccessContext = {
   access: HardcoreAccessStatus;
@@ -11,27 +10,15 @@ type HardcoreAccessContext = {
 const hardcoreAccessContext = createContext<HardcoreAccessContext | null>(null);
 
 export const HardcoreAccessContextProvider = (props: { children: React.ReactNode }) => {
-  const [access, setAccess] = useState<HardcoreAccessStatus>({ status: 'inactive' });
-  const hardcoreAccessInitResponse = useDevvitListener('HARDCORE_ACCESS_INIT_RESPONSE');
-  const productPurchaseResponse = useDevvitListener('PURCHASE_PRODUCT_SUCCESS_RESPONSE');
-  const { closeModal } = useModal();
-
-  useEffect(() => {
-    if (hardcoreAccessInitResponse?.hardcoreAccessStatus != null) {
-      setAccess(hardcoreAccessInitResponse.hardcoreAccessStatus);
-    }
-  }, [hardcoreAccessInitResponse, setAccess]);
-
-  // When a purchase is successful, update state and close the "Unlock Hardcore" modal
-  useEffect(() => {
-    if (productPurchaseResponse != null) {
-      setAccess(productPurchaseResponse.access);
-      closeModal();
-    }
-  }, [productPurchaseResponse, setAccess, closeModal]);
+  const { appState, setAccess } = useAppState();
 
   return (
-    <hardcoreAccessContext.Provider value={{ access, setAccess }}>
+    <hardcoreAccessContext.Provider
+      value={{
+        access: appState.hardcoreAccess,
+        setAccess,
+      }}
+    >
       {props.children}
     </hardcoreAccessContext.Provider>
   );

@@ -12,6 +12,7 @@ import { ConfirmationDialogProvider } from '@hotandcold/webview-common/hooks/use
 import { IS_DETACHED } from './constants';
 import { ModalContextProvider } from './hooks/useModal';
 import { HardcoreAccessContextProvider } from './hooks/useHardcoreAccess';
+import { AppStateContextProvider } from './hooks/useAppState';
 
 console.log('webview main called');
 
@@ -25,13 +26,15 @@ createRoot(document.getElementById('root')!).render(
       <ConfirmationDialogProvider>
         <ModalContextProvider>
           <UserSettingsContextProvider>
-            <HardcoreAccessContextProvider>
-              <GameContextProvider>
-                <PageContextProvider>
-                  <App />
-                </PageContextProvider>
-              </GameContextProvider>
-            </HardcoreAccessContextProvider>
+            <PageContextProvider>
+              <AppStateContextProvider>
+                <HardcoreAccessContextProvider>
+                  <GameContextProvider>
+                    <App />
+                  </GameContextProvider>
+                </HardcoreAccessContextProvider>
+              </AppStateContextProvider>
+            </PageContextProvider>
           </UserSettingsContextProvider>
         </ModalContextProvider>
       </ConfirmationDialogProvider>
