@@ -2,14 +2,18 @@ import { createContext, useContext, useEffect, useState } from 'react';
 import { Page } from '@hotandcold/classic-shared';
 import { useGame } from './useGame';
 import { useHardcoreAccess } from './useHardcoreAccess';
+import { useModal } from './useModal';
+import { useDevvitListener } from './useDevvitListener';
 
 const PageContext = createContext<Page | null>(null);
 const PageUpdaterContext = createContext<React.Dispatch<React.SetStateAction<Page>> | null>(null);
 
 export const PageContextProvider = ({ children }: { children: React.ReactNode }) => {
+  const { closeModal } = useModal();
   const [page, setPage] = useState<Page>('loading');
   const game = useGame();
-  const { access } = useHardcoreAccess();
+  const { access, setAccess } = useHardcoreAccess();
+  const productPurchaseResponse = useDevvitListener('PURCHASE_PRODUCT_SUCCESS_RESPONSE');
 
   useEffect(() => {
     if (
@@ -24,6 +28,19 @@ export const PageContextProvider = ({ children }: { children: React.ReactNode })
       setPage('play');
     }
   }, [game, access, setPage]);
+
+  // When a purchase is successful, update state and close the "Unlock Hardcore" modal
+  useEffect(() => {
+    if (productPurchaseResponse != null) {
+      setAccess(productPurchaseResponse.access);
+
+      if (game.mode === 'regular') {
+        closeModal();
+      } else if (game.mode === 'hardcore') {
+        setPage('play');
+      }
+    }
+  }, [productPurchaseResponse, setAccess, closeModal]);
 
   return (
     <PageUpdaterContext.Provider value={setPage}>
