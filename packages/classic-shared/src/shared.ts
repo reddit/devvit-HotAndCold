@@ -82,8 +82,10 @@ export type ChallengeLeaderboardResponse = {
 };
 
 export type HardcoreAccessStatus =
-  | { status: 'lifetime' }
-  | { status: 'active'; expires: number }
+  | {
+      status: 'active';
+      expires?: number; // If no expiration, the player has lifetime access
+    }
   | { status: 'inactive' };
 
 export type WebviewToBlocksMessage =
