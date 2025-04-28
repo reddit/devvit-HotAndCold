@@ -1,33 +1,29 @@
-import { createContext, useContext, useState } from 'react';
+import { createContext, useContext, useEffect, useState } from 'react';
 import { Page } from '@hotandcold/classic-shared';
-import { GAME_INIT_DATA } from '../utils/initListener';
+import { useGame } from './useGame';
+import { useHardcoreAccess } from './useHardcoreAccess';
 
 const PageContext = createContext<Page | null>(null);
 const PageUpdaterContext = createContext<React.Dispatch<React.SetStateAction<Page>> | null>(null);
 
 export const PageContextProvider = ({ children }: { children: React.ReactNode }) => {
-  const [page, setPage] = useState<Page>(() => {
-    if (!GAME_INIT_DATA) {
-      return 'loading';
-    }
+  const [page, setPage] = useState<Page>('loading');
+  const game = useGame();
+  const { access } = useHardcoreAccess();
 
-    // Keep in sync with useGame's use effect
+  useEffect(() => {
     if (
-      GAME_INIT_DATA.challengeUserInfo?.solvedAtMs ||
-      GAME_INIT_DATA.challengeUserInfo?.gaveUpAtMs
+      // Keep in sync with usePage's initializer
+      game.challengeUserInfo?.solvedAtMs ||
+      game.challengeUserInfo?.gaveUpAtMs
     ) {
-      return 'win';
+      setPage('win');
+    } else if (game.mode === 'hardcore' && access.status === 'inactive') {
+      setPage('unlock-hardcore');
+    } else {
+      setPage('play');
     }
-
-    if (
-      GAME_INIT_DATA.mode === 'hardcore' &&
-      GAME_INIT_DATA.hardcoreModeAccess.status === 'inactive'
-    ) {
-      return 'unlock-hardcore';
-    }
-
-    return 'play';
-  });
+  }, [game, access, setPage]);
 
   return (
     <PageUpdaterContext.Provider value={setPage}>
