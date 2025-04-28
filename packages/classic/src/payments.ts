@@ -5,7 +5,7 @@ import { DateTime } from 'luxon';
 
 export class PaymentsRepo {
   static hardcoreModeAccessKey(userId: string) {
-    return `hardcore-mode-access:${userId}`;
+    return `h_hardcore-mode-access:${userId}`;
   }
 
   #redis: RedisClient;
