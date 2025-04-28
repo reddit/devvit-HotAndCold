@@ -7,7 +7,7 @@ on:
     branches: [main]
 
 jobs:
-  lint:
+  check:
     runs-on: ubuntu-latest
 
     strategy:
@@ -29,9 +29,6 @@ jobs:
 
       - name: Lint Classic Packages
         run: npm run lint --workspace packages/classic --workspace packages/classic-webview --workspace packages/classic-shared --if-present
-
-      - name: Check TypeScript Version
-        run: npx tsc --version
 
       - name: Typecheck Classic Packages
         run: npm run type-check --workspace packages/classic --workspace packages/classic-webview --workspace packages/classic-shared --if-present
