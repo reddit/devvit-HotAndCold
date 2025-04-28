@@ -11,6 +11,7 @@ import { MockProvider } from './hooks/useMocks';
 import { ConfirmationDialogProvider } from '@hotandcold/webview-common/hooks/useConfirmation';
 import { IS_DETACHED } from './constants';
 import { ModalContextProvider } from './hooks/useModal';
+import { HardcoreAccessContextProvider } from './hooks/useHardcoreAccess';
 
 console.log('webview main called');
 
@@ -23,13 +24,15 @@ createRoot(document.getElementById('root')!).render(
     <MockProvider gameStatus="PLAYING" progressTestScenario="earlyProgress">
       <ConfirmationDialogProvider>
         <ModalContextProvider>
-          <PageContextProvider>
-            <UserSettingsContextProvider>
+          <UserSettingsContextProvider>
+            <HardcoreAccessContextProvider>
               <GameContextProvider>
-                <App />
+                <PageContextProvider>
+                  <App />
+                </PageContextProvider>
               </GameContextProvider>
-            </UserSettingsContextProvider>
-          </PageContextProvider>
+            </HardcoreAccessContextProvider>
+          </UserSettingsContextProvider>
         </ModalContextProvider>
       </ConfirmationDialogProvider>
     </MockProvider>
