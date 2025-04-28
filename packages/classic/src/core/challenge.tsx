@@ -13,7 +13,7 @@ import {
 } from '@hotandcold/shared/utils/zoddy';
 import { GameMode } from '@hotandcold/classic-shared';
 
-import { Post, RedisClient, RichTextBuilder } from '@devvit/public-api';
+import { type Post, type RedisClient, RichTextBuilder } from '@devvit/public-api';
 // For some reason <Preview /> requires this import, but the import is being found as unused.
 // Suppress the check for it
 import { Devvit } from '@devvit/public-api'; // eslint-disable-line @typescript-eslint/no-unused-vars
@@ -178,7 +178,7 @@ export class ChallengeService {
       console.log('Current challenge number:', currentChallengeNumber);
       await API.getWordConfigCached({ context: context, word: newWord });
 
-      let post: Post | undefined;
+      let post: Post | undefined = undefined;
       try {
         await wordListService.setCurrentWordListWords({
           words: wordList.slice(unusedWordIndex + 1),
