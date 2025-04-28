@@ -21,7 +21,7 @@
   "scripts": {
     "lint": "eslint ./src/",
     "prettier": "prettier --write .",
-    "test": "vitest run",
+    "test": "vitest run --passWithNoTests",
     "type-check": "tsc --noEmit"
   },
   "dependencies": {

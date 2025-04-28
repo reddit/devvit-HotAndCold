@@ -32,3 +32,6 @@ jobs:
 
       - name: Typecheck Classic Packages
         run: npm run type-check --workspace packages/classic --workspace packages/classic-webview --workspace packages/classic-shared --if-present
+
+      - name: Test Classic Packages
+        run: npm run test --workspace packages/classic --workspace packages/classic-webview --workspace packages/classic-shared --if-present
