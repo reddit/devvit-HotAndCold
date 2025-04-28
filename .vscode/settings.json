@@ -35,6 +35,5 @@
   "tailwindCSS.experimental.configFile": {
     "packages/raid-webview/tailwind.config.js": "packages/raid*/**",
     "packages/classic-webview/tailwind.config.js": "**"
-  },
-  "typescript.tsdk": "node_modules/typescript/lib"
+  }
 }
