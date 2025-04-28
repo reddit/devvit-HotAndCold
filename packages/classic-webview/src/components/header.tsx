@@ -50,8 +50,8 @@ export const Header = () => {
               <Logo />
               <button
                 className={cn(
-                  'flex cursor-pointer gap-1',
-                  access.status === 'inactive' && 'hover:cursor-pointer'
+                  'flex gap-1',
+                  access.status === 'inactive' && 'cursor-pointer'
                 )}
                 onClick={() => showModal('unlock-hardcore')}
                 disabled={access.status !== 'inactive'}
