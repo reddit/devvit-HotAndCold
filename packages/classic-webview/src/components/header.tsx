@@ -8,6 +8,8 @@ import type { UserSettings } from '@hotandcold/classic-shared';
 import { IconButton } from '@hotandcold/webview-common/components/button';
 import { InfoIcon } from '@hotandcold/webview-common/components/icon';
 import { useModal } from '../hooks/useModal';
+import { useHardcoreAccess } from '../hooks/useHardcoreAccess';
+import { cn } from '@hotandcold/webview-common/utils';
 
 const SpeechBubbleTail = ({ className }: { className?: string }) => (
   <svg
@@ -33,6 +35,7 @@ export const Header = () => {
   const { showConfirmation } = useConfirmation();
 
   const { showModal } = useModal();
+  const { access } = useHardcoreAccess();
 
   const isHardcore = mode === 'hardcore';
 
@@ -46,12 +49,16 @@ export const Header = () => {
             <>
               <Logo />
               <button
-                className="flex gap-1 hover:cursor-pointer"
+                className={cn(
+                  'flex gap-1',
+                  access.status === 'inactive' && 'cursor-pointer'
+                )}
                 onClick={() => showModal('unlock-hardcore')}
+                disabled={access.status !== 'inactive'}
               >
                 <HardcoreMascot />
                 <span className="relative -translate-y-1/2 self-center rounded-full border border-gray-500 px-2 text-[10px] italic text-gray-400">
-                  Pssst...
+                  {access.status === 'inactive' ? 'Pssst...' : 'Thanks for your support!'}
                   <SpeechBubbleTail className="absolute left-2 top-full h-2 w-2 stroke-gray-500 stroke-1" />
                 </span>
               </button>

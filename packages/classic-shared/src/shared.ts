@@ -59,7 +59,6 @@ export type Game = {
     username: string;
   };
   challengeProgress: PlayerProgress;
-  hardcoreModeAccess: HardcoreAccessStatus;
 };
 
 export type GameResponse = Game;
@@ -82,8 +81,10 @@ export type ChallengeLeaderboardResponse = {
 };
 
 export type HardcoreAccessStatus =
-  | { status: 'lifetime' }
-  | { status: 'active'; expires: number }
+  | {
+      status: 'active';
+      expires?: number; // If no expiration, the player has lifetime access
+    }
   | { status: 'inactive' };
 
 export type WebviewToBlocksMessage =
@@ -104,6 +105,12 @@ export type WebviewToBlocksMessage =
     }
   | {
       type: 'NAVIGATE_TO_LATEST_HARDCORE';
+    }
+  | {
+      type: 'PURCHASE_PRODUCT';
+      payload: {
+        sku: string;
+      };
     };
 
 export type FeedbackResponse = {
@@ -123,6 +130,12 @@ export type BlocksToWebviewMessage =
   | {
       type: 'GAME_INIT_RESPONSE';
       payload: GameResponse;
+    }
+  | {
+      type: 'HARDCORE_ACCESS_INIT_RESPONSE';
+      payload: {
+        hardcoreAccessStatus?: HardcoreAccessStatus;
+      };
     }
   | {
       type: 'TOGGLE_USER_REMINDER_RESPONSE';
@@ -153,6 +166,12 @@ export type BlocksToWebviewMessage =
   | {
       type: 'FEEDBACK';
       payload: FeedbackResponse;
+    }
+  | {
+      type: 'PURCHASE_PRODUCT_SUCCESS_RESPONSE';
+      payload: {
+        access: HardcoreAccessStatus;
+      };
     };
 
 export type DevvitMessage = {
