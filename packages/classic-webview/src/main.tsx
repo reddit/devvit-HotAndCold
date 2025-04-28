@@ -25,13 +25,13 @@ createRoot(document.getElementById('root')!).render(
       <ConfirmationDialogProvider>
         <ModalContextProvider>
           <UserSettingsContextProvider>
-            <GameContextProvider>
-              <HardcoreAccessContextProvider>
+            <HardcoreAccessContextProvider>
+              <GameContextProvider>
                 <PageContextProvider>
                   <App />
                 </PageContextProvider>
-              </HardcoreAccessContextProvider>
-            </GameContextProvider>
+              </GameContextProvider>
+            </HardcoreAccessContextProvider>
           </UserSettingsContextProvider>
         </ModalContextProvider>
       </ConfirmationDialogProvider>
