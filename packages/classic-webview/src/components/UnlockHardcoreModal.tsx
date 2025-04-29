@@ -1,9 +1,10 @@
-import React, { ComponentProps } from 'react';
+import React, { ComponentProps, useEffect } from 'react';
 import { HardcoreLogo } from '@hotandcold/webview-common/components/logo';
 import { GoldIcon } from '@hotandcold/webview-common/components/icon';
 import { cn } from '@hotandcold/webview-common/utils';
 import { Modal } from '@hotandcold/webview-common/components/modal';
 import { sendMessageToDevvit } from '../utils';
+import { useHardcoreAccess } from '../hooks/useHardcoreAccess';
 
 interface PurchaseButtonProps {
   children: React.ReactNode;
@@ -51,6 +52,15 @@ const PurchaseButton: React.FC<PurchaseButtonProps> = (props) => {
 type UnlockHardcoreModalProps = Omit<ComponentProps<typeof Modal>, 'children'>;
 
 export const UnlockHardcoreModal = (props: UnlockHardcoreModalProps) => {
+  const { access } = useHardcoreAccess();
+
+  useEffect(() => {
+    // if the access was activated
+    if (access.status === 'active') {
+      props.onClose();
+    }
+  }, [access]);
+
   return (
     <Modal {...props}>
       <div className="flex w-full max-w-md flex-col items-center justify-center gap-4 p-6 sm:gap-6 sm:p-8 md:max-w-2xl md:p-10">
