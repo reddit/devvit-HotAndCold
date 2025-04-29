@@ -4,7 +4,6 @@ import './triggers/upgrade.js';
 import './triggers/onComment.js';
 import './menu-actions/newChallenge.js';
 import './menu-actions/addWordToDictionary.js';
-import './menu-actions/validateDefaultWordLists.js';
 import './menu-actions/totalReminders.js';
 
 import { Devvit, useInterval, useState } from '@devvit/public-api';

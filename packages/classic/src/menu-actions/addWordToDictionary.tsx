@@ -5,7 +5,11 @@ import { ChallengeToWordService } from '../core/challengeToWord.js';
 import { GameMode } from '@hotandcold/classic-shared';
 import { validateWord } from '../core/wordValidation.js';
 
-async function handleFormSubmission(
+createAddWordsMenuAction('regular');
+createAddWordsMenuAction('hardcore');
+
+/** Validates words and then adds them to redis if all words given are valid.*/
+async function validateAndAddWords(
   words: string,
   prepend: boolean,
   context: Context,
@@ -85,8 +89,7 @@ function createAddWordsMenuAction(mode: GameMode): void {
         },
       ],
     },
-    (event, context) =>
-      handleFormSubmission(event.values.words, event.values.prepend, context, mode)
+    (event, context) => validateAndAddWords(event.values.words, event.values.prepend, context, mode)
   );
 
   Devvit.addMenuItem({
@@ -98,6 +101,3 @@ function createAddWordsMenuAction(mode: GameMode): void {
     },
   });
 }
-
-createAddWordsMenuAction('regular');
-createAddWordsMenuAction('hardcore');
