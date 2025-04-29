@@ -18,8 +18,6 @@ export const PageContextProvider = ({ children }: { children: React.ReactNode })
       game.challengeUserInfo?.gaveUpAtMs
     ) {
       setPage('win');
-    } else if (game.mode === 'hardcore' && access.status === 'inactive') {
-      setPage('unlock-hardcore');
     } else {
       setPage('play');
     }
