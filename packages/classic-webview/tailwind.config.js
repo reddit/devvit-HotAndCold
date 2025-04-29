@@ -19,8 +19,7 @@ export default {
         'mustard-gold': '#FFBF0B',
         'slate-gray': '#8BA2AD',
         'charcoal': '#2A3236',
-        'night': '#0E1113',
-        'neutral-content-gray': '#B7CAD4'
+        'night': '#0E1113'
       }
     },
   },

@@ -147,7 +147,7 @@ const UnlockHardcorePageContent = () => {
           Unlock FOREVER
         </PurchaseButton>
       </div>
-      <p className="text-neutral-content-gray text-center text-[12px] font-normal">
+      <p className="text-slate-400 text-center text-[12px] font-normal">
         Looking for today's puzzle?{' '}
         <span className="underline decoration-solid underline-offset-auto">Click here</span>
       </p>
