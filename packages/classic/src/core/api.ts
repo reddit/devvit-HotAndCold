@@ -125,7 +125,7 @@ export const getWordConfigCached = zoddy(
   }
 );
 
-export const compareWords = zoddy(
+const compareWords = zoddy(
   z.object({
     context: z.union([zodJobContext, zodContext]),
     secretWord: z.string().trim().toLowerCase(),

@@ -3,14 +3,19 @@ import { zoddy } from '@hotandcold/shared/utils/zoddy';
 import { RedisClient } from '@devvit/public-api';
 import { GameMode } from '@hotandcold/classic-shared';
 
-// Original to make it super explicit since we might let people play the archive on any postId
-const getChallengeToWord = () => `challenge_to_word` as const;
-
 export class ChallengeToWordService {
+  private redisKey: string;
+  private static readonly BASE_KEY = 'challenge_to_word';
+
   constructor(
     private redis: RedisClient,
-    private mode: GameMode
-  ) {}
+    mode: GameMode
+  ) {
+    this.redisKey =
+      mode === 'regular'
+        ? ChallengeToWordService.BASE_KEY
+        : `hc:${ChallengeToWordService.BASE_KEY}`;
+  }
 
   setChallengeNumberForWord = zoddy(
     z.object({
@@ -18,7 +23,7 @@ export class ChallengeToWordService {
       word: z.string().trim(),
     }),
     async ({ challenge, word }) => {
-      await this.redis.zAdd(getChallengeToWord(), {
+      await this.redis.zAdd(this.redisKey, {
         member: word,
         score: challenge,
       });
@@ -26,7 +31,7 @@ export class ChallengeToWordService {
   );
 
   getAllUsedWords = zoddy(z.object({}), async () => {
-    const words = await this.redis.zRange(getChallengeToWord(), 0, -1);
+    const words = await this.redis.zRange(this.redisKey, 0, -1);
 
     return words.map((word) => word.member);
   });
