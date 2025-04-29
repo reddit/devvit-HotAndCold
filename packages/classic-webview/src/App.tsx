@@ -13,7 +13,6 @@ import { useModal } from './hooks/useModal';
 import { UnlockHardcoreModal } from './components/UnlockHardcoreModal';
 import { HowToPlayModal } from './components/howToPlayModal';
 import { ScoreBreakdownModal } from './components/scoreBreakdownModal';
-import { UnlockHardcorePage } from './pages/hardcore-only/UnlockHardcore';
 
 const getPage = (page: Page) => {
   switch (page) {
@@ -25,8 +24,6 @@ const getPage = (page: Page) => {
       return <WinPage />;
     case 'loading':
       return <LoadingPage />;
-    case 'unlock-hardcore':
-      return <UnlockHardcorePage />;
     default:
       throw new Error(`Invalid page: ${String(page satisfies never)}`);
   }
