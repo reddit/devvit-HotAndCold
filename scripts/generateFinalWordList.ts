@@ -252,7 +252,6 @@ const lemmatizeIt = (input: string) => {
     "lay",
     "left",
     "worst",
-    "pass",
     "",
   ]);
   if (exceptions.has(word)) return word;
