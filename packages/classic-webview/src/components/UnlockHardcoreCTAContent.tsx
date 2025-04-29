@@ -3,8 +3,12 @@ import { HardcoreLogo } from '@hotandcold/webview-common/components/logo';
 
 type UnlockHardcoreCTAContentProps = {
   withLogo?: boolean;
+  withLinkToTodaysPuzzle?: boolean;
 };
-export const UnlockHardcoreCTAContent = ({ withLogo }: UnlockHardcoreCTAContentProps) => {
+export const UnlockHardcoreCTAContent = ({
+  withLogo,
+  withLinkToTodaysPuzzle,
+}: UnlockHardcoreCTAContentProps) => {
   return (
     <div className="flex w-full max-w-md flex-col items-center justify-center gap-4 p-6 sm:gap-6 sm:p-8 md:max-w-2xl md:p-10">
       {withLogo && <HardcoreLogo />}
@@ -21,10 +25,12 @@ export const UnlockHardcoreCTAContent = ({ withLogo }: UnlockHardcoreCTAContentP
           Unlock FOREVER
         </PurchaseButton>
       </div>
-      <p className="text-center text-xs font-normal text-slate-400">
-        Looking for today's puzzle?{' '}
-        <span className="underline decoration-solid underline-offset-auto">Click here</span>
-      </p>
+      {withLinkToTodaysPuzzle && (
+        <p className="text-center text-xs font-normal text-slate-400">
+          Looking for today's puzzle?{' '}
+          <span className="underline decoration-solid underline-offset-auto">Click here</span>
+        </p>
+      )}
     </div>
   );
 };

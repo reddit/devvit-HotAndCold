@@ -116,7 +116,7 @@ export const PlayPage = () => {
   let content;
 
   if (isHardcore && access.status !== 'active') {
-    content = <UnlockHardcoreCTAContent />;
+    content = <UnlockHardcoreCTAContent withLinkToTodaysPuzzle />;
   } else {
     content = <GameplayContent />;
   }
