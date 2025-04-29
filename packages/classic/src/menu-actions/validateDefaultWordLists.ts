@@ -4,6 +4,17 @@ import { GameMode } from '@hotandcold/classic-shared';
 import { DEFAULT_WORD_LIST, HARDCORE_WORD_LIST } from '../constants.js';
 import { validateWord } from '../core/wordValidation.js';
 
+/** Looks through the default word list for a given mode and validates a variety of things:
+ * - Checks for duplicates within the list
+ * - Checks for words that are not real words
+ * - Checks for words that are not the lemma form
+ * - Checks for words that have already been used in a challenge
+ * - Logs progress
+ * - Logs completion
+ *
+ * This is a long running operation, and our caching layer has issues, and devvit tends to kill long running operations.
+ * So we take a starting index and only validate words from that index onward.
+ */
 async function validateWordListForMode(
   mode: GameMode,
   wordList: string[],
@@ -76,6 +87,9 @@ type WordOccurrence = {
   indices: number[];
 };
 
+/**
+ *  Checks for duplicates across lists.
+ */
 function findCrossListDuplicates(regularList: string[], hardcoreList: string[]): void {
   console.log('\n--- Checking for Duplicates Across Lists ---');
   const wordMap = new Map<string, WordOccurrence[]>();
@@ -115,6 +129,12 @@ function findCrossListDuplicates(regularList: string[], hardcoreList: string[]):
   }
 }
 
+/**
+ * Handles users asking to validate a word list for a given mode.
+ *
+ * This is a long running operation, and our caching layer has issues, and devvit tends to kill long running operations.
+ * So we take a starting index and only validate words from that index onward.
+ */
 async function handleValidateListForMode(
   context: Context,
   mode: GameMode,
@@ -143,12 +163,18 @@ async function handleValidateListForMode(
   );
 }
 
+/**
+ * Handles users asking to check for duplicates across lists.
+ */
 function handleCheckCrossDuplicates(context: Context): void {
   context.ui.showToast('Checking for cross-list duplicates... Check logs.');
   findCrossListDuplicates(DEFAULT_WORD_LIST, HARDCORE_WORD_LIST);
   context.ui.showToast('Cross-list duplicate check complete. Check logs.');
 }
 
+/**
+ * Creates a menu action for validating a word list for a given mode.
+ */
 function createValidationMenuAction(mode: GameMode): void {
   const modeTitleCase = mode.charAt(0).toUpperCase() + mode.slice(1);
   const formTitle = `Validate ${modeTitleCase} Word List`;
