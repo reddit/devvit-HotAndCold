@@ -1,5 +1,6 @@
 import { PurchaseButton } from './PurchaseButton';
 import { HardcoreLogo } from '@hotandcold/webview-common/components/logo';
+import { sendMessageToDevvit } from '../utils';
 
 type UnlockHardcoreCTAContentProps = {
   withLogo?: boolean;
@@ -28,7 +29,16 @@ export const UnlockHardcoreCTAContent = ({
       {withLinkToTodaysPuzzle && (
         <p className="text-center text-xs font-normal text-slate-400">
           Looking for today's puzzle?{' '}
-          <span className="underline decoration-solid underline-offset-auto">Click here</span>
+          <a
+            href="#"
+            className="underline decoration-solid underline-offset-auto"
+            onClick={(e) => {
+              e.preventDefault();
+              sendMessageToDevvit({ type: 'NAVIGATE_TO_DAILY_CHALLENGE' });
+            }}
+          >
+            Click here
+          </a>
         </p>
       )}
     </div>

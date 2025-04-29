@@ -111,6 +111,9 @@ export type WebviewToBlocksMessage =
       payload: {
         sku: string;
       };
+    }
+  | {
+      type: 'NAVIGATE_TO_DAILY_CHALLENGE';
     };
 
 export type FeedbackResponse = {

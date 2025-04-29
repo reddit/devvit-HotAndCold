@@ -408,6 +408,28 @@ Devvit.addCustomPostType({
                 payments.purchase(data.payload.sku);
                 break;
               }
+
+              case 'NAVIGATE_TO_DAILY_CHALLENGE': {
+                // We want a the most recent _regular_ challenge.
+                // Thus instantiate a new `ChallengeService` only if the current challenge service wasn't created with the `regular` game mode
+                const challengeSvc =
+                  gameMode === 'regular'
+                    ? challengeService
+                    : new ChallengeService(context.redis, 'regular');
+                const currChallengeNumber = await challengeSvc.getCurrentChallengeNumber();
+                const currChallenge = await challengeSvc.getChallenge({
+                  challenge: currChallengeNumber,
+                });
+                if (currChallenge.postId == null) {
+                  return context.ui.showToast(
+                    'A daily challenge could not be found. Try again later.'
+                  );
+                }
+                const post = await context.reddit.getPostById(currChallenge.postId);
+                context.ui.navigateTo(post);
+                break;
+              }
+
               default:
                 throw new Error(`Unknown message type: ${String(data satisfies never)}`);
             }
