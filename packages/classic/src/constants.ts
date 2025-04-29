@@ -55,7 +55,6 @@ export const DEFAULT_WORD_LIST = [
   'prove', // Score 4
   'prevent', // Score 4
   'adjust', // Score 4
-  'amalgamate', // Score 8
   'provide', // Score 3
   'consider', // Score 3
   'ruminate', // Score 7
@@ -135,7 +134,6 @@ export const DEFAULT_WORD_LIST = [
   'refine', // Score 5
   'manipulate', // Score 6
   'differentiate', // Score 6
-  'elucidate', // Score 8
   'extrapolate', // Score 8
   'instantiate', // Score 8
   'reconcile', // Score 6
@@ -147,17 +145,13 @@ export const DEFAULT_WORD_LIST = [
   'interpolate', // Score 8
   'codify', // Score 7
   'transmute', // Score 8
-  'explicate', // Score 8
+  'friend', // Score 2
+  'story', // Score 2
   'obfuscate', // Score 8
   'theorize', // Score 6
-  'ameliorate', // Score 8
   'system', // Score 3
   'journey', // Score 4
-  'power', // Score 2
-  'music', // Score 2
-  'friend', // Score 2
   'market', // Score 3
-  'story', // Score 2
   'art', // Score 2
   'community', // Score 4
   'body', // Score 2
@@ -246,7 +240,6 @@ export const DEFAULT_WORD_LIST = [
   'procedure', // Score 5
   'variable', // Score 5
   'entity', // Score 6
-  'transition', // Score 5
   'criterion', // Score 7
   'aggregate', // Score 7
   'parameter', // Score 7
@@ -257,25 +250,27 @@ export const DEFAULT_WORD_LIST = [
   'cohesion', // Score 7
   'resilience', // Score 6
   'synthesis', // Score 7
+  'assure', // Score 4
   'juxtaposition', // Score 8
+  'examine', // Score 4
   'contingency', // Score 7
   'dichotomy', // Score 7
   'heuristic', // Score 8
+  'power', // Score 2
   'symbiosis', // Score 7
+  'music', // Score 2
   'axiom', // Score 7
   'precedent', // Score 6
   'tenet', // Score 7
-  'modality', // Score 8
-  'paradox', // Score 7
   'conjecture', // Score 7
-  'homogeneity', // Score 7
-  'perturbation', // Score 8
-  'syllogism', // Score 8
-  'fulcrum', // Score 8
-  'proclivity', // Score 8
-  'equanimity', // Score 8
   'grow', // Score 2
   'change', // Score 2
+  'homogeneity', // Score 7
+  'transition', // Score 5
+  'fulcrum', // Score 8
+  'appear', // Score 3
+  'choose', // Score 2
+  'equanimity', // Score 8
   'demonstrate', // Score 5
   'react', // Score 4
   'estimate', // Score 4
@@ -284,13 +279,11 @@ export const DEFAULT_WORD_LIST = [
   'quantify', // Score 7
   'postulate', // Score 7
   'engage', // Score 4
+  'modality', // Score 8
   'define', // Score 4
   'relate', // Score 3
   'reflect', // Score 4
-  'assure', // Score 4
-  'examine', // Score 4
-  'appear', // Score 3
-  'choose', // Score 2
+  'paradox', // Score 7
 ];
 
 /**
@@ -373,7 +366,6 @@ export const HARDCORE_WORD_LIST = [
   'fortitude', // Score 7
   'frivolous', // Score 7
   'galvanize', // Score 7
-  'verisimilitude', // Score 9
   'garrulous', // Score 8
   'gleam', // Score 5
   'gravity', // Score 5
@@ -433,10 +425,8 @@ export const HARDCORE_WORD_LIST = [
   'plausible', // Score 6
   'precarious', // Score 7
   'pungent', // Score 6
-  'querulous', // Score 8
   'quixotic', // Score 8
   'rancid', // Score 6
-  'vicissitude', // Score 9
   'recalcitrant', // Score 8
   'reclusive', // Score 7
   'refurbish', // Score 6
