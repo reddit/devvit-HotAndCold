@@ -9,12 +9,12 @@
     "dev:upload": "dotenvx run -f ../../.env.development -- sh -c 'devvit upload --config=../../$CLASSIC_DEVVIT_CONFIG'",
     "lint": "eslint ./src/",
     "prettier": "prettier --write .",
-    "test": "vitest run",
+    "test": "vitest run --passWithNoTests",
     "type-check": "tsc --noEmit"
   },
   "dependencies": {
-    "@devvit/payments": "0.11.12",
-    "@devvit/public-api": "0.11.12",
+    "@devvit/payments": "^0.11.13",
+    "@devvit/public-api": "^0.11.13",
     "@hotandcold/classic-shared": "*",
     "@hotandcold/shared": "*",
     "luxon": "^3.6.1"

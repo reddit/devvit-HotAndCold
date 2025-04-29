@@ -9,11 +9,11 @@
     "dev:upload": "dotenvx run -f ../../.env.development -- sh -c 'devvit upload --config=../../$RAID_DEVVIT_CONFIG'",
     "lint": "eslint ./src/",
     "prettier": "prettier --write .",
-    "test": "vitest run",
+    "test": "vitest run --passWithNoTests",
     "type-check": "tsc --noEmit"
   },
   "dependencies": {
-    "@devvit/public-api": "0.11.12",
+    "@devvit/public-api": "^0.11.13",
     "@hotandcold/shared": "*",
     "@hotandcold/raid-shared": "*"
   },

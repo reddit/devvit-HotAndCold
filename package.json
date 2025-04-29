@@ -27,7 +27,7 @@
     "scripts:testEmbeddingPrompt": "tsx ./scripts/testEmbeddingPrompt.ts",
     "scripts:warmWordCache": "tsx ./scripts/warmWordCache.ts",
     "supabase": "supabase",
-    "test": "npm run type-check --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present",
     "type-check": "npm run type-check --workspaces --if-present",
     "pre-upload": "npm run type-check && npm run test",
     "upload:classic": "npm run pre-upload && cd packages/classic && devvit upload --config=prod.devvit.yaml",
@@ -37,7 +37,6 @@
     "prepare": "husky"
   },
   "dependencies": {
-    "@devvit/payments": "^0.11.13",
     "@dotenvx/dotenvx": "^1.39.0",
     "csv-parse": "^5.5.6",
     "csv-stringify": "^6.5.1",
