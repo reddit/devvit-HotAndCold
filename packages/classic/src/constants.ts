@@ -5,316 +5,540 @@ export const DEVVIT_SETTINGS_KEYS = {
 // TODO: Set back to 100 after playtesting
 export const HARDCORE_MAX_GUESSES = 10;
 
-export const DEFAULT_WORD_LIST: string[] = [
-  'dance',
-  'carpet',
-  'monkey',
-  'fancy',
-  'rabbit',
-  'umbrella',
-  'summer',
-  'sandwich',
-  'brave',
-  'cookie',
-  'purple',
-  'float',
-  'adventure',
-  'camera',
-  'twist',
-  'peaceful',
-  'hammer',
-  'sneeze',
-  'mountain',
-  'sparkle',
-  'blanket',
-  'discover',
-  'bounce',
-  'miracle',
-  'gentle',
-  'accordion',
-  'silence',
-  'paint',
-  'wobble',
-  'natural',
-  'treasure',
-  'autumn',
-  'squeeze',
-  'bright',
-  'jungle',
-  'pillow',
-  'morning',
-  'graceful',
-  'quick',
-  'nervous',
-  'dragon',
-  'journey',
-  'silver',
-  'observe',
-  'tiptoe',
-  'spring',
-  'jealous',
-  'balloon',
-  'quiet',
-  'island',
-  'stretch',
-  'winter',
-  'button',
-  'magical',
-  'dolphin',
-  'shine',
-  'giggle',
-  'puzzle',
-  'pencil',
-  'whisper',
-  'sleepy',
-  'garden',
-  'thunder',
-  'bubble',
-  'window',
-  'snuggle',
-  'wisdom',
-  'flower',
-  'achieve',
-  'precious',
-  'glow',
-  'kitchen',
-  'sidewalk',
-  'chirp',
-  'shabby',
-  'jacket',
-  'dream',
-  'elephant',
-  'inspire',
-  'lucky',
-  'fountain',
-  'believe',
-  'turtle',
-  'powerful',
-  'zigzag',
-  'harmonica',
-  'delicious',
-  'volcano',
-  'northern',
-  'carefully',
-  'backpack',
-  'enormous',
-  'penguin',
-  'fantastic',
-  'rainbow',
-  'yacht',
-  'appreciate',
-  'celebrate',
-  'beautiful',
-  'thankful',
-  'doorbell',
-  'carnival',
-  'hilarious',
-  'gracefully',
-  'ordinary',
-  'understand',
-  'valuable',
-  'warmth',
-  'special',
-  'squirrel',
-  'comfort',
-  'remember',
-  'wonderful',
-  'curious',
-  'kindness',
-  'laughter',
-  'respect',
-  'simple',
-  'unique',
-  'victory',
-  'zeppelin',
-  'clever',
-  'different',
-  'generous',
-  'talent',
-  'helpful',
-  'innocent',
-  'joyful',
-  'miracle',
-  'peaceful',
-  'quality',
-  'believe',
-  'delight',
-  'energy',
-  'freedom',
-  'harmony',
-  'imagine',
-  'nature',
-  'passion',
-  'balance',
-  'discover',
-  'nervous',
-  'observe',
-  'patience',
-  'question',
-  'surprise',
-  'treasure',
-  'vacation',
-  'welcome',
-  'achieve',
-  'create',
-  'explore',
-  'forget',
-  'gather',
-  'happen',
-  'journey',
-  'listen',
-  'manage',
-  'prepare',
-  'search',
-  'travel',
-  'wonder',
-  'accept',
-  'change',
-  'decide',
-  'enjoy',
-  'finish',
-  'guide',
-  'learn',
-  'matter',
-  'notice',
-  'practice',
-  'share',
-  'teach',
-  'value',
-  'colorful',
-  'friendly',
-  'hopeful',
-  'joyful',
-  'quiet',
-  'useful',
-  'cheerful',
-  'delightful',
-  'elegant',
-  'grateful',
-  'honest',
-  'intelligent',
-  'mindful',
-  'optimistic',
-  'pleasant',
-  'sincere',
-  'thoughtful',
-  'vibrant',
-  'active',
-  'brave',
-  'eager',
-  'fair',
-  'gentle',
-  'intense',
-  'jolly',
-  'keen',
-  'lively',
-  'merry',
-  'noble',
-  'proud',
-  'quick',
-  'ready',
-  'fine',
-  'strong',
-  'wise',
-  'alive',
-  'cool',
-  'deep',
-  'good',
-  'high',
-  'kind',
-  'mild',
-  'neat',
-  'pure',
-  'real',
-  'safe',
-  'brilliant',
-  'confident',
-  'energetic',
-  'fearless',
-  'gracious',
-  'heartfelt',
-  'innocent',
-  'magnetic',
-  'positive',
-  'radiant',
-  'sincere',
-  'talented',
-  'valiant',
-  'cheerful',
-  'embrace',
-  'friendly',
-  'inspire',
-  'kindred',
-  'nurture',
-  'playful',
-  'quality',
-  'tender',
-  'earnest',
-  'forward',
-  'genuine',
-  'hopeful',
-  'insight',
-  'joyous',
-  'kinship',
-  'memorable',
-  'natural',
-  'optimist',
-  'pleasant',
-  'radiance',
-  'serenity',
-  'truthful',
-  'upbeat',
-  'vivid',
-  'zestful',
-  'authentic',
-  'capable',
-  'diligent',
-  'eager',
-  'friendly',
-  'gentle',
-  'honest',
-  'jovial',
-  'mindful',
-  'nimble',
-  'orderly',
-  'patient',
-  'quirky',
-  'resilient',
-  'steady',
-  'tranquil',
-  'vigilant',
-  'worthy',
-  'youthful',
-  'zealous',
-  'agile',
-  'bubbly',
-  'earnest',
-  'faithful',
-  'humble',
-  'intrepid',
-  'jubilant',
-  'keen',
-  'logical',
-  'mature',
-  'noble',
-  'peaceful',
-  'reliable',
-  'skillful',
-  'tactful',
-  'valiant',
-  'worthy',
-  'eager',
-  'zesty',
+// There's some nuance to word lists that are worth noting:
+// * Word lists are mostly only loaded from VCS into Redis on installation, and then Redis is the source of truth
+// * Whenever a challenge is created, it mutates the word list by removing that challenge's word.
+// * Words can be appended or prepended to the list via moderator action.
+// * If a word has already been used in a challenge (per-difficulty), it can't be used again.
+//   This means that if you happen to have the same word in multiple places in the same list, it won't be reused.
+//   It also means that it's impossible to predict what word will be used next, without knowing all words that have previously been used.
+
+// Generating word lists:
+// Generating word lists is harder than you might expect.
+// The lists below were generated by an LLM. Then, I had another LLM score them qualitatively.
+// Finally, I did some manual tweaking to make sure that no extremely difficult or easy words were used,
+// and that hardcore was noticeably more difficult than regular.
+
+// You can use context menu actions to validate the lists below.
+
+/**
+ *  Default word list for regular mode. Note that prior to the launch of hardcore mode,
+ * there was a different list that was more difficult, and this list was generated to be easier.
+ */
+export const DEFAULT_WORD_LIST = [
+  'cover', // Score 2
+  'tend', // Score 3
+  'return', // Score 2
+  'recognize', // Score 4
+  'goal', // Score 3
+  'form', // Score 2
+  'synthesize', // Score 7
+  'operate', // Score 4
+  'perspective', // Score 5
+  'optimize', // Score 7
+  'substantiate', // Score 8
+  'imagine', // Score 3
+  'affect', // Score 3
+  'reconstruct', // Score 6
+  'integrate', // Score 6
+  'explain', // Score 3
+  'suggest', // Score 3
+  'modify', // Score 4
+  'factor', // Score 4
+  'assume', // Score 4
+  'join', // Score 2
+  'generate', // Score 5
+  'determine', // Score 4
+  'control', // Score 3
+  'prepare', // Score 3
+  'assess', // Score 5
+  'result', // Score 3
+  'understand', // Score 3
+  'instance', // Score 4
+  'prove', // Score 4
+  'prevent', // Score 4
+  'adjust', // Score 4
+  'provide', // Score 3
+  'consider', // Score 3
+  'ruminate', // Score 7
+  'establish', // Score 4
+  'issue', // Score 3
+  'idea', // Score 2
+  'respond', // Score 3
+  'structure', // Score 4
+  'predict', // Score 4
+  'influence', // Score 4
+  'receive', // Score 3
+  'articulate', // Score 6
+  'identify', // Score 4
+  'create', // Score 3
+  'reality', // Score 5
+  'design', // Score 3
+  'theory', // Score 5
+  'seek', // Score 3
+  'indicate', // Score 4
+  'clarify', // Score 5
+  'study', // Score 2
+  'ambiguity', // Score 7
+  'manage', // Score 4
+  'require', // Score 3
+  'approach', // Score 3
+  'penultimate', // Score 8
+  'develop', // Score 3
+  'emerge', // Score 5
+  'formulate', // Score 6
+  'range', // Score 3
+  'protect', // Score 3
+  'measure', // Score 3
+  'correlate', // Score 7
+  'simulate', // Score 6
+  'report', // Score 3
+  'improve', // Score 3
+  'expect', // Score 3
+  'elicit', // Score 7
+  'maintain', // Score 4
+  'challenge', // Score 4
+  'condition', // Score 3
+  'achieve', // Score 4
+  'avoid', // Score 3
+  'skill', // Score 3
+  'spend', // Score 2
+  'include', // Score 3
+  'ensure', // Score 4
+  'thank', // Score 2
+  'justify', // Score 5
+  'compare', // Score 3
+  'reduce', // Score 4
+  'serve', // Score 2
+  'finish', // Score 2
+  'win', // Score 2
+  'fly', // Score 2
+  'add', // Score 2
+  'cut', // Score 2
+  'agree', // Score 3
+  'catch', // Score 2
+  'speak', // Score 2
+  'build', // Score 2
+  'deal', // Score 3
+  'happen', // Score 2
+  'watch', // Score 2
+  'test', // Score 2
+  'care', // Score 2
+  'arrive', // Score 3
+  'treat', // Score 3
+  'vary', // Score 4
+  'adapt', // Score 5
+  'arrange', // Score 4
+  'convert', // Score 5
+  'distinguish', // Score 5
+  'perceive', // Score 5
+  'validate', // Score 6
+  'infer', // Score 6
+  'refine', // Score 5
+  'manipulate', // Score 6
+  'differentiate', // Score 6
+  'extrapolate', // Score 8
+  'instantiate', // Score 8
+  'reconcile', // Score 6
+  'impute', // Score 8
+  'iterate', // Score 7
+  'discern', // Score 6
+  'ascertain', // Score 7
+  'enumerate', // Score 7
+  'interpolate', // Score 8
+  'codify', // Score 7
+  'transmute', // Score 8
+  'friend', // Score 2
+  'story', // Score 2
+  'obfuscate', // Score 8
+  'theorize', // Score 6
+  'system', // Score 3
+  'journey', // Score 4
+  'market', // Score 3
+  'art', // Score 2
+  'community', // Score 4
+  'body', // Score 2
+  'information', // Score 4
+  'family', // Score 2
+  'fact', // Score 3
+  'product', // Score 3
+  'history', // Score 3
+  'process', // Score 4
+  'game', // Score 2
+  'health', // Score 3
+  'team', // Score 2
+  'minute', // Score 2
+  'reason', // Score 3
+  'research', // Score 4
+  'morning', // Score 2
+  'ability', // Score 4
+  'economy', // Score 4
+  'education', // Score 3
+  'difference', // Score 3
+  'nature', // Score 3
+  'society', // Score 4
+  'quality', // Score 4
+  'project', // Score 3
+  'knowledge', // Score 4
+  'strategy', // Score 5
+  'policy', // Score 4
+  'resource', // Score 4
+  'purpose', // Score 4
+  'experience', // Score 3
+  'century', // Score 4
+  'evidence', // Score 4
+  'opportunity', // Score 4
+  'benefit', // Score 4
+  'culture', // Score 4
+  'network', // Score 4
+  'argument', // Score 4
+  'authority', // Score 5
+  'impact', // Score 4
+  'method', // Score 4
+  'environment', // Score 4
+  'analysis', // Score 5
+  'concept', // Score 5
+  'future', // Score 3
+  'industry', // Score 4
+  'element', // Score 4
+  'role', // Score 3
+  'field', // Score 3
+  'effort', // Score 3
+  'principle', // Score 5
+  'application', // Score 5
+  'function', // Score 4
+  'context', // Score 5
+  'significance', // Score 6
+  'aspect', // Score 5
+  'attitude', // Score 4
+  'potential', // Score 5
+  'dimension', // Score 5
+  'vision', // Score 4
+  'contribution', // Score 5
+  'feature', // Score 4
+  'component', // Score 5
+  'solution', // Score 4
+  'conflict', // Score 4
+  'category', // Score 5
+  'objective', // Score 5
+  'status', // Score 4
+  'notion', // Score 5
+  'technique', // Score 5
+  'consequence', // Score 5
+  'perception', // Score 6
+  'emphasis', // Score 5
+  'framework', // Score 6
+  'outcome', // Score 5
+  'discipline', // Score 5
+  'hypothesis', // Score 7
+  'mechanism', // Score 6
+  'assumption', // Score 5
+  'capacity', // Score 5
+  'phenomenon', // Score 7
+  'constraint', // Score 6
+  'interpretation', // Score 6
+  'validity', // Score 7
+  'paradigm', // Score 7
+  'domain', // Score 5
+  'procedure', // Score 5
+  'variable', // Score 5
+  'entity', // Score 6
+  'criterion', // Score 7
+  'aggregate', // Score 7
+  'parameter', // Score 7
+  'schema', // Score 7
+  'deviation', // Score 6
+  'fluctuation', // Score 7
+  'analogy', // Score 6
+  'cohesion', // Score 7
+  'resilience', // Score 6
+  'synthesis', // Score 7
+  'assure', // Score 4
+  'juxtaposition', // Score 8
+  'examine', // Score 4
+  'contingency', // Score 7
+  'dichotomy', // Score 7
+  'heuristic', // Score 8
+  'power', // Score 2
+  'symbiosis', // Score 7
+  'music', // Score 2
+  'axiom', // Score 7
+  'precedent', // Score 6
+  'tenet', // Score 7
+  'conjecture', // Score 7
+  'grow', // Score 2
+  'change', // Score 2
+  'homogeneity', // Score 7
+  'transition', // Score 5
+  'fulcrum', // Score 8
+  'appear', // Score 3
+  'choose', // Score 2
+  'equanimity', // Score 8
+  'demonstrate', // Score 5
+  'react', // Score 4
+  'estimate', // Score 4
+  'inspire', // Score 4
+  'constitute', // Score 6
+  'quantify', // Score 7
+  'postulate', // Score 7
+  'engage', // Score 4
+  'modality', // Score 8
+  'define', // Score 4
+  'relate', // Score 3
+  'reflect', // Score 4
+  'paradox', // Score 7
 ];
 
-export const HARDCORE_WORD_LIST: string[] = [
-  // TODO: choose better words.
-  'hard',
-  'core',
-  'mode',
-  'good',
-  'and',
-  'worth',
-  'paying',
-  'for',
+/**
+ * These are the initial words loaded for hardcore mode.
+ *
+ * This set of words was generated in a roundabout way. Initially, the game only had regular mode.
+ * These words are a subset of the original regular mode, but only some of the harder ones, plus
+ * some additional words.
+ *
+ * This was done because we wanted to have the new hardcore mode use the words that the original mode
+ * had and wanted the regular mode to become easier.
+ */
+export const HARDCORE_WORD_LIST = [
+  'ardent', // Score 7
+  'radiance', // Score 6
+  'nimble', // Score 6
+  'jubilant', // Score 7
+  'genuine', // Score 4
+  'truthful', // Score 5
+  'keen', // Score 5
+  'serenity', // Score 6
+  'tactful', // Score 6
+  'patient', // Score 4
+  'insight', // Score 5
+  'wary', // Score 6
+  'thoughtful', // Score 4
+  'zealous', // Score 7
+  'guide', // Score 3
+  'capable', // Score 5
+  'vivid', // Score 5
+  'sincere', // Score 5
+  'humble', // Score 4
+  'prudent', // Score 7
+  'zesty', // Score 6
+  'cheerful', // Score 4
+  'vibrant', // Score 6
+  'mature', // Score 4
+  'absurd', // Score 5
+  'affluent', // Score 7
+  'alchemy', // Score 8
+  'amiable', // Score 6
+  'astute', // Score 7
+  'benevolent', // Score 7
+  'bewilder', // Score 6
+  'boisterous', // Score 7
+  'buoyant', // Score 7
+  'candor', // Score 7
+  'capricious', // Score 8
+  'cherish', // Score 5
+  'cogent', // Score 8
+  'composure', // Score 6
+  'concise', // Score 6
+  'cordial', // Score 6
+  'credence', // Score 7
+  'cryptic', // Score 7
+  'daunt', // Score 7
+  'decorum', // Score 7
+  'deference', // Score 8
+  'demure', // Score 7
+  'destiny', // Score 5
+  'devout', // Score 6
+  'discreet', // Score 6
+  'divergent', // Score 7
+  'docile', // Score 7
+  'eloquent', // Score 7
+  'elusive', // Score 6
+  'empathy', // Score 6
+  'endure', // Score 5
+  'enigmatic', // Score 8
+  'enthrall', // Score 7
+  'erudite', // Score 8
+  'euphoria', // Score 7
+  'exquisite', // Score 7
+  'facade', // Score 6
+  'feasible', // Score 5
+  'fervent', // Score 7
+  'fidelity', // Score 7
+  'flourish', // Score 5
+  'formidable', // Score 7
+  'fortitude', // Score 7
+  'frivolous', // Score 7
+  'galvanize', // Score 7
+  'garrulous', // Score 8
+  'gleam', // Score 5
+  'gravity', // Score 5
+  'gregarious', // Score 7
+  'hackneyed', // Score 8
+  'hallow', // Score 7
+  'hamper', // Score 5
+  'heedful', // Score 7
+  'heirloom', // Score 6
+  'implicit', // Score 6
+  'impetuous', // Score 7
+  'impose', // Score 5
+  'incessant', // Score 7
+  'incisive', // Score 7
+  'indolent', // Score 8
+  'inert', // Score 6
+  'ingenuous', // Score 8
+  'inherent', // Score 6
+  'insipid', // Score 7
+  'insolent', // Score 7
+  'intricate', // Score 6
+  'intuitive', // Score 6
+  'invigorate', // Score 6
+  'iridescent', // Score 7
+  'irksome', // Score 7
+  'jaunty', // Score 7
+  'labyrinth', // Score 7
+  'languid', // Score 7
+  'laudable', // Score 7
+  'legacy', // Score 5
+  'lenient', // Score 6
+  'lethargic', // Score 7
+  'lucrative', // Score 6
+  'luminous', // Score 6
+  'magnanimous', // Score 8
+  'malicious', // Score 6
+  'meander', // Score 6
+  'melancholy', // Score 6
+  'meticulous', // Score 7
+  'mirthful', // Score 7
+  'momentous', // Score 6
+  'mundane', // Score 6
+  'nuance', // Score 6
+  'oblivious', // Score 6
+  'obsolete', // Score 6
+  'opulent', // Score 7
+  'ostentatious', // Score 8
+  'palatial', // Score 7
+  'paramount', // Score 7
+  'parsimony', // Score 8
+  'penchant', // Score 7
+  'penitent', // Score 7
+  'perennial', // Score 6
+  'perplex', // Score 6
+  'pertinent', // Score 6
+  'placid', // Score 7
+  'plausible', // Score 6
+  'precarious', // Score 7
+  'pungent', // Score 6
+  'quixotic', // Score 8
+  'rancid', // Score 6
+  'recalcitrant', // Score 8
+  'reclusive', // Score 7
+  'refurbish', // Score 6
+  'rejuvenate', // Score 6
+  'reluctant', // Score 5
+  'remorse', // Score 6
+  'renovate', // Score 5
+  'reproach', // Score 7
+  'repugnant', // Score 7
+  'resilient', // Score 6
+  'reticent', // Score 7
+  'reverie', // Score 7
+  'rhetoric', // Score 6
+  'robust', // Score 6
+  'rueful', // Score 7
+  'sagacious', // Score 8
+  'salient', // Score 7
+  'sanctuary', // Score 6
+  'sardonic', // Score 8
+  'scrupulous', // Score 7
+  'sedentary', // Score 6
+  'serene', // Score 6
+  'shrewd', // Score 6
+  'solace', // Score 6
+  'solemn', // Score 5
+  'solicit', // Score 6
+  'sonorous', // Score 8
+  'spontaneous', // Score 6
+  'staunch', // Score 6
+  'subtle', // Score 5
+  'succinct', // Score 7
+  'superfluous', // Score 7
+  'surreptitious', // Score 8
+  'taciturn', // Score 8
+  'tenacious', // Score 7
+  'tentative', // Score 6
+  'terse', // Score 6
+  'thrifty', // Score 5
+  'transient', // Score 7
+  'trepidation', // Score 7
+  'ubiquitous', // Score 7
+  'unassuming', // Score 6
+  'unwavering', // Score 6
+  'urbane', // Score 7
+  'vacillate', // Score 8
+  'vehement', // Score 7
+  'verbose', // Score 7
+  'vicarious', // Score 7
+  'vindicate', // Score 7
+  'vivacious', // Score 7
+  'vulnerable', // Score 5
+  'whimsical', // Score 6
+  'wistful', // Score 7
+  'zealot', // Score 7
+  'wonder', // Score 3
+  'accept', // Score 3
+  'decide', // Score 3
+  'matter', // Score 3
+  'notice', // Score 3
+  'practice', // Score 3
+  'value', // Score 4
+  'colorful', // Score 4
+  'friendly', // Score 3
+  'hopeful', // Score 4
+  'joyful', // Score 5
+  'quiet', // Score 3
+  'useful', // Score 4
+  'delightful', // Score 5
+  'elegant', // Score 6
+  'grateful', // Score 4
+  'honest', // Score 4
+  'intelligent', // Score 5
+  'mindful', // Score 6
+  'optimistic', // Score 6
+  'pleasant', // Score 4
+  'active', // Score 4
+  'brave', // Score 4
+  'eager', // Score 4
+  'gentle', // Score 4
+  'intense', // Score 5
+  'jolly', // Score 5
+  'lively', // Score 4
+  'merry', // Score 5
+  'noble', // Score 5
+  'proud', // Score 4
+  'forward', // Score 3
+  'joyous', // Score 6
+  'kinship', // Score 7
+  'memorable', // Score 5
+  'natural', // Score 3
+  'optimist', // Score 6
+  'upbeat', // Score 5
+  'authentic', // Score 6
+  'diligent', // Score 7
+  'jovial', // Score 7
+  'orderly', // Score 5
+  'quirky', // Score 6
+  'steady', // Score 4
+  'tranquil', // Score 7
+  'vigilant', // Score 7
+  'worthy', // Score 5
+  'youthful', // Score 5
+  'agile', // Score 6
+  'bubbly', // Score 5
+  'earnest', // Score 6
+  'faithful', // Score 5
+  'intrepid', // Score 8
+  'logical', // Score 5
+  'reliable', // Score 5
+  'skillful', // Score 5
+  'valiant', // Score 7
 ];
