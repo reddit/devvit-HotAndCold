@@ -49,6 +49,7 @@ export type Game = {
     totalSolves?: number | undefined;
     totalHints?: number | undefined;
     totalGiveUps?: number | undefined;
+    allowedGuessCount?: number | undefined;
   };
   challengeUserInfo: {
     score?: ScoreExplanation | undefined;
@@ -57,6 +58,7 @@ export type Game = {
     gaveUpAtMs?: number | undefined;
     guesses?: Guess[] | undefined;
     username: string;
+    guessesRemaining?: number | undefined;
   };
   challengeProgress: PlayerProgress;
 };

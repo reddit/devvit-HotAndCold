@@ -2,6 +2,8 @@ export const DEVVIT_SETTINGS_KEYS = {
   WORD_SERVICE_API_KEY: 'word-service-api-key',
 };
 
+export const HARDCORE_MAX_GUESSES = 10;
+
 export const DEFAULT_WORD_LIST: string[] = [
   'dance',
   'carpet',

@@ -490,6 +490,14 @@ export class GuessService {
       //   newGuesses,
       // });
 
+      // If the challenge has a guess limit, and the user has guessed the max number of times,
+      // give up!
+      const guessesRemaining =
+        challengeInfo.allowedGuessCount && challengeInfo.allowedGuessCount - newGuesses.length;
+      if (guessesRemaining !== undefined && guessesRemaining <= 0 && !hasSolved) {
+        return await this.giveUp({ context, username, challenge });
+      }
+
       return {
         mode: this.mode,
         number: challenge,
@@ -498,6 +506,7 @@ export class GuessService {
           guesses: newGuesses,
           solvedAtMs: hasSolved ? Date.now() : undefined,
           score,
+          guessesRemaining,
         },
         challengeInfo: {
           ...omit(challengeInfo, ['word']),
@@ -507,6 +516,7 @@ export class GuessService {
             ? (challengeInfo.totalPlayers ?? 0) + 1
             : challengeInfo.totalPlayers,
           totalSolves: hasSolved ? (challengeInfo.totalSolves ?? 0) + 1 : 0,
+          allowedGuessCount: challengeInfo.allowedGuessCount,
         },
         challengeProgress,
       };
