@@ -148,6 +148,15 @@ const GameplayContent = () => {
     challengeInfo?.totalSolves
   );
 
+  useEffect(() => {
+    // If the user is playing hardcore and has no guesses remaining, give up
+    if (isHardcore && guesses.length >= HARDCORE_MAX_GUESSES && !challengeUserInfo?.solvedAtMs) {
+      sendMessageToDevvit({
+        type: 'GIVE_UP_REQUEST',
+      });
+    }
+  }, [challengeUserInfo, guesses, isHardcore]);
+
   return (
     <div className="flex w-full max-w-md flex-grow-0 flex-col items-center justify-center gap-6">
       <p className="text-center text-2xl font-bold text-white">
@@ -165,7 +174,7 @@ const GameplayContent = () => {
             setWord(e.target.value);
             dismissFeedback(); // Hide feedback when typing
           }}
-          onSubmit={(animationDuration) => {
+          onSubmit={(animationDuration: number) => {
             if (word.trim().split(' ').length > 1) {
               sendMessageToDevvit({
                 type: 'SHOW_TOAST',
