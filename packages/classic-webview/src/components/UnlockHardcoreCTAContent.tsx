@@ -18,7 +18,7 @@ export const UnlockHardcoreCTAContent = ({
       <hr className="h-px w-1/2 max-w-xs bg-white/20"></hr>
       <div className="flex w-full flex-col items-center gap-4 py-2 sm:w-auto sm:flex-row sm:items-start">
         <PurchaseButton price={50} style="secondary" productSku="hardcore-mode-seven-day-access">
-          Unlock for 7 days
+          Unlock for 3 mins (playtest)
         </PurchaseButton>
         <PurchaseButton price={250} style="primary" productSku="hardcore-mode-lifetime-access">
           Unlock FOREVER
