@@ -423,16 +423,16 @@ async function handleNavigateToPost(
     );
   }
 
-  const latestHardcoreChallengeInfo = await challengeSvc.getChallenge({
+  const latestChallengeInfo = await challengeSvc.getChallenge({
     challenge: latestChallenge,
   });
-  const latestHardcoreChallengePostId = latestHardcoreChallengeInfo.postId;
-  if (!latestHardcoreChallengePostId) {
+  const latestChallengePostId = latestChallengeInfo.postId;
+  if (!latestChallengePostId) {
     throw new Error(
       'Seems like there has never been a hardcore challenge? Wait a day and then there will be!'
     );
   }
-  const post = await context.reddit.getPostById(latestHardcoreChallengePostId);
+  const post = await context.reddit.getPostById(latestChallengePostId);
   context.ui.navigateTo(post);
 }
 
