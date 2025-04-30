@@ -53,7 +53,7 @@ const CallToAction = ({ didWin }: { didWin: boolean }) => {
           onClick={() => {
             sendMessageToDevvit({
               type: 'NAVIGATE_TO',
-              payload: { destination: 'LATEST_HARDCORE' },
+              payload: { destination: 'hardcore' },
             });
           }}
         >

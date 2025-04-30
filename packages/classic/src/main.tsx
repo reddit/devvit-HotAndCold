@@ -9,7 +9,7 @@ import './menu-actions/totalReminders.js';
 import { Devvit, useInterval, useState } from '@devvit/public-api';
 import { DEVVIT_SETTINGS_KEYS } from './constants.js';
 import { isServerCall, omit } from '@hotandcold/shared/utils';
-import { HardcoreAccessStatus, WebviewToBlocksMessage } from '@hotandcold/classic-shared';
+import { GameMode, HardcoreAccessStatus, WebviewToBlocksMessage } from '@hotandcold/classic-shared';
 import { GuessService } from './core/guess.js';
 import { ChallengeToPost, PostIdentifier } from './core/challengeToPost.js';
 import { Preview } from './components/Preview.js';
@@ -391,43 +391,7 @@ Devvit.addCustomPostType({
                 break;
               }
               case 'NAVIGATE_TO': {
-                switch (data.payload.destination) {
-                  case 'LATEST_HARDCORE': {
-                    try {
-                      await handleNavigateToLatestHardcore(context);
-                    } catch (error) {
-                      if (error instanceof Error) {
-                        context.ui.showToast(error.message);
-                      } else {
-                        console.error('Unexpected error navigating to hardcore challenge:', error);
-                        context.ui.showToast('An unexpected error occurred.');
-                      }
-                    }
-                    break;
-                  }
-
-                  case 'LATEST_DAILY_CHALLENGE': {
-                    // We want a the most recent _regular_ challenge.
-                    // Thus instantiate a new `ChallengeService` only if the current challenge service wasn't created with the `regular` game mode
-                    const challengeSvc =
-                      gameMode === 'regular'
-                        ? challengeService
-                        : new ChallengeService(context.redis, 'regular');
-                    const currChallengeNumber = await challengeSvc.getCurrentChallengeNumber();
-                    const currChallenge = await challengeSvc.getChallenge({
-                      challenge: currChallengeNumber,
-                    });
-                    if (currChallenge.postId == null) {
-                      return context.ui.showToast(
-                        'A daily challenge could not be found. Try again later.'
-                      );
-                    }
-                    const post = await context.reddit.getPostById(currChallenge.postId);
-                    context.ui.navigateTo(post);
-                    break;
-                  }
-                }
-
+                await handleNavigateToPost(context, data.payload.destination);
                 break;
               }
 
@@ -446,18 +410,21 @@ Devvit.addCustomPostType({
   },
 });
 
-async function handleNavigateToLatestHardcore(context: Devvit.Context): Promise<void> {
-  const hardcoreChallengeService = new ChallengeService(context.redis, 'hardcore');
-  const latestHardcoreChallenge = await hardcoreChallengeService.getCurrentChallengeNumber();
+async function handleNavigateToPost(
+  context: Devvit.Context,
+  destinationType: GameMode
+): Promise<void> {
+  const challengeSvc = new ChallengeService(context.redis, destinationType);
+  const latestChallenge = await challengeSvc.getCurrentChallengeNumber();
 
-  if (latestHardcoreChallenge == 0) {
+  if (latestChallenge == 0) {
     throw new Error(
-      'Seems like there has never been a hardcore challenge? Wait a day and then there will be!'
+      `Seems like there has never been a ${destinationType} challenge? Wait a day and then there will be!`
     );
   }
 
-  const latestHardcoreChallengeInfo = await hardcoreChallengeService.getChallenge({
-    challenge: latestHardcoreChallenge,
+  const latestHardcoreChallengeInfo = await challengeSvc.getChallenge({
+    challenge: latestChallenge,
   });
   const latestHardcoreChallengePostId = latestHardcoreChallengeInfo.postId;
   if (!latestHardcoreChallengePostId) {

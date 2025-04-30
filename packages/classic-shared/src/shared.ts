@@ -106,7 +106,7 @@ export type WebviewToBlocksMessage =
   | {
       type: 'NAVIGATE_TO';
       payload: {
-        destination: 'LATEST_HARDCORE' | 'LATEST_DAILY_CHALLENGE';
+        destination: GameMode;
       };
     }
   | {

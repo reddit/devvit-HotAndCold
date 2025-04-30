@@ -34,7 +34,7 @@ export const UnlockHardcoreCTAContent = ({
             onClick={() => {
               sendMessageToDevvit({
                 type: 'NAVIGATE_TO',
-                payload: { destination: 'LATEST_DAILY_CHALLENGE' },
+                payload: { destination: 'regular' },
               });
             }}
           >
