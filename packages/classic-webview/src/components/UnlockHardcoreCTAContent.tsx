@@ -29,16 +29,17 @@ export const UnlockHardcoreCTAContent = ({
       {withLinkToTodaysPuzzle && (
         <p className="text-center text-xs font-normal text-slate-400">
           Looking for today's puzzle?{' '}
-          <a
-            href="#"
+          <button
             className="underline decoration-solid underline-offset-auto"
-            onClick={(e) => {
-              e.preventDefault();
-              sendMessageToDevvit({ type: 'NAVIGATE_TO_DAILY_CHALLENGE' });
+            onClick={() => {
+              sendMessageToDevvit({
+                type: 'NAVIGATE_TO',
+                payload: { destination: 'LATEST_DAILY_CHALLENGE' },
+              });
             }}
           >
             Click here
-          </a>
+          </button>
         </p>
       )}
     </div>

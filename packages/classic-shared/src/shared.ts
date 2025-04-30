@@ -104,16 +104,16 @@ export type WebviewToBlocksMessage =
       type: 'TOGGLE_USER_REMINDER';
     }
   | {
-      type: 'NAVIGATE_TO_LATEST_HARDCORE';
+      type: 'NAVIGATE_TO';
+      payload: {
+        destination: 'LATEST_HARDCORE' | 'LATEST_DAILY_CHALLENGE';
+      };
     }
   | {
       type: 'PURCHASE_PRODUCT';
       payload: {
         sku: string;
       };
-    }
-  | {
-      type: 'NAVIGATE_TO_DAILY_CHALLENGE';
     };
 
 export type FeedbackResponse = {

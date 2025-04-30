@@ -390,43 +390,49 @@ Devvit.addCustomPostType({
                 }
                 break;
               }
-              case 'NAVIGATE_TO_LATEST_HARDCORE': {
-                try {
-                  await handleNavigateToLatestHardcore(context);
-                } catch (error) {
-                  if (error instanceof Error) {
-                    context.ui.showToast(error.message);
-                  } else {
-                    console.error('Unexpected error navigating to hardcore challenge:', error);
-                    context.ui.showToast('An unexpected error occurred.');
+              case 'NAVIGATE_TO': {
+                switch (data.payload.destination) {
+                  case 'LATEST_HARDCORE': {
+                    try {
+                      await handleNavigateToLatestHardcore(context);
+                    } catch (error) {
+                      if (error instanceof Error) {
+                        context.ui.showToast(error.message);
+                      } else {
+                        console.error('Unexpected error navigating to hardcore challenge:', error);
+                        context.ui.showToast('An unexpected error occurred.');
+                      }
+                    }
+                    break;
+                  }
+
+                  case 'LATEST_DAILY_CHALLENGE': {
+                    // We want a the most recent _regular_ challenge.
+                    // Thus instantiate a new `ChallengeService` only if the current challenge service wasn't created with the `regular` game mode
+                    const challengeSvc =
+                      gameMode === 'regular'
+                        ? challengeService
+                        : new ChallengeService(context.redis, 'regular');
+                    const currChallengeNumber = await challengeSvc.getCurrentChallengeNumber();
+                    const currChallenge = await challengeSvc.getChallenge({
+                      challenge: currChallengeNumber,
+                    });
+                    if (currChallenge.postId == null) {
+                      return context.ui.showToast(
+                        'A daily challenge could not be found. Try again later.'
+                      );
+                    }
+                    const post = await context.reddit.getPostById(currChallenge.postId);
+                    context.ui.navigateTo(post);
+                    break;
                   }
                 }
+
                 break;
               }
 
               case 'PURCHASE_PRODUCT': {
                 payments.purchase(data.payload.sku);
-                break;
-              }
-
-              case 'NAVIGATE_TO_DAILY_CHALLENGE': {
-                // We want a the most recent _regular_ challenge.
-                // Thus instantiate a new `ChallengeService` only if the current challenge service wasn't created with the `regular` game mode
-                const challengeSvc =
-                  gameMode === 'regular'
-                    ? challengeService
-                    : new ChallengeService(context.redis, 'regular');
-                const currChallengeNumber = await challengeSvc.getCurrentChallengeNumber();
-                const currChallenge = await challengeSvc.getChallenge({
-                  challenge: currChallengeNumber,
-                });
-                if (currChallenge.postId == null) {
-                  return context.ui.showToast(
-                    'A daily challenge could not be found. Try again later.'
-                  );
-                }
-                const post = await context.reddit.getPostById(currChallenge.postId);
-                context.ui.navigateTo(post);
                 break;
               }
 

@@ -52,7 +52,8 @@ const CallToAction = ({ didWin }: { didWin: boolean }) => {
           className="shrink-0 rounded-full bg-gray-50 p-3 text-sm font-semibold text-black md:py-2 dark:bg-gray-800 dark:text-white"
           onClick={() => {
             sendMessageToDevvit({
-              type: 'NAVIGATE_TO_LATEST_HARDCORE',
+              type: 'NAVIGATE_TO',
+              payload: { destination: 'LATEST_HARDCORE' },
             });
           }}
         >
