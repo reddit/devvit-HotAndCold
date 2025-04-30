@@ -2,6 +2,9 @@ export const DEVVIT_SETTINGS_KEYS = {
   WORD_SERVICE_API_KEY: 'word-service-api-key',
 };
 
+// TODO: Set back to 100 after playtesting
+export const HARDCORE_MAX_GUESSES = 10;
+
 // There's some nuance to word lists that are worth noting:
 // * Word lists are mostly only loaded from VCS into Redis on installation, and then Redis is the source of truth
 // * Whenever a challenge is created, it mutates the word list by removing that challenge's word.

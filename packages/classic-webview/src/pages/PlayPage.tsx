@@ -10,7 +10,6 @@ import { motion } from 'motion/react';
 import { AnimatedNumber } from '@hotandcold/webview-common/components/timer';
 import { PageContentContainer } from '../components/pageContentContainer';
 import { cn } from '@hotandcold/webview-common/utils';
-import { HARDCORE_MAX_GUESSES } from '../constants';
 import { useHardcoreAccess } from '../hooks/useHardcoreAccess';
 import { UnlockHardcoreCTAContent } from '../components/UnlockHardcoreCTAContent';
 
@@ -65,12 +64,12 @@ const FeedbackSection = ({ feedback }: { feedback: FeedbackResponse | null }) =>
 };
 
 const getWelcomeMessage = (
-  isHardcore: boolean,
+  allowedGuessCount?: number,
   totalPlayers?: number,
   totalSolves?: number
 ): string => {
-  if (isHardcore) {
-    return `${HARDCORE_MAX_GUESSES} guesses. No hints. No mercy.`;
+  if (allowedGuessCount !== undefined) {
+    return `${allowedGuessCount} guesses. No hints. No mercy.`;
   }
 
   if (
@@ -87,22 +86,32 @@ const getWelcomeMessage = (
 };
 
 const GuessesMessage = ({
+  allowedGuessCount,
   guessCount,
   fontSize,
-  isHardcore,
 }: {
+  allowedGuessCount?: number;
   guessCount: number;
   fontSize: number;
-  isHardcore: boolean;
 }) => {
-  const value = isHardcore ? HARDCORE_MAX_GUESSES - guessCount : guessCount;
-  const label = isHardcore ? ' guesses remaining' : 'Guesses: ';
+  const hasGuessLimit = allowedGuessCount !== undefined;
+  const value = hasGuessLimit ? allowedGuessCount - guessCount : guessCount;
+  const label = hasGuessLimit ? ' guesses remaining' : 'Guesses: ';
+
+  // Calculate percentage of guesses used.
+  // Only apply colors in hardcore mode.
+  const percentageUsed = hasGuessLimit ? guessCount / allowedGuessCount : 0;
 
   return (
-    <span className="flex items-center justify-center gap-2">
-      {!isHardcore && label}
+    <span
+      className={cn('flex items-center justify-center gap-2', {
+        'text-yellow-500': percentageUsed >= 0.7,
+        'text-red-500': percentageUsed >= 0.9,
+      })}
+    >
+      {!hasGuessLimit && label}
       <AnimatedNumber value={value} size={fontSize} className="translate-y-px" />
-      {isHardcore && label}
+      {hasGuessLimit && label}
     </span>
   );
 };
@@ -143,7 +152,7 @@ const GameplayContent = () => {
   const isHardcore = mode === 'hardcore';
   const showFeedback = feedback || hasGuessed;
   const welcomeMessage = getWelcomeMessage(
-    isHardcore,
+    challengeInfo?.allowedGuessCount,
     challengeInfo?.totalPlayers,
     challengeInfo?.totalSolves
   );
@@ -152,7 +161,11 @@ const GameplayContent = () => {
     <div className="flex w-full max-w-md flex-grow-0 flex-col items-center justify-center gap-6">
       <p className="text-center text-2xl font-bold text-white">
         {hasGuessed ? (
-          <GuessesMessage fontSize={21} isHardcore={isHardcore} guessCount={guesses.length} />
+          <GuessesMessage
+            fontSize={21}
+            allowedGuessCount={challengeInfo?.allowedGuessCount}
+            guessCount={guesses.length}
+          />
         ) : (
           `Can you guess the secret word?`
         )}

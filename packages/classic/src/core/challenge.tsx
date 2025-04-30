@@ -17,6 +17,7 @@ import { Post, RedisClient, RichTextBuilder } from '@devvit/public-api';
 // For some reason <Preview /> requires this import, but the import is being found as unused.
 // Suppress the check for it
 import { Devvit } from '@devvit/public-api'; // eslint-disable-line @typescript-eslint/no-unused-vars
+import { HARDCORE_MAX_GUESSES } from '../constants.js';
 
 export * as Challenge from './challenge.js';
 
@@ -35,6 +36,7 @@ const challengeSchema = z
     totalGiveUps: redisNumberString.optional(),
     // PostId of this challenge. This was only set after hardcore mode was introduced, so can't be guaranteed to be present
     postId: z.string().optional(),
+    allowedGuessCount: redisNumberString.optional(),
   })
   .strict();
 
@@ -213,6 +215,9 @@ export class ChallengeService {
             totalHints: '0',
             totalGiveUps: '0',
             postId: post.id,
+            ...(this.#mode === 'hardcore'
+              ? { allowedGuessCount: HARDCORE_MAX_GUESSES.toString() }
+              : {}), // Only set allowedGuessCount for hardcore mode
           },
         });
 
