@@ -46,7 +46,9 @@ const CallToAction = ({ didWin }: { didWin: boolean }) => {
       <div className="flex w-full max-w-md items-center justify-between gap-2 rounded-full border border-red-700 bg-red-900 bg-[url('/assets/win_bg.png')] bg-cover bg-right-bottom bg-no-repeat px-6 py-2">
         <div className="flex-auto">
           <p className="text-base font-semibold">Did that feel too easy?</p>
-          <p className="text-xs">Try an even tougher puzzle</p>
+          {access.status === 'inactive' && (
+            <p className="text-xs">Use Reddit gold for tougher puzzles</p>
+          )}
         </div>
         <button
           className="shrink-0 rounded-full bg-gray-50 p-3 text-sm font-semibold text-black md:py-2 dark:bg-gray-800 dark:text-white"
@@ -98,7 +100,7 @@ const CallToAction = ({ didWin }: { didWin: boolean }) => {
             }}
             className="size-4 appearance-none rounded-sm border border-gray-900 accent-blue-500 checked:appearance-auto dark:border-white dark:accent-blue-600"
           />
-          <span className="select-none">Remind me to play tomorrow</span>
+          <span className="select-none">Remind me to play every day</span>
         </label>
       </GradientBorder>
     </div>
