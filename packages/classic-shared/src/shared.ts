@@ -106,7 +106,10 @@ export type WebviewToBlocksMessage =
       type: 'TOGGLE_USER_REMINDER';
     }
   | {
-      type: 'NAVIGATE_TO_LATEST_HARDCORE';
+      type: 'NAVIGATE_TO';
+      payload: {
+        destination: GameMode;
+      };
     }
   | {
       type: 'PURCHASE_PRODUCT';

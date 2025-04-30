@@ -9,7 +9,7 @@ import './menu-actions/totalReminders.js';
 import { Devvit, useInterval, useState } from '@devvit/public-api';
 import { DEVVIT_SETTINGS_KEYS } from './constants.js';
 import { isServerCall, omit } from '@hotandcold/shared/utils';
-import { HardcoreAccessStatus, WebviewToBlocksMessage } from '@hotandcold/classic-shared';
+import { GameMode, HardcoreAccessStatus, WebviewToBlocksMessage } from '@hotandcold/classic-shared';
 import { GuessService } from './core/guess.js';
 import { ChallengeToPost, PostIdentifier } from './core/challengeToPost.js';
 import { Preview } from './components/Preview.js';
@@ -390,17 +390,8 @@ Devvit.addCustomPostType({
                 }
                 break;
               }
-              case 'NAVIGATE_TO_LATEST_HARDCORE': {
-                try {
-                  await handleNavigateToLatestHardcore(context);
-                } catch (error) {
-                  if (error instanceof Error) {
-                    context.ui.showToast(error.message);
-                  } else {
-                    console.error('Unexpected error navigating to hardcore challenge:', error);
-                    context.ui.showToast('An unexpected error occurred.');
-                  }
-                }
+              case 'NAVIGATE_TO': {
+                await handleNavigateToPost(context, data.payload.destination);
                 break;
               }
 
@@ -408,6 +399,7 @@ Devvit.addCustomPostType({
                 payments.purchase(data.payload.sku);
                 break;
               }
+
               default:
                 throw new Error(`Unknown message type: ${String(data satisfies never)}`);
             }
@@ -418,26 +410,29 @@ Devvit.addCustomPostType({
   },
 });
 
-async function handleNavigateToLatestHardcore(context: Devvit.Context): Promise<void> {
-  const hardcoreChallengeService = new ChallengeService(context.redis, 'hardcore');
-  const latestHardcoreChallenge = await hardcoreChallengeService.getCurrentChallengeNumber();
+async function handleNavigateToPost(
+  context: Devvit.Context,
+  destinationType: GameMode
+): Promise<void> {
+  const challengeSvc = new ChallengeService(context.redis, destinationType);
+  const latestChallenge = await challengeSvc.getCurrentChallengeNumber();
 
-  if (latestHardcoreChallenge == 0) {
+  if (latestChallenge == 0) {
     throw new Error(
-      'Seems like there has never been a hardcore challenge? Wait a day and then there will be!'
+      `Seems like there has never been a ${destinationType} challenge? Wait a day and then there will be!`
     );
   }
 
-  const latestHardcoreChallengeInfo = await hardcoreChallengeService.getChallenge({
-    challenge: latestHardcoreChallenge,
+  const latestChallengeInfo = await challengeSvc.getChallenge({
+    challenge: latestChallenge,
   });
-  const latestHardcoreChallengePostId = latestHardcoreChallengeInfo.postId;
-  if (!latestHardcoreChallengePostId) {
+  const latestChallengePostId = latestChallengeInfo.postId;
+  if (!latestChallengePostId) {
     throw new Error(
       'Seems like there has never been a hardcore challenge? Wait a day and then there will be!'
     );
   }
-  const post = await context.reddit.getPostById(latestHardcoreChallengePostId);
+  const post = await context.reddit.getPostById(latestChallengePostId);
   context.ui.navigateTo(post);
 }
 
