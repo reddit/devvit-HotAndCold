@@ -158,7 +158,7 @@ const GameplayContent = () => {
   );
 
   return (
-    <div className="flex w-full max-w-md flex-grow-0 flex-col items-center justify-center gap-6">
+    <div className="flex h-full w-full max-w-md flex-grow-0 flex-col items-center justify-center gap-6">
       <p className="text-center text-2xl font-bold text-white">
         {hasGuessed ? (
           <GuessesMessage
@@ -204,7 +204,7 @@ const GameplayContent = () => {
             'Or cat',
           ]}
         />
-        <div className="mt-3 min-h-7">
+        <div className="min-h-7">
           {showFeedback ? (
             <FeedbackSection feedback={feedback} />
           ) : (
