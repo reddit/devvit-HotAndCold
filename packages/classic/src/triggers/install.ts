@@ -59,12 +59,28 @@ Devvit.addSchedulerJob({
 });
 
 export const initialize = async (context: TriggerContext) => {
-  // Certain things need to be initialized in Redis to run correctly
-  await new ChallengeService(context.redis, 'regular').initialize({ context });
-  await new WordListService(context.redis, 'regular').initialize({ context });
+  const hardcoreWordListService = new WordListService(context.redis, 'hardcore');
+  const regularWordListService = new WordListService(context.redis, 'regular');
 
-  await new ChallengeService(context.redis, 'hardcore').initialize({ context });
-  await new WordListService(context.redis, 'hardcore').initialize({ context });
+  const [hardcoreInitialized, regularInitialized] = await Promise.all([
+    hardcoreWordListService.isInitialized({}),
+    regularWordListService.isInitialized({}),
+  ]);
+
+  // This subreddit had the game installed into it before hardcore existed.
+  // We will clear the original word list and then instantiate both hardcore and regular with new words.
+  // Existing words won't be reused because they're stored elsewhere in redis and filtered out.
+  if (!hardcoreInitialized && regularInitialized) {
+    await regularWordListService.clear({});
+  }
+
+  // Initialize both word lists - this will do nothing if they're already initialized.
+  await regularWordListService.initialize({ context });
+  await hardcoreWordListService.initialize({ context });
+
+  // Initialize the challenge services.
+  await new ChallengeService(context.redis, 'regular').initialize({});
+  await new ChallengeService(context.redis, 'hardcore').initialize({});
 
   const jobs = await context.scheduler.listJobs();
   for (const job of jobs) {
