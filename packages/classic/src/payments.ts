@@ -1,11 +1,11 @@
 import { addPaymentHandler } from '@devvit/payments';
 import { type RedisClient } from '@devvit/public-api';
 import { HardcoreAccessStatus } from '@hotandcold/classic-shared';
-import { DateTime } from 'luxon';
+import { DateTime, DurationLike } from 'luxon';
 
 export class PaymentsRepo {
   static hardcoreModeAccessKey(userId: string) {
-    return `hardcore-mode-access:${userId}`;
+    return `hhhardcore-mode-access:${userId}`;
   }
 
   #redis: RedisClient;
@@ -16,19 +16,19 @@ export class PaymentsRepo {
     await this.#redis.set(PaymentsRepo.hardcoreModeAccessKey(userId), '-1');
   }
 
-  async incrHardcoreModeAccessBy7Days(userId: string) {
+  async incrHardcoreModeAccessBy7Days(userId: string, duration: DurationLike) {
     const existingAccess = await this.#redis.get(PaymentsRepo.hardcoreModeAccessKey(userId));
     if (existingAccess === '-1') {
       console.log('User already has lifetime access to hardcore mode');
       return;
     }
 
-    // If the user doesn't have access, or their access has expired, set the expiry to 7 days from now
+    // If the user doesn't have access, or their access has expired, set the expiry to 'duration' from now
     const hasExistingAccess = existingAccess != null;
     const isExpired =
       hasExistingAccess && DateTime.fromMillis(Number(existingAccess)) < DateTime.now();
     if (!hasExistingAccess || isExpired) {
-      const newExpiry = DateTime.now().plus({ days: 7 });
+      const newExpiry = DateTime.now().plus(duration);
       await this.#redis.set(
         PaymentsRepo.hardcoreModeAccessKey(userId),
         newExpiry.valueOf().toString()
@@ -85,10 +85,11 @@ export function initPayments() {
             success: true,
           };
         case 'hardcore-mode-seven-day-access':
-          await pr.incrHardcoreModeAccessBy7Days(ctx.userId!);
+          await pr.incrHardcoreModeAccessBy7Days(ctx.userId!, { minute: 3 });
           return {
             success: true,
           };
+
         default:
           return {
             success: false,
