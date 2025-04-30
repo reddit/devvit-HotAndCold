@@ -16,7 +16,7 @@ export class PaymentsRepo {
     await this.#redis.set(PaymentsRepo.hardcoreModeAccessKey(userId), '-1');
   }
 
-  async incrHardcoreModeAccessBy7Days(userId: string, duration: DurationLike) {
+  async incrHardcoreModeAccessByDuration(userId: string, duration: DurationLike) {
     const existingAccess = await this.#redis.get(PaymentsRepo.hardcoreModeAccessKey(userId));
     if (existingAccess === '-1') {
       console.log('User already has lifetime access to hardcore mode');
@@ -85,7 +85,7 @@ export function initPayments() {
             success: true,
           };
         case 'hardcore-mode-seven-day-access':
-          await pr.incrHardcoreModeAccessBy7Days(ctx.userId!, { minute: 3 });
+          await pr.incrHardcoreModeAccessByDuration(ctx.userId!, { minute: 3 });
           return {
             success: true,
           };
