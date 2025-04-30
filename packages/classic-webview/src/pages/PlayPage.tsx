@@ -98,8 +98,17 @@ const GuessesMessage = ({
   const value = hasGuessLimit ? allowedGuessCount - guessCount : guessCount;
   const label = hasGuessLimit ? ' guesses remaining' : 'Guesses: ';
 
+  // Calculate percentage of guesses used.
+  // Only apply colors in hardcore mode.
+  const percentageUsed = hasGuessLimit ? guessCount / allowedGuessCount : 0;
+
   return (
-    <span className="flex items-center justify-center gap-2">
+    <span
+      className={cn('flex items-center justify-center gap-2', {
+        'text-yellow-500': percentageUsed >= 0.7,
+        'text-red-500': percentageUsed >= 0.9,
+      })}
+    >
       {!hasGuessLimit && label}
       <AnimatedNumber value={value} size={fontSize} className="translate-y-px" />
       {hasGuessLimit && label}
