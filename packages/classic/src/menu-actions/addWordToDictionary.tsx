@@ -5,8 +5,7 @@ import { ChallengeToWordService } from '../core/challengeToWord.js';
 import { GameMode } from '@hotandcold/classic-shared';
 import { validateWord } from '../core/wordValidation.js';
 
-createAddWordsMenuAction('regular');
-createAddWordsMenuAction('hardcore');
+createAddWordsMenuAction();
 
 /** Validates words and then adds them to redis if all words given are valid.*/
 async function validateAndAddWords(
@@ -62,10 +61,11 @@ async function validateAndAddWords(
   );
 }
 
-function createAddWordsMenuAction(mode: GameMode): void {
-  const formTitle = `Add Words to ${mode} Dictionary`;
-  const formDescription = `Adds words to the ${mode} dictionary to be used by challenges. If you want the word you are adding to be used immediately, select prepend.`;
-  const menuItemLabel = `HotAndCold: Add to ${mode.charAt(0).toUpperCase() + mode.slice(1)} Word List`;
+function createAddWordsMenuAction(): void {
+  const formTitle = 'Add Words to Dictionary';
+  const formDescription =
+    'Adds words to the dictionary to be used by challenges. If you want the word you are adding to be used immediately, select prepend.';
+  const menuItemLabel = 'HotAndCold: Add to Word List';
 
   const addWordsFormId = Devvit.createForm(
     {
@@ -81,6 +81,17 @@ function createAddWordsMenuAction(mode: GameMode): void {
           required: true,
         },
         {
+          type: 'select',
+          label: 'Game Mode',
+          name: 'mode',
+          options: [
+            { label: 'Regular', value: 'regular' },
+            { label: 'Hardcore', value: 'hardcore' },
+          ],
+          defaultValue: ['regular'],
+          required: true,
+        },
+        {
           type: 'boolean',
           label: 'Prepend',
           name: 'prepend',
@@ -89,7 +100,18 @@ function createAddWordsMenuAction(mode: GameMode): void {
         },
       ],
     },
-    (event, context) => validateAndAddWords(event.values.words, event.values.prepend, context, mode)
+    async (event, context) => {
+      // In practice users can only select one mode, but the type system doesn't know that.
+      const selectedMode = Array.isArray(event.values.mode)
+        ? event.values.mode[0]
+        : event.values.mode;
+      await validateAndAddWords(
+        event.values.words,
+        event.values.prepend,
+        context,
+        selectedMode as GameMode
+      );
+    }
   );
 
   Devvit.addMenuItem({
