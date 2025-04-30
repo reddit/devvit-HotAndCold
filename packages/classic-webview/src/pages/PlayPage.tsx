@@ -98,8 +98,17 @@ const GuessesMessage = ({
   const value = isHardcore ? HARDCORE_MAX_GUESSES - guessCount : guessCount;
   const label = isHardcore ? ' guesses remaining' : 'Guesses: ';
 
+  // Calculate percentage of guesses used.
+  // Only apply colors in hardcore mode.
+  const percentageUsed = isHardcore ? guessCount / HARDCORE_MAX_GUESSES : 0;
+
   return (
-    <span className="flex items-center justify-center gap-2">
+    <span
+      className={cn('flex items-center justify-center gap-2', {
+        'text-yellow-500': percentageUsed >= 0.7,
+        'text-red-500': percentageUsed >= 0.9,
+      })}
+    >
       {!isHardcore && label}
       <AnimatedNumber value={value} size={fontSize} className="translate-y-px" />
       {isHardcore && label}
