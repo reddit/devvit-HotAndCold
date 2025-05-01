@@ -132,10 +132,9 @@ export class ChallengeService {
     z.object({
       challenge: z.number().int().gt(0),
       field: z.enum(['totalPlayers', 'totalSolves', 'totalGuesses', 'totalHints', 'totalGiveUps']),
-      amount: z.number().int().default(1),
     }),
-    async ({ challenge, field, amount }) => {
-      await this.#redis.hIncrBy(this.getChallengeKey(challenge), field, amount);
+    async ({ challenge, field }) => {
+      await this.#redis.hIncrBy(this.getChallengeKey(challenge), field, 1);
     }
   );
 
