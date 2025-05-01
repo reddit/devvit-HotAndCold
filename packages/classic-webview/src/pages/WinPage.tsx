@@ -77,7 +77,7 @@ const CallToAction = ({ didWin }: { didWin: boolean }) => {
       >
         <GradientBorder>
           <span className="flex items-center justify-between gap-2 p-4">
-            Your Hardcore access has run out. Unlock{' '}
+            Your Hardcore access has run out. Unlock?{' '}
             <span className="size-4">
               <RightChevronIcon />
             </span>
