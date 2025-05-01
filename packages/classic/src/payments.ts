@@ -1,7 +1,7 @@
 import { addPaymentHandler } from '@devvit/payments';
 import { type RedisClient } from '@devvit/public-api';
 import { HardcoreAccessStatus } from '@hotandcold/classic-shared';
-import { DateTime, DurationLike } from 'luxon';
+import { DateTime } from 'luxon';
 
 export class PaymentsRepo {
   static hardcoreModeAccessKey(userId: string) {
@@ -16,19 +16,19 @@ export class PaymentsRepo {
     await this.#redis.set(PaymentsRepo.hardcoreModeAccessKey(userId), '-1');
   }
 
-  async incrHardcoreModeAccessByDuration(userId: string, duration: DurationLike) {
+  async incrHardcoreModeAccessBy7Days(userId: string) {
     const existingAccess = await this.#redis.get(PaymentsRepo.hardcoreModeAccessKey(userId));
     if (existingAccess === '-1') {
       console.log('User already has lifetime access to hardcore mode');
       return;
     }
 
-    // If the user doesn't have access, or their access has expired, set the expiry to 'duration' from now
+    // If the user doesn't have access, or their access has expired, set the expiry to 7 days from now
     const hasExistingAccess = existingAccess != null;
     const isExpired =
       hasExistingAccess && DateTime.fromMillis(Number(existingAccess)) < DateTime.now();
     if (!hasExistingAccess || isExpired) {
-      const newExpiry = DateTime.now().plus(duration);
+      const newExpiry = DateTime.now().plus({ days: 7 });
       await this.#redis.set(
         PaymentsRepo.hardcoreModeAccessKey(userId),
         newExpiry.valueOf().toString()
@@ -85,11 +85,10 @@ export function initPayments() {
             success: true,
           };
         case 'hardcore-mode-seven-day-access':
-          await pr.incrHardcoreModeAccessByDuration(ctx.userId!, { minute: 3 });
+          await pr.incrHardcoreModeAccessBy7Days(ctx.userId!);
           return {
             success: true,
           };
-
         default:
           return {
             success: false,
