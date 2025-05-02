@@ -42,7 +42,7 @@ export const Header = () => {
   return (
     <>
       <div className="flex items-center justify-between">
-        <div className="flex h-6 flex-1 gap-2 sm:h-10 sm:gap-4">
+        <div className="flex h-6 flex-1 gap-2 sm:h-16 sm:gap-4">
           {isHardcore ? (
             <HardcoreLogo />
           ) : (
