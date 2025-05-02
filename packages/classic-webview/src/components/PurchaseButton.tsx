@@ -33,7 +33,7 @@ export const PurchaseButton: React.FC<PurchaseButtonProps> = (props) => {
       <span className="truncate text-left text-base">{children}</span>
       <span
         className={cn(
-          'flex flex-none flex-row items-center gap-1 rounded-full px-2 py-2 text-xs sm:gap-[6px] sm:px-3',
+          'flex flex-none flex-row items-center gap-1 rounded-full p-2 text-xs sm:gap-[6px] sm:px-3',
           style === 'primary' ? 'bg-mustard-gold text-black' : 'bg-charcoal text-white'
         )}
       >
