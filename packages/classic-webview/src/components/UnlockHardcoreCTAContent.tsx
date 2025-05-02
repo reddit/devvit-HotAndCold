@@ -18,7 +18,7 @@ export const UnlockHardcoreCTAContent = ({
         Unlocking Hardcore grants access to today and all previous hardcore puzzles.
       </p>
       <hr className="h-px w-1/2 max-w-xs bg-white/20"></hr>
-      <div className="flex w-full flex-col items-center gap-4 py-2 sm:w-auto sm:flex-row sm:items-start">
+      <div className="flex w-full flex-col items-center gap-4 py-2 sm:flex-row sm:flex-wrap sm:justify-center">
         <PurchaseButton price={50} style="secondary" productSku="hardcore-mode-seven-day-access">
           Unlock for 7 days
         </PurchaseButton>

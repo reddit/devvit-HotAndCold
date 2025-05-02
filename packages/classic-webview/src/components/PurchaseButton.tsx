@@ -26,21 +26,21 @@ export const PurchaseButton: React.FC<PurchaseButtonProps> = (props) => {
     <button
       onClick={onClick}
       className={cn(
-        'flex w-full cursor-pointer flex-row items-center justify-between gap-4 whitespace-nowrap rounded-full border-2 border-current px-6 py-3 text-center font-sans font-semibold sm:w-auto',
+        'flex w-full min-w-0 cursor-pointer flex-row items-center justify-between rounded-full border-2 border-current px-3 py-3 text-center font-sans font-semibold sm:w-auto sm:px-6',
         style === 'primary' ? 'text-mustard-gold' : 'text-slate-gray'
       )}
     >
-      <span className="text-left text-base">{children}</span>
+      <span className="mr-2 truncate text-left text-base">{children}</span>
       <span
         className={cn(
-          'flex w-fit flex-row items-center gap-[6px] rounded-full px-3 py-2 text-xs',
+          'flex flex-none flex-row items-center gap-1 rounded-full px-2 py-2 text-xs sm:gap-[6px] sm:px-3',
           style === 'primary' ? 'bg-mustard-gold text-black' : 'bg-charcoal text-white'
         )}
       >
         <span className="flex h-4 w-4 items-center justify-center">
           <GoldIcon />
         </span>
-        Use {price}
+        <span className="whitespace-nowrap">Use {price}</span>
       </span>
     </button>
   );
