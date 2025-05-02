@@ -8,10 +8,11 @@ interface PurchaseButtonProps {
   style: 'primary' | 'secondary';
   price: number;
   productSku: 'hardcore-mode-lifetime-access' | 'hardcore-mode-seven-day-access';
+  shortText: string;
 }
 
 export const PurchaseButton: React.FC<PurchaseButtonProps> = (props) => {
-  const { children, price, productSku, style } = props;
+  const { children, price, productSku, style, shortText } = props;
 
   const onClick = () => {
     sendMessageToDevvit({
@@ -26,11 +27,12 @@ export const PurchaseButton: React.FC<PurchaseButtonProps> = (props) => {
     <button
       onClick={onClick}
       className={cn(
-        'flex w-full min-w-0 cursor-pointer flex-row items-center justify-between rounded-full border-2 border-current p-3 text-center font-sans font-semibold sm:w-auto sm:px-6',
+        'flex w-full min-w-0 cursor-pointer flex-row items-center justify-between gap-4 rounded-full border-2 border-current p-3 text-center font-sans font-semibold sm:w-auto sm:px-6',
         style === 'primary' ? 'text-mustard-gold' : 'text-slate-gray'
       )}
     >
-      <span className="truncate text-left text-base">{children}</span>
+      <span className="xs:block hidden truncate text-left text-base">{children}</span>
+      <span className="xs:hidden block text-left text-base">{shortText}</span>
       <span
         className={cn(
           'flex flex-none flex-row items-center gap-1 rounded-full p-2 text-xs sm:gap-[6px] sm:px-3',
