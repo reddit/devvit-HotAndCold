@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { sendMessageToDevvit } from '../utils';
 import { WordInput } from '@hotandcold/webview-common/components/wordInput';
 import { Guesses } from '../components/guesses';
-import { useGame } from '../hooks/useGame';
+import { useGame, useWordSubmission } from '../hooks/useGame';
 import { useDevvitListener } from '../hooks/useDevvitListener';
 import clsx from 'clsx';
 import { FeedbackResponse } from '@hotandcold/classic-shared';
@@ -15,11 +15,13 @@ import { UnlockHardcoreCTAContent } from '../components/UnlockHardcoreCTAContent
 
 const useFeedback = (): { feedback: FeedbackResponse | null; dismissFeedback: () => void } => {
   const [feedback, setFeedback] = useState<FeedbackResponse | null>(null);
+  const { setIsSubmitting } = useWordSubmission();
   const message = useDevvitListener('FEEDBACK');
 
   useEffect(() => {
     if (!message) return;
     setFeedback(message);
+    setIsSubmitting(false);
   }, [message]);
 
   const dismissFeedback = () => {
@@ -144,6 +146,7 @@ const GameplayContent = () => {
   const [word, setWord] = useState('');
   const { challengeUserInfo, mode, challengeInfo } = useGame();
   const { feedback, dismissFeedback } = useFeedback();
+  const { setIsSubmitting } = useWordSubmission();
 
   const guesses = challengeUserInfo?.guesses ?? [];
   const hasGuessed = guesses.length > 0;
@@ -187,6 +190,7 @@ const GameplayContent = () => {
               return;
             }
 
+            setIsSubmitting(true);
             sendMessageToDevvit({
               type: 'WORD_SUBMITTED',
               value: word.trim().toLowerCase(),

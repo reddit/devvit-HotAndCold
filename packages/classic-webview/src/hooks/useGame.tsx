@@ -5,6 +5,12 @@ import { useDevvitListener } from './useDevvitListener';
 import { logger } from '../utils/logger';
 import { useMocks } from './useMocks';
 
+type WordSubmissionStateContext = {
+  isSubmitting: boolean;
+  setIsSubmitting: (isSubmitting: boolean) => void;
+};
+const WordSubmissionContext = createContext<WordSubmissionStateContext | null>(null);
+
 const GameContext = createContext<Partial<Game>>({});
 const GameUpdaterContext = createContext<React.Dispatch<
   React.SetStateAction<Partial<Game>>
@@ -13,6 +19,8 @@ const GameUpdaterContext = createContext<React.Dispatch<
 export const GameContextProvider = ({ children }: { children: React.ReactNode }) => {
   const mocks = useMocks();
   const [game, setGame] = useState<Partial<Game>>(mocks.getMock('mocks')?.game ?? {});
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
   const initResponse = useDevvitListener('GAME_INIT_RESPONSE');
   const submissionResponse = useDevvitListener('WORD_SUBMITTED_RESPONSE');
   const hintResponse = useDevvitListener('HINT_RESPONSE');
@@ -37,6 +45,7 @@ export const GameContextProvider = ({ children }: { children: React.ReactNode })
     logger.log('Submission response: ', submissionResponse);
     if (submissionResponse) {
       setGame(submissionResponse);
+      setIsSubmitting(false);
     }
   }, [submissionResponse]);
 
@@ -56,7 +65,9 @@ export const GameContextProvider = ({ children }: { children: React.ReactNode })
 
   return (
     <GameUpdaterContext.Provider value={setGame}>
-      <GameContext.Provider value={game}>{children}</GameContext.Provider>
+      <WordSubmissionContext.Provider value={{ isSubmitting, setIsSubmitting }}>
+        <GameContext.Provider value={game}>{children}</GameContext.Provider>
+      </WordSubmissionContext.Provider>
     </GameUpdaterContext.Provider>
   );
 };
@@ -75,4 +86,12 @@ export const useSetGame = () => {
     throw new Error('useSetGame must be used within a GameContextProvider');
   }
   return setGame;
+};
+
+export const useWordSubmission = () => {
+  const context = useContext(WordSubmissionContext);
+  if (context === null) {
+    throw new Error('useWordSubmission must be used within a WordSubmissionProvider');
+  }
+  return context;
 };
