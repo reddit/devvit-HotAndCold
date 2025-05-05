@@ -4,12 +4,7 @@ import { sendMessageToDevvit } from '../utils';
 import { useDevvitListener } from './useDevvitListener';
 import { logger } from '../utils/logger';
 import { useMocks } from './useMocks';
-
-type WordSubmissionStateContext = {
-  isSubmitting: boolean;
-  setIsSubmitting: (isSubmitting: boolean) => void;
-};
-const WordSubmissionContext = createContext<WordSubmissionStateContext | null>(null);
+import { useWordSubmission } from './useWordSubmission';
 
 const GameContext = createContext<Partial<Game>>({});
 const GameUpdaterContext = createContext<React.Dispatch<
@@ -19,7 +14,7 @@ const GameUpdaterContext = createContext<React.Dispatch<
 export const GameContextProvider = ({ children }: { children: React.ReactNode }) => {
   const mocks = useMocks();
   const [game, setGame] = useState<Partial<Game>>(mocks.getMock('mocks')?.game ?? {});
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const { setIsSubmitting } = useWordSubmission();
 
   const initResponse = useDevvitListener('GAME_INIT_RESPONSE');
   const submissionResponse = useDevvitListener('WORD_SUBMITTED_RESPONSE');
@@ -47,7 +42,7 @@ export const GameContextProvider = ({ children }: { children: React.ReactNode })
       setGame(submissionResponse);
       setIsSubmitting(false);
     }
-  }, [submissionResponse]);
+  }, [submissionResponse, setIsSubmitting]);
 
   useEffect(() => {
     logger.log('Hint response: ', hintResponse);
@@ -65,9 +60,7 @@ export const GameContextProvider = ({ children }: { children: React.ReactNode })
 
   return (
     <GameUpdaterContext.Provider value={setGame}>
-      <WordSubmissionContext.Provider value={{ isSubmitting, setIsSubmitting }}>
-        <GameContext.Provider value={game}>{children}</GameContext.Provider>
-      </WordSubmissionContext.Provider>
+      <GameContext.Provider value={game}>{children}</GameContext.Provider>
     </GameUpdaterContext.Provider>
   );
 };
@@ -86,12 +79,4 @@ export const useSetGame = () => {
     throw new Error('useSetGame must be used within a GameContextProvider');
   }
   return setGame;
-};
-
-export const useWordSubmission = () => {
-  const context = useContext(WordSubmissionContext);
-  if (context === null) {
-    throw new Error('useWordSubmission must be used within a WordSubmissionProvider');
-  }
-  return context;
 };

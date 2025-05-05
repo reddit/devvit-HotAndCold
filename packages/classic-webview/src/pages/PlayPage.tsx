@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react';
 import { sendMessageToDevvit } from '../utils';
 import { WordInput } from '@hotandcold/webview-common/components/wordInput';
 import { Guesses } from '../components/guesses';
-import { useGame, useWordSubmission } from '../hooks/useGame';
+import { useGame } from '../hooks/useGame';
+import { useWordSubmission } from '../hooks/useWordSubmission';
 import { useDevvitListener } from '../hooks/useDevvitListener';
 import clsx from 'clsx';
 import { FeedbackResponse } from '@hotandcold/classic-shared';
@@ -15,14 +16,17 @@ import { UnlockHardcoreCTAContent } from '../components/UnlockHardcoreCTAContent
 
 const useFeedback = (): { feedback: FeedbackResponse | null; dismissFeedback: () => void } => {
   const [feedback, setFeedback] = useState<FeedbackResponse | null>(null);
-  const { setIsSubmitting } = useWordSubmission();
   const message = useDevvitListener('FEEDBACK');
+  const { setIsSubmitting } = useWordSubmission();
 
   useEffect(() => {
     if (!message) return;
-    setFeedback(message);
+
+    // Reset the submission state when feedback is received
+    // This handles the case where the user submits a word they've already guessed
     setIsSubmitting(false);
-  }, [message]);
+    setFeedback(message);
+  }, [message, setIsSubmitting]);
 
   const dismissFeedback = () => {
     setFeedback(null);
