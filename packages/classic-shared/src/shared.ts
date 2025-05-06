@@ -177,6 +177,13 @@ export type BlocksToWebviewMessage =
       payload: {
         access: HardcoreAccessStatus;
       };
+    }
+  | {
+      // emitted when a purchase is successfully made on another post
+      type: 'PURCHASE_PRODUCT_SUCCESS_BROADCAST';
+      payload: {
+        access: HardcoreAccessStatus;
+      };
     };
 
 export type DevvitMessage = {
@@ -185,3 +192,9 @@ export type DevvitMessage = {
 };
 
 export type GameMode = 'regular' | 'hardcore';
+
+export type PurchasedProductBroadcast = {
+  payload: {
+    access: HardcoreAccessStatus;
+  };
+};

@@ -13,6 +13,7 @@ export const HardcoreAccessContextProvider = (props: { children: React.ReactNode
   const [access, setAccess] = useState<HardcoreAccessStatus>({ status: 'inactive' });
   const hardcoreAccessInitResponse = useDevvitListener('HARDCORE_ACCESS_INIT_RESPONSE');
   const productPurchaseResponse = useDevvitListener('PURCHASE_PRODUCT_SUCCESS_RESPONSE');
+  const productPurchaseBroadcast = useDevvitListener('PURCHASE_PRODUCT_SUCCESS_BROADCAST');
 
   useEffect(() => {
     if (hardcoreAccessInitResponse?.hardcoreAccessStatus != null) {
@@ -27,6 +28,12 @@ export const HardcoreAccessContextProvider = (props: { children: React.ReactNode
       setAccess(productPurchaseResponse.access);
     }
   }, [productPurchaseResponse, setAccess]);
+
+  useEffect(() => {
+    if (productPurchaseBroadcast != null) {
+      setAccess(productPurchaseBroadcast.access);
+    }
+  }, [productPurchaseBroadcast, setAccess]);
 
   return (
     <hardcoreAccessContext.Provider value={{ access, setAccess }}>

@@ -6,10 +6,15 @@ import './menu-actions/newChallenge.js';
 import './menu-actions/addWordToDictionary.js';
 import './menu-actions/totalReminders.js';
 
-import { Devvit, useInterval, useState } from '@devvit/public-api';
+import { Devvit, JSONValue, useInterval, useState } from '@devvit/public-api';
 import { DEVVIT_SETTINGS_KEYS } from './constants.js';
 import { isServerCall, omit } from '@hotandcold/shared/utils';
-import { GameMode, HardcoreAccessStatus, WebviewToBlocksMessage } from '@hotandcold/classic-shared';
+import {
+  GameMode,
+  HardcoreAccessStatus,
+  PurchasedProductBroadcast as PurchasedProductBroadcastMessage,
+  WebviewToBlocksMessage,
+} from '@hotandcold/classic-shared';
 import { GuessService } from './core/guess.js';
 import { ChallengeToPost, PostIdentifier } from './core/challengeToPost.js';
 import { Preview } from './components/Preview.js';
@@ -21,6 +26,7 @@ import { RedditApiCache } from './core/redditApiCache.js';
 import { sendMessageToWebview } from './utils/index.js';
 import { initPayments, PaymentsRepo } from './payments.js';
 import { OnPurchaseResult, OrderResultStatus, usePayments } from '@devvit/payments';
+import { useChannel } from '@devvit/public-api';
 
 initPayments();
 
@@ -60,22 +66,46 @@ type InitialState =
       hardcoreModeAccess: HardcoreAccessStatus;
     };
 
+const PURCHASE_REALTIME_CHANNEL = 'PURCHASE_REALTIME_CHANNEL';
+
 // Add a post type definition
 Devvit.addCustomPostType({
   name: 'HotAndCold',
   height: 'tall',
   render: (context) => {
+    const purchaseRealtimeChannel = useChannel({
+      name: PURCHASE_REALTIME_CHANNEL,
+      onMessage(msg: JSONValue) {
+        const msgCasted = msg as PurchasedProductBroadcastMessage;
+        sendMessageToWebview(context, {
+          type: 'PURCHASE_PRODUCT_SUCCESS_BROADCAST',
+          payload: msgCasted.payload,
+        });
+      },
+      onSubscribed: () => {
+        console.log('listening for purchase success broadcast events');
+      },
+    });
+    purchaseRealtimeChannel.subscribe();
+
     const paymentsRepo = new PaymentsRepo(context.redis);
     const payments = usePayments(async (paymentsResult: OnPurchaseResult) => {
       switch (paymentsResult.status) {
         case OrderResultStatus.Success: {
           context.ui.showToast(`Purchase successful!`);
+          const access = await paymentsRepo.getHardcoreAccessStatus(context.userId!);
           sendMessageToWebview(context, {
             type: 'PURCHASE_PRODUCT_SUCCESS_RESPONSE',
             payload: {
-              access: await paymentsRepo.getHardcoreAccessStatus(context.userId!),
+              access,
             },
           });
+          await purchaseRealtimeChannel.send({
+            payload: {
+              access,
+            },
+          });
+
           break;
         }
         case OrderResultStatus.Error: {
