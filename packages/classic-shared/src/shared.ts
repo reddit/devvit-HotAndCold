@@ -173,14 +173,7 @@ export type BlocksToWebviewMessage =
       payload: FeedbackResponse;
     }
   | {
-      type: 'PURCHASE_PRODUCT_SUCCESS_RESPONSE';
-      payload: {
-        access: HardcoreAccessStatus;
-      };
-    }
-  | {
-      // relayed broadcast message from PURCHASE_REALTIME_CHANNEL channel
-      type: 'PURCHASE_PRODUCT_SUCCESS_BROADCAST';
+      type: 'HARDCORE_ACCESS_UPDATE';
       payload: {
         access: HardcoreAccessStatus;
       };

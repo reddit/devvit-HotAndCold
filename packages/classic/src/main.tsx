@@ -78,7 +78,7 @@ Devvit.addCustomPostType({
       onMessage(msg: JSONValue) {
         const msgCasted = msg as PurchasedProductBroadcastMessage;
         sendMessageToWebview(context, {
-          type: 'PURCHASE_PRODUCT_SUCCESS_BROADCAST',
+          type: 'HARDCORE_ACCESS_UPDATE',
           payload: msgCasted.payload,
         });
       },
@@ -95,12 +95,12 @@ Devvit.addCustomPostType({
           context.ui.showToast(`Purchase successful!`);
           const access = await paymentsRepo.getHardcoreAccessStatus(context.userId!);
           sendMessageToWebview(context, {
-            type: 'PURCHASE_PRODUCT_SUCCESS_RESPONSE',
+            type: 'HARDCORE_ACCESS_UPDATE',
             payload: {
               access,
             },
           });
-          await purchaseRealtimeChannel.send({
+          void purchaseRealtimeChannel.send({
             payload: {
               access,
             },
