@@ -2,6 +2,7 @@ import { AnimatePresence, motion } from 'motion/react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { cn } from '@hotandcold/webview-common/utils';
 import { PrimaryButton } from './button';
+import { useWordSubmission } from '@hotandcold/classic-webview/src/hooks/useWordSubmission';
 
 type PixelData = {
   x: number;
@@ -9,6 +10,32 @@ type PixelData = {
   r: number;
   color: string;
 };
+
+// Spinning loading indicator component
+const SpinningCircle = ({ className = 'h-5 w-5 text-white' }: { className?: string }) => (
+  <div className="flex h-5 w-5 items-center justify-center">
+    <svg
+      className={`animate-spin ${className}`}
+      xmlns="http://www.w3.org/2000/svg"
+      fill="none"
+      viewBox="0 0 24 24"
+    >
+      <circle
+        className="opacity-25"
+        cx="12"
+        cy="12"
+        r="10"
+        stroke="currentColor"
+        strokeWidth="4"
+      ></circle>
+      <path
+        className="opacity-75"
+        fill="currentColor"
+        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+      ></path>
+    </svg>
+  </div>
+);
 
 export function WordInput({
   placeholders,
@@ -28,6 +55,7 @@ export function WordInput({
   const [currentPlaceholder, setCurrentPlaceholder] = useState(0);
   const [animating, setAnimating] = useState(false);
   const [internalValue, setInternalValue] = useState(externalValue);
+  const { isSubmitting } = useWordSubmission();
 
   // Sync internal value with external value
   useEffect(() => {
@@ -232,7 +260,7 @@ export function WordInput({
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter' && !animating) {
+    if (e.key === 'Enter' && !animating && !isSubmitting) {
       handleSubmit();
     }
   };
@@ -248,7 +276,7 @@ export function WordInput({
       />
       <input
         onChange={(e) => {
-          if (!animating && onChange) {
+          if (!animating && !isSubmitting && onChange) {
             onChange(e);
           }
         }}
@@ -260,26 +288,30 @@ export function WordInput({
         autoCorrect="on"
         autoComplete="off"
         enterKeyHint="send"
+        disabled={isSubmitting}
         className={cn(
           'text-md relative z-50 h-14 w-full rounded-full border-none px-4 text-black shadow-[0px_2px_3px_-1px_rgba(0,0,0,0.1),_0px_1px_0px_0px_rgba(25,28,33,0.02),_0px_0px_0px_1px_rgba(25,28,33,0.08)] transition duration-200 focus:outline-none focus:ring-0 dark:text-white',
           animating && 'text-transparent dark:text-transparent',
           internalValue && 'bg-gray-50 dark:bg-gray-800',
-          isHighContrast ? 'bg-white dark:bg-black' : 'bg-gray-50 dark:bg-gray-800'
+          isHighContrast ? 'bg-white dark:bg-black' : 'bg-gray-50 dark:bg-gray-800',
+          isSubmitting && 'cursor-not-allowed opacity-70'
         )}
       />
 
       <PrimaryButton
         isHighContrast={isHighContrast}
-        disabled={!internalValue}
+        disabled={!internalValue || isSubmitting}
         type="submit"
         className="z-50 flex-shrink-0"
         onMouseDown={(e) => {
           // Workaround for ios and android blurring the input on button click
           e.preventDefault();
-          handleSubmit();
+          if (!isSubmitting) {
+            handleSubmit();
+          }
         }}
       >
-        Guess
+        {isSubmitting ? <SpinningCircle /> : 'Guess'}
       </PrimaryButton>
 
       <div className="pointer-events-none absolute inset-0 z-[1010] flex items-center rounded-full">
