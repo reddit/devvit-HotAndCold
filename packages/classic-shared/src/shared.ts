@@ -179,7 +179,7 @@ export type BlocksToWebviewMessage =
       };
     }
   | {
-      // emitted when a purchase is successfully made on another post
+      // relayed broadcast message from PURCHASE_REALTIME_CHANNEL channel
       type: 'PURCHASE_PRODUCT_SUCCESS_BROADCAST';
       payload: {
         access: HardcoreAccessStatus;
