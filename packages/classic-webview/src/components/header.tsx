@@ -42,22 +42,19 @@ export const Header = () => {
   return (
     <>
       <div className="flex items-center justify-between">
-        <div className="flex h-6 gap-2 sm:h-10 sm:gap-4">
+        <div className="flex h-6 flex-1 gap-2 sm:h-16 sm:gap-4">
           {isHardcore ? (
             <HardcoreLogo />
           ) : (
             <>
               <Logo />
               <button
-                className={cn(
-                  'flex gap-1',
-                  access.status === 'inactive' && 'cursor-pointer'
-                )}
+                className={cn('flex gap-1', access.status === 'inactive' && 'cursor-pointer')}
                 onClick={() => showModal('unlock-hardcore')}
                 disabled={access.status !== 'inactive'}
               >
                 <HardcoreMascot />
-                <span className="relative -translate-y-1/2 self-center rounded-full border border-gray-500 px-2 text-[10px] italic text-gray-400">
+                <span className="relative -translate-y-1/2 self-center whitespace-nowrap rounded-full border border-gray-500 px-2 text-[10px] italic text-gray-400">
                   {access.status === 'inactive' ? 'Pssst...' : 'Thanks for your support!'}
                   <SpeechBubbleTail className="absolute left-2 top-full h-2 w-2 stroke-gray-500 stroke-1" />
                 </span>
