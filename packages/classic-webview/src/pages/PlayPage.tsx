@@ -3,6 +3,7 @@ import { sendMessageToDevvit } from '../utils';
 import { WordInput } from '@hotandcold/webview-common/components/wordInput';
 import { Guesses } from '../components/guesses';
 import { useGame } from '../hooks/useGame';
+import { useWordSubmission } from '../hooks/useWordSubmission';
 import { useDevvitListener } from '../hooks/useDevvitListener';
 import clsx from 'clsx';
 import { FeedbackResponse } from '@hotandcold/classic-shared';
@@ -16,11 +17,16 @@ import { UnlockHardcoreCTAContent } from '../components/UnlockHardcoreCTAContent
 const useFeedback = (): { feedback: FeedbackResponse | null; dismissFeedback: () => void } => {
   const [feedback, setFeedback] = useState<FeedbackResponse | null>(null);
   const message = useDevvitListener('FEEDBACK');
+  const { setIsSubmitting } = useWordSubmission();
 
   useEffect(() => {
     if (!message) return;
+
+    // Reset the submission state when feedback is received
+    // This handles the case where the user submits a word they've already guessed
+    setIsSubmitting(false);
     setFeedback(message);
-  }, [message]);
+  }, [message, setIsSubmitting]);
 
   const dismissFeedback = () => {
     setFeedback(null);
@@ -144,6 +150,7 @@ const GameplayContent = () => {
   const [word, setWord] = useState('');
   const { challengeUserInfo, mode, challengeInfo } = useGame();
   const { feedback, dismissFeedback } = useFeedback();
+  const { setIsSubmitting } = useWordSubmission();
 
   const guesses = challengeUserInfo?.guesses ?? [];
   const hasGuessed = guesses.length > 0;
@@ -187,6 +194,7 @@ const GameplayContent = () => {
               return;
             }
 
+            setIsSubmitting(true);
             sendMessageToDevvit({
               type: 'WORD_SUBMITTED',
               value: word.trim().toLowerCase(),

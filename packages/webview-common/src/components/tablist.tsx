@@ -15,7 +15,7 @@ export const Tablist = ({ activeIndex, onChange, items }: TablistProps) => {
   };
 
   return (
-    <div role="tablist" className="inline-flex text-gray-600 dark:text-gray-400">
+    <div role="tablist" className="flex flex-wrap justify-center text-gray-600 dark:text-gray-400">
       {items.map((item, index) => (
         <button
           key={item.name}

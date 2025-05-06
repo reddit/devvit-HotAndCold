@@ -4,6 +4,7 @@ import { sendMessageToDevvit } from '../utils';
 import { useDevvitListener } from './useDevvitListener';
 import { logger } from '../utils/logger';
 import { useMocks } from './useMocks';
+import { useWordSubmission } from './useWordSubmission';
 
 const GameContext = createContext<Partial<Game>>({});
 const GameUpdaterContext = createContext<React.Dispatch<
@@ -13,6 +14,8 @@ const GameUpdaterContext = createContext<React.Dispatch<
 export const GameContextProvider = ({ children }: { children: React.ReactNode }) => {
   const mocks = useMocks();
   const [game, setGame] = useState<Partial<Game>>(mocks.getMock('mocks')?.game ?? {});
+  const { setIsSubmitting } = useWordSubmission();
+
   const initResponse = useDevvitListener('GAME_INIT_RESPONSE');
   const submissionResponse = useDevvitListener('WORD_SUBMITTED_RESPONSE');
   const hintResponse = useDevvitListener('HINT_RESPONSE');
@@ -37,8 +40,9 @@ export const GameContextProvider = ({ children }: { children: React.ReactNode })
     logger.log('Submission response: ', submissionResponse);
     if (submissionResponse) {
       setGame(submissionResponse);
+      setIsSubmitting(false);
     }
-  }, [submissionResponse]);
+  }, [submissionResponse, setIsSubmitting]);
 
   useEffect(() => {
     logger.log('Hint response: ', hintResponse);
