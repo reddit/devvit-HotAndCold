@@ -12,7 +12,7 @@ Think about synonyms, categories, and related concepts to find the secret word.
 
 ## Playing
 
-This is the app that runs the [HotAndCold](https://www.reddit.com/r/HotAndCold/) subreddit. Feel free to stop by and play any time!
+This is the app that runs the [HotAndCold](https://www.reddit.com/r/HotAndCold/) subreddit. Feel free to stop by and play anytime!
 
 ## Installing on another Subreddit
 
@@ -20,7 +20,7 @@ You can install this game on your own subreddit if you would like to give it a t
 
 ## Source Code
 
-The [code for HotAndCold is open source](https://github.com/reddit/devvit-HotAndCold)! Feel free to suggest improvements, fork, and submit PRs of new features and improvements.
+The [code for HotAndCold is open source](https://github.com/reddit/devvit-HotAndCold)! Feel free to suggest improvements, fork, and submit PRs with new features and improvements.
 
 ## Development
 
@@ -48,4 +48,4 @@ version: 0.0.0
 
 Both files should be at the root, adjacent to this README file.
 
-After which, you can run `npm run dev:upload:classic` and `npm run dev:classic` from the root of the project, and similar commands for raid.
+Afterward, you can run `npm run dev:upload:classic` and `npm run dev:classic` from the root of the project, and similar commands for raid.
