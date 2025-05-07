@@ -9,12 +9,7 @@ import './menu-actions/totalReminders.js';
 import { Devvit, JSONValue, useInterval, useState } from '@devvit/public-api';
 import { DEVVIT_SETTINGS_KEYS } from './constants.js';
 import { isServerCall, omit } from '@hotandcold/shared/utils';
-import {
-  GameMode,
-  HardcoreAccessStatus,
-  PurchasedProductBroadcast,
-  WebviewToBlocksMessage,
-} from '@hotandcold/classic-shared';
+import { GameMode, HardcoreAccessStatus, WebviewToBlocksMessage } from '@hotandcold/classic-shared';
 import { GuessService } from './core/guess.js';
 import { ChallengeToPost, PostIdentifier } from './core/challengeToPost.js';
 import { Preview } from './components/Preview.js';
@@ -27,6 +22,14 @@ import { sendMessageToWebview } from './utils/index.js';
 import { initPayments, PaymentsRepo } from './payments.js';
 import { OnPurchaseResult, OrderResultStatus, usePayments } from '@devvit/payments';
 import { useChannel } from '@devvit/public-api';
+
+export type PurchasedProductBroadcast = {
+  payload: {
+    // user who purchased the product; important because we don't want the broadcast to unlock
+    // hardcore for all users
+    userId: string;
+  };
+};
 
 initPayments();
 
@@ -73,6 +76,11 @@ Devvit.addCustomPostType({
   name: 'HotAndCold',
   height: 'tall',
   render: (context) => {
+    // This channel is used to broadcast purchase success events to all instances of the app.
+    // It's necessary because iOS and Android aggressively cache webviews, which can cause
+    // the purchase success state to not be reflected immediately in all open instances.
+    // By broadcasting the event through a realtime channel, we ensure all instances
+    // update their UI state correctly, even if they're cached.
     const purchaseRealtimeChannel = useChannel({
       name: PURCHASE_REALTIME_CHANNEL,
       onMessage(msg: JSONValue) {
@@ -81,7 +89,7 @@ Devvit.addCustomPostType({
           sendMessageToWebview(context, {
             type: 'HARDCORE_ACCESS_UPDATE',
             payload: {
-              access: msgCasted.payload.access,
+              access: { status: 'active' },
             },
           });
         }
@@ -106,7 +114,6 @@ Devvit.addCustomPostType({
           });
           void purchaseRealtimeChannel.send({
             payload: {
-              access,
               userId: context.userId!,
             },
           });

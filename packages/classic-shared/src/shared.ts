@@ -185,12 +185,3 @@ export type DevvitMessage = {
 };
 
 export type GameMode = 'regular' | 'hardcore';
-
-export type PurchasedProductBroadcast = {
-  payload: {
-    access: HardcoreAccessStatus;
-    // user who purchased the product; important because we don't want the broadcast to unlock
-    // hardcore for all users
-    userId: string;
-  };
-};
