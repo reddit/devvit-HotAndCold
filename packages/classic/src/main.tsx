@@ -12,7 +12,7 @@ import { isServerCall, omit } from '@hotandcold/shared/utils';
 import {
   GameMode,
   HardcoreAccessStatus,
-  PurchasedProductBroadcast as PurchasedProductBroadcastMessage,
+  PurchasedProductBroadcast,
   WebviewToBlocksMessage,
 } from '@hotandcold/classic-shared';
 import { GuessService } from './core/guess.js';
@@ -76,11 +76,15 @@ Devvit.addCustomPostType({
     const purchaseRealtimeChannel = useChannel({
       name: PURCHASE_REALTIME_CHANNEL,
       onMessage(msg: JSONValue) {
-        const msgCasted = msg as PurchasedProductBroadcastMessage;
-        sendMessageToWebview(context, {
-          type: 'HARDCORE_ACCESS_UPDATE',
-          payload: msgCasted.payload,
-        });
+        const msgCasted = msg as PurchasedProductBroadcast;
+        if (msgCasted.payload.userId === context.userId) {
+          sendMessageToWebview(context, {
+            type: 'HARDCORE_ACCESS_UPDATE',
+            payload: {
+              access: msgCasted.payload.access,
+            },
+          });
+        }
       },
       onSubscribed: () => {
         console.log('listening for purchase success broadcast events');
@@ -103,6 +107,7 @@ Devvit.addCustomPostType({
           void purchaseRealtimeChannel.send({
             payload: {
               access,
+              userId: context.userId!,
             },
           });
 
