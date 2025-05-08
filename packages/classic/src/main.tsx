@@ -6,7 +6,7 @@ import './menu-actions/newChallenge.js';
 import './menu-actions/addWordToDictionary.js';
 import './menu-actions/totalReminders.js';
 
-import { Devvit, useInterval, useState } from '@devvit/public-api';
+import { Devvit, JSONValue, useInterval, useState } from '@devvit/public-api';
 import { DEVVIT_SETTINGS_KEYS } from './constants.js';
 import { isServerCall, omit } from '@hotandcold/shared/utils';
 import { GameMode, HardcoreAccessStatus, WebviewToBlocksMessage } from '@hotandcold/classic-shared';
@@ -21,6 +21,15 @@ import { RedditApiCache } from './core/redditApiCache.js';
 import { sendMessageToWebview } from './utils/index.js';
 import { initPayments, PaymentsRepo } from './payments.js';
 import { OnPurchaseResult, OrderResultStatus, usePayments } from '@devvit/payments';
+import { useChannel } from '@devvit/public-api';
+
+export type PurchasedProductBroadcast = {
+  payload: {
+    // user who purchased the product; important because we don't want the broadcast to unlock
+    // hardcore for all users
+    userId: string;
+  };
+};
 
 initPayments();
 
@@ -60,22 +69,55 @@ type InitialState =
       hardcoreModeAccess: HardcoreAccessStatus;
     };
 
+const PURCHASE_REALTIME_CHANNEL = 'PURCHASE_REALTIME_CHANNEL';
+
 // Add a post type definition
 Devvit.addCustomPostType({
   name: 'HotAndCold',
   height: 'tall',
   render: (context) => {
+    // This channel is used to broadcast purchase success events to all instances of the app.
+    // It's necessary because iOS and Android aggressively cache webviews, which can cause
+    // the purchase success state to not be reflected immediately in all open instances.
+    // By broadcasting the event through a realtime channel, we ensure all instances
+    // update their UI state correctly, even if they're cached.
+    const purchaseRealtimeChannel = useChannel({
+      name: PURCHASE_REALTIME_CHANNEL,
+      onMessage(msg: JSONValue) {
+        const msgCasted = msg as PurchasedProductBroadcast;
+        if (msgCasted.payload.userId === context.userId) {
+          sendMessageToWebview(context, {
+            type: 'HARDCORE_ACCESS_UPDATE',
+            payload: {
+              access: { status: 'active' },
+            },
+          });
+        }
+      },
+      onSubscribed: () => {
+        console.log('listening for purchase success broadcast events');
+      },
+    });
+    purchaseRealtimeChannel.subscribe();
+
     const paymentsRepo = new PaymentsRepo(context.redis);
     const payments = usePayments(async (paymentsResult: OnPurchaseResult) => {
       switch (paymentsResult.status) {
         case OrderResultStatus.Success: {
           context.ui.showToast(`Purchase successful!`);
+          const access = await paymentsRepo.getHardcoreAccessStatus(context.userId!);
           sendMessageToWebview(context, {
-            type: 'PURCHASE_PRODUCT_SUCCESS_RESPONSE',
+            type: 'HARDCORE_ACCESS_UPDATE',
             payload: {
-              access: await paymentsRepo.getHardcoreAccessStatus(context.userId!),
+              access,
             },
           });
+          void purchaseRealtimeChannel.send({
+            payload: {
+              userId: context.userId!,
+            },
+          });
+
           break;
         }
         case OrderResultStatus.Error: {

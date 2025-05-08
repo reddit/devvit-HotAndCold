@@ -173,7 +173,7 @@ export type BlocksToWebviewMessage =
       payload: FeedbackResponse;
     }
   | {
-      type: 'PURCHASE_PRODUCT_SUCCESS_RESPONSE';
+      type: 'HARDCORE_ACCESS_UPDATE';
       payload: {
         access: HardcoreAccessStatus;
       };
