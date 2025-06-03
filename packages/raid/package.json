@@ -13,7 +13,7 @@
     "type-check": "tsc --noEmit"
   },
   "dependencies": {
-    "@devvit/public-api": "^0.11.13",
+    "@devvit/public-api": "0.11.16",
     "@hotandcold/shared": "*",
     "@hotandcold/raid-shared": "*"
   },
