@@ -95,7 +95,7 @@ Devvit.addCustomPostType({
         }
       },
       onSubscribed: () => {
-        console.log('listening for purchase success broadcast events');
+        console.log('listening for purchase success broadcast events...');
       },
     });
     purchaseRealtimeChannel.subscribe();
