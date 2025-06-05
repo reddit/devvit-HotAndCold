@@ -15,7 +15,7 @@ export const GradientBorder = ({ children, isHidden = false }: GradientBorderPro
           isHidden ? 'opacity-0' : 'opacity-100'
         )}
       />
-      <span className="z-10 inline-block rounded-[inherit] bg-inherit">{children}</span>
+      <span className="z-10 flex items-center rounded-[inherit] bg-inherit">{children}</span>
     </span>
   );
 };
