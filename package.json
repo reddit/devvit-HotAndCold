@@ -30,11 +30,10 @@
     "test": "npm run test --workspaces --if-present",
     "type-check": "npm run type-check --workspaces --if-present",
     "pre-upload": "npm run type-check && npm run test",
-    "upload:classic": "npm run pre-upload && cd packages/classic && devvit upload --config=prod.devvit.yaml",
+    "upload:classic": "npm run pre-upload && cd packages/classic && devvit upload --config=devvit.prod.yaml",
     "dev:upload:classic": "npm run pre-upload && npm run dev:upload --workspace packages/classic",
-    "upload:raid": "npm run pre-upload && cd packages/raid && devvit upload --config=prod.devvit.yaml",
-    "dev:upload:raid": "npm run pre-upload && npm run dev:upload --workspace packages/raid",
-    "prepare": "husky"
+    "upload:raid": "npm run pre-upload && cd packages/raid && devvit upload --config=devvit.prod.yaml",
+    "dev:upload:raid": "npm run pre-upload && npm run dev:upload --workspace packages/raid"
   },
   "dependencies": {
     "@dotenvx/dotenvx": "^1.39.0",
@@ -61,8 +60,6 @@
     "autoprefixer": "^10.4.20",
     "browser-sync": "3.0.3",
     "concurrently": "9.1.0",
-    "husky": "^9.1.7",
-    "lint-staged": "^15.5.1",
     "postcss": "^8.4.49",
     "prettier": "^3.3.3",
     "prettier-plugin-tailwindcss": "^0.6.8",

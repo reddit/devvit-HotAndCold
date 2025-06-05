@@ -1,8 +1,9 @@
-import { Devvit, JobContext, TriggerContext } from '@devvit/public-api';
+import { Devvit, JobContext, TriggerContext, TxClientLike } from '@devvit/public-api';
 import { z } from 'zod';
 import { fromError } from 'zod-validation-error';
 
 export const zodRedis = z.custom<Devvit.Context['redis']>((redis) => redis);
+export const zodTransaction = z.custom<TxClientLike>((transaction) => transaction);
 
 export const zodContext = z.custom<Devvit.Context>((context) => context);
 export const zodJobContext = z.custom<JobContext>((context) => context);

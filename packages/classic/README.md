@@ -1,14 +1,16 @@
 # HotAndCold
 
-Guess the secret word by entering words with similar meanings. Words are scored based on how semantically related they are to the target word.
+Your mission is to guess the secret word by entering words with similar meanings. Each guess is scored based on how closely it's related to the target word.
 
-Example: If the secret word is "ocean":
+For example, if the secret word is "ocean":
 
-- sea: would score 80-100 (highly related)
-- wave: would score 40-79 (somewhat related)
-- calculator: would score 0-39 (distantly/unrelated)
+- sea might score 80–100 (highly related)
+- wave might score 40–79 (somewhat related)
+- calculator might score 0–39 (unrelated)
 
-Think about synonyms, categories, and related concepts to find the secret word.
+Use your knowledge of synonyms, categories, and related concepts to zero in on the answer. It’s a unique twist on word guessing, perfect for language lovers and puzzle fans alike.
+
+Start guessing – the closer your words, the hotter you get!
 
 ## Playing
 

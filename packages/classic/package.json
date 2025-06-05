@@ -5,8 +5,8 @@
   "license": "BSD-3-Clause",
   "type": "module",
   "scripts": {
-    "playtest": "dotenvx run -f ../../.env.development -- sh -c 'devvit playtest $SUBREDDIT --config=../../$CLASSIC_DEVVIT_CONFIG'",
-    "dev:upload": "dotenvx run -f ../../.env.development -- sh -c 'devvit upload --config=../../$CLASSIC_DEVVIT_CONFIG'",
+    "playtest": "dotenvx run -f ../../.env.development -- sh -c 'devvit playtest $SUBREDDIT --config=$CLASSIC_DEVVIT_CONFIG'",
+    "dev:upload": "dotenvx run -f ../../.env.development -- sh -c 'devvit upload --config=$CLASSIC_DEVVIT_CONFIG'",
     "lint": "eslint ./src/",
     "prettier": "prettier --write .",
     "test": "vitest run --passWithNoTests",
