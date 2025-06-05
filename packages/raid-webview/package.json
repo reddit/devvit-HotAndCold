@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite build --watch",
+    "build": "vite build",
     "lint": "eslint ./src/",
     "prettier": "prettier --write .",
     "test": "vitest run --passWithNoTests",
