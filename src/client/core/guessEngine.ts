@@ -65,7 +65,7 @@ const isValidWord = (word: string): boolean => /^[a-zA-Z][a-zA-Z'-]*$/.test(word
 // Placeholder: wire to tRPC once server exposes a mutation
 import { trpc } from '../trpc';
 import { markSolvedForCurrentChallenge } from '../classic/state/navigation';
-import { rankToProgress } from '../../shared/progress';
+// import { rankToProgress } from '../../shared/progress';
 
 const submitBatchToServer = async (
   challengeNumber: number,
@@ -297,7 +297,7 @@ export function createGuessEngine(params: {
         ok: false,
         code: 'DUPLICATE',
         word,
-        message: `You've already guessed “${word}”. (#${alreadyGuessed?.rank})`,
+        message: `You already guessed “${word}”. (#${alreadyGuessed?.rank})`,
       };
       lastResult.value = res;
       return res;
@@ -321,6 +321,26 @@ export function createGuessEngine(params: {
 
       // optimistic: record guess locally and enqueue server submission in background
       const corrected = typeof data.word === 'string' && data.word.length > 0 ? data.word : word;
+
+      // If the lemma-corrected word was already guessed, treat as duplicate
+      if (hasGuessed(corrected)) {
+        const winning = history.value.find((h) => h.similarity === 1);
+        if (winning) {
+          solvedAtMs.value = winning.timestamp ?? Date.now();
+          markSolvedForCurrentChallenge(solvedAtMs.value);
+          // Ensure backend reflects the win for leaderboard/stats
+          void ensureServerHasWin(winning);
+        }
+        const alreadyGuessed = history.value.find((h) => h.word === corrected);
+        const res: Extract<ClientGuessResult, { ok: false }> = {
+          ok: false,
+          code: 'DUPLICATE',
+          word: corrected,
+          message: `You already guessed “${corrected}”. (#${alreadyGuessed?.rank})`,
+        };
+        lastResult.value = res;
+        return res;
+      }
       batch(() => {
         guessedSet.add(corrected);
         const item: GuessHistoryItem = {

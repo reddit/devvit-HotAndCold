@@ -182,15 +182,19 @@ describe('guess.ts', () => {
       throw new Error('unexpected url ' + url);
     });
     let g = await loadGuessModule();
-    expect(await g.makeGuess('beta')).toEqual({ similarity: 0.77, rank: 2 });
-    expect(requestMock).toHaveBeenCalledTimes(1);
+    expect(await g.makeGuess('beta')).toEqual({ word: 'beta', similarity: 0.77, rank: 2 });
+    // Exactly one call for the letter CSV; lemma.csv may also be fetched
+    const letterCalls = requestMock.mock.calls.filter((args) =>
+      String(args[0]).endsWith('/challenges/1/b.csv')
+    );
+    expect(letterCalls.length).toBe(1);
 
     // Second run in a fresh module: should read from IDB without network
     requestMock.mockImplementation(async () => {
       throw new Error('network should not be called');
     });
     g = await loadGuessModule();
-    expect(await g.makeGuess('beta')).toEqual({ similarity: 0.77, rank: 2 });
+    expect(await g.makeGuess('beta')).toEqual({ word: 'beta', similarity: 0.77, rank: 2 });
   });
 
   it('re-fetches when IndexedDB entry is missing or expired', async () => {
@@ -202,8 +206,11 @@ describe('guess.ts', () => {
       throw new Error('unexpected url ' + url);
     });
     let g = await loadGuessModule();
-    expect(await g.makeGuess('cat')).toEqual({ similarity: 0.5, rank: Infinity });
-    expect(requestMock).toHaveBeenCalledTimes(1);
+    expect(await g.makeGuess('cat')).toEqual({ word: 'cat', similarity: 0.5, rank: Infinity });
+    const cCalls1 = requestMock.mock.calls.filter((args) =>
+      String(args[0]).endsWith('/challenges/1/c.csv')
+    );
+    expect(cCalls1.length).toBe(1);
     // Allow async saveMapToDB to complete in the stub
     await new Promise((r) => setTimeout(r, 5));
     // Simulate expiry/eviction by removing the stored key
@@ -219,7 +226,7 @@ describe('guess.ts', () => {
       throw new Error('unexpected url ' + url);
     });
     g = await loadGuessModule();
-    expect(await g.makeGuess('cat')).toEqual({ similarity: 0.6, rank: Infinity });
+    expect(await g.makeGuess('cat')).toEqual({ word: 'cat', similarity: 0.6, rank: Infinity });
   });
 
   it('preloadLetterMaps honors concurrency and warms memory; skips already warm letters', async () => {

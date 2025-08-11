@@ -4,9 +4,8 @@ import { zodRedditUsername } from '../utils';
 import { Challenge } from './challenge';
 import { ChallengeLeaderboard } from './challengeLeaderboard';
 import { Score } from './score';
-import { RichTextBuilder } from '@devvit/public-api';
 import { fn } from '../../shared/fn';
-import { redis, reddit, Comment } from '@devvit/web/server';
+import { redis } from '@devvit/web/server';
 import { GameResponseSchema, GuessSchema, ChallengeUserInfoSchema } from '../utils';
 import { User } from './user';
 import { wordsOfTheDay } from '../wordlist';
@@ -156,13 +155,11 @@ export namespace UserGuess {
       challengeNumber: z.number().gt(0),
       completedAt: z.number(),
       score: Score.Info,
-      winnersCircleCommentId: z.string().optional(),
     }),
-    async ({ username, challengeNumber, completedAt, score, winnersCircleCommentId }) => {
+    async ({ username, challengeNumber, completedAt, score }) => {
       await redis.hSet(Key(challengeNumber, username), {
         solvedAtMs: completedAt.toString(),
         score: JSON.stringify(score),
-        winnersCircleCommentId: winnersCircleCommentId ?? '',
       });
     }
   );
@@ -356,7 +353,7 @@ export namespace UserGuess {
     // Prevent duplicate guesses.
     const alreadyGuessed = challengeUserInfo.guesses?.find((g) => g.word === rawGuess);
     if (alreadyGuessed) {
-      throw new Error(`You've already guessed ${rawGuess} (#${alreadyGuessed.rank}).`);
+      throw new Error(`You already guessed ${rawGuess} (#${alreadyGuessed.rank}).`);
     }
 
     await Challenge.incrementChallengeTotalGuesses({ challengeNumber });
@@ -410,24 +407,11 @@ export namespace UserGuess {
         totalHints: newGuesses.filter((g: z.infer<typeof GuessSchema>) => g.isHint).length,
       });
 
-      // Post in Winner's Circle (optional – may be undefined for historical challenges).
-      let winnersCircleComment: Comment | undefined;
-      if (challengeInfo.winnersCircleCommentId) {
-        const root = await reddit.getCommentById(challengeInfo.winnersCircleCommentId);
-        winnersCircleComment = await root.reply({
-          // @ts-expect-error – devvit types incorrect
-          richtext: new RichTextBuilder()
-            .paragraph((p) => p.text({ text: `u/${username} solved the challenge!` }))
-            .build(),
-        });
-      }
-
       await markChallengeSolvedForUser({
         username,
         challengeNumber,
         completedAt,
         score,
-        winnersCircleCommentId: winnersCircleComment?.id,
       });
 
       await Challenge.incrementChallengeTotalSolves({ challengeNumber });

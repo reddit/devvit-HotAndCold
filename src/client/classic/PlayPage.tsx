@@ -3,6 +3,7 @@ import { WordInput } from '../shared/wordInput';
 import { Guesses } from '../shared/guesses';
 import { rankToProgress } from '../../shared/progress';
 import type { GuessEngine, GuessHistoryItem } from '../core/guessEngine';
+import { formatOrdinal } from '../../shared/ordinal';
 
 export function PlayPage({ engine }: { engine?: GuessEngine }) {
   const [feedback, setFeedback] = useState<string | null>(null);
@@ -14,8 +15,6 @@ export function PlayPage({ engine }: { engine?: GuessEngine }) {
     return { items: itemsSignal, itemsArray: arr, latest: last } as const;
   }, [engine, engine?.history.value]);
 
-  const shownTipsRef = useRef<Record<string, boolean>>({});
-
   const computeHeat = (rank: number) => {
     const pct = Math.round(rankToProgress(rank));
     if (pct >= 100) return 'CORRECT' as const;
@@ -24,22 +23,13 @@ export function PlayPage({ engine }: { engine?: GuessEngine }) {
     return 'COLD' as const;
   };
 
-  const getStreak = (arr: GuessHistoryItem[], target: 'COLD' | 'WARM' | 'HOT') => {
-    let count = 0;
-    for (let i = arr.length - 1; i >= 0; i--) {
-      const h = computeHeat(arr[i]!.rank);
-      if (h === target || (target === 'WARM' && h === 'HOT')) count++;
-      else break;
-    }
-    return count;
-  };
-
   const generateOnboarding = (arr: GuessHistoryItem[]): string | null => {
     if (!arr || arr.length === 0) return null;
     const MESSAGES = [
-      'Guess related words to the secret. Closer is better.',
-      'Rank is compared to all possible words. Lower is better.',
-      'Guess as many times as you need!',
+      `"${arr[0]!.word}" is the ${formatOrdinal(arr[0]!.rank)} closest. Smaller number = closer.`,
+      'Keep guessing! Try as many as you want.',
+      "Try to get under 1000. That's when it gets interesting!",
+      'Stuck? Grab a hint from the menu.',
     ] as const;
 
     // Show messages sequentially for first five guesses
@@ -70,7 +60,7 @@ export function PlayPage({ engine }: { engine?: GuessEngine }) {
           className="mt-4"
         />
         {feedback && (
-          <p className="pointer-events-none absolute left-4 bottom-[7px] pr-24 text-xs dark:text-zinc-300">
+          <p className="pointer-events-none absolute left-0 bottom-[7px] text-[10px] dark:text-zinc-300">
             {feedback}
           </p>
         )}

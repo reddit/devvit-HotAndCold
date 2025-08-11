@@ -3,7 +3,7 @@ import Redis from 'ioredis';
 import { it as itCore, type TestContext } from 'vitest';
 
 import { RedisAPIDefinition, RedisKeyScope, type Metadata } from '@devvit/protos';
-import { RequestContext, runWithContext } from '@devvit/server';
+import { Context, runWithContext } from '@devvit/server';
 import { Header } from '@devvit/shared-types/Header.js';
 import type { Config } from '@devvit/shared-types/Config.js';
 
@@ -528,9 +528,11 @@ function itImpl(
       [Header.App]: 'test-app', // optional
       [Header.Version]: '0.0.0-test', // optional
       [Header.User]: 't2_testuser', // optional
+      [Header.AppUser]: 't2_testuser',
+      [Header.AppViewerAuthToken]: 'test-token',
     };
 
-    const reqCtx = RequestContext(headers);
+    const reqCtx = Context(headers);
     await runWithContext(reqCtx, async () => {
       await fn(Object.assign(vitestCtx, { config: cfg, prefix }));
     });
@@ -556,7 +558,7 @@ const it: ItFn = Object.assign(
           throw new Error('Harness failed to install config: config.use is not a function');
         }
 
-        const reqCtx = RequestContext({});
+        const reqCtx = Context({});
         await runWithContext(reqCtx, async () => {
           await fn(Object.assign(vitestCtx, { config: cfg, prefix }));
         });

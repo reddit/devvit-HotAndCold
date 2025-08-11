@@ -17,7 +17,7 @@
     "items": [
       {
         "label": "Create a new post",
-        "description": "hotandcold2",
+        "description": "hotandcold",
         "location": "subreddit",
         "forUserType": "moderator",
         "endpoint": "/internal/menu/post-create"
@@ -34,6 +34,11 @@
         "endpoint": "/internal/scheduler/create-new-challenge",
         "data": {}
       }
+    }
+  },
+  "permissions": {
+    "reddit": {
+      "asUser": ["SUBMIT_COMMENT", "SUBSCRIBE_TO_SUBREDDIT"]
     }
   },
   "dev": {

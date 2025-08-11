@@ -9,6 +9,48 @@ import { UserGuess } from './core/userGuess';
 import { User } from './core/user';
 import { ChallengeProgress } from './core/challengeProgress';
 import { ChallengeLeaderboard } from './core/challengeLeaderboard';
+import { LastPlayedAt } from './core/lastPlayedAt';
+import { Reminders } from './core/reminder';
+import { JoinedSubreddit } from './core/joinedSubreddit';
+import { UserComment } from './core/userComment';
+import { reddit, RichTextBuilder } from '@devvit/web/server';
+import { FormattingFlag } from '@devvit/shared-types/richtext/types.js';
+
+// Formats a duration in milliseconds to a human-readable long form like
+// "2 hours 5 minutes 3 seconds" or "2 minutes 45 seconds" or "5 seconds".
+function formatDurationLong(ms: number): string {
+  const totalSeconds = Math.max(0, Math.floor(ms / 1000));
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+
+  const parts: string[] = [];
+  if (hours > 0) parts.push(`${hours} ${hours === 1 ? 'hour' : 'hours'}`);
+  if (minutes > 0) parts.push(`${minutes} ${minutes === 1 ? 'minute' : 'minutes'}`);
+  if (seconds > 0 || parts.length === 0)
+    parts.push(`${seconds} ${seconds === 1 ? 'second' : 'seconds'}`);
+  return parts.join(' ');
+}
+
+async function computeCommentSuffix({
+  username,
+  challengeNumber,
+}: {
+  username: string;
+  challengeNumber: number;
+}): Promise<string> {
+  const info = await UserGuess.getChallengeUserInfo({ username, challengeNumber });
+  const start = info.startedPlayingAtMs ?? 0;
+  const end = info.solvedAtMs ?? info.gaveUpAtMs ?? Date.now();
+  const duration = formatDurationLong(end - start);
+  const nonHintGuesses = (info.guesses ?? []).filter((g: any) => !g.isHint).length;
+  const hintsUsed = (info.guesses ?? []).filter((g: any) => g.isHint).length;
+  const score = info.score?.finalScore;
+  const base = `I found the secret word in ${duration} after ${nonHintGuesses} ${
+    nonHintGuesses === 1 ? 'guess' : 'guesses'
+  } and ${hintsUsed} ${hintsUsed === 1 ? 'hint' : 'hints'}.`;
+  return typeof score === 'number' ? `${base} Score: ${score}.` : base;
+}
 
 const appRouter = router({
   init: publicProcedure.query(async () => {
@@ -28,6 +70,107 @@ const appRouter = router({
       const current = await User.getCurrent();
       return current;
     }),
+  },
+  cta: {
+    getCallToAction: publicProcedure
+      .input(
+        z.object({
+          challengeNumber: z.number(),
+        })
+      )
+      .query(async ({ input }) => {
+        const challengeNumber = input.challengeNumber;
+        const current = await User.getCurrent();
+        const username = current.username;
+
+        const [hasJoined, hasReminder, hasCommented] = await Promise.all([
+          JoinedSubreddit.isUserJoinedSubreddit({ username }),
+          Reminders.isUserOptedIntoReminders({ username }),
+          UserComment.hasUserCommentedForChallenge({ username, challengeNumber }),
+        ]);
+
+        if (!hasJoined) return 'JOIN_SUBREDDIT' as const;
+        if (!hasReminder) return 'REMIND_ME_TO_PLAY' as const;
+        if (!hasCommented) return 'COMMENT' as const;
+        return null;
+      }),
+
+    joinSubreddit: publicProcedure.input(z.object({})).mutation(async () => {
+      await reddit.subscribeToCurrentSubreddit();
+      const current = await User.getCurrent();
+      await JoinedSubreddit.setJoinedSubredditForUsername({ username: current.username });
+      return { success: true } as const;
+    }),
+
+    setReminder: publicProcedure.input(z.object({})).mutation(async () => {
+      const current = await User.getCurrent();
+      await Reminders.setReminderForUsername({ username: current.username });
+      return { success: true } as const;
+    }),
+
+    getCommentSuffix: publicProcedure
+      .input(
+        z.object({
+          challengeNumber: z.number(),
+        })
+      )
+      .query(async ({ input }) => {
+        const { challengeNumber } = input;
+        const current = await User.getCurrent();
+        const username = current.username;
+        const suffix = await computeCommentSuffix({ username, challengeNumber });
+        return { suffix } as const;
+      }),
+
+    submitComment: publicProcedure
+      .input(
+        z.object({
+          challengeNumber: z.number(),
+          comment: z.string().min(1).max(10000),
+        })
+      )
+      .mutation(async ({ input }) => {
+        const { challengeNumber, comment } = input;
+        // Comment on the current challenge post
+        const current = await User.getCurrent();
+
+        // Prefer stored post ID for the challenge
+        const postId = await Challenge.getPostIdForChallenge({ challengeNumber });
+        if (!postId) {
+          throw new Error('Could not find challenge post to comment on');
+        }
+
+        // Build richtext: main comment paragraph + small/superscript caption suffix paragraph
+        const builder = new RichTextBuilder();
+        builder.paragraph((p) => {
+          p.text({ text: comment });
+        });
+        try {
+          const suffix = await computeCommentSuffix({
+            username: current.username,
+            challengeNumber,
+          });
+          builder.paragraph((p) => {
+            p.text({
+              text: suffix,
+              // Apply superscript to the entire suffix as a caption-like style
+              formatting: [[FormattingFlag.superscript, 0, suffix.length]],
+            });
+          });
+        } catch {
+          // ignore suffix failure; just post the main comment
+        }
+
+        const id = postId as `t3_${string}`;
+        await reddit.submitComment({ id, richtext: builder, runAs: 'USER' });
+
+        await UserComment.setUserCommentedForChallenge({
+          username: current.username,
+          challengeNumber,
+        });
+
+        return { success: true } as const;
+      }),
   },
   counter: {
     get: publicProcedure.query(async () => {
@@ -126,6 +269,12 @@ const appRouter = router({
           challengeNumber,
           guesses: mapped,
         });
+        // Track when the user last played
+        try {
+          await LastPlayedAt.setLastPlayedAtForUsername({ username });
+        } catch (e) {
+          console.error('Failed to record lastPlayedAt', e);
+        }
         return response;
       }),
     giveUp: publicProcedure

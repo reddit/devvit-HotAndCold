@@ -44,7 +44,7 @@ export namespace User {
   export const getById = fn(z.string(), async (id) => {
     const user = await redis.get(Key(id));
     if (!user) {
-      const user = await reddit.getUserById(id);
+      const user = await reddit.getUserById(id as any);
       if (!user) throw new AppError('User not found');
       const snoovatar = await user.getSnoovatarUrl();
 

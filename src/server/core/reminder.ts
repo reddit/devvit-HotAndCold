@@ -14,7 +14,7 @@ export namespace Reminders {
     async ({ username }) => {
       await redis.zAdd(getRemindersKey(), {
         member: username,
-        score: 1,
+        score: Date.now(),
       });
     }
   );
@@ -25,8 +25,7 @@ export namespace Reminders {
     }),
     async ({ username }) => {
       const score = await redis.zScore(getRemindersKey(), username);
-
-      return score === 1;
+      return score !== null && score !== undefined;
     }
   );
 
@@ -40,11 +39,10 @@ export namespace Reminders {
   );
 
   export const getUsersOptedIntoReminders = fn(z.object({}), async () => {
-    const data = await redis.zRange(getRemindersKey(), 1, 1, {
+    const data = await redis.zRange(getRemindersKey(), 0, '+inf', {
       by: 'score',
     });
-
-    return data.map((item) => item.member);
+    return data;
   });
 
   export const totalReminders = fn(z.object({}), async () => {

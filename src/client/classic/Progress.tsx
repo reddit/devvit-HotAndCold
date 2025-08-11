@@ -121,7 +121,9 @@ export function ProgressBar({
         isPlayer: current.isPlayer,
         progress: localPlayerProgress,
         // Prefer fetched snoovatar when available; otherwise preserve
-        avatar: meLoaded ? (meAvatar ?? current.avatar) : current.avatar,
+        avatar: meLoaded
+          ? (meAvatar ?? current.avatar ?? DEFAULT_AVATAR)
+          : (current.avatar ?? DEFAULT_AVATAR),
       };
       list[meIdx] = updated;
     } else {
@@ -130,7 +132,7 @@ export function ProgressBar({
         username: 'you',
         isPlayer: true,
         progress: localPlayerProgress,
-        avatar: meLoaded ? meAvatar : undefined,
+        avatar: meLoaded ? (meAvatar ?? DEFAULT_AVATAR) : DEFAULT_AVATAR,
       };
       list.unshift(stub);
     }
@@ -140,7 +142,7 @@ export function ProgressBar({
         username: p.username,
         isPlayer: p.isPlayer,
         progress: p.progress,
-        avatar: p.avatar,
+        avatar: p.avatar ?? DEFAULT_AVATAR,
       })
     );
   }, [neighbors, localPlayerProgress, meAvatar, meLoaded]);

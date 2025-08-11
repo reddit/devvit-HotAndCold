@@ -168,6 +168,22 @@ describe('guessEngine', () => {
     expect(navigation.markSolvedForCurrentChallenge).toHaveBeenCalled();
   });
 
+  it('treats lemma-corrected duplicates as duplicates (e.g., years -> year)', async () => {
+    const { createGuessEngine } = await loadEngine();
+    const engine = createGuessEngine({ challengeNumber: 8, rateLimitMs: 0 });
+
+    // First guess: 'year'
+    makeGuessMock.mockResolvedValueOnce({ word: 'year', similarity: 0.4, rank: 12 });
+    const first = await engine.submit('year');
+    expect(first).toEqual({ ok: true, word: 'year', similarity: 0.4, rank: 12 });
+
+    // Second guess: 'years' which lemma-corrects to 'year' – should be detected as duplicate
+    makeGuessMock.mockResolvedValueOnce({ word: 'year', similarity: 0.3, rank: 20 });
+    const dup = await engine.submit('years');
+    expect(dup).toMatchObject({ ok: false, code: 'DUPLICATE', word: 'year' });
+    expect(engine.history.value).toHaveLength(1);
+  });
+
   it('preload tiers schedule increasing letter batches based on distinct guesses in-session', async () => {
     const { createGuessEngine } = await loadEngine();
     const engine = createGuessEngine({ challengeNumber: 5, rateLimitMs: 0 });

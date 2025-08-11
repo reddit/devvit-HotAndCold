@@ -168,9 +168,7 @@ async function main() {
       encoding: 'utf8',
     });
     hintStream.write('word,similarity,rank\n');
-
-    // Add target word first
-    hintStream.write(`${target},1.0000,0\n`);
+    // Note: Do not include the target word itself in the hint list
 
     // -----------------------------------------------------------------------
     // Stream the similarity results, bucketising by first letter and collecting top 500 for hints

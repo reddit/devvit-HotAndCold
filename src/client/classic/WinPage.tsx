@@ -5,6 +5,7 @@ import { GradientBorder } from '../shared/gradientBorder';
 // import { RightChevronIcon } from '../shared/icons';
 import { cn } from '../utils/cn';
 import { trpc } from '../trpc';
+import { Modal } from '../shared/modal';
 // import { context } from '@devvit/web/client';
 import { requireChallengeNumber } from '../requireChallengeNumber';
 import { getPrettyDuration } from '../../shared/prettyDuration';
@@ -32,25 +33,133 @@ const StatCard = ({
   </div>
 );
 
-const CallToAction = ({ didWin }: { didWin: boolean }) => {
-  // Hardcore upsell is not wired yet in classic – show reminder toggle only
-  const [isUserOptedIntoReminders, setOptIn] = useState(false);
+type CallToActionType = 'JOIN_SUBREDDIT' | 'REMIND_ME_TO_PLAY' | 'COMMENT' | null;
 
-  if (!didWin) return null;
+const CallToAction = ({
+  didWin,
+  challengeNumber,
+  stats,
+}: {
+  didWin: boolean;
+  challengeNumber: number;
+  stats: { score?: number | null; rank?: number | null; timeToSolve?: string | null };
+}) => {
+  const [cta, setCta] = useState<CallToActionType>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isCommentOpen, setIsCommentOpen] = useState(false);
+  const [comment, setComment] = useState('');
+  const [serverSuffix, setServerSuffix] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!didWin) return;
+    void (async () => {
+      try {
+        const next = await trpc.cta.getCallToAction.query({ challengeNumber });
+        setCta(next);
+      } catch {
+        setCta(null);
+      }
+    })();
+  }, [didWin, challengeNumber]);
+
+  if (cta === null) return null;
+
+  const doAction = async () => {
+    setIsLoading(true);
+    try {
+      if (cta === 'JOIN_SUBREDDIT') {
+        await trpc.cta.joinSubreddit.mutate({});
+      } else if (cta === 'REMIND_ME_TO_PLAY') {
+        await trpc.cta.setReminder.mutate({});
+      } else if (cta === 'COMMENT') {
+        // Preload the server-computed suffix before opening modal
+        try {
+          const res = await trpc.cta.getCommentSuffix.query({ challengeNumber });
+          setServerSuffix(res.suffix);
+        } catch {
+          setServerSuffix(null);
+        }
+        setIsCommentOpen(true);
+        return;
+      }
+      const next = await trpc.cta.getCallToAction.query({ challengeNumber });
+      setCta(next);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const submitComment = async () => {
+    if (!comment.trim()) return;
+    setIsLoading(true);
+    try {
+      const text = comment.trim();
+      await trpc.cta.submitComment.mutate({ challengeNumber, comment: text });
+      setIsCommentOpen(false);
+      setComment('');
+      const next = await trpc.cta.getCallToAction.query({ challengeNumber });
+      setCta(next);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const label =
+    cta === 'JOIN_SUBREDDIT'
+      ? 'Join r/hotandcold'
+      : cta === 'REMIND_ME_TO_PLAY'
+        ? 'Remind me to play every day'
+        : 'Share your results in the thread';
 
   return (
-    <div className="cursor-pointer rounded-full text-sm font-semibold">
-      <GradientBorder>
-        <label className="flex items-center justify-center gap-2 p-4">
-          <input
-            type="checkbox"
-            checked={isUserOptedIntoReminders}
-            onChange={() => setOptIn((v) => !v)}
-            className="size-4 appearance-none rounded-sm border border-gray-900 accent-blue-500 checked:appearance-auto dark:border-white dark:accent-blue-600"
+    <div className="text-sm">
+      <button
+        type="button"
+        onClick={doAction}
+        disabled={isLoading}
+        className="w-full cursor-pointer rounded-full bg-zinc-100 text-black focus:outline-none focus:ring-2 focus:ring-slate-400 focus:ring-offset-2 focus:ring-offset-slate-50 dark:bg-zinc-800 dark:text-white"
+      >
+        <GradientBorder isHidden={isLoading}>
+          <span className="inline-block px-4 py-3">{isLoading ? 'Working…' : label}</span>
+        </GradientBorder>
+      </button>
+
+      <Modal isOpen={isCommentOpen} onClose={() => setIsCommentOpen(false)}>
+        <div className="w-[90vw] max-w-md rounded-xl border border-gray-200 bg-white p-4 text-black shadow-xl dark:border-gray-700 dark:bg-gray-900 dark:text-white">
+          <h2 className="mb-2 text-lg font-bold">Share your results</h2>
+          <p className="mb-3 text-sm text-gray-600 dark:text-gray-300">
+            Say something about your game. We'll post this as a comment on your behalf.
+          </p>
+          <textarea
+            className="mb-3 h-28 w-full resize-none rounded-md border border-gray-300 bg-white p-2 text-sm text-black outline-none focus:ring-2 focus:ring-blue-400 dark:border-gray-700 dark:bg-gray-800 dark:text-white"
+            value={comment}
+            onInput={(e) => setComment((e.target as HTMLTextAreaElement).value)}
+            placeholder={`I scored ${stats.score ?? '--'} in ${stats.timeToSolve ?? '--'} and ranked #${stats.rank ?? '--'}!`}
           />
-          <span className="select-none">Remind me to play every day</span>
-        </label>
-      </GradientBorder>
+          {serverSuffix && (
+            <p className="-mt-2 mb-3 text-[10px] leading-4 text-gray-500 dark:text-gray-400">
+              {serverSuffix}
+            </p>
+          )}
+          <div className="flex justify-end gap-2">
+            <button
+              type="button"
+              className="rounded-md px-3 py-2 text-sm text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800"
+              onClick={() => setIsCommentOpen(false)}
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              className="rounded-md bg-blue-600 px-3 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-60"
+              onClick={submitComment}
+              disabled={!comment.trim() || isLoading}
+            >
+              Post comment
+            </button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 };
@@ -119,7 +228,7 @@ export function WinPage() {
   const percentageOutperformed = calculatePercentageOutperformed(playerRank, totalPlayers);
 
   return (
-    <div className={cn('flex flex-1 flex-col gap-4 px-4')}>
+    <div className={cn('flex flex-1 flex-col gap-6 px-4')}>
       <div className="mx-auto">
         <Tablist
           activeIndex={activeIndex}
@@ -130,7 +239,7 @@ export function WinPage() {
 
       <div className="mx-auto w-full max-w-xl flex-auto px-4">
         {activeIndex === 0 && (
-          <div className="flex h-full flex-col items-center justify-center gap-8">
+          <div className="flex h-full flex-col items-center justify-start gap-8">
             <h1 className="text-center text-2xl font-bold text-gray-900 dark:text-white">
               {didWin ? 'Congratulations!' : 'Nice Try!'} The word was:{' '}
               <span className="text-[#dd4c4c]">{word?.word ?? '—'}</span>
@@ -172,7 +281,18 @@ export function WinPage() {
               />
               <StatCard title="Rank" value={didWin ? `#${userRank ?? '--'}` : '--'} />
             </div>
-            {/* <CallToAction didWin={didWin} /> */}
+            <CallToAction
+              didWin={didWin}
+              challengeNumber={challengeNumber}
+              stats={{
+                score: challengeUserInfo.score?.finalScore ?? null,
+                rank: userRank ?? null,
+                timeToSolve: getPrettyDuration(
+                  new Date(challengeUserInfo.startedPlayingAtMs!),
+                  new Date(challengeUserInfo.solvedAtMs ?? challengeUserInfo.gaveUpAtMs!)
+                ),
+              }}
+            />
           </div>
         )}
 

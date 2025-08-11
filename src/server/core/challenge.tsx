@@ -2,7 +2,6 @@ import { z } from 'zod';
 import { redisNumberString } from '../utils';
 import { fn } from '../../shared/fn';
 import { redis, reddit, Post } from '@devvit/web/server';
-import { RichTextBuilder } from '@devvit/public-api';
 import { wordsOfTheDay } from '../wordlist';
 
 export const stringifyValues = <T extends Record<string, any>>(obj: T): Record<keyof T, string> => {
@@ -15,6 +14,8 @@ export namespace Challenge {
   export const CurrentChallengeNumberKey = () => 'current_challenge_number' as const;
 
   export const ChallengeKey = (challengeNumber: number) => `challenge:${challengeNumber}` as const;
+  export const ChallengePostIdKey = (challengeNumber: number) =>
+    `challenge:${challengeNumber}:postId` as const;
 
   const challengeSchema = z
     .object({
@@ -22,7 +23,6 @@ export namespace Challenge {
       // we don't get rate limited by calling setPostData on
       // every user guess.
       challengeNumber: z.string(),
-      winnersCircleCommentId: z.string(),
       totalPlayers: redisNumberString.optional(),
       totalSolves: redisNumberString.optional(),
       totalGuesses: redisNumberString.optional(),
@@ -76,6 +76,26 @@ export namespace Challenge {
     }),
     async ({ challengeNumber, config }) => {
       await redis.hSet(Challenge.ChallengeKey(challengeNumber), stringifyValues(config));
+    }
+  );
+
+  export const setPostIdForChallenge = fn(
+    z.object({
+      challengeNumber: z.number().gt(0),
+      postId: z.string(),
+    }),
+    async ({ challengeNumber, postId }) => {
+      await redis.set(ChallengePostIdKey(challengeNumber), postId);
+    }
+  );
+
+  export const getPostIdForChallenge = fn(
+    z.object({
+      challengeNumber: z.number().gt(0),
+    }),
+    async ({ challengeNumber }) => {
+      const postId = await redis.get(ChallengePostIdKey(challengeNumber));
+      return postId ?? null;
     }
   );
 
@@ -154,7 +174,7 @@ export namespace Challenge {
     }
 
     try {
-      post = await reddit.submitPost({
+      post = await reddit.submitCustomPost({
         subredditName: currentSubreddit.name,
         title: `Hot and cold #${newChallengeNumber}`,
         // @ts-expect-error - types are wrong for inline mode
@@ -164,16 +184,10 @@ export namespace Challenge {
         },
       });
 
-      const winnersCircleComment = await post.addComment({
-        richtext: new RichTextBuilder().paragraph((c) => c.text({ text: `🏆 Winner's Circle 🏆` })),
-      });
-      await winnersCircleComment.distinguish(true);
-
       await setChallenge({
         challengeNumber: newChallengeNumber,
         config: {
           challengeNumber: newChallengeNumber.toString(),
-          winnersCircleCommentId: winnersCircleComment.id,
           totalPlayers: '0',
           totalSolves: '0',
           totalGuesses: '0',
@@ -181,6 +195,8 @@ export namespace Challenge {
           totalGiveUps: '0',
         },
       });
+
+      await setPostIdForChallenge({ challengeNumber: newChallengeNumber, postId: post.id });
 
       await setCurrentChallengeNumber({ number: newChallengeNumber });
 

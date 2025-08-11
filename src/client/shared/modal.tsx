@@ -20,23 +20,32 @@ export const Modal: FunctionalComponent<ModalProps> = ({
 }) => {
   const modalRef = useRef<HTMLDivElement>(null);
   const previousActiveElement = useRef<HTMLElement | null>(null);
+  const onCloseRef = useRef(onClose);
+
+  // Keep a stable reference to the latest onClose without retriggering the open effect
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  }, [onClose]);
 
   useEffect(() => {
     if (!isOpen) return;
 
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') onClose();
+      if (event.key === 'Escape') onCloseRef.current?.();
     };
 
     previousActiveElement.current = document.activeElement as HTMLElement;
-    modalRef.current?.focus();
+    const el = modalRef.current;
+    if (el && document.activeElement !== el && !el.contains(document.activeElement)) {
+      el.focus();
+    }
     document.addEventListener('keydown', handleKeyDown);
 
     return () => {
       document.removeEventListener('keydown', handleKeyDown);
       previousActiveElement.current?.focus();
     };
-  }, [isOpen, onClose]);
+  }, [isOpen]);
 
   // Render nothing when closed
   if (!isOpen) return null;

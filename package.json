@@ -35,14 +35,14 @@
     "scripts:make": "npm run scripts:make-db && npm run scripts:generate-word-csv"
   },
   "dependencies": {
-    "@devvit/web": "0.11.20-next-2025-08-07-00-01-16-ed0c25759.0",
-    "@devvit/shared-types": "0.11.20-next-2025-08-07-00-01-16-ed0c25759.0",
+    "@devvit/web": "0.11.20-next-2025-08-11-17-12-53-6094f1b51.0",
+    "@devvit/shared-types": "0.11.20-next-2025-08-11-17-12-53-6094f1b51.0",
     "@preact/signals": "^1.2.2",
     "clsx": "2.1.1",
     "ioredis": "5.7.0",
     "redis-memory-server": "0.12.1",
     "express": "4.19.2",
-    "devvit": "0.11.20-next-2025-08-07-00-01-16-ed0c25759.0",
+    "devvit": "0.11.20-next-2025-08-11-17-12-53-6094f1b51.0",
     "preact": "^10.25.3",
     "sqlite-vec": "0.1.7-alpha.2",
     "better-sqlite3": "12.2.0",
