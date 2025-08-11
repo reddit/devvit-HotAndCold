@@ -1,7 +1,6 @@
-import { useMemo, useRef, useState } from 'preact/hooks';
+import { useMemo, useState } from 'preact/hooks';
 import { WordInput } from '../shared/wordInput';
 import { Guesses } from '../shared/guesses';
-import { rankToProgress } from '../../shared/progress';
 import type { GuessEngine, GuessHistoryItem } from '../core/guessEngine';
 import { formatOrdinal } from '../../shared/ordinal';
 
@@ -15,13 +14,13 @@ export function PlayPage({ engine }: { engine?: GuessEngine }) {
     return { items: itemsSignal, itemsArray: arr, latest: last } as const;
   }, [engine, engine?.history.value]);
 
-  const computeHeat = (rank: number) => {
-    const pct = Math.round(rankToProgress(rank));
-    if (pct >= 100) return 'CORRECT' as const;
-    if (pct >= 80) return 'HOT' as const;
-    if (pct >= 40) return 'WARM' as const;
-    return 'COLD' as const;
-  };
+  // const computeHeat = (rank: number) => {
+  //   const pct = Math.round(rankToProgress(rank));
+  //   if (pct >= 100) return 'CORRECT' as const;
+  //   if (pct >= 80) return 'HOT' as const;
+  //   if (pct >= 40) return 'WARM' as const;
+  //   return 'COLD' as const;
+  // };
 
   const generateOnboarding = (arr: GuessHistoryItem[]): string | null => {
     if (!arr || arr.length === 0) return null;

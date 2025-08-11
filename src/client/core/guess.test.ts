@@ -121,7 +121,6 @@ function installIndexedDbStub() {
     }, 0);
     return req as unknown as any;
   };
-  // @ts-expect-error: assign test stub
   globalThis.indexedDB = { open } as unknown as any;
 }
 

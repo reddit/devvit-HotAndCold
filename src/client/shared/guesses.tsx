@@ -3,7 +3,6 @@ import { Signal } from '@preact/signals';
 import { cn } from '../utils/cn';
 import { userSettings } from '../classic/state/userSettings';
 import { useDimensions } from './useDimensions';
-import { rankToProgress } from '../../shared/progress';
 
 export type GuessItem = {
   word: string;
