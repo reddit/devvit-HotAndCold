@@ -1,39 +1,32 @@
 {
-  "deno.enablePaths": ["supabase/functions"],
-  "deno.lint": true,
-  "deno.unstable": [
-    "bare-node-builtins",
-    "byonm",
-    "sloppy-imports",
-    "unsafe-proto",
-    "webgpu",
-    "broadcast-channel",
-    "worker-options",
-    "cron",
-    "kv",
-    "ffi",
-    "fs",
-    "http",
-    "net"
-  ],
   "[typescript]": {
     "editor.defaultFormatter": "esbenp.prettier-vscode"
   },
+  "json.schemaDownload.enable": true,
   "cSpell.words": [
-    "devvit",
-    "hotandcold",
-    "mydevvit",
+    "cn",
+    "Devvit",
+    "hoarde",
     "playtest",
+    "protos",
     "snoovatar",
-    "uniqued",
+    "templ",
+    "venv",
     "vstack",
+    "webbit",
     "webroot",
-    "zoddy",
     "zstack"
   ],
-  "vitest.disableWorkspaceWarning": true,
-  "tailwindCSS.experimental.configFile": {
-    "packages/raid-webview/tailwind.config.js": "packages/raid*/**",
-    "packages/classic-webview/tailwind.config.js": "**"
+  "typescript.tsdk": "node_modules/typescript/lib",
+  "files.exclude": {
+    "**/.git": false
+  },
+  "search.exclude": {
+    "**/node_modules": true,
+    "**/bower_components": true,
+    "**/public": true,
+    "**/*.code-search": true,
+    "**/*.txt": true,
+    "**/*.sqlite": true
   }
 }

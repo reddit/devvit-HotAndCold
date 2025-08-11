@@ -1,0 +1,29 @@
+@import 'tailwindcss';
+
+/* Ensure the app fully fills the iframe and cannot scroll */
+html,
+body {
+  height: 100%;
+  overflow: hidden;
+  overscroll-behavior: none;
+  overscroll-behavior-y: none;
+  touch-action: none;
+  -webkit-overflow-scrolling: auto;
+}
+
+#root {
+  height: 100%;
+}
+
+/* Hide any scrollbars if a browser tries to render them */
+body::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+}
+
+/* Prevent scroll chaining/bounce inside iframes on supporting browsers */
+iframe,
+html,
+body {
+  overscroll-behavior: none;
+}
