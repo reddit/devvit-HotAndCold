@@ -103,6 +103,8 @@ export function createGuessEngine(params: {
   // local state (non-reactive)
   let lastSubmitTs = 0;
   const guessedSet = new Set<string>();
+  // Tracks only distinct guesses made during the current in-memory session
+  const sessionGuessedSet = new Set<string>();
   let preloadTierReached = 0; // 0=none,1=first batch,2=second batch,3=all remaining
   let letterOrderPromise: Promise<string[]> | null = null;
 
@@ -127,7 +129,8 @@ export function createGuessEngine(params: {
 
   const maybeSchedulePreloads = () => {
     if (preloadTierReached >= 3) return;
-    const distinct = guessedSet.size;
+    // Only count guesses made in this runtime session
+    const distinct = sessionGuessedSet.size;
     if (distinct >= 1 && preloadTierReached < 1) {
       preloadTierReached = 1;
       void triggerPreloadForTier(1);
@@ -143,7 +146,7 @@ export function createGuessEngine(params: {
   };
 
   // hydrate tier 1: local history from localStorageSignal
-  // Seed guessedSet from hydrated history
+  // Seed guessedSet from hydrated history (used for duplicate checks only)
   if (Array.isArray(history.value) && history.value.length > 0) {
     const words = history.value.map((i) => i.word);
     words.forEach((w) => guessedSet.add(w));
@@ -152,9 +155,6 @@ export function createGuessEngine(params: {
       solvedAtMs.value = winning.timestamp ?? Date.now();
       markSolvedForCurrentChallenge(solvedAtMs.value);
     }
-
-    // Schedule background preloading based on prior distinct guesses
-    maybeSchedulePreloads();
   }
 
   // no explicit guesses signal; derive when needed from history
@@ -343,6 +343,7 @@ export function createGuessEngine(params: {
       }
       batch(() => {
         guessedSet.add(corrected);
+        sessionGuessedSet.add(corrected);
         const item: GuessHistoryItem = {
           word: corrected,
           similarity: data.similarity,
@@ -451,6 +452,9 @@ export function createGuessEngine(params: {
       solvedAtMs.value = null;
     });
     guessedSet.clear();
+    sessionGuessedSet.clear();
+    preloadTierReached = 0;
+    letterOrderPromise = null;
   };
 
   return {
