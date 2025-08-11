@@ -7,6 +7,7 @@
   "scripts": {
     "playtest": "dotenvx run -f ../../.env.development -- sh -c 'devvit playtest $SUBREDDIT --config=../../$RAID_DEVVIT_CONFIG'",
     "dev:upload": "dotenvx run -f ../../.env.development -- sh -c 'devvit upload --config=../../$RAID_DEVVIT_CONFIG'",
+    "dev:publish": "dotenvx run -f ../../.env.development -- sh -c 'devvit publish --config=../../$RAID_DEVVIT_CONFIG'",
     "lint": "eslint ./src/",
     "prettier": "prettier --write .",
     "test": "vitest run --passWithNoTests",

@@ -58,24 +58,26 @@ export const initialize = async (context: TriggerContext) => {
     redis: context.redis,
   });
 
-  let jobs = await context.scheduler.listJobs();
-  for (let job of jobs) {
+  const jobs = await context.scheduler.listJobs();
+  for (const job of jobs) {
     await context.scheduler.cancelJob(job.id);
   }
 
-  await context.scheduler.runJob({
-    // Time is in UTC, so I think this is 2pm? It's around there :D
-    cron: '0 19 * * 2,5',
-    name: 'DROP_RAID',
-    data: {},
-  });
+  // Do nothing on initialize so that we don't run the cron any more since this is the old game.
 
-  await context.scheduler.runJob({
-    // Every minute
-    cron: '* * * * *',
-    name: 'FAUCET_REFRESH_ALL_ACTIVE_CHALLENGES',
-    data: {},
-  });
+  // await context.scheduler.runJob({
+  //   // Time is in UTC, so I think this is 2pm? It's around there :D
+  //   cron: '0 19 * * 2,5',
+  //   name: 'DROP_RAID',
+  //   data: {},
+  // });
+
+  // await context.scheduler.runJob({
+  //   // Every minute
+  //   cron: '* * * * *',
+  //   name: 'FAUCET_REFRESH_ALL_ACTIVE_CHALLENGES',
+  //   data: {},
+  // });
 };
 
 Devvit.addTrigger({

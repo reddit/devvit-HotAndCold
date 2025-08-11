@@ -87,12 +87,14 @@ export const initialize = async (context: TriggerContext) => {
     await context.scheduler.cancelJob(job.id);
   }
 
-  await context.scheduler.runJob({
-    // Time is in UTC, so I think this is 8am? It's around there :D
-    cron: '0 13 * * *',
-    name: 'DAILY_GAME_DROP',
-    data: {},
-  });
+  // Do nothing on initialize so that we don't run the cron any more since this is the old game.
+
+  // await context.scheduler.runJob({
+  //   // Time is in UTC, so I think this is 8am? It's around there :D
+  //   cron: '0 13 * * *',
+  //   name: 'DAILY_GAME_DROP',
+  //   data: {},
+  // });
 };
 
 Devvit.addTrigger({

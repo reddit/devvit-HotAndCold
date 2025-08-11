@@ -31,8 +31,10 @@
     "type-check": "npm run type-check --workspaces --if-present",
     "pre-upload": "npm run type-check && npm run test",
     "upload:classic": "npm run pre-upload && cd packages/classic-webview && npm run build && cd ../classic && devvit upload --config=devvit.prod.yaml",
+    "publish:classic": "npm run pre-upload && cd packages/classic-webview && npm run build && cd ../classic && devvit publish --config=devvit.prod.yaml",
     "dev:upload:classic": "npm run pre-upload && npm run dev:upload --workspace packages/classic",
     "upload:raid": "npm run pre-upload && cd packages/raid-webview && npm run build && cd ../raid && devvit upload --config=devvit.prod.yaml",
+    "publish:raid": "npm run pre-upload && cd packages/raid-webview && npm run build && cd ../raid && devvit publish --config=devvit.prod.yaml",
     "dev:upload:raid": "npm run pre-upload && npm run dev:upload --workspace packages/raid"
   },
   "dependencies": {
