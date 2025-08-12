@@ -1,6 +1,6 @@
 {
   "$schema": "https://developers.reddit.com/schema/config-file.v1.json",
-  "name": "hotandcold-app",
+  "name": "hotandcold2-app",
   "post": {
     "dir": "dist/client",
     "entrypoints": {
@@ -23,9 +23,6 @@
         "endpoint": "/internal/menu/post-create"
       }
     ]
-  },
-  "triggers": {
-    "onAppInstall": "/internal/on-app-install"
   },
   "scheduler": {
     "tasks": {
