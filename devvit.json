@@ -1,0 +1,44 @@
+{
+  "$schema": "https://developers.reddit.com/schema/config-file.v1.json",
+  "name": "hotandcold2-app",
+  "post": {
+    "dir": "dist/client",
+    "entrypoints": {
+      "default": {
+        "entry": "classic.html"
+      }
+    }
+  },
+  "server": {
+    "dir": "dist/server",
+    "entry": "index.cjs"
+  },
+  "menu": {
+    "items": [
+      {
+        "label": "Create a new post",
+        "description": "hotandcold",
+        "location": "subreddit",
+        "forUserType": "moderator",
+        "endpoint": "/internal/menu/post-create"
+      }
+    ]
+  },
+  "scheduler": {
+    "tasks": {
+      "create-new-challenge": {
+        "cron": "0 12 * * *",
+        "endpoint": "/internal/scheduler/create-new-challenge",
+        "data": {}
+      }
+    }
+  },
+  "permissions": {
+    "reddit": {
+      "asUser": ["SUBMIT_COMMENT", "SUBSCRIBE_TO_SUBREDDIT"]
+    }
+  },
+  "dev": {
+    "subreddit": "hotandcold2_app_dev"
+  }
+}

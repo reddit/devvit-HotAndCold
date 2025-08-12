@@ -5,10 +5,7 @@ logs
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
-.DS_STORE
-venv
-.env
-words/output/openai/** 
-*.devvit.yaml
-.env.development
+.DS_Store
 webroot
+dist
+words

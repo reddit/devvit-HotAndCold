@@ -1,1 +1,0 @@
-export const TOTAL_WORDS_IN_DICTIONARY = 72_290;

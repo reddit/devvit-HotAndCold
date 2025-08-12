@@ -1,0 +1,5 @@
+.editorconfig
+.vscode
+.github
+.prettierrc
+*.txt

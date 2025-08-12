@@ -1,0 +1,53 @@
+diff --git a/node_modules/@devvit/build-pack/esbuild/templatizer/blocks.template.js b/node_modules/@devvit/build-pack/esbuild/templatizer/blocks.template.js
+index 437adc1..be73877 100644
+--- a/node_modules/@devvit/build-pack/esbuild/templatizer/blocks.template.js
++++ b/node_modules/@devvit/build-pack/esbuild/templatizer/blocks.template.js
+@@ -32,20 +32,34 @@ function configurePermissions(permissions) {
+ }
+ function configurePost(name, post) {
+     const defaultEntrypoint = post.entrypoints.default;
+-    Devvit.addCustomPostType({
+-        name: '',
+-        render: (ctx) => {
+-            const postDataHeader = ctx.metadata[Header.PostData]?.values[0];
+-            const postData = postDataHeader ? JSON.parse(postDataHeader) : {};
+-            const splash = postData.splash;
+-            return (Devvit.createElement(Splash, { appDisplayName: splash?.appDisplayName || name, appIconUri: splash?.appIconUri, backgroundUri: splash?.backgroundUri, buttonLabel: splash?.buttonLabel, description: splash?.description, entryUri: splash?.entryUri || defaultEntrypoint.entry, height: splash?.height == null
+-                    ? defaultEntrypoint.height
+-                    : splash.height === Height.TALL
+-                        ? 'tall'
+-                        : 'regular', title: splash?.title }));
+-        },
+-        height: defaultEntrypoint.height,
+-    });
++
++      Devvit.addCustomPostType({
++          name: '',
++          render: (ctx) => {
++              const postDataHeader = ctx.metadata[Header.PostData]?.values[0];
++              const postData = postDataHeader ? JSON.parse(postDataHeader) : {};
++              const splash = postData.splash;
++              return (Devvit.createElement('webview', { id: 'webview', url: defaultEntrypoint.entry, width: '100%', height: '100%' }));
++          },
++          height: defaultEntrypoint.height,
++      });
++      
++      // Devvit.addCustomPostType({
++      //     name: '',
++      //     render: (ctx) => {
++      //         const postDataHeader = ctx.metadata[Header.PostData]?.values[0];
++      //         const postData = postDataHeader ? JSON.parse(postDataHeader) : {};
++      //         const splash = postData.splash;
++      //         return (Devvit.createElement(Splash, { appDisplayName: splash?.appDisplayName || name, appIconUri: splash?.appIconUri, backgroundUri: splash?.backgroundUri, buttonLabel: splash?.buttonLabel, description: splash?.description, entryUri: splash?.entryUri || defaultEntrypoint.entry, height: splash?.height == null
++      //                 ? defaultEntrypoint.height
++      //                 : splash.height === Height.TALL
++      //                     ? 'tall'
++      //                     : 'regular', title: splash?.title }));
++      //     },
++      //     height: defaultEntrypoint.height,
++      // });
++
++
+ }
+ function configureMenuItems(menuItems) {
+     for (const action of menuItems) {
