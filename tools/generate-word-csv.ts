@@ -24,6 +24,7 @@ import Database from 'better-sqlite3';
 import { join, dirname, basename } from 'path';
 import { fileURLToPath } from 'url';
 import { readFileSync, mkdirSync, createWriteStream, existsSync, rmSync, cpSync } from 'fs';
+import { validateWordList } from './word-utils.ts';
 
 // ---------------------------------------------------------------------------
 // Paths & constants
@@ -112,6 +113,8 @@ async function main() {
   cleanOutputDir();
 
   const targets = loadTargetWords(wordListPath);
+  // Validate target word list before proceeding
+  await validateWordList(targets);
   if (targets.length === 0) {
     console.error(`No words found in list file ${basename(wordListPath)}`);
     process.exit(1);
@@ -232,6 +235,8 @@ async function main() {
   syncChallengesToClientPublic();
   copyWordListToServer(wordListPath);
   copyLemmaToClientPublic();
+
+  process.exit(0);
 }
 
 main().catch((err) => {

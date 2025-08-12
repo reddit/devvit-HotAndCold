@@ -474,3 +474,46 @@ export async function shouldFilterAsync(word: string): Promise<boolean> {
   }
   return false;
 }
+
+/**
+ * Validates a list of words.
+ * - Throws if there are duplicates (case-insensitive, trimmed comparison)
+ * - Throws if any word would be filtered by the configured filters
+ */
+export async function validateWordList(words: string[]): Promise<void> {
+  // Detect duplicates using a normalized representation
+  const seen = new Set<string>();
+  const duplicateSet = new Set<string>();
+  for (const word of words) {
+    const normalized = word.toLowerCase().trim();
+    if (seen.has(normalized)) {
+      duplicateSet.add(normalized);
+    } else {
+      seen.add(normalized);
+    }
+  }
+
+  if (duplicateSet.size > 0) {
+    const duplicates = Array.from(duplicateSet).sort();
+    throw new Error(`Duplicate words detected: ${duplicates.join(', ')}`);
+  }
+
+  // Check filtering in parallel for performance
+  const filterResults = await Promise.all(words.map((w) => shouldFilterAsync(w)));
+  const filteredWords: string[] = [];
+  for (let i = 0; i < words.length; i++) {
+    if (filterResults[i]) filteredWords.push(words[i]!);
+  }
+
+  if (filteredWords.length > 0) {
+    // De-duplicate while preserving original casing ordering of first occurrences
+    const seenFiltered = new Set<string>();
+    const uniqueFiltered = filteredWords.filter((w) => {
+      const key = w.toLowerCase().trim();
+      if (seenFiltered.has(key)) return false;
+      seenFiltered.add(key);
+      return true;
+    });
+    throw new Error(`Filtered words detected: ${uniqueFiltered.join(', ')}`);
+  }
+}

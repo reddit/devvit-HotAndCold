@@ -31,8 +31,9 @@
     "scripts:query-db": "node ./tools/query-db.ts 'SELECT count(*) FROM words;'",
     "scripts:extract-words": "node ./tools/extract-words.ts",
     "scripts:test-filter-words": "node ./tools/test-filter-words.ts",
+    "scripts:clean-word-list": "node ./tools/clean-word-list.ts",
     "scripts:generate-word-csv": "node ./tools/generate-word-csv.ts",
-    "scripts:make": "npm run scripts:make-db && npm run scripts:generate-word-csv"
+    "scripts:make": "npm run scripts:make-db && npm run scripts:clean-word-list && npm run scripts:generate-word-csv"
   },
   "dependencies": {
     "@devvit/web": "0.11.20-next-2025-08-11-17-12-53-6094f1b51.0",
