@@ -1,47 +1,85 @@
 // Utility functions and constants for word filtering used across tools.
 // Feel free to extend this list or tweak the predicates as needs evolve.
 
-import { spawn } from 'child_process';
-import type { ChildProcessWithoutNullStreams } from 'child_process';
-import * as path from 'path';
-import { writeFileSync, mkdirSync } from 'fs';
-import { fileURLToPath } from 'url';
-
-const TOOLS_DIR = path.dirname(fileURLToPath(import.meta.url));
-// Path to write lemma lookup table (generated at runtime)
-const LEMMA_CSV_PATH = path.join(TOOLS_DIR, '..', 'words', 'lemma.csv');
-// In-memory cache of word ➜ lemma mappings discovered during processing
-const lemmaMap = new Map<string, string>();
+import OpenAI from 'openai';
+import fs from 'node:fs/promises';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 // ---------------------------------------------------------------------------
-// Manual lemma overrides for words that the automatic lemmatizer gets wrong.
-// ONLY insert lowercase words here. The key is the original word, the value
-// is its correct lemma form.
+// OpenAI Lemmatizer Setup
 // ---------------------------------------------------------------------------
-const LEMMA_OVERRIDES: Record<string, string> = {
-  was: 'be',
-  has: 'have',
-  reddits: 'reddit',
-};
 
-// Flush the collected mappings to disk when the current Node process exits. This
-// guarantees that large batch scripts (e.g. test-filter-words.ts) only perform
-// a single write at the very end rather than for every word.
-process.on('exit', () => {
-  if (lemmaMap.size === 0) return;
-  try {
-    // Ensure the destination directory exists (it should for the filter tools,
-    // but make this defensive so other callers are safe too).
-    mkdirSync(path.dirname(LEMMA_CSV_PATH), { recursive: true });
-    let csv = 'word,lemma\n';
-    for (const [word, lemma] of lemmaMap) {
-      csv += `${word},${lemma}\n`;
-    }
-    writeFileSync(LEMMA_CSV_PATH, csv, 'utf8');
-  } catch (err) {
-    console.warn('⚠️  Unable to write lemma lookup CSV:', err);
+function getOpenAIKey(): string {
+  const key = process.env.OPENAI_API_KEY || '';
+  if (!key) {
+    throw new Error('Missing OPENAI_API_KEY environment variable for openai.');
   }
-});
+  return key;
+}
+
+const LEMMA_SYSTEM_PROMPT = `You are a English lemmatizer.
+Given a single English token, return ONLY its lemma (dictionary base form).
+
+Rules:
+- Output exactly one lowercase word, no punctuation, no quotes, no extra text.
+- If the input is already a lemma, return it unchanged.
+- Handle nouns, verbs, adjectives, adverbs.
+- Do not translate or explain. If unsure, return the input as-is.
+- Keep proper nouns lowercase as provided.
+
+Examples:
+doing -> do
+apples -> apple
+eyeball -> eyeball
+when -> when
+running -> run
+children -> child
+chronologically -> chronology
+mathematically -> mathematics
+geese -> goose`;
+
+async function getLemmaFromOpenAI(word: string): Promise<string | null> {
+  const client = new OpenAI({ apiKey: getOpenAIKey() });
+  const response = await client.responses.create({
+    model: 'gpt-5',
+    reasoning: {
+      effort: 'minimal',
+      summary: 'auto',
+    },
+    instructions: LEMMA_SYSTEM_PROMPT,
+    input: `Input: ${word}\nOutput:`,
+  });
+  // Normalize: pick first alphabetical token, lowercase
+  const match = response.output_text.toLowerCase().match(/[a-z'-]+/);
+  return match ? match[0] : null;
+}
+
+// ---------------------------------------------------------------------------
+// Lemma CSV writer
+// ---------------------------------------------------------------------------
+
+const THIS_DIR = path.dirname(fileURLToPath(import.meta.url));
+const LEMMA_OUT_DIR = path.join(THIS_DIR, '..', 'new');
+const LEMMA_OUT_FILE = path.join(LEMMA_OUT_DIR, 'lemma.csv');
+
+let lemmaFileInitialized = false;
+
+async function ensureLemmaFileReady(): Promise<void> {
+  if (lemmaFileInitialized) return;
+  await fs.mkdir(LEMMA_OUT_DIR, { recursive: true });
+  try {
+    await fs.access(LEMMA_OUT_FILE);
+  } catch {
+    await fs.writeFile(LEMMA_OUT_FILE, 'word,lemma\n', 'utf8');
+  }
+  lemmaFileInitialized = true;
+}
+
+async function appendLemmaPair(original: string, lemma: string): Promise<void> {
+  await ensureLemmaFileReady();
+  await fs.appendFile(LEMMA_OUT_FILE, `${original},${lemma}\n`, 'utf8');
+}
 
 class ProfanityFilter {
   private profanitySet: Set<string>;
@@ -253,71 +291,81 @@ class ProfanityFilter {
 // Singleton instance for performance
 const profanityFilter = new ProfanityFilter();
 
-// ---------------------------------------------------------------------------
-// LemmaServer – maintains a persistent Python (lemminflect) subprocess
-// ---------------------------------------------------------------------------
-
-class LemmaServer {
-  private proc: ChildProcessWithoutNullStreams | null = null;
-  private queue: Array<{ resolve: (lemmas: string[]) => void; reject: (err: Error) => void }> = [];
-  private buffer = '';
-
-  constructor() {
-    this.start();
-  }
-
-  private start() {
-    const PY_CODE = `import sys, json, lemminflect\nPOS = ['NOUN','VERB','ADJ','ADV']\nfor line in sys.stdin:\n    w = line.strip()\n    lemmas = set()\n    for tag in POS:\n        lemmas.update(lemminflect.getLemma(w, upos=tag))\n    print(json.dumps(list(lemmas)), flush=True)`;
-
-    try {
-      this.proc = spawn('python3', ['-u', '-c', PY_CODE]);
-      this.proc.stdout.setEncoding('utf8');
-      this.proc.stdout.on('data', (data: Buffer | string) => this.handleStdout(data.toString()));
-      this.proc.on('exit', (code) => {
-        const err = new Error(`LemmaServer exited with code ${code}`);
-        while (this.queue.length) this.queue.shift()!.reject(err);
-        this.proc = null;
-      });
-    } catch (err) {
-      console.warn('⚠️  Unable to start LemmaServer:', err);
-    }
-  }
-
-  private handleStdout(chunk: string) {
-    this.buffer += chunk;
-    let idx: number;
-    while ((idx = this.buffer.indexOf('\n')) !== -1) {
-      const line = this.buffer.slice(0, idx);
-      this.buffer = this.buffer.slice(idx + 1);
-      const pending = this.queue.shift();
-      if (!pending) continue;
-      try {
-        pending.resolve(JSON.parse(line));
-      } catch (err) {
-        pending.reject(err as Error);
-      }
-    }
-  }
-
-  async getLemmas(word: string): Promise<string[]> {
-    if (!this.proc) return [];
-    return new Promise((resolve, reject) => {
-      this.queue.push({ resolve, reject });
-      this.proc!.stdin.write(word + '\n');
-    });
-  }
-}
-
-// Singleton instance
-const lemmaServer = new LemmaServer();
-
 export type WordFilter = {
   name: string;
   fn: (word: string) => boolean | Promise<boolean>;
 };
 
+// ---------------------------------------------------------------------------
+// British → American spelling remap (hard-coded)
+// ---------------------------------------------------------------------------
+
+export const BRITISH_TO_AMERICAN_MAP = new Map<string, string>([
+  // -yse → -yze
+  ['analyse', 'analyze'],
+  ['paralyse', 'paralyze'],
+  ['catalyse', 'catalyze'],
+  ['dialyse', 'dialyze'],
+  ['lyse', 'lyze'],
+  // -iser/-izer agentives
+  ['analyser', 'analyzer'],
+  ['organiser', 'organizer'],
+  ['realiser', 'realizer'],
+  ['recogniser', 'recognizer'],
+  // -ise → -ize (sample)
+  ['organise', 'organize'],
+  ['recognise', 'recognize'],
+  ['realise', 'realize'],
+  ['stabilise', 'stabilize'],
+  ['generalise', 'generalize'],
+  ['prioritise', 'prioritize'],
+  ['apologise', 'apologize'],
+  ['emphasise', 'emphasize'],
+  ['normalise', 'normalize'],
+  ['publicise', 'publicize'],
+  // -isation → -ization
+  ['organisation', 'organization'],
+  ['realisation', 'realization'],
+  ['stabilisation', 'stabilization'],
+  ['generalisation', 'generalization'],
+  ['prioritisation', 'prioritization'],
+  ['emphasisation', 'emphasization'],
+  ['normalisation', 'normalization'],
+  ['publicisation', 'publicization'],
+  // -our → -or
+  ['colour', 'color'],
+  ['favour', 'favor'],
+  ['behaviour', 'behavior'],
+  ['neighbour', 'neighbor'],
+  ['honour', 'honor'],
+  ['labour', 'labor'],
+  ['rumour', 'rumor'],
+  ['humour', 'humor'],
+  ['endeavour', 'endeavor'],
+  ['armour', 'armor'],
+  // -re → -er
+  ['centre', 'center'],
+  ['metre', 'meter'],
+  ['litre', 'liter'],
+  ['theatre', 'theater'],
+  ['calibre', 'caliber'],
+  ['fibre', 'fiber'],
+  // -ogue → -og (common US variant)
+  ['catalogue', 'catalog'],
+  ['dialogue', 'dialog'],
+  ['monologue', 'monolog'],
+]);
+
+export function isBritishVariant(word: string): boolean {
+  return BRITISH_TO_AMERICAN_MAP.has(word.toLowerCase());
+}
+
 // Ordered list of filters.  The first matching rule short-circuits evaluation.
 export const filters: WordFilter[] = [
+  {
+    name: 'isBritishVariant',
+    fn: (w) => isBritishVariant(w),
+  },
   {
     name: 'hasNumbers',
     fn: (w) => /\d/.test(w),
@@ -333,7 +381,7 @@ export const filters: WordFilter[] = [
   },
   {
     name: 'isSpecialCharacter',
-    fn: (w) => /[!@#$%^&*()_+=[\]{};':"\\|,.<>/?]/.test(w),
+    fn: (w) => /[!@#$%^&*\-()_+=[\]{};':"\\|,.<>/?]/.test(w),
   },
   {
     name: 'isSingleLetter',
@@ -396,70 +444,27 @@ export const filters: WordFilter[] = [
   {
     name: 'lemmatized',
     fn: async (w) => {
-      // Skip very short words or words with special characters as LemmInflect may not handle them well
-      if (w.length < 3 || /[^a-zA-Z'-]/.test(w)) {
+      // Skip very short or non-basic tokens; other filters handle special chars already
+      if (w.length < 2 || /[^a-zA-Z'-]/.test(w)) {
+        console.log(`[lemma] ${w} -> (skipped) [kept]`);
         return false;
       }
-
-      try {
-        const lowerWord = w.toLowerCase();
-
-        // Check manual overrides first
-        const overrideLemma = LEMMA_OVERRIDES[lowerWord as keyof typeof LEMMA_OVERRIDES];
-        if (overrideLemma !== undefined) {
-          if (overrideLemma === lowerWord) {
-            return false; // already lemma form – keep the word
-          }
-          lemmaMap.set(lowerWord, overrideLemma);
-          return true; // filter because not already lemma form
-        }
-
-        const lemmas = await lemmaServer.getLemmas(lowerWord);
-        if (!lemmas.includes(lowerWord)) {
-          const lemma = lemmas[0] ?? lowerWord;
-          lemmaMap.set(lowerWord, lemma);
-          return true; // filter because not already lemma form
-        }
-        return false; // already lemma – keep the word
-      } catch {
+      const lower = w.toLowerCase();
+      const lemma = await getLemmaFromOpenAI(lower);
+      if (!lemma) {
+        console.log(`[lemma] ${lower} -> (none) [kept]`);
         return false;
       }
-      /*
-      // Leverage the Python `lemminflect` library (via a child process) to determine
-      // if the provided word is already in its lemmatized/base form.  We purposefully
-      // keep the Python logic self-contained so that developers do not need to add
-      // heavyweight JS NLP dependencies.
-      try {
-        const pythonCode = `import sys, json, lemminflect\nword = sys.argv[1]\npos_tags = ['NOUN','VERB','ADJ','ADV']\nlemmas = set()\nfor tag in pos_tags:\n    lemmas.update(lemminflect.getLemma(word, upos=tag))\nprint(json.dumps(list(lemmas)))`;
-
-        const result = spawnSync('python3', ['-c', pythonCode, w.toLowerCase()], {
-          encoding: 'utf8',
-        });
-
-        if (result.status !== 0 || !result.stdout) {
-          // If the Python process fails (missing python3 or lemminflect), default to
-          // keeping the word (i.e., do NOT filter) so we never accidentally lose data.
-          return false;
-        }
-
-        let lemmas: string[] = [];
+      const filtered = lemma !== lower;
+      console.log(`[lemma] ${lower} -> ${lemma} [${filtered ? 'filtered' : 'kept'}]`);
+      if (filtered) {
         try {
-          lemmas = JSON.parse(result.stdout.trim());
-        } catch {
-          // Unable to parse output – play it safe and keep the word.
-          return false;
+          await appendLemmaPair(lower, lemma);
+        } catch (err) {
+          console.warn(`Failed writing lemma pair to CSV for ${lower} -> ${lemma}:`, err);
         }
-
-        const lowerWord = w.toLowerCase();
-        const isLemma = lemmas.some((l) => l === lowerWord);
-
-        // Filter the word only if it is NOT already a lemma.
-        return !isLemma;
-      } catch {
-        // Any unexpected runtime error – keep the word.
-        return false;
       }
-      */
+      return filtered; // filter if not already lemma form
     },
   },
 ];
