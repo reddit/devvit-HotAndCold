@@ -18,7 +18,7 @@ export async function loadHintsForChallenge(challengeNumber: number): Promise<Hi
   const csv = await fetcher.request<string>(
     `/api/challenges/${String(challengeNumber)}/_hint.csv`,
     {
-      timeout: 5000,
+      timeout: 15000,
       maxAttempts: 3,
     }
   );

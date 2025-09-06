@@ -3,6 +3,7 @@ import { redisNumberString } from '../utils';
 import { fn } from '../../shared/fn';
 import { redis, reddit, Post } from '@devvit/web/server';
 import { WordQueue } from './wordQueue';
+import { getWordConfigCached } from './api';
 
 export const stringifyValues = <T extends Record<string, any>>(obj: T): Record<keyof T, string> => {
   return Object.fromEntries(
@@ -172,6 +173,9 @@ export namespace Challenge {
     }
 
     try {
+      // Sets the value in the redis cache for fast lookups
+      await getWordConfigCached({ word: newWord });
+
       post = await reddit.submitCustomPost({
         subredditName: currentSubreddit.name,
         title: `Hot and cold #${newChallengeNumber}`,

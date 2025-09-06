@@ -5,7 +5,12 @@ import { publicProcedure, router } from './trpc';
 import { createContext } from './context';
 import { createServer, getServerPort, redis } from '@devvit/web/server';
 import { Challenge } from './core/challenge';
-import { buildHintCsvForChallenge, buildLetterCsvForChallenge, getWord } from './core/api';
+import {
+  buildHintCsvForChallenge,
+  buildLetterCsvForChallenge,
+  getWord,
+  getWordConfig,
+} from './core/api';
 import { UserGuess } from './core/userGuess';
 import { User } from './core/user';
 import { ChallengeProgress } from './core/challengeProgress';
@@ -531,10 +536,14 @@ app.post('/internal/form/queue/add', async (req, res): Promise<void> => {
     if (prepend) {
       for (const c of toEnqueue) {
         await WordQueue.prepend({ challenge: c });
+        // This heats up the cache on the Supabase side
+        void getWordConfig({ word: c.word }).catch(() => {});
       }
     } else {
       for (const c of toEnqueue) {
         await WordQueue.append({ challenge: c });
+        // This heats up the cache on the Supabase side
+        void getWordConfig({ word: c.word }).catch(() => {});
       }
     }
 

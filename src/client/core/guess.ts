@@ -381,7 +381,7 @@ async function loadLetterMap(
 
   // Fetch and parse
   const csv = await fetcher.request<string>(`/api/challenges/${challengeNumber}/${letter}.csv`, {
-    timeout: 5000,
+    timeout: 15000,
     maxAttempts: 2,
   });
   const map = parseCsvToMap(csv);
