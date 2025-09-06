@@ -6,7 +6,7 @@ import { fileURLToPath } from 'url';
 
 const TOOLS_DIR = dirname(fileURLToPath(import.meta.url));
 const ROOT_DIR = join(TOOLS_DIR, '..');
-const DEFAULT_CSV_PATH = join(ROOT_DIR, 'words', 'new', 'lemma-map-full.finalized.csv');
+const DEFAULT_CSV_PATH = join(ROOT_DIR, 'words', 'new', 'lemma-map-full.retried.final.csv');
 
 function parseTopNFromArgs(): number | null {
   const raw = process.argv[2];

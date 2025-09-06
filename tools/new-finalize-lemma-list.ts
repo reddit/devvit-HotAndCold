@@ -3,6 +3,7 @@
 import { promises as fsp } from 'fs';
 import { basename, dirname, join } from 'path';
 import { BRITISH_TO_AMERICAN_MAP } from './word-utils.ts';
+import { chooseWinningLemma } from './word-utils.ts';
 import { fileURLToPath } from 'url';
 
 const TOOLS_DIR = dirname(fileURLToPath(import.meta.url));
@@ -46,11 +47,12 @@ const selectiveLemmaKeep: Record<string, string> = {
   // Add more like:
   // organisation: 'organization',
   instruction: 'instructions',
+  tons: 'ton',
 };
 
 function buildFilters(): WordLemmaFilter[] {
-  const invalidLemmas = new Set(['sett', 'hasidic', 'clomiphene']);
-  const invalidExpandedWords = new Set(['more', 'most', 's']);
+  const invalidLemmas = new Set(['sett', 'hasidic', 'clomiphene', 'ers', 'est', 'till', 'buss']);
+  const invalidExpandedWords = new Set(['more', 'most', 's', 'ers', 'est']);
 
   const filters: WordLemmaFilter[] = [
     {
@@ -224,6 +226,7 @@ type RemapResult = {
   rows: Row[];
   changedRows: number;
   droppedDuplicates: number;
+  syntheticAdded: number;
 };
 
 // Source of truth for British→American spelling map now lives in word-utils.ts
@@ -233,6 +236,10 @@ function applyLemmaRemap(rows: Row[], remap: Map<string, string>): RemapResult {
   const seen = new Set<string>();
   let changedRows = 0;
   let droppedDuplicates = 0;
+  let syntheticAdded = 0;
+
+  // Track which remap keys were actually used as lemmas in the input.
+  const remapFromUsed = new Set<string>();
 
   for (const r of rows) {
     let target = r.lemma;
@@ -240,7 +247,9 @@ function applyLemmaRemap(rows: Row[], remap: Map<string, string>): RemapResult {
     const localSeen = new Set<string>();
     while (remap.has(target) && !localSeen.has(target)) {
       localSeen.add(target);
-      target = remap.get(target)!;
+      const next = remap.get(target)!;
+      remapFromUsed.add(target);
+      target = next;
     }
     const key = r.word + '\t' + target;
     if (seen.has(key)) {
@@ -252,11 +261,27 @@ function applyLemmaRemap(rows: Row[], remap: Map<string, string>): RemapResult {
     out.push({ word: r.word, lemma: target });
   }
 
-  return { rows: out, changedRows, droppedDuplicates };
+  // Add synthetic rows to ensure the remapped-from lemma itself maps to the remapped-to lemma,
+  // but only if that remapped-from lemma actually appeared as a lemma in the input.
+  for (const from of remapFromUsed) {
+    const to = remap.get(from)!;
+    const key = from + '\t' + to;
+    if (!seen.has(key)) {
+      seen.add(key);
+      out.push({ word: from, lemma: to });
+      syntheticAdded++;
+    }
+  }
+
+  return { rows: out, changedRows, droppedDuplicates, syntheticAdded };
 }
 
 async function ensureDir(path: string): Promise<void> {
   await fsp.mkdir(path, { recursive: true });
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 async function writeCsv(path: string, rows: Row[]): Promise<void> {
@@ -329,14 +354,60 @@ async function main() {
 
   // Remap lemma spellings to US variants and dedupe.
   const remap = BRITISH_TO_AMERICAN_MAP;
+  remap.set('ax', 'axe');
+  remap.set('trashy', 'trash');
   const {
     rows: remappedRows,
     changedRows: remapChanged,
     droppedDuplicates: remapDropped,
+    syntheticAdded,
   } = applyLemmaRemap(mergedRows, remap);
 
+  // LLM-based disambiguation: for any word that still maps to multiple lemmas, choose one.
+  const wordToLemmas = new Map<string, Set<string>>();
+  for (const { word, lemma } of remappedRows) {
+    let set = wordToLemmas.get(word);
+    if (!set) {
+      set = new Set<string>();
+      wordToLemmas.set(word, set);
+    }
+    set.add(lemma);
+  }
+
+  const winners = new Map<string, string>();
+  let disambigCalls = 0;
+  for (const [word, set] of wordToLemmas) {
+    if (set.size <= 1) continue;
+    const candidates = Array.from(set);
+    const chosen = await chooseWinningLemma(word, candidates);
+    console.log(
+      `[disambiguate] ${word}: candidates=[${candidates.join(', ')}] -> winner=${chosen}`
+    );
+    winners.set(word, chosen);
+    disambigCalls++;
+    if (disambigCalls % 100 === 0) {
+      console.log(
+        `[disambiguate] Processed ${disambigCalls} words; pausing 5s to respect rate limits...`
+      );
+      await sleep(5000);
+    }
+  }
+
+  const disambiguatedRows: Row[] = [];
+  const seenDisambig = new Set<string>();
+  let disambiguatedCount = 0;
+  for (const r of remappedRows) {
+    const chosen = winners.get(r.word);
+    const finalLemma = chosen ? chosen : r.lemma;
+    if (chosen && finalLemma !== r.lemma) disambiguatedCount++;
+    const key = r.word + '\t' + finalLemma;
+    if (seenDisambig.has(key)) continue;
+    seenDisambig.add(key);
+    disambiguatedRows.push({ word: r.word, lemma: finalLemma });
+  }
+
   await ensureDir(dirname(outputPath));
-  await writeCsv(outputPath, remappedRows);
+  await writeCsv(outputPath, disambiguatedRows);
 
   console.log(`Input rows: ${rows.length.toLocaleString()}`);
   console.log(`Removed rows: ${removed.length.toLocaleString()}`);
@@ -345,7 +416,9 @@ async function main() {
   console.log(`Dropped duplicate pairs after merge: ${droppedDuplicates.toLocaleString()}`);
   console.log(`Rows with changed lemma after remap: ${remapChanged.toLocaleString()}`);
   console.log(`Dropped duplicate pairs after remap: ${remapDropped.toLocaleString()}`);
-  console.log(`Kept rows (post-remap): ${remappedRows.length.toLocaleString()}`);
+  console.log(`Synthetic rows added after remap: ${syntheticAdded.toLocaleString()}`);
+  console.log(`Disambiguated multi-lemma words: ${disambiguatedCount.toLocaleString()}`);
+  console.log(`Kept rows (post-disambiguation): ${disambiguatedRows.length.toLocaleString()}`);
   console.log(`Wrote: ${outputPath}`);
 }
 

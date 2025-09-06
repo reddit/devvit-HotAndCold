@@ -4,13 +4,14 @@ import * as sqliteVec from 'sqlite-vec';
 import Database from 'better-sqlite3';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
-import { createReadStream, existsSync, rmSync } from 'fs';
+import { createReadStream, existsSync, rmSync, readFileSync } from 'fs';
 import { createInterface } from 'readline';
 
 const TOOLS_DIR = dirname(fileURLToPath(import.meta.url));
 const WORDS_NEW_DIR = join(TOOLS_DIR, '..', 'words', 'new');
 const CSV_FILE = join(WORDS_NEW_DIR, 'gemini_3072_embeddings.csv');
 const DB_FILE = join(WORDS_NEW_DIR, 'new-vectors.sqlite');
+const WORDS_FINAL_FILE = join(TOOLS_DIR, '..', 'words-final', 'word-list.csv');
 
 function unquoteCsvField(s: string): string {
   const t = s.trim();
@@ -29,8 +30,8 @@ function parseCsvLine(line: string): { word: string; values: number[] } | null {
 
   const firstComma = trimmed.indexOf(',');
   if (firstComma === -1) return null;
-  let word = unquoteCsvField(trimmed.slice(0, firstComma));
-  let rest = trimmed.slice(firstComma + 1).trim();
+  const word = unquoteCsvField(trimmed.slice(0, firstComma));
+  const rest = trimmed.slice(firstComma + 1).trim();
 
   if (!word) return null;
 
@@ -82,6 +83,22 @@ async function main() {
     insertStmt.run(word, emb);
   });
 
+  // Load master word list and filter to only include those words
+  const masterWords = (() => {
+    const set = new Set<string>();
+    const content = readFileSync(WORDS_FINAL_FILE, 'utf8');
+    for (const line of content.split(/\r?\n/)) {
+      const t = line.trim();
+      if (!t || /^word$/i.test(t)) continue; // skip header/blank
+      // If the file ever gains more columns, only take the first
+      const firstCommaIdx = t.indexOf(',');
+      const w = firstCommaIdx === -1 ? t : t.slice(0, firstCommaIdx);
+      const unquoted = unquoteCsvField(w);
+      if (unquoted) set.add(unquoted);
+    }
+    return set;
+  })();
+
   const rl = createInterface({
     input: createReadStream(CSV_FILE, { encoding: 'utf8' }),
     crlfDelay: Infinity,
@@ -92,6 +109,7 @@ async function main() {
   for await (const line of rl) {
     const parsed = parseCsvLine(line);
     if (!parsed) continue;
+    if (!masterWords.has(parsed.word)) continue; // filter out words not in master list
     if (dim == null) dim = parsed.values.length;
     if (parsed.values.length !== dim) continue; // skip malformed rows
 

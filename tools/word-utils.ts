@@ -56,6 +56,72 @@ async function getLemmaFromOpenAI(word: string): Promise<string | null> {
 }
 
 // ---------------------------------------------------------------------------
+// LLM-based winner selection for conflicting lemmas
+// ---------------------------------------------------------------------------
+
+const DISAMBIGUATION_SYSTEM_PROMPT = `You are an English lexeme disambiguator for a word-guessing game.
+Given a surface word and a SET of candidate lemmas, choose EXACTLY ONE candidate that best represents the core base lexeme by meaning.
+
+Decision rules (in order):
+1) Prefer the inflectional headword over derivational forms.
+   - Past/past-participle/gerund forms → choose the verb base (e.g., worn → wear)
+   - Plural/singular nouns → choose the noun lemma (e.g., weights → weight)
+2) If candidates are different parts of speech, prefer the one most consistent with the surface form:
+   - Looks like plural noun (-s/-es) → choose a noun lemma if present.
+   - Looks like verb inflection (-ed/-ing/-s for 3sg, irregular past/participle) → choose the verb lemma.
+3) Prefer American spelling among otherwise equivalent candidates.
+4) If still tied, choose the more general, widely-used headword.
+
+Output format:
+- Return ONLY one of the provided candidates in lowercase.
+- Do NOT add punctuation, quotes, or any extra text.`;
+
+export async function chooseWinningLemma(word: string, candidates: string[]): Promise<string> {
+  const normalizedWord = word.toLowerCase();
+  const uniqueCandidates = Array.from(new Set(candidates.map((c) => c.toLowerCase())));
+  if (uniqueCandidates.length === 1) return uniqueCandidates[0]!;
+
+  // Sort for determinism in prompt and to stabilize tie-breaks
+  uniqueCandidates.sort((a, b) => a.localeCompare(b));
+
+  const client = new OpenAI({ apiKey: getOpenAIKey() });
+  const prompt = `Word: ${normalizedWord}\nCandidates: ${uniqueCandidates.join(' | ')}\nAnswer:`;
+  try {
+    const response = await client.responses.create({
+      model: 'gpt-5',
+      reasoning: { effort: 'minimal', summary: 'auto' },
+      instructions: DISAMBIGUATION_SYSTEM_PROMPT,
+      input: prompt,
+    });
+    const out = (response.output_text || '').trim().toLowerCase();
+    const match = uniqueCandidates.find((c) => c === out);
+    if (match) return match;
+  } catch (err) {
+    console.warn(
+      `[llm-disambiguate] Failed for ${normalizedWord} with candidates ${uniqueCandidates.join(', ')}:`,
+      err
+    );
+  }
+
+  // Fallbacks if the model didn't return a valid candidate
+  // 1) If the word equals a candidate, prefer it
+  const exact = uniqueCandidates.find((c) => c === normalizedWord);
+  if (exact) return exact;
+  // 2) Prefer candidate that shares the longest common prefix with the word
+  let best = uniqueCandidates[0]!;
+  let bestScore = -1;
+  for (const cand of uniqueCandidates) {
+    let i = 0;
+    while (i < Math.min(cand.length, normalizedWord.length) && cand[i] === normalizedWord[i]) i++;
+    if (i > bestScore) {
+      bestScore = i;
+      best = cand;
+    }
+  }
+  return best;
+}
+
+// ---------------------------------------------------------------------------
 // Lemma CSV writer
 // ---------------------------------------------------------------------------
 
@@ -441,32 +507,32 @@ export const filters: WordFilter[] = [
     name: 'isProfane',
     fn: (w) => profanityFilter.isProfane(w),
   },
-  {
-    name: 'lemmatized',
-    fn: async (w) => {
-      // Skip very short or non-basic tokens; other filters handle special chars already
-      if (w.length < 2 || /[^a-zA-Z'-]/.test(w)) {
-        console.log(`[lemma] ${w} -> (skipped) [kept]`);
-        return false;
-      }
-      const lower = w.toLowerCase();
-      const lemma = await getLemmaFromOpenAI(lower);
-      if (!lemma) {
-        console.log(`[lemma] ${lower} -> (none) [kept]`);
-        return false;
-      }
-      const filtered = lemma !== lower;
-      console.log(`[lemma] ${lower} -> ${lemma} [${filtered ? 'filtered' : 'kept'}]`);
-      if (filtered) {
-        try {
-          await appendLemmaPair(lower, lemma);
-        } catch (err) {
-          console.warn(`Failed writing lemma pair to CSV for ${lower} -> ${lemma}:`, err);
-        }
-      }
-      return filtered; // filter if not already lemma form
-    },
-  },
+  // {
+  //   name: 'lemmatized',
+  //   fn: async (w) => {
+  //     // Skip very short or non-basic tokens; other filters handle special chars already
+  //     if (w.length < 2 || /[^a-zA-Z'-]/.test(w)) {
+  //       console.log(`[lemma] ${w} -> (skipped) [kept]`);
+  //       return false;
+  //     }
+  //     const lower = w.toLowerCase();
+  //     const lemma = await getLemmaFromOpenAI(lower);
+  //     if (!lemma) {
+  //       console.log(`[lemma] ${lower} -> (none) [kept]`);
+  //       return false;
+  //     }
+  //     const filtered = lemma !== lower;
+  //     console.log(`[lemma] ${lower} -> ${lemma} [${filtered ? 'filtered' : 'kept'}]`);
+  //     if (filtered) {
+  //       try {
+  //         await appendLemmaPair(lower, lemma);
+  //       } catch (err) {
+  //         console.warn(`Failed writing lemma pair to CSV for ${lower} -> ${lemma}:`, err);
+  //       }
+  //     }
+  //     return filtered; // filter if not already lemma form
+  //   },
+  // },
 ];
 
 /**

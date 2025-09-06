@@ -30,7 +30,7 @@
     "scripts:find-duplicates": "node --max-old-space-size=8192 ./tools/find-duplicates.ts",
     "scripts:query-db": "node ./tools/query-db.ts 'SELECT count(*) FROM words;'",
     "scripts:extract-words": "node ./tools/extract-words.ts",
-    "scripts:test-filter-words": "node ./tools/test-filter-words.ts",
+    "scripts:test-filter-words": "dotenv -- node ./tools/test-filter-words.ts",
     "new:test-filter-words": "node ./tools/new-test-filter-words.ts",
     "scripts:clean-word-list": "node ./tools/clean-word-list.ts",
     "scripts:generate-word-csv": "node ./tools/generate-word-csv.ts",
@@ -38,8 +38,6 @@
     "new:generate-word-list": "dotenv -- node ./tools/new-generate-word-csv.ts",
     "new:clean-word-list": "dotenv -- node ./tools/new-clean-word-list.ts",
     "new:extract-words": "dotenv -- node ./tools/new-extract-words.ts",
-    "new:make-db-gemini": "dotenv -- node ./tools/new-make-db-gemini.ts",
-    "new:generate-word-csv:gemini": "dotenv -- node ./tools/new-generate-word-csv-gemini.ts",
     "new:generate-embeddings": "dotenv -- node ./tools/new-generate-embeddings.ts",
     "new:generate-full-lemma-list": "dotenv -- node ./tools/new-generate-full-lemma-list.ts",
     "new:find-mistaken-lemmas": "dotenv -- node ./tools/new-find-mistaken-lemmas.ts",
@@ -47,12 +45,18 @@
     "new:clean-lemma-map-full": "dotenv -- node ./tools/new-clean-lemma-map-full.ts",
     "new:find-most-common-words": "dotenv -- node ./tools/new-find-most-common-words.ts",
     "new:retry-duplicate-expansions": "dotenv -- node ./tools/new-retry-duplicate-expansions.ts",
-    "new:finalize-lemma-list": "dotenv -- node ./tools/new-finalize-lemma-list.ts"
+    "new:finalize-lemma-list": "dotenv -- node ./tools/new-finalize-lemma-list.ts",
+    "new:finalize-lemma-and-wordlist": "dotenv -- node ./tools/new-finalize-lemma-and-wordlist.ts",
+    "new:make-db-gemini": "dotenv -- node ./tools/new-make-db-gemini.ts",
+    "new:generate-word-csv:gemini": "dotenv -- node ./tools/new-generate-word-csv-gemini.ts",
+    "new:generate-hints": "dotenv -- node ./tools/new-generate-hints.ts",
+    "new:upload-words": "dotenv -- node ./tools/new-upload-words-to-db.ts"
   },
   "dependencies": {
     "@devvit/web": "0.11.20-next-2025-08-12-01-33-03-ce5410d2e.0",
     "@devvit/shared-types": "0.11.20-next-2025-08-12-01-33-03-ce5410d2e.0",
     "@preact/signals": "^1.2.2",
+    "pg": "8.16.3",
     "clsx": "2.1.1",
     "ioredis": "5.7.0",
     "fast-csv": "5.0.5",
@@ -73,6 +77,7 @@
     "tailwind-merge": "3.3.0"
   },
   "devDependencies": {
+    "@types/pg": "8.15.5",
     "@eslint/js": "9.23.0",
     "@types/better-sqlite3": "7.6.13",
     "@tailwindcss/vite": "4.1.6",
