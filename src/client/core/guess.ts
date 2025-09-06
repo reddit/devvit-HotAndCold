@@ -326,7 +326,7 @@ const hintOrderCache = new Map<number, string[]>();
 export async function getLetterPreloadOrder(challengeNumber: number): Promise<string[]> {
   if (hintOrderCache.has(challengeNumber)) return hintOrderCache.get(challengeNumber)!;
   try {
-    const csv = await fetcher.request<string>(`/challenges/${challengeNumber}/_hint.csv`, {
+    const csv = await fetcher.request<string>(`/api/challenges/${challengeNumber}/_hint.csv`, {
       timeout: 3000,
       maxAttempts: 2,
     });
@@ -380,7 +380,7 @@ async function loadLetterMap(
   }
 
   // Fetch and parse
-  const csv = await fetcher.request<string>(`/challenges/${challengeNumber}/${letter}.csv`, {
+  const csv = await fetcher.request<string>(`/api/challenges/${challengeNumber}/${letter}.csv`, {
     timeout: 5000,
     maxAttempts: 2,
   });

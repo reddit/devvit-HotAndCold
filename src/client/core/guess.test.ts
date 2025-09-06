@@ -152,7 +152,7 @@ describe('guess.ts', () => {
 
   it('loads CSV for first-letter shard and returns GuessLookupResult with corrected word (case-insensitive)', async () => {
     requestMock.mockImplementation(async (url: string) => {
-      if (String(url).endsWith('/challenges/1/a.csv')) {
+      if (String(url).endsWith('/api/challenges/1/a.csv')) {
         return 'word,similarity,rank\napple,0.91,1\nalpha,0.5,10\n';
       }
       if (String(url).endsWith('/lemma.csv')) {
@@ -175,7 +175,7 @@ describe('guess.ts', () => {
   it('persists to IndexedDB and loads from it on next module import (no network)', async () => {
     // First run: populate cache
     requestMock.mockImplementation(async (url: string) => {
-      if (String(url).endsWith('/challenges/1/b.csv')) {
+      if (String(url).endsWith('/api/challenges/1/b.csv')) {
         return 'word,similarity,rank\nbeta,0.77,2\n';
       }
       throw new Error('unexpected url ' + url);
@@ -184,7 +184,7 @@ describe('guess.ts', () => {
     expect(await g.makeGuess('beta')).toEqual({ word: 'beta', similarity: 0.77, rank: 2 });
     // Exactly one call for the letter CSV; lemma.csv may also be fetched
     const letterCalls = requestMock.mock.calls.filter((args) =>
-      String(args[0]).endsWith('/challenges/1/b.csv')
+      String(args[0]).endsWith('/api/challenges/1/b.csv')
     );
     expect(letterCalls.length).toBe(1);
 
@@ -199,7 +199,7 @@ describe('guess.ts', () => {
   it('re-fetches when IndexedDB entry is missing or expired', async () => {
     // First save with real time
     requestMock.mockImplementation(async (url: string) => {
-      if (String(url).endsWith('/challenges/1/c.csv')) {
+      if (String(url).endsWith('/api/challenges/1/c.csv')) {
         return 'word,similarity,rank\ncat,0.5,\n';
       }
       throw new Error('unexpected url ' + url);
@@ -207,7 +207,7 @@ describe('guess.ts', () => {
     let g = await loadGuessModule();
     expect(await g.makeGuess('cat')).toEqual({ word: 'cat', similarity: 0.5, rank: Infinity });
     const cCalls1 = requestMock.mock.calls.filter((args) =>
-      String(args[0]).endsWith('/challenges/1/c.csv')
+      String(args[0]).endsWith('/api/challenges/1/c.csv')
     );
     expect(cCalls1.length).toBe(1);
     // Allow async saveMapToDB to complete in the stub
@@ -219,7 +219,7 @@ describe('guess.ts', () => {
 
     // Expect a network call on next import due to expiry
     requestMock.mockImplementation(async (url: string) => {
-      if (String(url).endsWith('/challenges/1/c.csv')) {
+      if (String(url).endsWith('/api/challenges/1/c.csv')) {
         return 'word,similarity,rank\ncat,0.6,\n';
       }
       throw new Error('unexpected url ' + url);
@@ -239,13 +239,13 @@ describe('guess.ts', () => {
       peak = Math.max(peak, inFlight);
       const u = String(url);
       try {
-        if (u.endsWith('/challenges/1/a.csv'))
+        if (u.endsWith('/api/challenges/1/a.csv'))
           return await respond('word,similarity,rank\naaa,0.1,\n');
-        if (u.endsWith('/challenges/1/b.csv'))
+        if (u.endsWith('/api/challenges/1/b.csv'))
           return await respond('word,similarity,rank\nbbb,0.2,\n');
-        if (u.endsWith('/challenges/1/d.csv'))
+        if (u.endsWith('/api/challenges/1/d.csv'))
           return await respond('word,similarity,rank\nddd,0.4,\n');
-        if (u.endsWith('/challenges/1/c.csv'))
+        if (u.endsWith('/api/challenges/1/c.csv'))
           return await respond('word,similarity,rank\nccc,0.3,\n');
       } finally {
         inFlight -= 1;
@@ -268,7 +268,7 @@ describe('guess.ts', () => {
     });
     // Fetch for b, c, d only (a skipped). Some environments may hydrate one letter from IDB stub; allow 2-3.
     const calls = requestMock.mock.calls.map((args) => String(args[0]));
-    expect(calls.every((u) => !u.endsWith('/challenges/1/a.csv'))).toBe(true);
+    expect(calls.every((u) => !u.endsWith('/api/challenges/1/a.csv'))).toBe(true);
     expect(requestMock.mock.calls.length).toBeGreaterThanOrEqual(2);
     expect(requestMock.mock.calls.length).toBeLessThanOrEqual(3);
     expect(peak).toBeLessThanOrEqual(2);
@@ -280,7 +280,7 @@ describe('guess.ts', () => {
   it('getLetterPreloadOrder sorts by frequency with fallback to default order', async () => {
     // _hint.csv contains only words starting with b and a, b more frequent
     requestMock.mockImplementation(async (url: string) => {
-      if (String(url).endsWith('/challenges/1/_hint.csv')) {
+      if (String(url).endsWith('/api/challenges/1/_hint.csv')) {
         return 'word,similarity,rank\nbanana,0,\nboat,0,\napple,0,\n';
       }
       // any letter CSV fetches should not occur in this test

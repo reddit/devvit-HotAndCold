@@ -5,6 +5,7 @@ import { publicProcedure, router } from './trpc';
 import { createContext } from './context';
 import { createServer, getServerPort, redis } from '@devvit/web/server';
 import { Challenge } from './core/challenge';
+import { buildHintCsvForChallenge, buildLetterCsvForChallenge, getWord } from './core/api';
 import { UserGuess } from './core/userGuess';
 import { User } from './core/user';
 import { ChallengeProgress } from './core/challengeProgress';
@@ -13,8 +14,10 @@ import { LastPlayedAt } from './core/lastPlayedAt';
 import { Reminders } from './core/reminder';
 import { JoinedSubreddit } from './core/joinedSubreddit';
 import { UserComment } from './core/userComment';
-import { reddit, RichTextBuilder } from '@devvit/web/server';
+import { reddit, RichTextBuilder, context } from '@devvit/web/server';
+import { WordQueue } from './core/wordQueue';
 import { FormattingFlag } from '@devvit/shared-types/richtext/types.js';
+import { omit } from '../shared/omit';
 
 // Formats a duration in milliseconds to a human-readable long form like
 // "2 hours 5 minutes 3 seconds" or "2 minutes 45 seconds" or "5 seconds".
@@ -308,7 +311,7 @@ const appRouter = router({
         ]);
         return {
           challengeNumber,
-          challengeInfo,
+          challengeInfo: omit(challengeInfo, ['secretWord']),
           challengeUserInfo,
         };
       }),
@@ -341,6 +344,66 @@ const appRouter = router({
 export type AppRouter = typeof appRouter;
 
 const app = express();
+
+// Needs to be before /api/challenges/:challengeNumber/:letter.csv!!
+app.get('/api/challenges/:challengeNumber/_hint.csv', async (req, res): Promise<void> => {
+  try {
+    const challengeNumber = Number.parseInt(String(req.params.challengeNumber), 10);
+    if (!Number.isFinite(challengeNumber) || challengeNumber <= 0) {
+      res.status(400).send('Invalid challenge number');
+      return;
+    }
+
+    const challenge = await Challenge.getChallenge({ challengeNumber });
+    const csv = await buildHintCsvForChallenge({
+      challengeSecretWord: challenge.secretWord,
+      max: 500,
+    });
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Cache-Control', 'public, max-age=31536000, s-maxage=31536000, immutable');
+    res.status(200).send(csv);
+  } catch (err: any) {
+    console.error('Faieferfel');
+    console.log('err', err.message.substring(0, 500));
+    console.error('Failed to serve hint CSV', err);
+    res.status(500).send('Failed to generate CSV');
+  }
+});
+
+// Register CSV endpoints BEFORE tRPC so they are not shadowed by the /api adapter
+app.get('/api/challenges/:challengeNumber/:letter.csv', async (req, res): Promise<void> => {
+  console.log('getting letter csv');
+  try {
+    const challengeNumber = Number.parseInt(String(req.params.challengeNumber), 10);
+    const rawLetter = String(req.params.letter || '')
+      .trim()
+      .toLowerCase();
+    console.log('challengeNumber', challengeNumber);
+    console.log('rawLetter', rawLetter);
+    if (!Number.isFinite(challengeNumber) || challengeNumber <= 0) {
+      res.status(400).send('Invalid challenge number');
+      return;
+    }
+    if (!/^[a-z]$/.test(rawLetter)) {
+      res.status(400).send('Invalid letter');
+      return;
+    }
+
+    const challenge = await Challenge.getChallenge({ challengeNumber });
+    const csv = await buildLetterCsvForChallenge({
+      challengeSecretWord: challenge.secretWord,
+      letter: rawLetter,
+    });
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Cache-Control', 'public, max-age=31536000, s-maxage=31536000, immutable');
+    res.status(200).send(csv);
+  } catch (err: any) {
+    console.error('Faieferfel');
+    console.log('err', err.message.substring(0, 500));
+    console.error('Failed to serve letter CSV', err);
+    res.status(500).send('Failed to generate CSV');
+  }
+});
 
 app.use(
   '/api',
@@ -377,6 +440,350 @@ app.post('/internal/menu/post-create', async (_req, res): Promise<void> => {
   }
 });
 
+// Queue: submit challenges (append or prepend)
+app.post('/internal/form/queue/add', async (req, res): Promise<void> => {
+  try {
+    const { wordsCsv, prepend } = (req.body as any) ?? {};
+    if (typeof wordsCsv !== 'string' || wordsCsv.trim().length === 0) {
+      res.status(400).json({
+        showToast: {
+          text: 'wordsCsv is required',
+          appearance: 'neutral',
+        },
+      });
+      return;
+    }
+
+    const words = wordsCsv
+      .split(',')
+      .map((w: string) => w.trim())
+      .filter((w: string) => w.length > 0);
+
+    if (words.length === 0) {
+      res.status(400).json({
+        showToast: {
+          text: 'No words provided after parsing',
+          appearance: 'neutral',
+        },
+      });
+      return;
+    }
+
+    const challenges = z
+      .array(WordQueue.ChallengeSchema)
+      .parse(words.map((w: string) => ({ word: w })));
+
+    // Validate each word via getWord before queuing; continue on failures
+    const validatedResults = await Promise.allSettled(
+      challenges.map(async (c) => {
+        const word = c.word;
+        try {
+          const result = await getWord({ word });
+          const isValid = Array.isArray(result?.data) && result.data.length > 0;
+          if (!isValid) throw new Error('Word not found');
+          return { word } as const;
+        } catch (e: any) {
+          throw new Error(e?.message || 'Validation failed');
+        }
+      })
+    );
+
+    const successes: Array<{ word: string }> = [];
+    const failures: Array<{ word: string; error: string }> = [];
+
+    for (let i = 0; i < validatedResults.length; i++) {
+      const result = validatedResults[i]!;
+      const word = challenges[i]!.word;
+      if (result.status === 'fulfilled') {
+        successes.push({ word: result.value.word });
+      } else {
+        const errorMsg = result.reason?.message ?? String(result.reason);
+        failures.push({ word, error: errorMsg });
+        console.error('Queue add validation failed', { word, error: errorMsg });
+      }
+    }
+
+    // Enqueue only validated successes
+    const toEnqueue = successes.map((s) => ({ word: s.word }));
+    if (prepend) {
+      for (const c of toEnqueue) {
+        await WordQueue.prepend({ challenge: c });
+      }
+    } else {
+      for (const c of toEnqueue) {
+        await WordQueue.append({ challenge: c });
+      }
+    }
+
+    const successCount = toEnqueue.length;
+    const failureWords = failures.map((f) => f.word).join(', ');
+    const text =
+      failures.length === 0
+        ? `Added ${successCount} item(s) to the queue`
+        : `Added ${successCount} item(s). Failed: ${failureWords}`;
+
+    res.status(200).json({
+      showToast: {
+        text,
+        appearance: failures.length === 0 ? 'success' : 'neutral',
+      },
+    });
+  } catch (err: any) {
+    console.error('Failed to add to queue', err);
+    res.status(400).json({
+      showToast: {
+        text: err?.message || 'Failed to add to queue',
+        appearance: 'neutral',
+      },
+    });
+  }
+});
+
+// Queue: clear (requires confirmation)
+app.post('/internal/form/queue/clear', async (req, res): Promise<void> => {
+  const { confirm } = (req.body as any) ?? {};
+  if (!confirm) {
+    res.status(400).json({
+      showToast: {
+        text: 'You must confirm to clear the queue',
+        appearance: 'neutral',
+      },
+    });
+    return;
+  }
+  await WordQueue.clear();
+  res.status(200).json({
+    showToast: {
+      text: 'Queue cleared',
+      appearance: 'success',
+    },
+  });
+});
+
+// [queue] Add to queue (form launcher)
+app.post('/internal/menu/add', async (_req, res): Promise<void> => {
+  res.status(200).json({
+    showForm: {
+      name: 'queueAddForm',
+      form: {
+        title: 'Add challenges to queue',
+        acceptLabel: 'Submit',
+        fields: [
+          {
+            name: 'wordsCsv',
+            label: 'Comma-separated words',
+            type: 'paragraph',
+            required: true,
+            placeholder: 'word1, word2, word3',
+          },
+          {
+            name: 'prepend',
+            label: 'Prepend to front (instead of append)',
+            type: 'boolean',
+            defaultValue: false,
+          },
+        ],
+      },
+    },
+  });
+});
+
+// [queue] Clear queue (form launcher)
+app.post('/internal/menu/clear', async (_req, res): Promise<void> => {
+  res.status(200).json({
+    showForm: {
+      name: 'queueClearForm',
+      form: {
+        title: 'Clear challenge queue',
+        acceptLabel: 'Clear queue',
+        fields: [
+          {
+            name: 'confirm',
+            label: 'I understand this will delete all items in the queue',
+            type: 'boolean',
+            defaultValue: false,
+          },
+        ],
+      },
+    },
+  });
+});
+
+// [queue] Get size (immediate action)
+app.post('/internal/menu/size', async (_req, res): Promise<void> => {
+  const n = await WordQueue.size();
+  res.status(200).json({
+    showToast: `Queue size: ${n}`,
+  });
+});
+
+// [queue] DM full queue contents to invoking moderator (immediate action)
+app.post('/internal/menu/dm', async (_req, res): Promise<void> => {
+  try {
+    const { userId } = context;
+    if (!userId) {
+      res.status(400).json({
+        showToast: 'userId is required',
+      });
+      return;
+    }
+
+    const me = await reddit.getUserById(userId);
+    if (!me) {
+      res.status(400).json({
+        showToast: 'Could not resolve current user',
+      });
+      return;
+    }
+
+    const items = await WordQueue.peekAll();
+    const subject = 'Hot & Cold challenge queue contents';
+    const body = items.length === 0 ? 'Queue is empty.' : JSON.stringify(items, null, 2);
+
+    await reddit.sendPrivateMessage({
+      to: me.username,
+      subject,
+      text: body,
+    });
+
+    res.status(200).json({
+      showToast: 'Sent challenge queue via DM',
+    });
+  } catch (err: any) {
+    console.error('Failed to send challenge queue DM', err);
+    res.status(500).json({
+      showToast: {
+        text: err?.message || 'Failed to send challenge queue DM',
+        appearance: 'neutral',
+      },
+    });
+  }
+});
+
+// [queue] Post next queued challenge (immediate action)
+app.post('/internal/menu/post-next', async (_req, res): Promise<void> => {
+  try {
+    const next = await WordQueue.shift();
+    if (!next) {
+      res.status(200).json({
+        showToast: {
+          text: 'Queue is empty - nothing to post',
+          appearance: 'neutral',
+        },
+      });
+      return;
+    }
+    // Placeholder: implement posting flow for a challenge word when available
+    res.status(200).json({
+      showToast: {
+        text: `Next queued word: ${next.word}`,
+        appearance: 'success',
+      },
+    });
+  } catch (err: any) {
+    res.status(500).json({
+      showToast: {
+        text: err?.message || 'Failed to post next queued challenge',
+        appearance: 'neutral',
+      },
+    });
+  }
+});
+// [migrate] Backfill secret words for challenges 1-25 (immediate action)
+app.post('/internal/menu/migrate-secret-words', async (_req, res): Promise<void> => {
+  // Ordered words for challenges 1-25
+  const words = [
+    'loud',
+    'west',
+    'deal',
+    'black',
+    'finish',
+    'analysis',
+    'river',
+    'idea',
+    'open',
+    'soft',
+    'element',
+    'minute',
+    'engage',
+    'chair',
+    'need',
+    'sun',
+    'effect',
+    'watch',
+    'glass',
+    'gold',
+    'seek',
+    'diversify',
+    'variable',
+    'light',
+    'dimension',
+  ] as const;
+
+  const optionalKeys = [
+    'totalPlayers',
+    'totalSolves',
+    'totalGuesses',
+    'totalHints',
+    'totalGiveUps',
+  ] as const;
+
+  let updated = 0;
+  let skippedMissing = 0;
+  const failures: Array<{ challengeNumber: number; error: string }> = [];
+
+  const current = await Challenge.getCurrentChallengeNumber();
+  const limit = Math.max(0, Math.min(current, words.length));
+
+  for (let i = 1; i <= limit; i++) {
+    const word = words[i - 1];
+    try {
+      // Read existing config directly to avoid strict parsing that requires secretWord
+      const existing = await redis.hGetAll(Challenge.ChallengeKey(i));
+
+      // Skip if this challenge hash does not exist in this environment
+      if (!existing || Object.keys(existing).length === 0) {
+        skippedMissing++;
+        continue;
+      }
+
+      if (!word) {
+        throw new Error(`Missing word for challenge ${i}`);
+      }
+
+      // Build a minimal valid config while preserving known optional counters
+      const config: Record<string, string> = {
+        challengeNumber: String(i),
+        secretWord: word,
+        ...optionalKeys.reduce(
+          (acc, k) => {
+            const v = (existing as any)[k];
+            if (typeof v === 'string' && v.length > 0) acc[k] = v;
+            return acc;
+          },
+          {} as Record<string, string>
+        ),
+      };
+
+      await Challenge.setChallenge({ challengeNumber: i, config: config as any });
+      updated++;
+    } catch (e: any) {
+      failures.push({ challengeNumber: i, error: e?.message ?? String(e) });
+    }
+  }
+
+  const text =
+    failures.length === 0
+      ? `Migration complete: updated ${updated}, skipped missing ${skippedMissing}`
+      : `Migration finished: updated ${updated}, skipped missing ${skippedMissing}, errors for ${failures.length}`;
+
+  res.status(200).json({
+    showToast: {
+      text,
+      appearance: failures.length === 0 ? 'success' : 'neutral',
+    },
+  });
+});
 app.post('/internal/scheduler/create-new-challenge', async (_req, res): Promise<void> => {
   try {
     console.log('Creating new challenge from scheduler');

@@ -8,7 +8,6 @@ import { fn } from '../../shared/fn';
 import { redis } from '@devvit/web/server';
 import { GameResponseSchema, GuessSchema, ChallengeUserInfoSchema } from '../utils';
 import { User } from './user';
-import { wordsOfTheDay } from '../wordlist';
 import { ChallengeProgress } from './challengeProgress';
 import { rankToProgress } from '../../shared/progress';
 
@@ -202,7 +201,7 @@ export namespace UserGuess {
       }
 
       const now = Date.now();
-      const secretWord = wordsOfTheDay[challengeNumber - 1] ?? '';
+      const secretWord = challengeInfo.secretWord;
 
       // Append a reveal guess with the secret word so clients can display it
       const guessToAdd: z.infer<typeof GuessSchema> = {
@@ -329,7 +328,7 @@ export namespace UserGuess {
       challengeUserInfo,
     } = params;
 
-    const secretWord = wordsOfTheDay[challengeNumber - 1];
+    const secretWord = challengeInfo.secretWord;
 
     let startedPlayingAtMs = challengeUserInfo.startedPlayingAtMs;
     let isFirstGuessInLifeCycle = false;

@@ -2,10 +2,61 @@ import { RedisMemoryServer } from 'redis-memory-server';
 import Redis from 'ioredis';
 import { it as itCore, type TestContext } from 'vitest';
 
-import { RedisAPIDefinition, RedisKeyScope, type Metadata } from '@devvit/protos';
+import {
+  RedisAPIDefinition,
+  RedisKeyScope,
+  RedisAPI,
+  type Metadata,
+  BitfieldRequest,
+  BitfieldResponse,
+  type KeyRequest,
+  type KeysRequest,
+  type SetRequest,
+  type KeyRangeRequest,
+  type SetRangeRequest,
+  type HSetRequest,
+  type HGetRequest,
+  type HMGetRequest,
+  type HDelRequest,
+  type HScanRequest,
+  type HSetNXRequest,
+  type ZAddRequest,
+  type ZRangeRequest,
+  type ZRemRequest,
+  type ZRemRangeByLexRequest,
+  type ZRemRangeByRankRequest,
+  type ZRemRangeByScoreRequest,
+  type ZScoreRequest,
+  type ZRankRequest,
+  type ZIncrByRequest,
+  type ZScanRequest,
+  type ExpireRequest,
+  type WatchRequest,
+  type TransactionId,
+  type TransactionResponses,
+  type RenameRequest,
+  type RenameResponse,
+  type ExistsResponse,
+  type RedisValues,
+  type RedisFieldValues,
+  type KeysResponse,
+  type HScanResponse,
+  type ZScanResponse,
+  type ZMembers,
+} from '@devvit/protos';
+import type {
+  StringValue,
+  BytesValue,
+  Int64Value,
+  DoubleValue,
+} from '@devvit/protos/types/google/protobuf/wrappers.js';
+import type { Empty } from '@devvit/protos/types/google/protobuf/empty.js';
 import { Context, runWithContext } from '@devvit/server';
 import { Header } from '@devvit/shared-types/Header.js';
 import type { Config } from '@devvit/shared-types/Config.js';
+import { expect } from 'vitest';
+
+export { expect };
 
 const redisServer = new RedisMemoryServer();
 const host = await redisServer.getHost();
@@ -29,299 +80,297 @@ const shouldThrowNil = (metadata?: Metadata): boolean => {
   return !!hdr?.values?.[0] && hdr.values[0].toLowerCase() === 'true';
 };
 
-type StringValue = { value: string };
-type Int64Value = { value: number };
-type DoubleValue = { value: number };
-type Empty = Record<string, never>;
-type RenameResponse = { result: string };
-type ExistsResponse = { existingKeys: number };
-type RedisValues = { values: (string | null)[] };
-type RedisFieldValues = { fieldValues: Record<string, string> };
-type KeysResponse = { keys: string[] };
-type HScanResponse = { cursor: number; fieldValues: { field: string; value: string }[] };
-type ZScanResponse = { cursor: number; members: { member: string; score: number }[] };
-type ZRangeResponse = { members: { member: string; score: number }[] };
-type HSetNXResponse = { success: number };
-
-// One stable adapter instance; reads prefix from currentPrefixRef at call time.
-const redisPluginAdapter = {
-  // Simple KV
-  async Get(
-    req: { key: string; scope?: RedisKeyScope },
-    metadata?: Metadata
-  ): Promise<StringValue | null> {
-    const v = await conn.get(makeKey(req.key, req.scope));
+class MockedRedisApi implements RedisAPI {
+  // Simple Key-Value operations
+  async Get(request: KeyRequest, metadata?: Metadata): Promise<StringValue> {
+    const v = await conn.get(makeKey(request.key, request.scope));
     if (v == null) {
       if (shouldThrowNil(metadata)) throw new Error('redis: nil');
-      return null;
+      return { value: '' } as StringValue;
     }
-    return { value: v };
-  },
-  async GetBytes(
-    req: { key: string; scope?: RedisKeyScope },
-    metadata?: Metadata
-  ): Promise<{ value: Uint8Array } | null> {
-    const v = await conn.getBuffer(makeKey(req.key, req.scope));
+    return { value: v } as StringValue;
+  }
+
+  async GetBytes(request: KeyRequest, metadata?: Metadata): Promise<BytesValue> {
+    const v = await conn.getBuffer(makeKey(request.key, request.scope));
     if (v == null) {
       if (shouldThrowNil(metadata)) throw new Error('redis: nil');
-      return null;
+      return { value: new Uint8Array() } as BytesValue;
     }
-    return { value: v };
-  },
-  async Set(req: {
-    key: string;
-    value: string;
-    nx?: boolean;
-    xx?: boolean;
-    expiration?: number;
-    scope?: RedisKeyScope;
-  }): Promise<StringValue> {
-    const k = makeKey(req.key, req.scope);
-    // NX/XX semantics
-    if (req.nx && req.xx) throw new Error('invalid Set: nx and xx cannot both be true');
-    if (req.nx) {
-      const res = await conn.set(k, req.value, 'EX', req.expiration ?? 1, 'NX');
-      return { value: res ?? 'OK' };
-    } else if (req.xx) {
-      const res = await conn.set(k, req.value, 'EX', req.expiration ?? 1, 'XX');
-      return { value: res ?? 'OK' };
+    return { value: v } as BytesValue;
+  }
+
+  async Set(request: SetRequest): Promise<StringValue> {
+    const k = makeKey(request.key, request.scope);
+    if (request.nx && request.xx) throw new Error('invalid Set: nx and xx cannot both be true');
+    if (request.nx) {
+      const res = await conn.set(k, request.value, 'EX', request.expiration ?? 1, 'NX');
+      return { value: res ?? 'OK' } as StringValue;
     }
-    if (req.expiration && req.expiration > 0) {
-      await conn.set(k, req.value, 'EX', req.expiration);
-      return { value: 'OK' };
+    if (request.xx) {
+      const res = await conn.set(k, request.value, 'EX', request.expiration ?? 1, 'XX');
+      return { value: res ?? 'OK' } as StringValue;
     }
-    await conn.set(k, req.value);
-    return { value: 'OK' };
-  },
-  async Exists(req: { keys: string[]; scope?: RedisKeyScope }): Promise<ExistsResponse> {
-    const count = await conn.exists(...req.keys.map((k) => makeKey(k, req.scope)));
-    return { existingKeys: count };
-  },
-  async Del(req: { keys: string[]; scope?: RedisKeyScope }): Promise<Int64Value> {
-    const n = await conn.del(...req.keys.map((k) => makeKey(k, req.scope)));
-    return { value: n };
-  },
-  async Type(req: { key: string; scope?: RedisKeyScope }): Promise<StringValue> {
-    const t = await conn.type(makeKey(req.key, req.scope));
-    return { value: t };
-  },
-  async Rename(req: {
-    key: string;
-    newKey: string;
-    scope?: RedisKeyScope;
-  }): Promise<RenameResponse> {
-    const res = await conn.rename(makeKey(req.key, req.scope), makeKey(req.newKey, req.scope));
-    return { result: res };
-  },
+    if (request.expiration && request.expiration > 0) {
+      await conn.set(k, request.value, 'EX', request.expiration);
+      return { value: 'OK' } as StringValue;
+    }
+    await conn.set(k, request.value);
+    return { value: 'OK' } as StringValue;
+  }
 
-  // Numbers
-  async IncrBy(req: { key: string; value: number; scope?: RedisKeyScope }): Promise<Int64Value> {
-    const v = await conn.incrby(makeKey(req.key, req.scope), req.value);
-    return { value: Number(v) };
-  },
+  async Exists(request: KeysRequest): Promise<ExistsResponse> {
+    const count = await conn.exists(...request.keys.map((k) => makeKey(k, request.scope)));
+    return { existingKeys: count } as ExistsResponse;
+  }
 
-  // Expiration and ranges
-  async Expire(req: { key: string; seconds: number; scope?: RedisKeyScope }): Promise<Empty> {
-    await conn.expire(makeKey(req.key, req.scope), req.seconds);
-    return {};
-  },
-  async ExpireTime(req: { key: string; scope?: RedisKeyScope }): Promise<Int64Value> {
-    const v = await conn.expiretime(makeKey(req.key, req.scope));
-    return { value: Number(v) };
-  },
-  async GetRange(req: {
-    key: string;
-    start: number;
-    end: number;
-    scope?: RedisKeyScope;
-  }): Promise<StringValue> {
-    const v = await conn.getrange(makeKey(req.key, req.scope), req.start, req.end);
-    return { value: v };
-  },
-  async SetRange(req: {
-    key: string;
-    offset: number;
-    value: string;
-    scope?: RedisKeyScope;
-  }): Promise<Int64Value> {
-    const v = await conn.setrange(makeKey(req.key, req.scope), req.offset, req.value);
-    return { value: Number(v) };
-  },
-  async Strlen(req: { key: string; scope?: RedisKeyScope }): Promise<Int64Value> {
-    const v = await conn.strlen(makeKey(req.key, req.scope));
-    return { value: Number(v) };
-  },
+  async Del(request: KeysRequest): Promise<Int64Value> {
+    const n = await conn.del(...request.keys.map((k) => makeKey(k, request.scope)));
+    return { value: n } as Int64Value;
+  }
 
-  // Hashes
-  async HSet(req: {
-    key: string;
-    fv: { field: string; value: string }[];
-    scope?: RedisKeyScope;
-  }): Promise<Int64Value> {
+  async Type(request: KeyRequest): Promise<StringValue> {
+    const t = await conn.type(makeKey(request.key, request.scope));
+    return { value: t } as StringValue;
+  }
+
+  async Rename(request: RenameRequest): Promise<RenameResponse> {
+    const res = await conn.rename(
+      makeKey(request.key, request.scope),
+      makeKey(request.newKey, request.scope)
+    );
+    return { result: res } as RenameResponse;
+  }
+
+  // Number operations
+  async IncrBy(
+    request: ZIncrByRequest | { key: string; value: number; scope?: RedisKeyScope }
+  ): Promise<Int64Value> {
+    // The proto has a dedicated IncrByRequest; using a compatible shape here.
+    const key = (request as any).key;
+    const value = (request as any).value;
+    const scope = (request as any).scope as RedisKeyScope | undefined;
+    const v = await conn.incrby(makeKey(key, scope), value);
+    return { value: Number(v) } as Int64Value;
+  }
+
+  // Redis Hash operations
+  async HSet(request: HSetRequest): Promise<Int64Value> {
     const map: Record<string, string> = {};
-    for (const { field, value } of req.fv) map[field] = value;
-    const v = await conn.hset(makeKey(req.key, req.scope), map);
-    return { value: Number(v) };
-  },
-  async HGet(
-    req: { key: string; field: string; scope?: RedisKeyScope },
-    metadata?: Metadata
-  ): Promise<StringValue | null> {
-    const v = await conn.hget(makeKey(req.key, req.scope), req.field);
+    for (const { field, value } of request.fv) map[field] = value;
+    const v = await conn.hset(makeKey(request.key, request.scope), map);
+    return { value: Number(v) } as Int64Value;
+  }
+
+  async HGet(request: HGetRequest, metadata?: Metadata): Promise<StringValue> {
+    const v = await conn.hget(makeKey(request.key, request.scope), request.field);
     if (v == null) {
       if (shouldThrowNil(metadata)) throw new Error('redis: nil');
-      return null;
+      return { value: '' } as StringValue;
     }
-    return { value: v };
-  },
-  async HMGet(req: { key: string; fields: string[]; scope?: RedisKeyScope }): Promise<RedisValues> {
-    const vals = await conn.hmget(makeKey(req.key, req.scope), ...req.fields);
-    return { values: vals.map((v) => (v === null ? null : v)) };
-  },
-  async HGetAll(req: { key: string; scope?: RedisKeyScope }): Promise<RedisFieldValues> {
-    const v = await conn.hgetall(makeKey(req.key, req.scope));
-    return { fieldValues: v };
-  },
-  async HDel(req: { key: string; fields: string[]; scope?: RedisKeyScope }): Promise<Int64Value> {
-    const n = await conn.hdel(makeKey(req.key, req.scope), ...req.fields);
-    return { value: Number(n) };
-  },
-  async HScan(req: {
-    key: string;
-    cursor: number;
-    pattern?: string;
-    count?: number;
-    scope?: RedisKeyScope;
-  }): Promise<HScanResponse> {
-    const args: (string | number)[] = [makeKey(req.key, req.scope), req.cursor];
-    if (req.pattern) args.push('MATCH', req.pattern);
-    if (req.count) args.push('COUNT', req.count);
+    return { value: v } as StringValue;
+  }
+
+  async HMGet(request: HMGetRequest): Promise<RedisValues> {
+    const vals = await conn.hmget(makeKey(request.key, request.scope), ...request.fields);
+    return {
+      values: vals.map((v) => (v === null ? '' : v)),
+    } as unknown as RedisValues;
+  }
+
+  async HGetAll(request: KeyRequest): Promise<RedisFieldValues> {
+    const v = await conn.hgetall(makeKey(request.key, request.scope));
+    return { fieldValues: v } as RedisFieldValues;
+  }
+
+  async HDel(request: HDelRequest): Promise<Int64Value> {
+    const n = await conn.hdel(makeKey(request.key, request.scope), ...request.fields);
+    return { value: Number(n) } as Int64Value;
+  }
+
+  async HScan(request: HScanRequest): Promise<HScanResponse> {
+    const args: (string | number)[] = [makeKey(request.key, request.scope), request.cursor];
+    if (request.pattern) args.push('MATCH', request.pattern);
+    if (request.count) args.push('COUNT', request.count);
     const [cursor, elements] = (await (conn as any).hscan(...args)) as [string, string[]];
     const fieldValues: { field: string; value: string }[] = [];
     for (let i = 0; i < elements.length; i += 2) {
       fieldValues.push({ field: elements[i]!, value: elements[i + 1]! });
     }
-    return { cursor: Number(cursor), fieldValues };
-  },
-  async HKeys(req: { key: string; scope?: RedisKeyScope }): Promise<KeysResponse> {
-    const keys = await conn.hkeys(makeKey(req.key, req.scope));
-    return { keys };
-  },
-  async HIncrBy(req: {
-    key: string;
-    field: string;
-    value: number;
-    scope?: RedisKeyScope;
-  }): Promise<Int64Value> {
-    const v = await conn.hincrby(makeKey(req.key, req.scope), req.field, req.value);
-    return { value: Number(v) };
-  },
-  async HLen(req: { key: string; scope?: RedisKeyScope }): Promise<Int64Value> {
-    const v = await conn.hlen(makeKey(req.key, req.scope));
-    return { value: Number(v) };
-  },
-  async HSetNX(req: {
-    key: string;
-    field: string;
-    value: string;
-    scope?: RedisKeyScope;
-  }): Promise<HSetNXResponse> {
-    const v = await conn.hsetnx(makeKey(req.key, req.scope), req.field, req.value);
-    return { success: Number(v) };
-  },
+    return { cursor: Number(cursor), fieldValues } as HScanResponse;
+  }
 
-  // ZSets
-  async ZAdd(req: {
+  async HKeys(request: KeyRequest): Promise<KeysResponse> {
+    const keys = await conn.hkeys(makeKey(request.key, request.scope));
+    return { keys } as KeysResponse;
+  }
+
+  async HIncrBy(request: {
     key: string;
-    members: { member: string; score: number }[];
-    scope?: RedisKeyScope;
-  }): Promise<Int64Value> {
-    const args = req.members.flatMap((m) => [m.score, m.member]);
-    const v = await conn.zadd(makeKey(req.key, req.scope), ...args);
-    return { value: Number(v) };
-  },
-  async ZCard(req: { key: string; scope?: RedisKeyScope }): Promise<Int64Value> {
-    const v = await conn.zcard(makeKey(req.key, req.scope));
-    return { value: Number(v) };
-  },
-  async ZIncrBy(req: {
-    key: string;
-    member: string;
+    field: string;
     value: number;
     scope?: RedisKeyScope;
-  }): Promise<DoubleValue> {
-    const v = await conn.zincrby(makeKey(req.key, req.scope), req.value, req.member);
-    return { value: Number(v) };
-  },
-  async ZRange(req: {
-    key: { key: string };
-    start: string;
-    stop: string;
-    rev?: boolean;
-    byLex?: boolean;
-    byScore?: boolean;
-    offset?: number;
-    count?: number;
+  }): Promise<Int64Value> {
+    const v = await conn.hincrby(makeKey(request.key, request.scope), request.field, request.value);
+    return { value: Number(v) } as Int64Value;
+  }
+
+  async HLen(request: KeyRequest): Promise<Int64Value> {
+    const v = await conn.hlen(makeKey(request.key, request.scope));
+    return { value: Number(v) } as Int64Value;
+  }
+
+  async HSetNX(request: HSetNXRequest): Promise<{ success: number }> {
+    const v = await conn.hsetnx(makeKey(request.key, request.scope), request.field, request.value);
+    return { success: Number(v) } as { success: number };
+  }
+
+  // Transactions (no-op stubs)
+  async Multi(_request: TransactionId): Promise<Empty> {
+    return {} as Empty;
+  }
+  async Exec(_request: TransactionId): Promise<TransactionResponses> {
+    return { response: [] } as TransactionResponses;
+  }
+  async Discard(_request: TransactionId): Promise<Empty> {
+    return {} as Empty;
+  }
+  async Watch(_request: WatchRequest): Promise<TransactionId> {
+    return { id: `tx:${Date.now()}:${Math.random()}` } as TransactionId;
+  }
+  async Unwatch(_request: TransactionId): Promise<Empty> {
+    return {} as Empty;
+  }
+
+  // String operations
+  async GetRange(request: KeyRangeRequest): Promise<StringValue> {
+    const v = await conn.getrange(makeKey(request.key, request.scope), request.start, request.end);
+    return { value: v } as StringValue;
+  }
+  async SetRange(request: SetRangeRequest): Promise<Int64Value> {
+    const v = await conn.setrange(
+      makeKey(request.key, request.scope),
+      request.offset,
+      request.value
+    );
+    return { value: Number(v) } as Int64Value;
+  }
+  async Strlen(request: KeyRequest): Promise<Int64Value> {
+    const v = await conn.strlen(makeKey(request.key, request.scope));
+    return { value: Number(v) } as Int64Value;
+  }
+
+  // Batch Key-Value operations
+  async MGet(request: KeysRequest): Promise<RedisValues> {
+    const keys = request.keys.map((k) => makeKey(k, request.scope));
+    const vals = await conn.mget(...keys);
+    return {
+      values: vals.map((v) => (v === null ? '' : v)),
+    } as unknown as RedisValues;
+  }
+  async MSet(request: {
+    kv: { key: string; value: string }[];
     scope?: RedisKeyScope;
-  }): Promise<ZRangeResponse> {
-    const k = makeKey(req.key.key, req.scope);
+  }): Promise<Empty> {
+    const flat: string[] = [];
+    for (const { key, value } of request.kv) {
+      flat.push(makeKey(key, request.scope), value);
+    }
+    await (conn as any).mset(...flat);
+    return {} as Empty;
+  }
+
+  // Key expiration
+  async Expire(request: ExpireRequest): Promise<Empty> {
+    await conn.expire(makeKey(request.key, request.scope), request.seconds);
+    return {} as Empty;
+  }
+  async ExpireTime(request: KeyRequest): Promise<Int64Value> {
+    const v = await conn.expiretime(makeKey(request.key, request.scope));
+    return { value: Number(v) } as Int64Value;
+  }
+
+  // Sorted sets
+  async ZAdd(request: ZAddRequest): Promise<Int64Value> {
+    const args = request.members.flatMap((m) => [m.score, m.member]);
+    const v = await conn.zadd(makeKey(request.key, request.scope), ...args);
+    return { value: Number(v) } as Int64Value;
+  }
+  async ZCard(request: KeyRequest): Promise<Int64Value> {
+    const v = await conn.zcard(makeKey(request.key, request.scope));
+    return { value: Number(v) } as Int64Value;
+  }
+  async ZRange(request: ZRangeRequest): Promise<ZMembers> {
+    const k = makeKey(request.key?.key ?? '', request.scope);
     let vals: string[] = [];
-    if (req.byScore) {
-      if (req.rev) {
+    if (request.byScore) {
+      if (request.rev) {
         vals =
-          req.offset != null
+          request.offset != null
             ? await conn.zrevrangebyscore(
                 k,
-                req.stop,
-                req.start,
+                request.stop,
+                request.start,
                 'WITHSCORES',
                 'LIMIT',
-                req.offset,
-                req.count ?? 0
+                request.offset,
+                request.count ?? 0
               )
-            : await conn.zrevrangebyscore(k, req.stop, req.start, 'WITHSCORES');
+            : await conn.zrevrangebyscore(k, request.stop, request.start, 'WITHSCORES');
       } else {
         vals =
-          req.offset != null
+          request.offset != null
             ? await conn.zrangebyscore(
                 k,
-                req.start,
-                req.stop,
+                request.start,
+                request.stop,
                 'WITHSCORES',
                 'LIMIT',
-                req.offset,
-                req.count ?? 0
+                request.offset,
+                request.count ?? 0
               )
-            : await conn.zrangebyscore(k, req.start, req.stop, 'WITHSCORES');
+            : await conn.zrangebyscore(k, request.start, request.stop, 'WITHSCORES');
       }
-    } else if (req.byLex) {
-      if (req.rev) {
+    } else if (request.byLex) {
+      if (request.rev) {
         vals =
-          req.offset != null
-            ? await conn.zrevrangebylex(k, req.start, req.stop, 'LIMIT', req.offset, req.count ?? 0)
-            : await conn.zrevrangebylex(k, req.start, req.stop);
+          request.offset != null
+            ? await conn.zrevrangebylex(
+                k,
+                request.start,
+                request.stop,
+                'LIMIT',
+                request.offset,
+                request.count ?? 0
+              )
+            : await conn.zrevrangebylex(k, request.start, request.stop);
       } else {
         vals =
-          req.offset != null
-            ? await conn.zrangebylex(k, req.start, req.stop, 'LIMIT', req.offset, req.count ?? 0)
-            : await conn.zrangebylex(k, req.start, req.stop);
+          request.offset != null
+            ? await conn.zrangebylex(
+                k,
+                request.start,
+                request.stop,
+                'LIMIT',
+                request.offset,
+                request.count ?? 0
+              )
+            : await conn.zrangebylex(k, request.start, request.stop);
       }
     } else {
-      // For rank-based ranges, Redis does NOT support LIMIT.
-      // If offset/count are provided, translate them into start/stop indices.
-      const startIndex = Number(req.start);
-      const stopIndex = Number(req.stop);
+      const startIndex = Number(request.start);
+      const stopIndex = Number(request.stop);
       let rankStart = startIndex;
       let rankStop = stopIndex;
-      if (req.offset != null || req.count != null) {
-        const offsetVal = Number(req.offset ?? 0);
-        const countVal = req.count != null ? Number(req.count) : undefined;
+      if (request.offset != null || request.count != null) {
+        const offsetVal = Number(request.offset ?? 0);
+        const countVal = request.count != null ? Number(request.count) : undefined;
         rankStart = startIndex + offsetVal;
         if (countVal != null) {
           rankStop = rankStart + Math.max(0, countVal) - 1;
         }
       }
-      if (req.rev) {
+      if (request.rev) {
         vals = await conn.zrevrange(k, rankStart, rankStop, 'WITHSCORES');
       } else {
         vals = await conn.zrange(k, rankStart, rankStop, 'WITHSCORES');
@@ -331,135 +380,106 @@ const redisPluginAdapter = {
     for (let i = 0; i < vals.length; i += 2) {
       members.push({ member: vals[i]!, score: Number(vals[i + 1]) });
     }
-    return { members };
-  },
-  async ZRank(
-    req: { key: { key: string }; member: string; scope?: RedisKeyScope },
-    metadata?: Metadata
-  ): Promise<Int64Value | null> {
-    const v = await conn.zrank(makeKey(req.key.key, req.scope), req.member);
-    if (v == null) {
-      if (shouldThrowNil(metadata)) throw new Error('redis: nil');
-      return null;
-    }
-    return { value: Number(v) };
-  },
-  async ZRem(req: {
-    key: { key: string };
-    members: string[];
-    scope?: RedisKeyScope;
-  }): Promise<Int64Value> {
-    const v = await conn.zrem(makeKey(req.key.key, req.scope), ...req.members);
-    return { value: Number(v) };
-  },
-  async ZRemRangeByLex(req: {
-    key: { key: string };
-    min: string;
-    max: string;
-    scope?: RedisKeyScope;
-  }): Promise<Int64Value> {
-    const v = await conn.zremrangebylex(makeKey(req.key.key, req.scope), req.min, req.max);
-    return { value: Number(v) };
-  },
-  async ZRemRangeByRank(req: {
-    key: { key: string };
-    start: number;
-    stop: number;
-    scope?: RedisKeyScope;
-  }): Promise<Int64Value> {
-    const v = await conn.zremrangebyrank(makeKey(req.key.key, req.scope), req.start, req.stop);
-    return { value: Number(v) };
-  },
-  async ZRemRangeByScore(req: {
-    key: { key: string };
-    min: number;
-    max: number;
-    scope?: RedisKeyScope;
-  }): Promise<Int64Value> {
-    const v = await conn.zremrangebyscore(makeKey(req.key.key, req.scope), req.min, req.max);
-    return { value: Number(v) };
-  },
-  async ZScan(req: {
-    key: string;
-    cursor: number;
-    pattern?: string;
-    count?: number;
-    scope?: RedisKeyScope;
-  }): Promise<ZScanResponse> {
-    const args: (string | number)[] = [makeKey(req.key, req.scope), req.cursor];
-    if (req.pattern) args.push('MATCH', req.pattern);
-    if (req.count) args.push('COUNT', req.count);
+    return { members } as ZMembers;
+  }
+  async ZRem(request: ZRemRequest): Promise<Int64Value> {
+    const v = await conn.zrem(makeKey(request.key?.key ?? '', request.scope), ...request.members);
+    return { value: Number(v) } as Int64Value;
+  }
+  async ZRemRangeByLex(request: ZRemRangeByLexRequest): Promise<Int64Value> {
+    const v = await conn.zremrangebylex(
+      makeKey(request.key?.key ?? '', request.scope),
+      request.min,
+      request.max
+    );
+    return { value: Number(v) } as Int64Value;
+  }
+  async ZRemRangeByRank(request: ZRemRangeByRankRequest): Promise<Int64Value> {
+    const v = await conn.zremrangebyrank(
+      makeKey(request.key?.key ?? '', request.scope),
+      request.start,
+      request.stop
+    );
+    return { value: Number(v) } as Int64Value;
+  }
+  async ZRemRangeByScore(request: ZRemRangeByScoreRequest): Promise<Int64Value> {
+    const v = await conn.zremrangebyscore(
+      makeKey(request.key?.key ?? '', request.scope),
+      request.min,
+      request.max
+    );
+    return { value: Number(v) } as Int64Value;
+  }
+  async ZScan(request: ZScanRequest): Promise<ZScanResponse> {
+    const args: (string | number)[] = [makeKey(request.key, request.scope), request.cursor];
+    if (request.pattern) args.push('MATCH', request.pattern);
+    if (request.count) args.push('COUNT', request.count);
     const [cursor, elements] = (await (conn as any).zscan(...args)) as [string, string[]];
     const members: { member: string; score: number }[] = [];
     for (let i = 0; i < elements.length; i += 2) {
       members.push({ member: elements[i + 1]!, score: Number(elements[i]) });
     }
-    return { cursor: Number(cursor), members };
-  },
-  async ZScore(
-    req: { key: { key: string }; member: string; scope?: RedisKeyScope },
-    metadata?: Metadata
-  ): Promise<DoubleValue | null> {
-    const v = await conn.zscore(makeKey(req.key.key, req.scope), req.member);
+    return { cursor: Number(cursor), members } as ZScanResponse;
+  }
+  async ZScore(request: ZScoreRequest, metadata?: Metadata): Promise<DoubleValue> {
+    const v = await conn.zscore(makeKey(request.key?.key ?? '', request.scope), request.member);
     if (v == null) {
       if (shouldThrowNil(metadata)) throw new Error('redis: nil');
-      return null;
+      return { value: 0 } as DoubleValue;
     }
-    return { value: Number(v) };
-  },
-
-  // Batch
-  async MGet(req: { keys: string[]; scope?: RedisKeyScope }): Promise<RedisValues> {
-    const keys = req.keys.map((k) => makeKey(k, req.scope));
-    const vals = await conn.mget(...keys);
-    return { values: vals.map((v) => (v === null ? null : v)) };
-  },
-  async MSet(req: { kv: { key: string; value: string }[]; scope?: RedisKeyScope }): Promise<Empty> {
-    const flat: string[] = [];
-    for (const { key, value } of req.kv) {
-      flat.push(makeKey(key, req.scope), value);
+    return { value: Number(v) } as DoubleValue;
+  }
+  async ZRank(request: ZRankRequest, metadata?: Metadata): Promise<Int64Value> {
+    const v = await conn.zrank(makeKey(request.key?.key ?? '', request.scope), request.member);
+    if (v == null) {
+      if (shouldThrowNil(metadata)) throw new Error('redis: nil');
+      return { value: -1 } as Int64Value;
     }
-    await (conn as any).mset(...flat);
-    return {};
-  },
+    return { value: Number(v) } as Int64Value;
+  }
+  async ZIncrBy(request: ZIncrByRequest): Promise<DoubleValue> {
+    const v = await conn.zincrby(
+      makeKey(request.key, request.scope),
+      request.value,
+      request.member
+    );
+    return { value: Number(v) } as DoubleValue;
+  }
 
   // Bitfield
-  async Bitfield(req: {
-    key: string;
-    commands: any[];
-    scope?: RedisKeyScope;
-  }): Promise<{ results: number[] }> {
-    const res = await (conn as any).bitfield(
-      makeKey(req.key, req.scope),
-      ...(req.commands as any[])
-    );
-    return { results: res as number[] };
-  },
+  async Bitfield(request: BitfieldRequest): Promise<BitfieldResponse> {
+    const flat: (string | number)[] = [];
+    for (const cmd of request.commands ?? []) {
+      if (cmd.set) {
+        flat.push('SET', cmd.set.encoding, Number(cmd.set.offset), Number(cmd.set.value));
+      } else if (cmd.get) {
+        flat.push('GET', cmd.get.encoding, Number(cmd.get.offset));
+      } else if (cmd.incrBy) {
+        flat.push(
+          'INCRBY',
+          cmd.incrBy.encoding,
+          Number(cmd.incrBy.offset),
+          Number(cmd.incrBy.increment)
+        );
+      } else if (cmd.overflow) {
+        const behavior = cmd.overflow.behavior;
+        const mode = behavior === 1 ? 'WRAP' : behavior === 2 ? 'SAT' : 'FAIL';
+        flat.push('OVERFLOW', mode);
+      }
+    }
+    const res = await (conn as any).bitfield(makeKey(request.key, undefined), ...(flat as any[]));
+    return { results: res as number[] } as BitfieldResponse;
+  }
+}
 
-  // Transactions (basic stubs to satisfy client if used)
-  async Watch(_req: { keys: string[]; scope?: RedisKeyScope }): Promise<{ id: string }> {
-    // Not a real tx id, but stable enough for tests
-    return { id: `tx:${Date.now()}:${Math.random()}` };
-  },
-  async Unwatch(_req: { id: string }): Promise<Empty> {
-    return {};
-  },
-  async Multi(_req: { id: string }): Promise<Empty> {
-    return {};
-  },
-  async Exec(_req: { id: string }): Promise<{ response: any[] }> {
-    return { response: [] };
-  },
-  async Discard(_req: { id: string }): Promise<Empty> {
-    return {};
-  },
-} as unknown as Record<string, (...args: unknown[]) => Promise<unknown>>;
+// Adapter removed in favor of strongly-typed class implementation above.
 
 const makeConfig = (): Config => {
   return {
     assets: {},
     providedDefinitions: [],
     webviewAssets: {},
+    getPermissions: () => [],
 
     export: () => ({}) as any,
     provides: () => {},
@@ -467,7 +487,7 @@ const makeConfig = (): Config => {
 
     use<T>(definition: { fullName: string }): T {
       if (definition.fullName === RedisAPIDefinition.fullName) {
-        return redisPluginAdapter as unknown as T;
+        return new MockedRedisApi() as unknown as T;
       }
       throw new Error(`Plugin not mocked: ${definition.fullName}`);
     },
@@ -510,6 +530,17 @@ type ItFn = {
   ) => void;
 };
 
+// Minimal viable headers for BaseContext
+const headers = {
+  [Header.Subreddit]: 't5_testsub', // required
+  [Header.SubredditName]: 'testsub', // optional but useful
+  [Header.App]: 'test-app', // optional
+  [Header.Version]: '0.0.0-test', // optional
+  [Header.User]: 't2_testuser', // optional
+  [Header.AppUser]: 't2_testuser',
+  [Header.AppViewerAuthToken]: 'test-token',
+};
+
 function itImpl(
   name: string,
   fn: (ctx: TestContext & { config: Config; prefix: string }) => Promise<void> | void
@@ -520,17 +551,6 @@ function itImpl(
 
     const cfg = makeConfig();
     installGlobalConfig(cfg);
-
-    // Minimal viable headers for BaseContext
-    const headers = {
-      [Header.Subreddit]: 't5_testsub', // required
-      [Header.SubredditName]: 'testsub', // optional but useful
-      [Header.App]: 'test-app', // optional
-      [Header.Version]: '0.0.0-test', // optional
-      [Header.User]: 't2_testuser', // optional
-      [Header.AppUser]: 't2_testuser',
-      [Header.AppViewerAuthToken]: 'test-token',
-    };
 
     const reqCtx = Context(headers);
     await runWithContext(reqCtx, async () => {
@@ -558,7 +578,7 @@ const it: ItFn = Object.assign(
           throw new Error('Harness failed to install config: config.use is not a function');
         }
 
-        const reqCtx = Context({});
+        const reqCtx = Context(headers);
         await runWithContext(reqCtx, async () => {
           await fn(Object.assign(vitestCtx, { config: cfg, prefix }));
         });

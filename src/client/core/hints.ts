@@ -15,10 +15,13 @@ export type PreviousGuess = {
 
 /** Load and parse the `_hint.csv` for a given challenge. */
 export async function loadHintsForChallenge(challengeNumber: number): Promise<HintWord[]> {
-  const csv = await fetcher.request<string>(`/challenges/${String(challengeNumber)}/_hint.csv`, {
-    timeout: 5000,
-    maxAttempts: 3,
-  });
+  const csv = await fetcher.request<string>(
+    `/api/challenges/${String(challengeNumber)}/_hint.csv`,
+    {
+      timeout: 5000,
+      maxAttempts: 3,
+    }
+  );
   const lines = csv.split(/\r?\n/).filter(Boolean);
   const out: HintWord[] = [];
   for (let i = 0; i < lines.length; i++) {

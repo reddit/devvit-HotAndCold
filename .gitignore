@@ -10,3 +10,4 @@ webroot
 dist
 words
 .env
+words-final/gemini_3072_embeddings.csv

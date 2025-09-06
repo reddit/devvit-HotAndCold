@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { redisNumberString } from '../utils';
 import { fn } from '../../shared/fn';
 import { redis, reddit, Post } from '@devvit/web/server';
-import { wordsOfTheDay } from '../wordlist';
+import { WordQueue } from './wordQueue';
 
 export const stringifyValues = <T extends Record<string, any>>(obj: T): Record<keyof T, string> => {
   return Object.fromEntries(
@@ -19,10 +19,8 @@ export namespace Challenge {
 
   const challengeSchema = z
     .object({
-      // Here for postData, we replicate the structure so that
-      // we don't get rate limited by calling setPostData on
-      // every user guess.
       challengeNumber: z.string(),
+      secretWord: z.string(),
       totalPlayers: redisNumberString.optional(),
       totalSolves: redisNumberString.optional(),
       totalGuesses: redisNumberString.optional(),
@@ -168,7 +166,7 @@ export namespace Challenge {
 
     let post: Post | undefined;
 
-    const newWord = wordsOfTheDay[newChallengeNumber - 1];
+    const newWord = (await WordQueue.shift())?.word;
     if (!newWord) {
       throw new Error('No more words available for new challenge. Need to add more to the list!');
     }
@@ -177,7 +175,6 @@ export namespace Challenge {
       post = await reddit.submitCustomPost({
         subredditName: currentSubreddit.name,
         title: `Hot and cold #${newChallengeNumber}`,
-        // @ts-expect-error - types are wrong for inline mode
         splash: {},
         postData: {
           challengeNumber: newChallengeNumber,
@@ -188,6 +185,7 @@ export namespace Challenge {
         challengeNumber: newChallengeNumber,
         config: {
           challengeNumber: newChallengeNumber.toString(),
+          secretWord: newWord,
           totalPlayers: '0',
           totalSolves: '0',
           totalGuesses: '0',
