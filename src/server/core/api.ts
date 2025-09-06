@@ -183,11 +183,14 @@ export const buildHintCsvForChallenge = fn(
     const wordConfig = await getWordConfigCached({ word: challengeSecretWord });
     const header = 'word,similarity,rank';
     const rows: string[] = [header];
-    const n = Math.min(max, wordConfig.similar_words.length);
-    for (let i = 0; i < n; i++) {
+    let added = 0;
+    for (let i = 0; i < wordConfig.similar_words.length; i++) {
+      if (added >= max) break;
       const entry = wordConfig.similar_words[i]!;
+      if (!entry.is_hint) continue;
       const rank = i + 1; // 1-based rank from global order
       rows.push(`${entry.word},${entry.similarity.toFixed(4)},${rank}`);
+      added++;
     }
     return rows.join('\n');
   }

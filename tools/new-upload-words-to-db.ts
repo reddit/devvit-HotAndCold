@@ -27,7 +27,6 @@ function unquoteCsvField(s: string): string {
 function parseEmbeddingCsvLine(line: string): { word: string; values: number[] } | null {
   const trimmed = line.trim();
   if (!trimmed) return null;
-  if (/^(word|text)\s*,/i.test(trimmed)) return null; // skip header
 
   const firstComma = trimmed.indexOf(',');
   if (firstComma === -1) return null;
@@ -62,13 +61,17 @@ function parseEmbeddingCsvLine(line: string): { word: string; values: number[] }
   return { word, values: nums };
 }
 
-function loadWordSetFromCsv(filePath: string, headerName = 'word'): Set<string> {
+function loadWordSetFromCsv(filePath: string): Set<string> {
   const set = new Set<string>();
   const content = readFileSync(filePath, 'utf8');
+  let seenHeader = false;
   for (const rawLine of content.split(/\r?\n/)) {
     const line = rawLine.trim();
     if (!line) continue;
-    if (new RegExp(`^${headerName}$`, 'i').test(line)) continue; // header only
+    if (!seenHeader) {
+      seenHeader = true; // skip the first non-empty line as header
+      continue;
+    }
     const idx = line.indexOf(',');
     const field = idx === -1 ? line : line.slice(0, idx);
     const word = unquoteCsvField(field);
@@ -145,9 +148,11 @@ async function main() {
   await client.connect();
   try {
     await ensureDatabase(client);
+    // Clear existing rows before re-importing
+    await client.query('TRUNCATE TABLE words_2 RESTART IDENTITY');
 
-    const masterWords = loadWordSetFromCsv(WORD_LIST_FILE, 'word');
-    const hintWords = loadWordSetFromCsv(HINT_LIST_FILE, 'word');
+    const masterWords = loadWordSetFromCsv(WORD_LIST_FILE);
+    const hintWords = loadWordSetFromCsv(HINT_LIST_FILE);
 
     const rl = createInterface({
       input: createReadStream(EMBEDDINGS_FILE, { encoding: 'utf8' }),
@@ -158,8 +163,15 @@ async function main() {
     let inserted = 0;
     let dim: number | null = null;
     let batch: RowToInsert[] = [];
+    let skippedEmbeddingHeader = false;
 
     for await (const line of rl) {
+      const trimmed = line.trim();
+      if (!trimmed) continue;
+      if (!skippedEmbeddingHeader) {
+        skippedEmbeddingHeader = true; // skip first non-empty line as header
+        continue;
+      }
       const parsed = parseEmbeddingCsvLine(line);
       if (!parsed) continue;
       processed++;

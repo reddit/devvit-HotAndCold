@@ -260,6 +260,14 @@ export function WordInput({
               inputRef.current?.focus();
             } else {
               onFeedback?.(r.message);
+              if (
+                r.code === 'NOT_IN_DICTIONARY' ||
+                r.code === 'DUPLICATE' ||
+                r.code === 'INVALID_CHARS'
+              ) {
+                setInternalValue('');
+                onChange?.('');
+              }
               inputRef.current?.focus();
             }
           } else {

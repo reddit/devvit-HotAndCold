@@ -345,6 +345,8 @@ export type AppRouter = typeof appRouter;
 
 const app = express();
 
+app.use(express.json());
+
 // Needs to be before /api/challenges/:challengeNumber/:letter.csv!!
 app.get('/api/challenges/:challengeNumber/_hint.csv', async (req, res): Promise<void> => {
   try {
@@ -443,6 +445,7 @@ app.post('/internal/menu/post-create', async (_req, res): Promise<void> => {
 // Queue: submit challenges (append or prepend)
 app.post('/internal/form/queue/add', async (req, res): Promise<void> => {
   try {
+    console.log('adding to queue', req.body);
     const { wordsCsv, prepend } = (req.body as any) ?? {};
     if (typeof wordsCsv !== 'string' || wordsCsv.trim().length === 0) {
       res.status(400).json({
@@ -503,8 +506,28 @@ app.post('/internal/form/queue/add', async (req, res): Promise<void> => {
       }
     }
 
-    // Enqueue only validated successes
-    const toEnqueue = successes.map((s) => ({ word: s.word }));
+    // Enqueue only validated successes; skip duplicates already in queue
+    const existingQueue = await WordQueue.peekAll();
+    const existingSet = new Set(existingQueue.map((c) => c.word.toLowerCase()));
+    const seenIncoming = new Set<string>();
+    const duplicates: string[] = [];
+    const toEnqueue = successes
+      .map((s) => s.word)
+      .filter((w) => {
+        const lower = w.toLowerCase();
+        if (existingSet.has(lower)) {
+          duplicates.push(w);
+          return false;
+        }
+        if (seenIncoming.has(lower)) {
+          duplicates.push(w);
+          return false;
+        }
+        seenIncoming.add(lower);
+        return true;
+      })
+      .map((w) => ({ word: w }));
+
     if (prepend) {
       for (const c of toEnqueue) {
         await WordQueue.prepend({ challenge: c });
@@ -517,15 +540,17 @@ app.post('/internal/form/queue/add', async (req, res): Promise<void> => {
 
     const successCount = toEnqueue.length;
     const failureWords = failures.map((f) => f.word).join(', ');
-    const text =
-      failures.length === 0
-        ? `Added ${successCount} item(s) to the queue`
-        : `Added ${successCount} item(s). Failed: ${failureWords}`;
+    const duplicateWords = duplicates.join(', ');
+    const issues: string[] = [];
+    if (failures.length > 0) issues.push(`Failed: ${failureWords}`);
+    if (duplicates.length > 0) issues.push(`Skipped duplicates: ${duplicateWords}`);
+    const base = `Added ${successCount} item(s) to the queue`;
+    const text = issues.length === 0 ? base : `${base}. ${issues.join('. ')}`;
 
     res.status(200).json({
       showToast: {
         text,
-        appearance: failures.length === 0 ? 'success' : 'neutral',
+        appearance: issues.length === 0 ? 'success' : 'neutral',
       },
     });
   } catch (err: any) {
