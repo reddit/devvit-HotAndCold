@@ -10,6 +10,8 @@ import { Modal } from '../shared/modal';
 import { requireChallengeNumber } from '../requireChallengeNumber';
 import { getPrettyDuration } from '../../shared/prettyDuration';
 import { ScoreBreakdownModal } from './scoreBreakdownModal';
+import { loadHintsForChallenge, type HintWord } from '../core/hints';
+import { context } from '@devvit/web/client';
 
 type LeaderboardEntry = { member: string; score: number };
 
@@ -106,7 +108,7 @@ const CallToAction = ({
 
   const label =
     cta === 'JOIN_SUBREDDIT'
-      ? 'Join r/hotandcold'
+      ? `Join r/${context.subredditName}`
       : cta === 'REMIND_ME_TO_PLAY'
         ? 'Remind me to play every day'
         : 'Share your results in the thread';
@@ -134,7 +136,7 @@ const CallToAction = ({
             className="mb-3 h-28 w-full resize-none rounded-md border border-gray-300 bg-white p-2 text-sm text-black outline-none focus:ring-2 focus:ring-blue-400 dark:border-gray-700 dark:bg-gray-800 dark:text-white"
             value={comment}
             onInput={(e) => setComment((e.target as HTMLTextAreaElement).value)}
-            placeholder={`I scored ${stats.score ?? '--'} in ${stats.timeToSolve ?? '--'} and ranked #${stats.rank ?? '--'}!`}
+            placeholder={`Share your word journey or details about your strategy!`}
           />
           {serverSuffix && (
             <p className="-mt-2 mb-3 text-[10px] leading-4 text-gray-500 dark:text-gray-400">
@@ -169,6 +171,8 @@ export function WinPage() {
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
   const [userRank, setUserRank] = useState<number | null>(null);
   const [isScoreOpen, setIsScoreOpen] = useState(false);
+  const [hints, setHints] = useState<HintWord[] | null>(null);
+  const [isHintsLoading, setIsHintsLoading] = useState(false);
 
   const challengeNumber = useMemo(() => requireChallengeNumber(), []);
 
@@ -198,6 +202,27 @@ export function WinPage() {
         setUserRank(typeof myRank === 'number' ? myRank : null);
       } catch {
         // ignore
+      }
+    })();
+  }, [challengeNumber]);
+
+  useEffect(() => {
+    // Load closest words (hints) once per challenge
+    void (async () => {
+      setIsHintsLoading(true);
+      try {
+        const words = await loadHintsForChallenge(challengeNumber);
+        // Sort by ascending rank (0 is closest); fallback to similarity desc
+        const sorted = words
+          .slice(0)
+          .sort(
+            (a, b) => (a.rank ?? Infinity) - (b.rank ?? Infinity) || b.similarity - a.similarity
+          );
+        setHints(sorted);
+      } catch {
+        setHints([]);
+      } finally {
+        setIsHintsLoading(false);
       }
     })();
   }, [challengeNumber]);
@@ -233,7 +258,13 @@ export function WinPage() {
         <Tablist
           activeIndex={activeIndex}
           onChange={setActiveIndex}
-          items={[{ name: 'My Stats' }, { name: 'Challenge Stats' }, { name: 'Leaderboard' }]}
+          items={[
+            { name: 'Me' },
+            { name: 'Global' },
+            { name: 'Closest' },
+            { name: 'Guesses' },
+            { name: 'Standings' },
+          ]}
         />
       </div>
 
@@ -320,6 +351,107 @@ export function WinPage() {
 
         {activeIndex === 2 && (
           <div className="flex flex-col gap-4">
+            <div className="flex items-center justify-between">
+              <h2 className="text-base font-semibold text-gray-900 dark:text-white">
+                Closest words
+              </h2>
+              {hints && hints.length > 0 && (
+                <span className="text-xs text-gray-500 dark:text-gray-400">
+                  {hints.length} words
+                </span>
+              )}
+            </div>
+            <div className="overflow-y-auto rounded-lg border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900 max-h-[50vh]">
+              {isHintsLoading ? (
+                <div className="p-4 text-sm text-gray-500 dark:text-gray-400">Loading…</div>
+              ) : !hints || hints.length === 0 ? (
+                <div className="p-4 text-sm text-gray-700 dark:text-gray-300">
+                  No hints available.
+                </div>
+              ) : (
+                hints.map((h, index) => (
+                  <div
+                    key={`${h.word}-${index}`}
+                    className={cn(
+                      'flex items-center px-4 py-1 transition-colors duration-150',
+                      index % 2 === 0
+                        ? 'bg-gray-50 dark:bg-gray-800/50'
+                        : 'bg-gray-100 dark:bg-gray-900/50'
+                    )}
+                  >
+                    <div className="flex flex-1 items-center gap-3">
+                      <span className="min-w-[2rem] font-mono text-sm text-gray-600 dark:text-gray-400">
+                        #{h.rank ?? index}
+                      </span>
+                      <span className="truncate font-medium text-gray-900 dark:text-white">
+                        {h.word}
+                      </span>
+                    </div>
+                    <span className="text-sm text-gray-700 dark:text-gray-300">
+                      {(h.similarity * 100).toFixed(1)}%
+                    </span>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        )}
+
+        {activeIndex === 3 && (
+          <div className="flex flex-col gap-4">
+            <div className="flex items-center justify-between">
+              <h2 className="text-base font-semibold text-gray-900 dark:text-white">
+                Your guesses
+              </h2>
+              {challengeUserInfo.guesses?.length ? (
+                <span className="text-xs text-gray-500 dark:text-gray-400">
+                  {challengeUserInfo.guesses.length} total
+                </span>
+              ) : null}
+            </div>
+            <div className="overflow-y-auto max-h-[50vh] rounded-lg border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900">
+              {!challengeUserInfo.guesses || challengeUserInfo.guesses.length === 0 ? (
+                <div className="p-4 text-sm text-gray-700 dark:text-gray-300">No guesses yet.</div>
+              ) : (
+                [...challengeUserInfo.guesses]
+                  .sort((a: any, b: any) => Number(b.timestampMs ?? 0) - Number(a.timestampMs ?? 0))
+                  .map((g: any, index: number) => (
+                    <div
+                      key={`${g.word}-${g.timestampMs ?? index}`}
+                      className={cn(
+                        'flex items-center px-4 py-1 transition-colors duration-150',
+                        index % 2 === 0
+                          ? 'bg-gray-50 dark:bg-gray-800/50'
+                          : 'bg-gray-100 dark:bg-gray-900/50'
+                      )}
+                    >
+                      <div className="flex flex-1 items-center gap-3">
+                        <span className="min-w-[2.25rem] font-mono text-sm text-gray-600 dark:text-gray-400">
+                          #{typeof g.rank === 'number' && g.rank >= 0 ? g.rank : '—'}
+                        </span>
+                        <span className="truncate font-medium text-gray-900 dark:text-white">
+                          {g.word}
+                        </span>
+                        {g.isHint ? (
+                          <span className="ml-2 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-700 dark:bg-amber-900/30 dark:text-amber-300">
+                            Hint
+                          </span>
+                        ) : null}
+                      </div>
+                      <span className="text-sm text-gray-700 dark:text-gray-300">
+                        {typeof g.similarity === 'number'
+                          ? (g.similarity * 100).toFixed(1) + '%'
+                          : '—'}
+                      </span>
+                    </div>
+                  ))
+              )}
+            </div>
+          </div>
+        )}
+
+        {activeIndex === 4 && (
+          <div className="flex flex-col gap-4">
             <div className="flex flex-col gap-1 text-center">
               {userRank && (
                 <p className="text-gray-400">
@@ -329,7 +461,7 @@ export function WinPage() {
             </div>
 
             {leaderboard?.length ? (
-              <div className="overflow-hidden rounded-lg border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900">
+              <div className="overflow-y-auto max-h-[50vh] rounded-lg border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900">
                 {leaderboard.map((entry, index, entries) => {
                   const isCurrentUser = entry.member === challengeUserInfo.username;
                   let rank = 1;

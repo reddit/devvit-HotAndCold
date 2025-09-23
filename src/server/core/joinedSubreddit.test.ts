@@ -9,7 +9,7 @@ const testUser3 = 'carol';
 it('setJoinedSubredditForUsername adds a user', async () => {
   await JoinedSubreddit.setJoinedSubredditForUsername({ username: testUser1 });
   // Check via totalJoinedSubreddit
-  const total = await JoinedSubreddit.totalJoinedSubreddit({});
+  const total = await JoinedSubreddit.totalJoinedSubreddit();
   expect(total).toBe(1);
 });
 
@@ -26,7 +26,7 @@ it('isUserJoinedSubreddit returns true if user is joined, false otherwise', asyn
 it('removeJoinedSubredditForUsername removes a user', async () => {
   await JoinedSubreddit.setJoinedSubredditForUsername({ username: testUser1 });
   await JoinedSubreddit.removeJoinedSubredditForUsername({ username: testUser1 });
-  const total = await JoinedSubreddit.totalJoinedSubreddit({});
+  const total = await JoinedSubreddit.totalJoinedSubreddit();
   expect(total).toBe(0);
   const isJoined = await JoinedSubreddit.isUserJoinedSubreddit({ username: testUser1 });
   expect(isJoined).toBe(false);
@@ -38,7 +38,7 @@ it('getUsersJoinedSubreddit returns all users who joined (order by score)', asyn
   await JoinedSubreddit.setJoinedSubredditForUsername({ username: testUser2 });
   await new Promise((r) => setTimeout(r, 2));
   await JoinedSubreddit.setJoinedSubredditForUsername({ username: testUser3 });
-  const users = await JoinedSubreddit.getUsersJoinedSubreddit({});
+  const users = await JoinedSubreddit.getUsersJoinedSubreddit();
   expect(Array.isArray(users)).toBe(true);
   expect(users.length).toBe(3);
   expect(users).toEqual(
@@ -50,11 +50,11 @@ it('getUsersJoinedSubreddit returns all users who joined (order by score)', asyn
 });
 
 it('totalJoinedSubreddit returns correct count', async () => {
-  expect(await JoinedSubreddit.totalJoinedSubreddit({})).toBe(0);
+  expect(await JoinedSubreddit.totalJoinedSubreddit()).toBe(0);
   await JoinedSubreddit.setJoinedSubredditForUsername({ username: testUser1 });
-  expect(await JoinedSubreddit.totalJoinedSubreddit({})).toBe(1);
+  expect(await JoinedSubreddit.totalJoinedSubreddit()).toBe(1);
   await JoinedSubreddit.setJoinedSubredditForUsername({ username: testUser2 });
-  expect(await JoinedSubreddit.totalJoinedSubreddit({})).toBe(2);
+  expect(await JoinedSubreddit.totalJoinedSubreddit()).toBe(2);
 });
 
 it('toggleJoinedSubredditForUsername toggles join state', async () => {

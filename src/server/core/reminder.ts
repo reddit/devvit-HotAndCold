@@ -38,14 +38,14 @@ export namespace Reminders {
     }
   );
 
-  export const getUsersOptedIntoReminders = fn(z.object({}), async () => {
+  export const getUsersOptedIntoReminders = fn(z.void(), async () => {
     const data = await redis.zRange(getRemindersKey(), 0, '+inf', {
       by: 'score',
     });
     return data;
   });
 
-  export const totalReminders = fn(z.object({}), async () => {
+  export const totalReminders = fn(z.void(), async () => {
     return await redis.zCard(getRemindersKey());
   });
 

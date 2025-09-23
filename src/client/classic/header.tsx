@@ -56,7 +56,7 @@ export function Header({ engine }: { engine?: GuessEngine }) {
     // Submit via local engine so UI updates and sync is queued
     try {
       if (engine) {
-        await engine.submit(next.word);
+        await engine.submitHint(next.word);
       }
     } catch (e) {
       console.error('Failed to submit hint guess', e);

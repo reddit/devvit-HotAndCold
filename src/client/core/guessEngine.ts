@@ -33,6 +33,7 @@ export type GuessSubmission = {
   similarity: number;
   rank: number; // -1 when unknown
   atMs: number;
+  isHint?: boolean;
 };
 
 export type GuessEngine = {
@@ -47,6 +48,7 @@ export type GuessEngine = {
 
   // actions
   submit: (raw: string) => Promise<ClientGuessResult>;
+  submitHint: (word: string) => Promise<ClientGuessResult>;
   clear: () => void;
 };
 
@@ -442,6 +444,97 @@ export function createGuessEngine(params: {
     }
   };
 
+  // Submit a specific word as a hint-triggered guess (client-driven isHint=true)
+  const submitHint = async (raw: string): Promise<ClientGuessResult> => {
+    const now = Date.now();
+    const word = normalizeWord(raw);
+    if (hasGuessed(word)) {
+      const alreadyGuessed = history.value.find((h) => h.word === word);
+      const res: Extract<ClientGuessResult, { ok: false }> = {
+        ok: false,
+        code: 'DUPLICATE',
+        word,
+        message: `You already guessed “${word}”. (#${alreadyGuessed?.rank})`,
+      };
+      lastResult.value = res;
+      return res;
+    }
+
+    // Look up similarity/rank for the hint word using the same path as free guesses
+    try {
+      isSubmitting.value = true;
+      const data = await makeGuess(word);
+      if (!data) {
+        const res: Extract<ClientGuessResult, { ok: false }> = {
+          ok: false,
+          code: 'NOT_IN_DICTIONARY',
+          word,
+          message: `I don't recognize “${word}”. Try another word.`,
+        };
+        lastResult.value = res;
+        return res;
+      }
+
+      const corrected = typeof data.word === 'string' && data.word.length > 0 ? data.word : word;
+      if (hasGuessed(corrected)) {
+        const alreadyGuessed = history.value.find((h) => h.word === corrected);
+        const res: Extract<ClientGuessResult, { ok: false }> = {
+          ok: false,
+          code: 'DUPLICATE',
+          word: corrected,
+          message: `You already guessed “${corrected}”. (#${alreadyGuessed?.rank})`,
+        };
+        lastResult.value = res;
+        return res;
+      }
+
+      batch(() => {
+        history.value = [
+          ...history.value,
+          {
+            word: corrected,
+            similarity: data.similarity,
+            rank: Number.isFinite(data.rank) ? (data.rank as number) : -1,
+            timestamp: now,
+          },
+        ];
+      });
+
+      // Fire-and-forget to server, marking isHint=true
+      void (async () => {
+        try {
+          const serverState = await submitBatchToServer(challengeNumber, [
+            {
+              word: corrected,
+              similarity: data.similarity,
+              rank: Number.isFinite(data.rank) ? (data.rank as number) : -1,
+              atMs: now,
+              isHint: true,
+            },
+          ]);
+          if (serverState && serverState.solvedAtMs) {
+            const solvedAt = Number(serverState.solvedAtMs) || Date.now();
+            solvedAtMs.value = solvedAt;
+            markSolvedForCurrentChallenge(solvedAt);
+          }
+        } catch {
+          // ignore
+        }
+      })();
+
+      const res: Extract<ClientGuessResult, { ok: true }> = {
+        ok: true,
+        word: corrected,
+        similarity: data.similarity,
+        rank: Number.isFinite(data.rank) ? data.rank : null,
+      };
+      lastResult.value = res;
+      return res;
+    } finally {
+      isSubmitting.value = false;
+    }
+  };
+
   // removed markSolvedOptimistically; solvedAtMs is set via real events
 
   const clear = () => {
@@ -464,6 +557,7 @@ export function createGuessEngine(params: {
     solvedAtMs,
     hasGuessed,
     submit,
+    submitHint,
     clear,
   };
 }

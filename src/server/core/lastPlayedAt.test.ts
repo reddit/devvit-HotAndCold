@@ -9,7 +9,7 @@ const testUser3 = 'carol';
 it('setLastPlayedAtForUsername adds or updates a user', async () => {
   await resetRedis();
   await LastPlayedAt.setLastPlayedAtForUsername({ username: testUser1 });
-  const total = await LastPlayedAt.totalLastPlayedUsers({});
+  const total = await LastPlayedAt.totalLastPlayedUsers();
   expect(total).toBe(1);
 });
 
@@ -29,7 +29,7 @@ it('getUsersLastPlayedAt returns all users in score order', async () => {
   await LastPlayedAt.setLastPlayedAtForUsername({ username: testUser2 });
   await new Promise((r) => setTimeout(r, 2));
   await LastPlayedAt.setLastPlayedAtForUsername({ username: testUser3 });
-  const users = await LastPlayedAt.getUsersLastPlayedAt({});
+  const users = await LastPlayedAt.getUsersLastPlayedAt();
   expect(Array.isArray(users)).toBe(true);
   expect(users.length).toBe(3);
   expect(users).toEqual(
@@ -39,9 +39,9 @@ it('getUsersLastPlayedAt returns all users in score order', async () => {
 
 it('totalLastPlayedUsers returns correct count', async () => {
   await resetRedis();
-  expect(await LastPlayedAt.totalLastPlayedUsers({})).toBe(0);
+  expect(await LastPlayedAt.totalLastPlayedUsers()).toBe(0);
   await LastPlayedAt.setLastPlayedAtForUsername({ username: testUser1 });
-  expect(await LastPlayedAt.totalLastPlayedUsers({})).toBe(1);
+  expect(await LastPlayedAt.totalLastPlayedUsers()).toBe(1);
   await LastPlayedAt.setLastPlayedAtForUsername({ username: testUser2 });
-  expect(await LastPlayedAt.totalLastPlayedUsers({})).toBe(2);
+  expect(await LastPlayedAt.totalLastPlayedUsers()).toBe(2);
 });

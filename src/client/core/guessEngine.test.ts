@@ -189,7 +189,7 @@ describe('guessEngine', () => {
     const engine = createGuessEngine({ challengeNumber: 5, rateLimitMs: 0 });
 
     getLetterPreloadOrderMock.mockResolvedValueOnce('abcdefghijklmnopqrstuvwxyz'.split(''));
-    preloadLetterMapsMock.mockResolvedValue(undefined);
+    preloadLetterMapsMock.mockResolvedValue();
 
     // 1st distinct guess -> tier 1
     makeGuessMock.mockResolvedValueOnce({ word: 'able', similarity: 0.1, rank: 100 });
@@ -231,7 +231,7 @@ describe('guessEngine', () => {
     ];
     window.localStorage.setItem('guess-history:9', JSON.stringify(history));
     getLetterPreloadOrderMock.mockResolvedValueOnce('abcdefghijklmnopqrstuvwxyz'.split(''));
-    preloadLetterMapsMock.mockResolvedValue(undefined);
+    preloadLetterMapsMock.mockResolvedValue();
 
     const engine = createGuessEngine({ challengeNumber: 9 });
     expect(engine.hasGuessed('alpha')).toBe(true);

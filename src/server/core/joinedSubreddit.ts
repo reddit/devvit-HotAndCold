@@ -37,7 +37,7 @@ export namespace JoinedSubreddit {
     }
   );
 
-  export const getUsersJoinedSubreddit = fn(z.object({}), async () => {
+  export const getUsersJoinedSubreddit = fn(z.void(), async () => {
     // Fetch all members by score (timestamp), in order
     const data = await redis.zRange(getJoinedSubredditKey(), 0, '+inf', {
       by: 'score',
@@ -45,7 +45,7 @@ export namespace JoinedSubreddit {
     return data;
   });
 
-  export const totalJoinedSubreddit = fn(z.object({}), async () => {
+  export const totalJoinedSubreddit = fn(z.void(), async () => {
     return await redis.zCard(getJoinedSubredditKey());
   });
 

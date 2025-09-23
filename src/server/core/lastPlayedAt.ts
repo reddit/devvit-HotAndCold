@@ -28,14 +28,14 @@ export namespace LastPlayedAt {
     }
   );
 
-  export const getUsersLastPlayedAt = fn(z.object({}), async () => {
+  export const getUsersLastPlayedAt = fn(z.void(), async () => {
     const data = await redis.zRange(getLastPlayedAtKey(), 0, '+inf', {
       by: 'score',
     });
     return data;
   });
 
-  export const totalLastPlayedUsers = fn(z.object({}), async () => {
+  export const totalLastPlayedUsers = fn(z.void(), async () => {
     return await redis.zCard(getLastPlayedAtKey());
   });
 }

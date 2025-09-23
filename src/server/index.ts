@@ -54,7 +54,7 @@ async function computeCommentSuffix({
   const nonHintGuesses = (info.guesses ?? []).filter((g: any) => !g.isHint).length;
   const hintsUsed = (info.guesses ?? []).filter((g: any) => g.isHint).length;
   const score = info.score?.finalScore;
-  const base = `I found the secret word in ${duration} after ${nonHintGuesses} ${
+  const base = `Automatically added: I found the secret word in ${duration} after ${nonHintGuesses} ${
     nonHintGuesses === 1 ? 'guess' : 'guesses'
   } and ${hintsUsed} ${hintsUsed === 1 ? 'hint' : 'hints'}.`;
   return typeof score === 'number' ? `${base} Score: ${score}.` : base;
@@ -257,6 +257,7 @@ const appRouter = router({
               similarity: z.number(),
               rank: z.number(),
               atMs: z.number(),
+              isHint: z.boolean().optional(),
             })
           ),
         })
@@ -271,6 +272,8 @@ const appRouter = router({
           word: g.word,
           similarity: g.similarity,
           rank: g.rank,
+          // Only accept isHint when explicitly provided by client UI
+          isHint: g.isHint === true,
         }));
         const response = await UserGuess.submitGuesses({
           username,
@@ -368,6 +371,7 @@ app.get('/api/challenges/:challengeNumber/_hint.csv', async (req, res): Promise<
     });
     res.setHeader('Content-Type', 'text/csv; charset=utf-8');
     res.setHeader('Cache-Control', 'public, max-age=31536000, s-maxage=31536000, immutable');
+    res.setHeader('Surrogate-Control', 'max-age=31536000, immutable');
     res.status(200).send(csv);
   } catch (err: any) {
     console.error('Faieferfel');
@@ -403,6 +407,7 @@ app.get('/api/challenges/:challengeNumber/:letter.csv', async (req, res): Promis
     });
     res.setHeader('Content-Type', 'text/csv; charset=utf-8');
     res.setHeader('Cache-Control', 'public, max-age=31536000, s-maxage=31536000, immutable');
+    res.setHeader('Surrogate-Control', 'max-age=31536000, immutable');
     res.status(200).send(csv);
   } catch (err: any) {
     console.error('Faieferfel');
@@ -649,6 +654,40 @@ app.post('/internal/menu/size', async (_req, res): Promise<void> => {
   res.status(200).json({
     showToast: `Queue size: ${n}`,
   });
+});
+
+// [stats] Show count of users opted into reminders (immediate action)
+app.post('/internal/menu/reminders-count', async (_req, res): Promise<void> => {
+  try {
+    const total = await Reminders.totalReminders();
+    res.status(200).json({
+      showToast: `Users opted into reminders: ${total}`,
+    });
+  } catch (err: any) {
+    res.status(500).json({
+      showToast: {
+        text: err?.message || 'Failed to get reminders count',
+        appearance: 'neutral',
+      },
+    });
+  }
+});
+
+// [stats] Show count of users who joined the subreddit (immediate action)
+app.post('/internal/menu/joined-count', async (_req, res): Promise<void> => {
+  try {
+    const total = await JoinedSubreddit.totalJoinedSubreddit();
+    res.status(200).json({
+      showToast: `Users joined subreddit: ${total}`,
+    });
+  } catch (err: any) {
+    res.status(500).json({
+      showToast: {
+        text: err?.message || 'Failed to get joined subreddit count',
+        appearance: 'neutral',
+      },
+    });
+  }
 });
 
 // [queue] DM full queue contents to invoking moderator (immediate action)

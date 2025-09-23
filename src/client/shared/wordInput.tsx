@@ -284,6 +284,7 @@ export function WordInput({
           inputRef.current?.focus();
         }
       } catch (err) {
+        console.error(err);
         const message = err instanceof Error ? err.message : 'Something went wrong';
         onFeedback?.(message);
       } finally {

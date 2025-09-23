@@ -179,7 +179,10 @@ export namespace Challenge {
       post = await reddit.submitCustomPost({
         subredditName: currentSubreddit.name,
         title: `Hot and cold #${newChallengeNumber}`,
-        splash: {},
+        splash: {
+          appDisplayName: 'Hot and Cold',
+          backgroundUri: 'transparent.png',
+        },
         postData: {
           challengeNumber: newChallengeNumber,
         },

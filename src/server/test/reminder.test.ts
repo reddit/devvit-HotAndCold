@@ -9,7 +9,7 @@ const testUser3 = 'carol';
 it('setReminderForUsername adds a user', async () => {
   await resetRedis();
   await Reminders.setReminderForUsername({ username: testUser1 });
-  const total = await Reminders.totalReminders({});
+  const total = await Reminders.totalReminders();
   expect(total).toBe(1);
 });
 
@@ -26,7 +26,7 @@ it('removeReminderForUsername removes a user', async () => {
   await resetRedis();
   await Reminders.setReminderForUsername({ username: testUser1 });
   await Reminders.removeReminderForUsername({ username: testUser1 });
-  const total = await Reminders.totalReminders({});
+  const total = await Reminders.totalReminders();
   expect(total).toBe(0);
   const isIn = await Reminders.isUserOptedIntoReminders({ username: testUser1 });
   expect(isIn).toBe(false);
@@ -39,7 +39,7 @@ it('getUsersOptedIntoReminders returns all users who opted in (order by score)',
   await Reminders.setReminderForUsername({ username: testUser2 });
   await new Promise((r) => setTimeout(r, 2));
   await Reminders.setReminderForUsername({ username: testUser3 });
-  const users = await Reminders.getUsersOptedIntoReminders({});
+  const users = await Reminders.getUsersOptedIntoReminders();
   expect(Array.isArray(users)).toBe(true);
   expect(users.length).toBe(3);
   expect(users).toEqual(
@@ -52,11 +52,11 @@ it('getUsersOptedIntoReminders returns all users who opted in (order by score)',
 
 it('totalReminders returns correct count', async () => {
   await resetRedis();
-  expect(await Reminders.totalReminders({})).toBe(0);
+  expect(await Reminders.totalReminders()).toBe(0);
   await Reminders.setReminderForUsername({ username: testUser1 });
-  expect(await Reminders.totalReminders({})).toBe(1);
+  expect(await Reminders.totalReminders()).toBe(1);
   await Reminders.setReminderForUsername({ username: testUser2 });
-  expect(await Reminders.totalReminders({})).toBe(2);
+  expect(await Reminders.totalReminders()).toBe(2);
 });
 
 it('toggleReminderForUsername toggles opt-in state', async () => {
