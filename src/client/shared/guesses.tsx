@@ -26,9 +26,7 @@ export function Guesses({
     const settings = userSettings.value;
     const base = [...list];
     if (settings.sortType === 'SIMILARITY') {
-      base.sort((a, b) =>
-        settings.sortDirection === 'ASC' ? a.similarity - b.similarity : b.similarity - a.similarity
-      );
+      base.sort((a, b) => (settings.sortDirection === 'ASC' ? b.rank - a.rank : a.rank - b.rank));
     } else {
       base.sort((a, b) =>
         settings.sortDirection === 'ASC' ? a.timestamp - b.timestamp : b.timestamp - a.timestamp
