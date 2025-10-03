@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { redisNumberString } from '../utils';
 import { fn } from '../../shared/fn';
-import { redis, reddit, Post } from '@devvit/web/server';
+import { redis, reddit, Post, settings, context } from '@devvit/web/server';
 import { WordQueue } from './wordQueue';
 import { getWordConfigCached } from './api';
 
@@ -186,6 +186,18 @@ export namespace Challenge {
         postData: {
           challengeNumber: newChallengeNumber,
         },
+      });
+
+      const flairId = await settings.get<string>('flairId');
+      if (!flairId) {
+        console.log('No flair ID configured, skipping...');
+        return post;
+      }
+
+      await reddit.setPostFlair({
+        postId: post.id,
+        subredditName: context.subredditName!,
+        flairTemplateId: flairId,
       });
 
       await setChallenge({

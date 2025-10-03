@@ -102,6 +102,13 @@
         "isSecret": true,
         "type": "string"
       }
+    },
+    "subreddit": {
+      "flairId": {
+        "type": "string",
+        "label": "Game Flair ID",
+        "helpText": "Flair ID for the game tag e.g. d7441bc0-a089-11f0-8b7d-16490fd4785c"
+      }
     }
   },
   "dev": {
