@@ -191,7 +191,11 @@ export namespace Challenge {
       const flairId = await settings.get<string>('flairId');
       if (!flairId) {
         console.log('No flair ID configured, skipping...');
-        return post;
+        return {
+          postId: post.id,
+          postUrl: post.url,
+          challenge: newChallengeNumber,
+        };
       }
 
       await reddit.setPostFlair({
@@ -243,5 +247,46 @@ export namespace Challenge {
 
       throw error;
     }
+  });
+
+  export const exportLast30Days = fn(z.void(), async () => {
+    const currentChallengeNumber = await getCurrentChallengeNumber();
+
+    // Assume roughly 1 challenge per day and get last 30 challenges
+    // If there are gaps in challenge numbers, we'll filter them out
+    const startChallengeNumber = Math.max(1, currentChallengeNumber - 30);
+    const challengeNumbers = Array.from(
+      { length: currentChallengeNumber - startChallengeNumber + 1 },
+      (_, i) => startChallengeNumber + i
+    );
+
+    // Query all challenges in the range
+    const challenges = await Promise.all(
+      challengeNumbers.map(async (challengeNumber) => {
+        try {
+          const challenge = await getChallenge({ challengeNumber });
+          return {
+            challengeNumber: parseInt(challenge.challengeNumber),
+            secretWord: challenge.secretWord,
+            totalPlayers: challenge.totalPlayers ?? 0,
+            totalSolves: challenge.totalSolves ?? 0,
+            totalGuesses: challenge.totalGuesses ?? 0,
+            totalHints: challenge.totalHints ?? 0,
+            totalGiveUps: challenge.totalGiveUps ?? 0,
+          };
+        } catch (error) {
+          console.error('Error getting challenge for stat export:', error);
+          // Challenge doesn't exist, skip it
+          return null;
+        }
+      })
+    );
+
+    // Filter out null challenges and sort by challenge number (newest first)
+    const validChallenges = challenges
+      .filter((challenge): challenge is NonNullable<typeof challenge> => challenge !== null)
+      .sort((a, b) => b.challengeNumber - a.challengeNumber);
+
+    return validChallenges;
   });
 }

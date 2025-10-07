@@ -78,6 +78,12 @@
         "forUserType": "moderator",
         "location": "subreddit",
         "endpoint": "/internal/menu/joined-count"
+      },
+      {
+        "label": "[stats] Export last 30 days",
+        "forUserType": "moderator",
+        "location": "subreddit",
+        "endpoint": "/internal/menu/export-last-30-days"
       }
     ]
   },

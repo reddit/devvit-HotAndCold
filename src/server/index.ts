@@ -872,5 +872,89 @@ app.post('/internal/scheduler/create-new-challenge', async (_req, res): Promise<
     });
   }
 });
+app.post('/internal/menu/export-last-30-days', async (_req, res): Promise<void> => {
+  try {
+    const { userId } = context;
+    if (!userId) {
+      res.status(400).json({
+        showToast: 'userId is required',
+      });
+      return;
+    }
+
+    const me = await reddit.getUserById(userId);
+    if (!me) {
+      res.status(400).json({
+        showToast: 'Could not resolve current user',
+      });
+      return;
+    }
+
+    const challenges = await Challenge.exportLast30Days();
+
+    if (challenges.length === 0) {
+      const subject = 'Hot & Cold - Last 30 Days Challenge Data';
+      const body = 'No challenges found in the last 30 days.';
+
+      await reddit.sendPrivateMessage({
+        to: me.username,
+        subject,
+        text: body,
+      });
+
+      res.status(200).json({
+        showToast: 'Sent empty challenge data via DM',
+      });
+      return;
+    }
+
+    // Convert challenges to CSV format
+    const headers = [
+      'Challenge Number',
+      'Secret Word',
+      'Total Players',
+      'Total Solves',
+      'Total Guesses',
+      'Total Hints',
+      'Total Give-ups',
+    ];
+    const csvRows = [
+      headers.join(','),
+      ...challenges.map((challenge) =>
+        [
+          challenge.challengeNumber,
+          `"${challenge.secretWord}"`,
+          challenge.totalPlayers,
+          challenge.totalSolves,
+          challenge.totalGuesses,
+          challenge.totalHints,
+          challenge.totalGiveUps,
+        ].join(',')
+      ),
+    ];
+
+    const csvContent = csvRows.join('\n');
+    const subject = 'Hot & Cold - Last 30 Days Challenge Data';
+    const body = `Here is the challenge data for the last 30 days:\n\n${csvContent}`;
+
+    await reddit.sendPrivateMessage({
+      to: me.username,
+      subject,
+      text: body,
+    });
+
+    res.status(200).json({
+      showToast: `Sent ${challenges.length} challenges data via DM`,
+    });
+  } catch (err: any) {
+    console.error('Failed to send challenge data DM', err);
+    res.status(500).json({
+      showToast: {
+        text: err?.message || 'Failed to send challenge data DM',
+        appearance: 'neutral',
+      },
+    });
+  }
+});
 
 createServer(app).listen(getServerPort());
