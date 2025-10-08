@@ -12,6 +12,22 @@ export const stringifyValues = <T extends Record<string, any>>(obj: T): Record<k
 };
 
 export namespace Challenge {
+  // Shared builder to keep postData in sync everywhere it's set
+  export const makePostData = ({
+    challengeNumber,
+    totalPlayers,
+    totalSolves,
+  }: {
+    challengeNumber: number;
+    totalPlayers: number;
+    totalSolves: number;
+  }) => {
+    return {
+      challengeNumber,
+      totalPlayers,
+      totalSolves,
+    } as const;
+  };
   export const CurrentChallengeNumberKey = () => 'current_challenge_number' as const;
 
   export const ChallengeKey = (challengeNumber: number) => `challenge:${challengeNumber}` as const;
@@ -159,11 +175,9 @@ export namespace Challenge {
       reddit.getCurrentSubreddit(),
     ]);
 
-    console.log('Current challenge number:', currentChallengeNumber);
-
     const newChallengeNumber = currentChallengeNumber + 1;
 
-    console.log('Current challenge number:', currentChallengeNumber);
+    console.log('New challenge number:', newChallengeNumber);
 
     let post: Post | undefined;
 
@@ -183,26 +197,35 @@ export namespace Challenge {
           appDisplayName: 'Hot and Cold',
           backgroundUri: 'transparent.png',
         },
-        postData: {
+        postData: makePostData({
           challengeNumber: newChallengeNumber,
-        },
+          totalPlayers: 0,
+          totalSolves: 0,
+        }),
       });
 
-      const flairId = await settings.get<string>('flairId');
-      if (!flairId) {
-        console.log('No flair ID configured, skipping...');
-        return {
-          postId: post.id,
-          postUrl: post.url,
-          challenge: newChallengeNumber,
-        };
+      // Pin the how-to-play comment
+      try {
+        const comment = await reddit.submitComment({
+          id: post.id,
+          text: `Welcome to Hot and Cold, the delightfully frustrating word guessing game! 
+          
+To play, guess the secret word by typing any word you think is related.
+
+For example, if the secret word is "hot":
+
+Guesses: banana -> #12956 (not close); sun -> #493 (getting warmer); hotdog -> #220 (hot); cold -> #42 (hot); freeze -> #1657 (getting colder); warm -> #15 (very hot!!); hot -> WINNER!
+
+The rank is based on how AI models see the relationships between the words. So antonyms can be "close" by the relationship of the words (cold -> hot). Additionally, words can be close based on the structure of the word (hotdog -> hot).
+
+Enjoy! If you have feedback on how we can improve the game, please let us know!
+  `,
+        });
+        await comment.distinguish(true);
+      } catch (error) {
+        // This is bugged as of 10/8 but maybe for only playtesting?
+        console.error('Error pinning how-to-play comment:', error);
       }
-
-      await reddit.setPostFlair({
-        postId: post.id,
-        subredditName: context.subredditName!,
-        flairTemplateId: flairId,
-      });
 
       await setChallenge({
         challengeNumber: newChallengeNumber,
@@ -231,10 +254,22 @@ export namespace Challenge {
         post.id
       );
 
+      const flairId = await settings.get<string>('flairId');
+      if (flairId) {
+        await reddit.setPostFlair({
+          postId: post.id,
+          subredditName: context.subredditName!,
+          flairTemplateId: flairId,
+        });
+      } else {
+        console.warn('No flair ID configured, skipping...');
+      }
+
       return {
         postId: post.id,
         postUrl: post.url,
         challenge: newChallengeNumber,
+        word: newWord,
       };
     } catch (error) {
       console.error('Error making new challenge:', error);
@@ -288,5 +323,44 @@ export namespace Challenge {
       .sort((a, b) => b.challengeNumber - a.challengeNumber);
 
     return validChallenges;
+  });
+
+  // Updates postData for the most recent N challenges (including current)
+  export const updatePostDataForRecentChallenges = fn(z.void(), async () => {
+    const current = await getCurrentChallengeNumber();
+    if (current <= 0) return { updated: 0 } as const;
+
+    const maxToUpdate = 10;
+    let updated = 0;
+
+    for (let i = 0; i < maxToUpdate; i++) {
+      const challengeNumber = current - i;
+      if (challengeNumber <= 0) break;
+
+      try {
+        const postId = await getPostIdForChallenge({ challengeNumber });
+        if (!postId) continue;
+
+        // Load latest counters for this challenge
+        const c = await getChallenge({ challengeNumber });
+        const totalPlayers = Number.parseInt(String(c.totalPlayers ?? '0'), 10) || 0;
+        const totalSolves = Number.parseInt(String(c.totalSolves ?? '0'), 10) || 0;
+
+        const post = await reddit.getPostById(postId as any);
+        await post.setPostData(
+          makePostData({
+            challengeNumber,
+            totalPlayers,
+            totalSolves,
+          })
+        );
+        updated++;
+      } catch (err) {
+        console.error('Failed to update postData for challenge', challengeNumber, err);
+        // continue with the rest
+      }
+    }
+
+    return { updated } as const;
   });
 }

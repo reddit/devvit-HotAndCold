@@ -4,7 +4,8 @@ import { IconButton } from '../shared/button';
 import { InfoIcon } from '../shared/icons';
 import { cn } from '../utils/cn';
 import { useState } from 'preact/hooks';
-import { HowToPlayModal } from './howToPlayModal';
+// How-to-play modal state via global helpers
+import { openHowToPlay } from './state/howToPlay';
 import type { GuessEngine } from '../core/guessEngine';
 import {
   loadHintsForChallenge,
@@ -17,6 +18,9 @@ import { userSettings, toggleLayout, toggleSortType } from './state/userSettings
 import { trpc } from '../trpc';
 import { navigate } from './state/navigation';
 import { resetGuessCache } from '../core/guess';
+import posthog from 'posthog-js';
+import { isAdmin } from './state/admin';
+import { openExperiments } from './state/experiments';
 
 const SpeechBubbleTail = ({ className }: { className?: string }) => (
   <svg
@@ -31,8 +35,7 @@ const SpeechBubbleTail = ({ className }: { className?: string }) => (
 );
 
 export function Header({ engine }: { engine?: GuessEngine }) {
-  // Local UI state for modals (how-to-play, score breakdown)
-  const [isHowToOpen, setHowToOpen] = useState(false);
+  // Local UI state for modals (score breakdown placeholder)
   // Future: show score breakdown when available
   // const [isScoreOpen, setScoreOpen] = useState(false);
 
@@ -72,6 +75,7 @@ export function Header({ engine }: { engine?: GuessEngine }) {
           <button
             className={cn('flex gap-1', accessStatus === 'inactive' && 'cursor-pointer')}
             onClick={() => {
+              posthog.capture('Game Page Hardcore Psst Clicked');
               // Placeholder for unlock hardcore modal
             }}
             disabled={accessStatus !== 'inactive'}
@@ -88,7 +92,10 @@ export function Header({ engine }: { engine?: GuessEngine }) {
         <div className="flex flex-1 items-center justify-end gap-2">
           <IconButton
             type="button"
-            onClick={() => setHowToOpen(true)}
+            onClick={() => {
+              posthog.capture('Game Page How to Play Opened');
+              openHowToPlay();
+            }}
             icon={<InfoIcon />}
             aria-label="How to Play"
           >
@@ -150,12 +157,23 @@ export function Header({ engine }: { engine?: GuessEngine }) {
                   }
                 },
               },
+              ...(isAdmin.value
+                ? ([
+                    {
+                      name: 'Experiments',
+                      action: async () => {
+                        posthog.capture('Game Page Experiments Opened');
+                        openExperiments();
+                      },
+                    },
+                  ] as const)
+                : ([] as const)),
             ]}
           />
         </div>
       </div>
 
-      <HowToPlayModal isOpen={isHowToOpen} onClose={() => setHowToOpen(false)} />
+      {/* HowToPlayModal is rendered at App level */}
     </>
   );
 }

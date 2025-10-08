@@ -1,15 +1,9 @@
-import type { ComponentChildren } from 'preact';
 import { Modal } from '../shared/modal';
+import { howToPlayOpen, closeHowToPlay } from './state/howToPlay';
 
-type Props = {
-  isOpen: boolean;
-  onClose: () => void;
-  children?: ComponentChildren;
-};
-
-export function HowToPlayModal({ isOpen, onClose }: Props) {
+export function HowToPlayModal() {
   return (
-    <Modal isOpen={isOpen} onClose={onClose}>
+    <Modal isOpen={howToPlayOpen.value} onClose={closeHowToPlay}>
       <div className="p-6">
         <h3 className="mb-4 text-xl font-bold dark:text-white">How to Play</h3>
         <div className="space-y-4">

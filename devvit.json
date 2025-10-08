@@ -24,13 +24,6 @@
   "menu": {
     "items": [
       {
-        "label": "Create a new post",
-        "description": "hotandcold",
-        "location": "subreddit",
-        "forUserType": "moderator",
-        "endpoint": "/internal/menu/post-create"
-      },
-      {
         "label": "[queue] Add to queue",
         "forUserType": "moderator",
         "location": "subreddit",
@@ -47,6 +40,12 @@
         "forUserType": "moderator",
         "location": "subreddit",
         "endpoint": "/internal/menu/size"
+      },
+      {
+        "label": "[queue] Peek next 3",
+        "forUserType": "moderator",
+        "location": "subreddit",
+        "endpoint": "/internal/menu/peek"
       },
       {
         "label": "[queue] Get contents via DM",
@@ -93,12 +92,24 @@
         "cron": "0 12 * * *",
         "endpoint": "/internal/scheduler/create-new-challenge",
         "data": {}
+      },
+      "update-post-data": {
+        "cron": "*/5 * * * *",
+        "endpoint": "/internal/scheduler/update-post-data",
+        "data": {}
       }
     }
+  },
+  "triggers": {
+    "onCommentCreate": "/internal/triggers/on-comment-create"
   },
   "permissions": {
     "reddit": {
       "asUser": ["SUBMIT_COMMENT", "SUBSCRIBE_TO_SUBREDDIT"]
+    },
+    "http": {
+      "domains": ["us.i.posthog.com", "us-assets.i.posthog.com"],
+      "enable": true
     }
   },
   "settings": {

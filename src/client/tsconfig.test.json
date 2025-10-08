@@ -1,20 +1,22 @@
-// TypeScript config for all Devvit server code.
+// TypeScript config for all web view main thread code.
 {
   "extends": "../../tools/tsconfig-base.json",
   "compilerOptions": {
-    "lib": ["ES2023"],
+    // Target the browser.
+    "customConditions": ["browser"],
 
-    "types": ["node"],
+    "lib": ["DOM", "ES2023", "esnext.disposable"],
 
-    "rootDir": ".",
+    "types": ["@vitest/browser/providers/playwright"],
 
+    "outDir": "../../dist/types/client",
+
+    // React
     "jsx": "react-jsx",
+    "jsxImportSource": "preact",
 
-    "outDir": "../../dist/types/server",
-
-    "tsBuildInfoFile": "../../dist/tsconfig.tsbuildinfo"
+    "tsBuildInfoFile": "../../dist/types/client/tsconfig.tsbuildinfo"
   },
-  // https://github.com/Microsoft/TypeScript/issues/25636
-  "include": ["**/*", "**/*.json", "**/*.test.ts", "**/*.test.tsx", "../../package.json"],
-  "references": [{ "path": "../shared" }]
+  "include": ["**/*.test.ts", "**/*.test.tsx"],
+  "references": [{ "path": "../server" }, { "path": "../shared" }]
 }

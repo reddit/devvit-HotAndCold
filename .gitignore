@@ -11,3 +11,5 @@ dist
 words
 .env
 words-final/gemini_3072_embeddings.csv
+__screenshots__
+coverage

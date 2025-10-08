@@ -1,6 +1,8 @@
 import { useState, useRef, useEffect } from 'preact/hooks';
 import { IconButton } from './button';
 import { HamburgerIcon } from './icons';
+import posthog from 'posthog-js';
+import { page } from '../classic/state/navigation';
 
 export const HelpMenu = ({
   items,
@@ -103,7 +105,12 @@ export const HelpMenu = ({
   return (
     <div className="relative text-gray-900 dark:text-white" ref={menuRef} onKeyDown={handleKeyDown}>
       <IconButton
-        onClick={() => setToggled((x) => !x)}
+        onClick={() => {
+          posthog.capture('Game Page Help Menu Opened', {
+            page: page.value,
+          });
+          setToggled((x) => !x);
+        }}
         aria-expanded={toggled}
         aria-haspopup="true"
         aria-label="Menu"
@@ -128,7 +135,14 @@ export const HelpMenu = ({
                   : ''
               }`}
               key={item.name}
-              onClick={() => void handleItemClick(item.action, item.disabled)}
+              onClick={() => {
+                posthog.capture('Game Page Help Menu Item Clicked', {
+                  item: item.name,
+                  index,
+                  page: page.value,
+                });
+                void handleItemClick(item.action, item.disabled);
+              }}
               ref={(el) => {
                 buttonRefs.current[index] = el;
               }}

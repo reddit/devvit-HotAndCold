@@ -109,6 +109,8 @@ export const getWordConfigCached = fn(
       // ignore redis read errors and fetch fresh
     }
 
+    console.log('No cache found, fetching fresh...');
+
     // Fetch fresh and attempt to cache
     const fresh = await getWordConfig({ word });
     console.log('Getting word config fresh', key);
@@ -132,7 +134,6 @@ export const buildLetterCsvForChallenge = fn(
   }),
   async ({ challengeSecretWord, letter }): Promise<string> => {
     const wordConfig = await getWordConfigCached({ word: challengeSecretWord });
-    console.log('word config list', wordConfig.similar_words.length);
     const header = 'word,similarity,rank';
     const lower = letter.toLowerCase();
 

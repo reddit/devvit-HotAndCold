@@ -6,6 +6,7 @@ import { GradientBorder } from '../shared/gradientBorder';
 import { cn } from '../utils/cn';
 import { trpc } from '../trpc';
 import { Modal } from '../shared/modal';
+import posthog from 'posthog-js';
 // import { context } from '@devvit/web/client';
 import { requireChallengeNumber } from '../requireChallengeNumber';
 import { getPrettyDuration } from '../../shared/prettyDuration';
@@ -40,7 +41,6 @@ type CallToActionType = 'JOIN_SUBREDDIT' | 'REMIND_ME_TO_PLAY' | 'COMMENT' | nul
 const CallToAction = ({
   didWin,
   challengeNumber,
-  stats,
 }: {
   didWin: boolean;
   challengeNumber: number;
@@ -68,6 +68,11 @@ const CallToAction = ({
 
   const doAction = async () => {
     setIsLoading(true);
+
+    posthog.capture('Win Page Call To Action Clicked', {
+      cta,
+    });
+
     try {
       if (cta === 'JOIN_SUBREDDIT') {
         await trpc.cta.joinSubreddit.mutate({});
@@ -111,7 +116,7 @@ const CallToAction = ({
       ? `Join r/${context.subredditName}`
       : cta === 'REMIND_ME_TO_PLAY'
         ? 'Remind me to play every day'
-        : 'Share your results in the thread';
+        : 'Share your journey in the thread';
 
   return (
     <div className="text-sm">
@@ -252,19 +257,28 @@ export function WinPage() {
   const totalPlayers = challengeInfo.totalPlayers || 1;
   const percentageOutperformed = calculatePercentageOutperformed(playerRank, totalPlayers);
 
+  const tabList = [
+    { name: 'Me' },
+    { name: 'Global' },
+    { name: 'Closest' },
+    { name: 'Guesses' },
+    { name: 'Standings' },
+  ];
+
   return (
-    <div className={cn('flex flex-1 flex-col gap-6 px-4')}>
+    <div className={cn('flex flex-1 flex-col gap-6 md:px-4')}>
       <div className="mx-auto">
         <Tablist
           activeIndex={activeIndex}
-          onChange={setActiveIndex}
-          items={[
-            { name: 'Me' },
-            { name: 'Global' },
-            { name: 'Closest' },
-            { name: 'Guesses' },
-            { name: 'Standings' },
-          ]}
+          onChange={(index) => {
+            const tabClicked = tabList[index]!.name;
+            posthog.capture('Win Page Tab Clicked', {
+              index,
+              tabClicked,
+            });
+            setActiveIndex(index);
+          }}
+          items={tabList}
         />
       </div>
 
@@ -287,7 +301,10 @@ export function WinPage() {
                         <button
                           type="button"
                           className="cursor-pointer text-inherit underline"
-                          onClick={() => setIsScoreOpen(true)}
+                          onClick={() => {
+                            posthog.capture('Win Page Score Breakdown Clicked');
+                            setIsScoreOpen(true);
+                          }}
                         >
                           breakdown
                         </button>

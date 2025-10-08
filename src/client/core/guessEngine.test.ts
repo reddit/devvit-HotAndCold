@@ -1,8 +1,6 @@
-// @vitest-environment jsdom
-
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-// Mocks we can adjust per test
+// Mutable mock fns that hoisted mocks will delegate to
 let makeGuessMock: any;
 let preloadLetterMapsMock: any;
 let getLetterPreloadOrderMock: any;
@@ -16,29 +14,36 @@ const trpcMock = {
   guess: { submitBatch: { mutate: vi.fn() } },
 };
 
-async function loadEngine() {
-  vi.resetModules();
+// Hoisted module mocks that resolve from globalThis to avoid hoist capture issues in browser
+vi.mock('./guess', () => ({
+  makeGuess: (...args: any[]) => (globalThis as any).__guessMocks?.makeGuess?.(...args),
+  preloadLetterMaps: (...args: any[]) =>
+    (globalThis as any).__guessMocks?.preloadLetterMaps?.(...args),
+  getLetterPreloadOrder: (...args: any[]) =>
+    (globalThis as any).__guessMocks?.getLetterPreloadOrder?.(...args),
+}));
 
-  // Reset storages between tests
-  window.localStorage.clear();
-  window.sessionStorage.clear();
+vi.mock('../trpc', () => ({
+  trpc: new Proxy(
+    {},
+    {
+      get(_target, prop: string) {
+        return (globalThis as any).__trpcMock?.[prop as any];
+      },
+    }
+  ),
+}));
 
-  // Fresh mocks each load
-  makeGuessMock = vi.fn();
-  preloadLetterMapsMock = vi.fn();
-  getLetterPreloadOrderMock = vi.fn();
+vi.mock('../classic/state/navigation', () => ({
+  markSolvedForCurrentChallenge: (...args: any[]) =>
+    (globalThis as any).__navigationMock?.markSolvedForCurrentChallenge?.(...args),
+  // Provide minimal stubs for named exports that might be imported elsewhere
+  navigate: (..._args: any[]) => {},
+  initNavigation: (..._args: any[]) => {},
+  page: { value: 'play' },
+}));
 
-  vi.doMock('./guess', () => ({
-    makeGuess: makeGuessMock,
-    preloadLetterMaps: preloadLetterMapsMock,
-    getLetterPreloadOrder: getLetterPreloadOrderMock,
-  }));
-
-  vi.doMock('../trpc', () => ({ trpc: trpcMock }));
-  vi.doMock('../classic/state/navigation', () => navigation);
-
-  return await import('./guessEngine');
-}
+import { createGuessEngine } from './guessEngine';
 
 function advanceRateLimitBeyond(ms: number) {
   const now = Date.now();
@@ -52,10 +57,27 @@ describe('guessEngine', () => {
     navigation.markSolvedForCurrentChallenge.mockReset();
     trpcMock.game.get.query.mockReset();
     trpcMock.guess.submitBatch.mutate.mockReset();
+
+    // Reset storages between tests
+    window.localStorage.clear();
+    window.sessionStorage.clear();
+
+    // Fresh delegate mocks each test
+    makeGuessMock = vi.fn();
+    preloadLetterMapsMock = vi.fn();
+    getLetterPreloadOrderMock = vi.fn();
+
+    // Expose via global for hoisted factories
+    (globalThis as any).__guessMocks = {
+      makeGuess: makeGuessMock,
+      preloadLetterMaps: preloadLetterMapsMock,
+      getLetterPreloadOrder: getLetterPreloadOrderMock,
+    };
+    (globalThis as any).__trpcMock = trpcMock;
+    (globalThis as any).__navigationMock = navigation;
   });
 
   it('validates input and returns appropriate errors without mutating state', async () => {
-    const { createGuessEngine } = await loadEngine();
     const engine = createGuessEngine({ challengeNumber: 1, rateLimitMs: 100 });
 
     let res = await engine.submit('');
@@ -71,7 +93,6 @@ describe('guessEngine', () => {
   });
 
   it('applies rate limiting based on rateLimitMs', async () => {
-    const { createGuessEngine } = await loadEngine();
     const engine = createGuessEngine({ challengeNumber: 1, rateLimitMs: 1000 });
 
     makeGuessMock.mockResolvedValueOnce({ word: 'apple', similarity: 0.2, rank: 50 });
@@ -86,7 +107,6 @@ describe('guessEngine', () => {
   });
 
   it('records successful guesses, maps non-finite rank to -1 in history and null in result', async () => {
-    const { createGuessEngine } = await loadEngine();
     const engine = createGuessEngine({ challengeNumber: 7, rateLimitMs: 1 });
 
     makeGuessMock.mockResolvedValueOnce({ word: 'beta', similarity: 0.5, rank: Infinity });
@@ -97,7 +117,6 @@ describe('guessEngine', () => {
   });
 
   it('returns NOT_IN_DICTIONARY when lookup misses', async () => {
-    const { createGuessEngine } = await loadEngine();
     const engine = createGuessEngine({ challengeNumber: 2 });
 
     makeGuessMock.mockResolvedValueOnce(null as any);
@@ -107,7 +126,6 @@ describe('guessEngine', () => {
   });
 
   it('marks solved and calls navigation when a correct guess is made', async () => {
-    const { createGuessEngine } = await loadEngine();
     const engine = createGuessEngine({ challengeNumber: 3, rateLimitMs: 1 });
 
     makeGuessMock.mockResolvedValueOnce({ word: 'winner', similarity: 1, rank: 1 });
@@ -126,7 +144,6 @@ describe('guessEngine', () => {
   });
 
   it('shows loading (isSubmitting=true) while a winning guess is being verified server-side', async () => {
-    const { createGuessEngine } = await loadEngine();
     const engine = createGuessEngine({ challengeNumber: 101, rateLimitMs: 0 });
 
     makeGuessMock.mockResolvedValueOnce({ word: 'victory', similarity: 1, rank: 2 });
@@ -151,7 +168,6 @@ describe('guessEngine', () => {
   });
 
   it('on duplicate submission, returns DUPLICATE and re-asserts solved state when a prior winning guess exists', async () => {
-    const { createGuessEngine } = await loadEngine();
     const engine = createGuessEngine({ challengeNumber: 4, rateLimitMs: 10 });
 
     // First: win
@@ -169,7 +185,6 @@ describe('guessEngine', () => {
   });
 
   it('treats lemma-corrected duplicates as duplicates (e.g., years -> year)', async () => {
-    const { createGuessEngine } = await loadEngine();
     const engine = createGuessEngine({ challengeNumber: 8, rateLimitMs: 0 });
 
     // First guess: 'year'
@@ -185,7 +200,6 @@ describe('guessEngine', () => {
   });
 
   it('preload tiers schedule increasing letter batches based on distinct guesses in-session', async () => {
-    const { createGuessEngine } = await loadEngine();
     const engine = createGuessEngine({ challengeNumber: 5, rateLimitMs: 0 });
 
     getLetterPreloadOrderMock.mockResolvedValueOnce('abcdefghijklmnopqrstuvwxyz'.split(''));
@@ -223,8 +237,7 @@ describe('guessEngine', () => {
   });
 
   it('hydrates from local storage history and seeds guessed set', async () => {
-    const { createGuessEngine } = await loadEngine();
-    // Store prior local history with two distinct guesses AFTER loader clears storage
+    // Store prior local history with two distinct guesses
     const history = [
       { word: 'alpha', similarity: 0.1, rank: 10, timestamp: 1 },
       { word: 'beta', similarity: 0.2, rank: 20, timestamp: 2 },
@@ -241,7 +254,6 @@ describe('guessEngine', () => {
   });
 
   it('reconciles with server: sets solvedAtMs when server indicates solvedAtMs field', async () => {
-    const { createGuessEngine } = await loadEngine();
     trpcMock.game.get.query.mockResolvedValueOnce({
       challengeUserInfo: {
         solvedAtMs: 12345,
@@ -255,7 +267,6 @@ describe('guessEngine', () => {
   });
 
   it('reconciles with server: sets solved when any server guess has similarity 1', async () => {
-    const { createGuessEngine } = await loadEngine();
     trpcMock.game.get.query.mockResolvedValueOnce({
       challengeUserInfo: {
         guesses: [
@@ -271,7 +282,6 @@ describe('guessEngine', () => {
   });
 
   it('ensures backend reflects a local win when submitting a duplicate after reload', async () => {
-    const { createGuessEngine } = await loadEngine();
     // Local snapshot contains a win
     const localWinning = [{ word: 'win', similarity: 1, rank: 1, timestamp: 777 }];
     window.localStorage.setItem('guess-history:13', JSON.stringify(localWinning));
@@ -295,7 +305,6 @@ describe('guessEngine', () => {
       JSON.stringify([{ word: 'local', similarity: 0.1, rank: 10, timestamp: 1 }])
     );
 
-    const { createGuessEngine } = await loadEngine();
     trpcMock.game.get.query.mockResolvedValueOnce({
       challengeUserInfo: {
         guesses: [{ word: 'server', similarity: 0.3, rank: 3, timestampMs: 5 }],
@@ -309,7 +318,6 @@ describe('guessEngine', () => {
   });
 
   it('submits guesses to server in the background and uses returned solvedAtMs if provided', async () => {
-    const { createGuessEngine } = await loadEngine();
     const engine = createGuessEngine({ challengeNumber: 30, rateLimitMs: 1 });
     makeGuessMock.mockResolvedValueOnce({ word: 'close', similarity: 0.9, rank: 2 });
     trpcMock.guess.submitBatch.mutate.mockResolvedValueOnce({
@@ -326,7 +334,6 @@ describe('guessEngine', () => {
   });
 
   it('stores and submits the lemma-corrected word instead of the raw input', async () => {
-    const { createGuessEngine } = await loadEngine();
     const engine = createGuessEngine({ challengeNumber: 42, rateLimitMs: 0 });
 
     makeGuessMock.mockResolvedValueOnce({ word: 'year', similarity: 0.4, rank: 12 });
@@ -351,7 +358,6 @@ describe('guessEngine', () => {
   });
 
   it('clear resets state and guessed set', async () => {
-    const { createGuessEngine } = await loadEngine();
     const engine = createGuessEngine({ challengeNumber: 44 });
     makeGuessMock.mockResolvedValueOnce({ word: 'alpha', similarity: 0.2, rank: 5 });
     await engine.submit('alpha');

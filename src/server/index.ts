@@ -23,6 +23,8 @@ import { reddit, RichTextBuilder, context } from '@devvit/web/server';
 import { WordQueue } from './core/wordQueue';
 import { FormattingFlag } from '@devvit/shared-types/richtext/types.js';
 import { omit } from '../shared/omit';
+import { Admin } from './core/admin';
+import analyticsRouter from './analytics';
 
 // Formats a duration in milliseconds to a human-readable long form like
 // "2 hours 5 minutes 3 seconds" or "2 minutes 45 seconds" or "5 seconds".
@@ -346,12 +348,19 @@ const appRouter = router({
         return neighbors;
       }),
   },
+  // Returns whether the current user is an admin. Caches result in Redis.
+  isAdmin: publicProcedure.query(async () => {
+    return await Admin.isAdmin();
+  }),
 });
 
 // Export type router type signature, this is used by the client.
 export type AppRouter = typeof appRouter;
 
 const app = express();
+
+// Mount analytics proxy BEFORE any body parsers to avoid mangling raw bodies
+app.use('/api', analyticsRouter);
 
 app.use(express.json());
 
@@ -374,7 +383,6 @@ app.get('/api/challenges/:challengeNumber/_hint.csv', async (req, res): Promise<
     res.setHeader('Surrogate-Control', 'max-age=31536000, immutable');
     res.status(200).send(csv);
   } catch (err: any) {
-    console.error('Faieferfel');
     console.log('err', err.message.substring(0, 500));
     console.error('Failed to serve hint CSV', err);
     res.status(500).send('Failed to generate CSV');
@@ -383,7 +391,6 @@ app.get('/api/challenges/:challengeNumber/_hint.csv', async (req, res): Promise<
 
 // Register CSV endpoints BEFORE tRPC so they are not shadowed by the /api adapter
 app.get('/api/challenges/:challengeNumber/:letter.csv', async (req, res): Promise<void> => {
-  console.log('getting letter csv');
   try {
     const challengeNumber = Number.parseInt(String(req.params.challengeNumber), 10);
     const rawLetter = String(req.params.letter || '')
@@ -410,7 +417,6 @@ app.get('/api/challenges/:challengeNumber/:letter.csv', async (req, res): Promis
     res.setHeader('Surrogate-Control', 'max-age=31536000, immutable');
     res.status(200).send(csv);
   } catch (err: any) {
-    console.error('Faieferfel');
     console.log('err', err.message.substring(0, 500));
     console.error('Failed to serve letter CSV', err);
     res.status(500).send('Failed to generate CSV');
@@ -736,27 +742,106 @@ app.post('/internal/menu/dm', async (_req, res): Promise<void> => {
 // [queue] Post next queued challenge (immediate action)
 app.post('/internal/menu/post-next', async (_req, res): Promise<void> => {
   try {
-    const next = await WordQueue.shift();
-    if (!next) {
-      res.status(200).json({
-        showToast: {
-          text: 'Queue is empty - nothing to post',
-          appearance: 'neutral',
-        },
-      });
-      return;
-    }
-    // Placeholder: implement posting flow for a challenge word when available
+    const post = await Challenge.makeNewChallenge();
+
     res.status(200).json({
       showToast: {
-        text: `Next queued word: ${next.word}`,
+        text: `Next queued word: ${post.word}`,
+        appearance: 'success',
+      },
+      navigateTo: post.postUrl,
+    });
+  } catch (err: any) {
+    res.status(500).json({
+      showToast: {
+        text: err?.message || 'Failed to post next queued challenge',
+        appearance: 'neutral',
+      },
+    });
+  }
+});
+// Trigger: on comment create → remove spoilers that reveal the secret word (unless within spoiler)
+app.post('/internal/triggers/on-comment-create', async (req, res): Promise<void> => {
+  try {
+    // Payload contract from Devvit triggers
+    const body = (req.body as any) ?? {};
+    const commentId: string | undefined = body?.comment?.id;
+    const parentPostId: string | undefined = body?.post?.id ?? body?.comment?.postId;
+    const commentBodyRaw: string = String(body?.comment?.body ?? '');
+
+    if (!commentId || !parentPostId) {
+      res.status(200).json({ handled: false });
+      return;
+    }
+
+    // TODO: This will probably get ratelimited but no other way to get post data right now
+    // 1) Get challenge from the parent post's postData
+    const post = await reddit.getPostById(parentPostId as any);
+    const postData: any = await post.getPostData();
+    const parsed = Number.parseInt(String(postData?.challengeNumber ?? ''));
+    if (!Number.isFinite(parsed) || parsed <= 0) {
+      throw new Error('Missing challengeNumber in postData');
+    }
+    const challengeNumber = parsed;
+
+    // 2) Get the secret word
+    const challenge = await Challenge.getChallenge({ challengeNumber });
+    const secretWord = String(challenge.secretWord).trim().toLowerCase();
+    if (!secretWord) {
+      res.status(200).json({ handled: false });
+      return;
+    }
+
+    // 3) Check comment text, ignoring spoiler-wrapped segments (>! ... !<)
+    const lower = commentBodyRaw.toLowerCase();
+    const withoutSpoilers = lower.replace(/>!([\s\S]*?)!</g, ' ');
+    const haystack = withoutSpoilers;
+
+    const escaped = secretWord.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const re = new RegExp(`(?:^|[^a-z0-9])${escaped}(?:[^a-z0-9]|$)`, 'i');
+    const revealsSecret = re.test(haystack);
+
+    if (!revealsSecret) {
+      res.status(200).json({ handled: true, action: 'noop' });
+      return;
+    }
+
+    console.log('[spoiler-guard] Removing comment that reveals secret word', {
+      commentId,
+      parentPostId,
+      challengeNumber,
+      author: body?.author?.name,
+      secretWord,
+    });
+    await reddit.remove(commentId as any, false);
+    res.status(200).json({ handled: true, action: 'removed' });
+  } catch (err: any) {
+    console.error('Failed on-comment-create trigger', err);
+    res.status(200).json({ handled: false, error: err?.message });
+  }
+});
+// [queue] Peek next 3 queued challenges (immediate action)
+app.post('/internal/menu/peek', async (_req, res): Promise<void> => {
+  try {
+    const items = await WordQueue.peekAll();
+    const nextThree = items.slice(0, 3).map((c) => c.word);
+    const text =
+      nextThree.length === 0
+        ? 'Queue is empty'
+        : nextThree.length === 1
+          ? `Next word: ${nextThree[0]}`
+          : `Next ${nextThree.length} words: ${nextThree.join(', ')}`;
+
+    res.status(200).json({
+      showToast: {
+        text,
         appearance: 'success',
       },
     });
   } catch (err: any) {
     res.status(500).json({
       showToast: {
-        text: err?.message || 'Failed to post next queued challenge',
+        text: err?.message || 'Failed to peek queue',
         appearance: 'neutral',
       },
     });
@@ -869,6 +954,22 @@ app.post('/internal/scheduler/create-new-challenge', async (_req, res): Promise<
     res.status(400).json({
       status: 'error',
       message: 'Failed to create post',
+    });
+  }
+});
+app.post('/internal/scheduler/update-post-data', async (_req, res): Promise<void> => {
+  try {
+    console.log('Updating recent challenges postData from scheduler');
+    const result = await Challenge.updatePostDataForRecentChallenges();
+    res.json({
+      status: 'success',
+      updated: result.updated,
+    });
+  } catch (error) {
+    console.error('Error updating post data from scheduler:', error);
+    res.status(400).json({
+      status: 'error',
+      message: 'Failed to update post data',
     });
   }
 });

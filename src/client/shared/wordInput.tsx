@@ -4,6 +4,8 @@ import { PrimaryButton } from './button';
 import { cn } from '../utils/cn';
 import { makeGuess } from '../core/guess';
 import type { ClientGuessResult } from '../core/guessEngine';
+import { experiments } from '../../shared/experiments/experiments';
+import { context } from '@devvit/web/client';
 
 export type WordInputResult = {
   similarity: number;
@@ -67,6 +69,9 @@ export function WordInput({
   className,
   ...rest
 }: WordInputProps) {
+  const defaultGuessToOn =
+    experiments.evaluate(context.userId ?? '', 'exp_default_guess_to_on').treatment === 'on';
+
   const [currentPlaceholder, setCurrentPlaceholder] = useState(0);
   const [isAnimating, setIsAnimating] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -142,43 +147,47 @@ export function WordInput({
     };
   }, [autoFocusOnKeypress, onChange]);
 
-  const draw = useCallback(() => {
-    if (!inputRef.current) return;
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
+  const draw = useCallback(
+    (text?: string) => {
+      if (!inputRef.current) return;
+      const canvas = canvasRef.current;
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return;
 
-    canvas.width = 800;
-    canvas.height = 800;
-    ctx.clearRect(0, 0, 800, 800);
-    const computedStyles = getComputedStyle(inputRef.current);
+      canvas.width = 800;
+      canvas.height = 800;
+      ctx.clearRect(0, 0, 800, 800);
+      const computedStyles = getComputedStyle(inputRef.current);
 
-    const fontSize = parseFloat(computedStyles.getPropertyValue('font-size'));
-    ctx.font = `${fontSize * 2}px ${computedStyles.fontFamily}`;
-    ctx.fillStyle = '#FFF';
-    ctx.fillText(internalValue, 16, 40);
+      const fontSize = parseFloat(computedStyles.getPropertyValue('font-size'));
+      ctx.font = `${fontSize * 2}px ${computedStyles.fontFamily}`;
+      ctx.fillStyle = '#FFF';
+      const textToRender = text ?? internalValue ?? '';
+      ctx.fillText(textToRender, 16, 40);
 
-    const imageData = ctx.getImageData(0, 0, 800, 800);
-    const pixelData = imageData.data;
-    const newData: PixelData[] = [];
+      const imageData = ctx.getImageData(0, 0, 800, 800);
+      const pixelData = imageData.data;
+      const newData: PixelData[] = [];
 
-    for (let t = 0; t < 800; t++) {
-      const i = 4 * t * 800;
-      for (let n = 0; n < 800; n++) {
-        const e = i + 4 * n;
-        if (pixelData[e] !== 0 && pixelData[e + 1] !== 0 && pixelData[e + 2] !== 0) {
-          newData.push({
-            x: n,
-            y: t,
-            r: 1,
-            color: `rgba(${pixelData[e]}, ${pixelData[e + 1]}, ${pixelData[e + 2]}, ${pixelData[e + 3]})`,
-          });
+      for (let t = 0; t < 800; t++) {
+        const i = 4 * t * 800;
+        for (let n = 0; n < 800; n++) {
+          const e = i + 4 * n;
+          if (pixelData[e] !== 0 && pixelData[e + 1] !== 0 && pixelData[e + 2] !== 0) {
+            newData.push({
+              x: n,
+              y: t,
+              r: 1,
+              color: `rgba(${pixelData[e]}, ${pixelData[e + 1]}, ${pixelData[e + 2]}, ${pixelData[e + 3]})`,
+            });
+          }
         }
       }
-    }
-    newDataRef.current = newData;
-  }, [internalValue]);
+      newDataRef.current = newData;
+    },
+    [internalValue]
+  );
 
   useEffect(() => {
     draw();
@@ -229,10 +238,11 @@ export function WordInput({
     animateFrame(start);
   };
 
-  const vanishAndSubmit = async () => {
-    if (!internalValue) return;
+  const vanishAndSubmit = async (wordOverride?: string) => {
+    const wordSource = wordOverride ?? internalValue;
+    if (!wordSource) return;
     setIsAnimating(true);
-    draw();
+    draw(wordSource);
 
     if (inputRef.current) {
       const maxX = newDataRef.current.reduce(
@@ -248,7 +258,7 @@ export function WordInput({
       onSubmit?.(totalDuration);
 
       try {
-        const word = internalValue.toLowerCase();
+        const word = wordSource.toLowerCase();
         if (typeof submitGuess === 'function') {
           const res = await submitGuess(word);
           if (res && typeof (res as any).ok === 'boolean') {
@@ -294,11 +304,21 @@ export function WordInput({
     }
   };
 
+  const getPrefilledWord = useCallback(() => {
+    const raw = placeholders[currentPlaceholder] ?? '';
+    const stripped = raw.trim();
+    const match = stripped.match(/^\s*try\s+(.+)$/i);
+    const candidate = match ? match[1] : stripped;
+    return (candidate ?? '').trim();
+  }, [placeholders, currentPlaceholder]);
+
   const handleSubmit = () => {
-    if (!internalValue || isAnimating || isLoading) return;
+    const prefilled = getPrefilledWord();
+    const readyWord = internalValue || (defaultGuessToOn ? prefilled : '');
+    if (!readyWord || isAnimating || isLoading) return;
     inputRef.current?.focus();
     setIsLoading(true);
-    void vanishAndSubmit();
+    void vanishAndSubmit(readyWord);
   };
 
   const handleKeyDown = (e: JSX.TargetedKeyboardEvent<HTMLInputElement>) => {
@@ -350,7 +370,7 @@ export function WordInput({
 
       <PrimaryButton
         isHighContrast={isHighContrast}
-        disabled={!internalValue || isLoading}
+        disabled={!(internalValue || (defaultGuessToOn ? getPrefilledWord() : '')) || isLoading}
         type="submit"
         className="z-50 h-12 flex-shrink-0 flex items-center justify-center"
         onMouseDown={(e) => {
@@ -369,7 +389,7 @@ export function WordInput({
       </PrimaryButton>
 
       {/* Simple placeholder without React-only animation deps */}
-      {!internalValue && (
+      {!internalValue && !isAnimating && (
         <div className="pointer-events-none absolute inset-0 z-[1010] flex items-center rounded-full">
           <p className="text-md w-[calc(100%-2rem)] truncate pl-4 text-left font-normal text-neutral-500 dark:text-zinc-500">
             {placeholders[currentPlaceholder]}

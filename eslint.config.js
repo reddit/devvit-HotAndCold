@@ -32,6 +32,15 @@ export default defineConfig([
   },
   {
     extends: [js.configs.recommended, ...tseslint.configs.recommended],
+    files: ['src/shared/**/*.{ts,tsx}'],
+    languageOptions: {
+      ecmaVersion: 2023,
+      // Shared code can run in both browser and node contexts
+      globals: { ...globals.browser, ...globals.node },
+    },
+  },
+  {
+    extends: [js.configs.recommended, ...tseslint.configs.recommended],
     files: ['src/client/**/*.{ts,tsx}'],
     languageOptions: {
       ecmaVersion: 2023,
