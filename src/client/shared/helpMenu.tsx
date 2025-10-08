@@ -3,6 +3,7 @@ import { IconButton } from './button';
 import { HamburgerIcon } from './icons';
 import posthog from 'posthog-js';
 import { page } from '../classic/state/navigation';
+import { initPosthog } from '../classic/useInitPosthog';
 
 export const HelpMenu = ({
   items,
@@ -106,6 +107,7 @@ export const HelpMenu = ({
     <div className="relative text-gray-900 dark:text-white" ref={menuRef} onKeyDown={handleKeyDown}>
       <IconButton
         onClick={() => {
+          initPosthog({ mode: 'classic' });
           posthog.capture('Game Page Help Menu Opened', {
             page: page.value,
           });

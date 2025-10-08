@@ -21,6 +21,7 @@ import { resetGuessCache } from '../core/guess';
 import posthog from 'posthog-js';
 import { isAdmin } from './state/admin';
 import { openExperiments } from './state/experiments';
+import { initPosthog } from './useInitPosthog';
 
 const SpeechBubbleTail = ({ className }: { className?: string }) => (
   <svg
@@ -71,10 +72,19 @@ export function Header({ engine }: { engine?: GuessEngine }) {
       <div className="flex items-center justify-between mb-4" data-layout={layout}>
         <div className="flex h-6 flex-1 gap-2 sm:h-10 sm:gap-4">
           {/* Hardcore logo is not migrated; show mascot CTA next to main logo */}
-          <Logo />
+          <div
+            onClick={() => {
+              initPosthog({ mode: 'classic' });
+
+              posthog.capture('Game Page Hardcore Logo Clicked');
+            }}
+          >
+            <Logo />
+          </div>
           <button
             className={cn('flex gap-1', accessStatus === 'inactive' && 'cursor-pointer')}
             onClick={() => {
+              initPosthog({ mode: 'classic' });
               posthog.capture('Game Page Hardcore Psst Clicked');
               // Placeholder for unlock hardcore modal
             }}
@@ -93,6 +103,7 @@ export function Header({ engine }: { engine?: GuessEngine }) {
           <IconButton
             type="button"
             onClick={() => {
+              initPosthog({ mode: 'classic' });
               posthog.capture('Game Page How to Play Opened');
               openHowToPlay();
             }}

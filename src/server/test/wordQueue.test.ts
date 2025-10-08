@@ -1,4 +1,4 @@
-import { expect } from 'vitest';
+import { expect, vi } from 'vitest';
 import { it, resetRedis } from './devvitTest';
 import { WordQueue } from '../core/wordQueue';
 
@@ -13,9 +13,15 @@ it('WordQueue: FIFO append and shift preserves order', async () => {
   const c2 = makeChallenge('three');
   const c3 = makeChallenge('five');
 
+  // Use fake timers to ensure Date.now() increases between appends
+  vi.useFakeTimers();
+  vi.setSystemTime(1);
   await WordQueue.append({ challenge: c1 });
+  vi.setSystemTime(2);
   await WordQueue.append({ challenge: c2 });
+  vi.setSystemTime(3);
   await WordQueue.append({ challenge: c3 });
+  vi.useRealTimers();
 
   expect(await WordQueue.size()).toBe(3);
 

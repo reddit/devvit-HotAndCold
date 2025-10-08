@@ -75,8 +75,14 @@ const CallToAction = ({
 
     try {
       if (cta === 'JOIN_SUBREDDIT') {
+        posthog.setPersonProperties({
+          joined_subreddit: true,
+        });
         await trpc.cta.joinSubreddit.mutate({});
       } else if (cta === 'REMIND_ME_TO_PLAY') {
+        posthog.setPersonProperties({
+          opted_into_reminders: true,
+        });
         await trpc.cta.setReminder.mutate({});
       } else if (cta === 'COMMENT') {
         // Preload the server-computed suffix before opening modal
