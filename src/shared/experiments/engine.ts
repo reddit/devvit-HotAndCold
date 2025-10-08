@@ -10,17 +10,6 @@ export interface ExperimentConfig<T extends TreatmentName> {
   salt?: string;
   /** Per-user overrides: userId -> treatment */
   overrides?: Record<string, T>;
-  /**
-   * Optional weights aligned with `treatments`. If provided, we allocate buckets
-   * proportionally using Largest Remainder (Hamilton) method.
-   * Example: [1, 3] with buckets=8 -> ~[2,6]
-   */
-  weights?: number[];
-  /**
-   * Optional explicit bucket map. Keys are treatments, values are bucket index arrays.
-   * Must cover every bucket exactly once. If provided, this takes precedence over `weights`.
-   */
-  bucketMap?: Partial<Record<T, number[]>>;
 }
 
 export interface EvaluationOptions {
@@ -54,6 +43,13 @@ export function bucketForUserId(id: string, buckets: number, salt?: string): num
   return Math.abs(h) % buckets;
 }
 
+/** Deterministic uniform [0,1) from userId and optional salt */
+function uniform01FromId(id: string, salt?: string): number {
+  const key = salt ? `${salt}:${id}` : id;
+  const h = fnv1a32(key) >>> 0; // unsigned 32-bit
+  return h / 4294967296; // 2^32
+}
+
 // ---- Core Engine (static schema) ----------------------------
 // S is a mapping from experiment key to the union of allowed treatments.
 export class AbTestEngine<S extends Record<string, TreatmentName>> {
@@ -63,8 +59,6 @@ export class AbTestEngine<S extends Record<string, TreatmentName>> {
       treatments: readonly S[K][];
       salt?: string;
       overrides: Record<string, S[K]>;
-      weights?: number[];
-      bucketMap?: Partial<Record<S[K], number[]>>;
     };
   };
 
@@ -85,8 +79,6 @@ export class AbTestEngine<S extends Record<string, TreatmentName>> {
           treatments: cfg.treatments as any,
           salt: cfg.salt,
           overrides: cfg.overrides ?? {},
-          weights: cfg.weights,
-          bucketMap: cfg.bucketMap as any,
         };
         return [k, norm];
       })
@@ -96,10 +88,7 @@ export class AbTestEngine<S extends Record<string, TreatmentName>> {
       const cfg = this.configs[k as keyof S];
       if (!cfg.treatments.length) throw new Error(`Experiment '${String(k)}' has no treatments`);
       if (cfg.buckets < 1) throw new Error(`Experiment '${String(k)}' must have buckets >= 1`);
-      // Validate optional fields
-      if (cfg.weights && cfg.weights.length !== cfg.treatments.length)
-        throw new Error(`Experiment '${String(k)}' weights must match treatments length`);
-      if (cfg.bucketMap) this.validateBucketMap(String(k), cfg);
+      // no extra validation in simplified engine
     }
   }
 
@@ -117,7 +106,6 @@ export class AbTestEngine<S extends Record<string, TreatmentName>> {
   setBuckets<K extends keyof S>(key: K, buckets?: number): void {
     const cfg = this.getConfig(key);
     cfg.buckets = buckets ?? cfg.treatments.length;
-    if (cfg.bucketMap) this.validateBucketMap(String(key), cfg); // re-validate if explicit map present
   }
 
   setSalt<K extends keyof S>(key: K, salt: string): void {
@@ -125,18 +113,7 @@ export class AbTestEngine<S extends Record<string, TreatmentName>> {
     cfg.salt = salt;
   }
 
-  setWeights<K extends keyof S>(key: K, weights?: number[]): void {
-    const cfg = this.getConfig(key);
-    if (weights && weights.length !== cfg.treatments.length)
-      throw new Error(`Experiment '${String(key)}' weights must match treatments length`);
-    cfg.weights = weights as any;
-  }
-
-  setBucketMap<K extends keyof S>(key: K, bucketMap?: Partial<Record<S[K], number[]>>): void {
-    const cfg = this.getConfig(key);
-    cfg.bucketMap = bucketMap as any;
-    if (bucketMap) this.validateBucketMap(String(key), cfg);
-  }
+  // weights and bucketMap removed in simplified engine
 
   // --- Evaluation ---------------------------------------------
   evaluate<K extends keyof S>(
@@ -158,13 +135,14 @@ export class AbTestEngine<S extends Record<string, TreatmentName>> {
       };
     }
 
-    // 2) Deterministic bucket
-    const bucket = bucketForUserId(userId, cfg.buckets, cfg.salt ?? String(key));
+    // 2) Deterministic bucket and per-user uniform random value
+    const salt = cfg.salt ?? String(key);
+    const bucket = bucketForUserId(userId, cfg.buckets, salt);
+    const u = uniform01FromId(userId, salt);
 
-    // 3) Map bucket -> treatment using priority: bucketMap > weights > even split
-    const tIndex = this.treatmentIndexForBucket(String(key), cfg, bucket);
-    const treatment = cfg.treatments[tIndex];
-    // @ts-expect-error - too lazy
+    // 3) Map -> treatment using unbiased split by u
+    const tIndex = this.treatmentIndexForUser(String(key), cfg, u);
+    const treatment = cfg.treatments[tIndex] as S[K];
     return { experiment: String(key) as Extract<K, string>, bucket, treatment, overridden: false };
   }
 
@@ -190,94 +168,20 @@ export class AbTestEngine<S extends Record<string, TreatmentName>> {
     return cfg;
   }
 
-  private validateBucketMap(
-    expKey: string,
-    cfg: {
-      buckets: number;
-      treatments: readonly string[];
-      bucketMap?: Partial<Record<string, number[]>>;
-    }
-  ) {
-    const used = new Set<number>();
-    let count = 0;
-    if (!cfg.bucketMap) return;
-    for (const t of Object.keys(cfg.bucketMap)) {
-      for (const idx of cfg.bucketMap[t] ?? []) {
-        if (idx < 0 || idx >= cfg.buckets)
-          throw new Error(`Experiment '${expKey}' bucketMap index ${idx} out of range`);
-        if (used.has(idx))
-          throw new Error(`Experiment '${expKey}' bucket ${idx} assigned multiple times`);
-        used.add(idx);
-        count++;
-      }
-    }
-    if (count !== cfg.buckets)
-      throw new Error(
-        `Experiment '${expKey}' bucketMap must cover all ${cfg.buckets} buckets exactly once`
-      );
-  }
+  // bucketMap removed
 
-  private treatmentIndexForBucket(
+  private treatmentIndexForUser(
     _expKey: string,
     cfg: {
       buckets: number;
       treatments: readonly string[];
-      weights?: number[];
-      bucketMap?: Partial<Record<string, number[]>>;
     },
-    bucket: number
+    u: number
   ): number {
-    // 1) Explicit bucket map
-    if (cfg.bucketMap) {
-      // We'll build a reverse lookup once per call (buckets are small). For heavier use, cache this map.
-      for (let tIdx = 0; tIdx < cfg.treatments.length; tIdx++) {
-        const t = cfg.treatments[tIdx];
-        const arr = cfg.bucketMap[t as string];
-        if (arr && arr.indexOf(bucket) !== -1) return tIdx;
-      }
-      // Should never reach here due to validation, but fall back just in case
-    }
-
-    // 2) Weighted via Largest Remainder (Hamilton)
-    if (cfg.weights) {
-      const map = this.buildWeightedAssignment(cfg.buckets, cfg.treatments.length, cfg.weights);
-      return map[bucket]!;
-    }
-
-    // 3) Even split by modulo
-    return bucket % cfg.treatments.length;
+    // Even split using unbiased thresholding on u
+    const idx = Math.floor(u * cfg.treatments.length);
+    return idx < cfg.treatments.length ? idx : cfg.treatments.length - 1;
   }
 
-  private buildWeightedAssignment(buckets: number, _tCount: number, weights: number[]): number[] {
-    const w = weights.slice();
-    const total = w.reduce((a, b) => a + (b > 0 ? b : 0), 0);
-    if (total <= 0) throw new Error('weights must sum to > 0');
-
-    // Quotas
-    const raw = w.map((x) => (x > 0 ? (x / total) * buckets : 0));
-    const base = raw.map((x) => Math.floor(x));
-    let assigned = base.reduce((a, b) => a + b, 0);
-
-    // Largest remainders
-    const remainders = raw.map((x, i) => ({ i, r: x - base[i]! }));
-    remainders.sort((a, b) => b.r - a.r);
-    const allocation = base.slice();
-    for (let k = 0; assigned < buckets && k < remainders.length; k++, assigned++) {
-      allocation[remainders[k]!.i]!++;
-    }
-
-    // Build bucket -> treatment index array by interleaving for spread
-    const result: number[] = new Array(buckets);
-    const queues: number[][] = allocation.map((c, i) => Array(c).fill(i));
-    let pos = 0;
-    // Round-robin placement to reduce clustering
-    while (pos < buckets) {
-      for (let i = 0; i < queues.length && pos < buckets; i++) {
-        if (queues[i]!.length) {
-          result[pos++] = queues[i]!.pop()!;
-        }
-      }
-    }
-    return result;
-  }
+  // (no other internals)
 }

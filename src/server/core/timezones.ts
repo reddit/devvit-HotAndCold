@@ -65,22 +65,18 @@ export namespace Timezones {
   );
 
   /**
-   * Return users within a given timezone, paginated by rank. Defaults to
-   * most recent first (DESC) where score is Date.now().
+   * Iterate users within a timezone using cursor-based scanning to avoid
+   * loading the entire sorted set. Continue calling until cursor === 0.
    */
   export const getUsersInTimezone = fn(
     z.object({
       timezone: zTimezone,
-      start: z.number().int().min(0).optional().default(0),
-      stop: z.number().int().min(-1).optional().default(50),
-      sort: z.enum(['ASC', 'DESC']).optional().default('DESC'),
+      cursor: z.number().int().min(0).optional().default(0),
+      count: z.number().int().min(1).max(1000).optional().default(200),
+      pattern: z.string().optional(),
     }),
-    async ({ timezone, start, stop, sort }) => {
-      const data = await redis.zRange(ZoneKey(timezone), start, stop, {
-        by: 'rank',
-        reverse: sort === 'DESC',
-      });
-      return data;
+    async ({ timezone, cursor, count, pattern }) => {
+      return await redis.zScan(ZoneKey(timezone), cursor, pattern, count);
     }
   );
 

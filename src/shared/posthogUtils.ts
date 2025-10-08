@@ -9,7 +9,7 @@ export const beforeSend =
       return null;
     }
 
-    console.log('Sending event:', rawEvent);
+    // console.log('Sending event:', rawEvent);
     // This rips through our quota quickly, remove to save money on event cost
     if (rawEvent.event === '$pageview' && rawEvent.properties.page === 'splash') {
       return null;

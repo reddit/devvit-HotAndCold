@@ -1,7 +1,7 @@
 import { context } from '@devvit/web/client';
 import { makeClientConfig, ClientConfig } from '../shared/makeClientConfig';
 
-export const IS_PROD = context.subredditName === 'hotandcold';
+export const IS_PROD = context.subredditName === 'HotAndCold';
 
 console.log('IS_PROD:', IS_PROD);
 
