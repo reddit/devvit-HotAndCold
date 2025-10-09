@@ -1,6 +1,5 @@
 import { localStorageSignal } from '../../utils/localStorageSignal';
 import { requireChallengeNumber } from '../../requireChallengeNumber';
-import { initPosthog } from '../useInitPosthog';
 
 export type PageName = 'play' | 'win';
 
@@ -15,8 +14,6 @@ export const page = localStorageSignal<PageName>({
           ? window.sessionStorage.getItem(storageKeySolved(challengeNumber))
           : null;
       if (solved && Number.isFinite(Number(solved))) {
-        // if the user has already solved, init here
-        initPosthog({ mode: 'classic' });
         return 'win';
       }
     } catch {

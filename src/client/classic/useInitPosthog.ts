@@ -4,9 +4,7 @@ import { CONFIG, IS_PROD } from '../config';
 import { beforeSend } from '../../shared/posthogUtils';
 import { context } from '@devvit/web/client';
 import { hash } from '../../shared/hash';
-import { trpc } from '../trpc';
 import { experiments } from '../../shared/experiments/experiments';
-import { setIsAdmin, isAdmin } from './state/admin';
 
 let initialized = false;
 
@@ -52,22 +50,6 @@ export const initPosthog = ({ mode }: { mode: 'classic' | 'horde' }) => {
       // Identify sends an event, so you may want to limit how often you call it
       posthog.identify(hashed);
       console.log('DEBUG: user', JSON.stringify({ hashed, userId: context.userId }, null, 2));
-    }
-
-    // If this fails, not the end of the world and shouldn't impact the user's experience
-    // This was failing on first load for some users on mobile. Not sure why and still want to investigate
-    try {
-      // We query this on mount to show admin only experiment toggles so this
-      // is a little optimization to avoid querying twice for this data
-      const isAdminValue = isAdmin.value ?? (await trpc.isAdmin.query());
-      console.log('DEBUG: isAdmin query', isAdmin);
-      setIsAdmin(isAdminValue);
-      posthog.setPersonProperties({
-        is_admin: isAdmin,
-      });
-      posthog.group('user_type', isAdmin ? 'admin' : 'user');
-    } catch (error) {
-      console.error('Error getting admin status', error);
     }
   };
 

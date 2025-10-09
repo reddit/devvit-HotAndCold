@@ -19,9 +19,7 @@ import { trpc } from '../trpc';
 import { navigate } from './state/navigation';
 import { resetGuessCache } from '../core/guess';
 import posthog from 'posthog-js';
-import { isAdmin } from './state/admin';
 import { openExperiments } from './state/experiments';
-import { initPosthog } from './useInitPosthog';
 
 const SpeechBubbleTail = ({ className }: { className?: string }) => (
   <svg
@@ -35,7 +33,7 @@ const SpeechBubbleTail = ({ className }: { className?: string }) => (
   </svg>
 );
 
-export function Header({ engine }: { engine?: GuessEngine }) {
+export function Header({ engine, isAdmin }: { engine?: GuessEngine; isAdmin: boolean }) {
   // Local UI state for modals (score breakdown placeholder)
   // Future: show score breakdown when available
   // const [isScoreOpen, setScoreOpen] = useState(false);
@@ -74,8 +72,6 @@ export function Header({ engine }: { engine?: GuessEngine }) {
           {/* Hardcore logo is not migrated; show mascot CTA next to main logo */}
           <div
             onClick={() => {
-              initPosthog({ mode: 'classic' });
-
               posthog.capture('Game Page Hardcore Logo Clicked');
             }}
           >
@@ -84,7 +80,6 @@ export function Header({ engine }: { engine?: GuessEngine }) {
           <button
             className={cn('flex gap-1', accessStatus === 'inactive' && 'cursor-pointer')}
             onClick={() => {
-              initPosthog({ mode: 'classic' });
               posthog.capture('Game Page Hardcore Psst Clicked');
               // Placeholder for unlock hardcore modal
             }}
@@ -103,7 +98,6 @@ export function Header({ engine }: { engine?: GuessEngine }) {
           <IconButton
             type="button"
             onClick={() => {
-              initPosthog({ mode: 'classic' });
               posthog.capture('Game Page How to Play Opened');
               openHowToPlay();
             }}
@@ -168,7 +162,7 @@ export function Header({ engine }: { engine?: GuessEngine }) {
                   }
                 },
               },
-              ...(isAdmin.value
+              ...(isAdmin
                 ? ([
                     {
                       name: 'Experiments',

@@ -1,8 +1,7 @@
 import { render } from 'preact';
-import { useEffect, useMemo, useRef } from 'preact/hooks';
+import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import '../index.css';
 import { createGuessEngine } from '../core/guessEngine';
-// import { context } from '@devvit/web/client';
 import { requireChallengeNumber } from '../requireChallengeNumber';
 import { Header } from './header';
 import { page, initNavigation } from './state/navigation';
@@ -18,14 +17,22 @@ import { GUESS_SAMPLE_RATE } from '../config';
 import type { GuessEngine } from '../core/guessEngine';
 import { remountKey } from './state/experiments';
 import { trpc } from '../trpc';
-import { setIsAdmin } from './state/admin';
-import { context } from '@devvit/web/client';
 
-function AppContent({ engine, challengeNumber }: { engine: GuessEngine; challengeNumber: number }) {
+initPosthog({ mode: 'classic' });
+
+function AppContent({
+  engine,
+  challengeNumber,
+  isAdmin,
+}: {
+  engine: GuessEngine;
+  challengeNumber: number;
+  isAdmin: boolean;
+}) {
   return (
     <div className="h-[100dvh] min-h-[100dvh] w-full overflow-hidden">
       <div className="mx-auto flex max-w-2xl flex-col px-4 md:px-6 py-6 h-full min-h-0 overflow-hidden">
-        <Header engine={engine} />
+        <Header engine={engine} isAdmin={isAdmin} />
         {page.value === 'win' ? <WinPage /> : <PlayPage engine={engine} />}
         <div className="relative mx-auto w-full max-w-xl">
           <Progress challengeNumber={Number(challengeNumber)} engine={engine} />
@@ -38,6 +45,7 @@ function AppContent({ engine, challengeNumber }: { engine: GuessEngine; challeng
 }
 
 export function App() {
+  const [isAdmin, setIsAdmin] = useState(false);
   const challengeNumber = requireChallengeNumber();
 
   const engine = useMemo(() => {
@@ -49,20 +57,31 @@ export function App() {
     initNavigation();
   }, []);
 
-  // Initialize PostHog on first guess to avoid tracking page impressions
-  const previousGuessCount = useRef(0);
+  useEffect(() => {
+    posthog.capture('$pageview', {
+      page: page.value,
+    });
+  }, [page.value]);
 
   useEffect(() => {
-    if (!engine?.history.value) return;
+    const fetchIsAdmin = async () => {
+      try {
+        const isAdmin = await trpc.user.isAdmin.query();
 
-    const historyLength = engine.history.value.length;
-    // Only initialize PostHog when going from 0 to 1 guess (first guess only)
-    if (historyLength > 0 && previousGuessCount.current === 0) {
-      console.log('Initializing Posthog due to first guess or reloading a page with guesses');
-      initPosthog({ mode: 'classic' });
-    }
-    previousGuessCount.current = historyLength;
-  }, [engine?.history.value]);
+        // Only set if true to save on event cost
+        if (isAdmin) {
+          posthog.setPersonProperties({
+            is_admin: isAdmin,
+          });
+        }
+
+        setIsAdmin(isAdmin);
+      } catch (error) {
+        console.error('Error getting admin status', error);
+      }
+    };
+    void fetchIsAdmin();
+  }, [setIsAdmin]);
 
   // Capture every 10th guess, based solely on history length changes.
   // Edge cases respected:
@@ -100,7 +119,6 @@ export function App() {
       const solvedAt = engine?.solvedAtMs?.value ?? null;
       if (!solvedAt && historyLength > 0 && historyLength % GUESS_SAMPLE_RATE === 0) {
         try {
-          console.log('Sampling guess!');
           const last = engine?.history.value?.[engine.history.value.length - 1];
           // Compute rank stats
           const allHistory = engine?.history.value ?? [];
@@ -147,17 +165,14 @@ export function App() {
     previousLengthForSample.current = historyLength;
   }, [engine?.history.value, engine?.solvedAtMs?.value, challengeNumber]);
 
-  useEffect(() => {
-    const fetchIsAdmin = async () => {
-      if (context.userId) {
-        const value = await trpc.isAdmin.query();
-        setIsAdmin(value);
-      }
-    };
-    void fetchIsAdmin();
-  }, []);
-
-  return <AppContent key={remountKey.value} engine={engine} challengeNumber={challengeNumber} />;
+  return (
+    <AppContent
+      key={remountKey.value}
+      engine={engine}
+      challengeNumber={challengeNumber}
+      isAdmin={isAdmin}
+    />
+  );
 }
 
 render(

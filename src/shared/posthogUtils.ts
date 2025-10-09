@@ -1,21 +1,28 @@
 import { sanitizeValueForEvent, sanitizeKeyForEvent } from './sanitize';
 import { mapValueWithKeys } from './walk';
+import { sampleByDistinctId } from 'posthog-js/lib/src/customizations';
+
+const SAMPLE_RATE = 0.3;
 
 export const beforeSend =
   (isProd: boolean) =>
   (rawEvent: any): any => {
-    if (rawEvent.event === '$pageview') {
-      console.warn('Skipping pageview event');
+    // Only sample in production
+    const sampledEvent = isProd ? sampleByDistinctId(SAMPLE_RATE)(rawEvent) : rawEvent;
+    if (sampledEvent === null) return null;
+
+    if (sampledEvent.event === '$pageview' && !sampledEvent.properties.page) {
+      console.warn('Skipping pageview event due to no page property', sampledEvent);
       return null;
     }
 
-    // console.log('Sending event:', rawEvent);
+    console.log('Sending event:', rawEvent);
     // This rips through our quota quickly, remove to save money on event cost
-    if (rawEvent.event === '$pageview' && rawEvent.properties.page === 'splash') {
+    if (sampledEvent.event === '$pageview' && sampledEvent.properties.page === 'splash') {
       return null;
     }
 
-    const event = mapValueWithKeys(rawEvent, sanitizeValueForEvent, sanitizeKeyForEvent);
+    const event = mapValueWithKeys(sampledEvent, sanitizeValueForEvent, sanitizeKeyForEvent);
 
     const eventString = JSON.stringify(event);
     if (

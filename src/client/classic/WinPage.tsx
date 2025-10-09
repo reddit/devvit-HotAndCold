@@ -54,6 +54,15 @@ const CallToAction = ({
   const [serverSuffix, setServerSuffix] = useState<string | null>(null);
 
   useEffect(() => {
+    if (!cta) return;
+    posthog.capture('Win Page Call To Action Shown', {
+      didWin,
+      challengeNumber,
+      cta,
+    });
+  }, [cta]);
+
+  useEffect(() => {
     // Always fetch the CTA for this challenge so users can comment even before winning
     void (async () => {
       try {
@@ -124,6 +133,11 @@ const CallToAction = ({
   };
 
   const submitComment = async () => {
+    posthog.capture('Win Page Comment Submit Clicked', {
+      challengeNumber,
+      comment,
+    });
+
     if (!comment.trim()) return;
     setIsLoading(true);
     try {
@@ -179,7 +193,12 @@ const CallToAction = ({
             <button
               type="button"
               className="rounded-md px-3 py-2 text-sm text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800"
-              onClick={() => setIsCommentOpen(false)}
+              onClick={() => {
+                posthog.capture('Win Page Comment Cancel Clicked', {
+                  challengeNumber,
+                });
+                setIsCommentOpen(false);
+              }}
             >
               Cancel
             </button>

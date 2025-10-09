@@ -8,7 +8,6 @@ import { formatCompactNumber } from '../../shared/formatCompactNumber';
 import { context } from '@devvit/web/client';
 import { openHowToPlay } from './state/howToPlay';
 import posthog from 'posthog-js';
-import { initPosthog } from './useInitPosthog';
 
 export function PlayPage({ engine }: { engine?: GuessEngine }) {
   const [feedback, setFeedback] = useState<string | null>(null);
@@ -96,9 +95,6 @@ export function PlayPage({ engine }: { engine?: GuessEngine }) {
             <button
               className={'text-sm bg-gray-700 rounded-md px-4 py-2 cursor-pointer'}
               onClick={() => {
-                // mostly here for debugging purposes since it needs to be active
-                // before I init the experiments
-                initPosthog({ mode: 'classic' });
                 posthog.capture('Game Page How to Play Button Below Input Clicked');
 
                 openHowToPlay();

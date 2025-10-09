@@ -84,6 +84,9 @@ const appRouter = router({
       const current = await User.getCurrent();
       return current;
     }),
+    isAdmin: publicProcedure.query(async () => {
+      return await Admin.isAdmin();
+    }),
   },
   cta: {
     getCallToAction: publicProcedure
@@ -370,9 +373,6 @@ const appRouter = router({
       }),
   },
   // Returns whether the current user is an admin. Caches result in Redis.
-  isAdmin: publicProcedure.query(async () => {
-    return await Admin.isAdmin();
-  }),
 });
 
 // Export type router type signature, this is used by the client.

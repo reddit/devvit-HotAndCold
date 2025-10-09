@@ -4,7 +4,6 @@ import { getNearestPlayersByStartTime, PlayerProgress } from '../core/challengeP
 import { PROGRESS_POLL_TTL_SECONDS } from '../../shared/config';
 import { rankToProgress } from '../../shared/progress';
 import { trpc } from '../trpc';
-import { initPosthog } from './useInitPosthog';
 import posthog from 'posthog-js';
 
 type GroupedPlayers = {
@@ -205,7 +204,6 @@ export function ProgressBar({
         ref={containerRef}
         className="absolute left-0 top-0 h-full w-full"
         onClick={() => {
-          initPosthog({ mode: 'classic' });
           posthog.capture('Progress Bar Clicked');
         }}
       >
