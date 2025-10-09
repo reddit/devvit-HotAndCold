@@ -51,8 +51,8 @@
     "new:upload-words": "dotenv -- node ./tools/new-upload-words-to-db.ts"
   },
   "dependencies": {
-    "@devvit/web": "0.12.1-next-2025-10-08-16-25-00-c110eea9d.0 ",
-    "@devvit/shared-types": "0.12.1-next-2025-10-08-16-25-00-c110eea9d.0 ",
+    "@devvit/web": "0.12.1-next-2025-09-23-19-50-15-c6a0f8346.0",
+    "@devvit/shared-types": "0.12.1-next-2025-09-23-19-50-15-c6a0f8346.0",
     "@preact/signals": "^1.2.2",
     "pg": "8.16.3",
     "clsx": "2.1.1",
@@ -65,7 +65,7 @@
     "playwright": "1.55.1",
     "express": "4.19.2",
     "openai": "5.16.0",
-    "devvit": "0.12.1-next-2025-10-08-16-25-00-c110eea9d.0 ",
+    "devvit": "0.12.1-next-2025-09-23-19-50-15-c6a0f8346.0",
     "preact": "^10.25.3",
     "posthog-js": "1.268.4",
     "posthog-node": "5.9.2",
