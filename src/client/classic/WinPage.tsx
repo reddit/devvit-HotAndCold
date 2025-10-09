@@ -53,7 +53,7 @@ const CallToAction = ({
   const [serverSuffix, setServerSuffix] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!didWin) return;
+    // Always fetch the CTA for this challenge so users can comment even before winning
     void (async () => {
       try {
         const next = await trpc.cta.getCallToAction.query({ challengeNumber });
@@ -62,7 +62,7 @@ const CallToAction = ({
         setCta(null);
       }
     })();
-  }, [didWin, challengeNumber]);
+  }, [challengeNumber]);
 
   if (cta === null) return null;
 
