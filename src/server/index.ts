@@ -25,8 +25,10 @@ import { reddit, RichTextBuilder, context } from '@devvit/web/server';
 import { WordQueue } from './core/wordQueue';
 import { FormattingFlag } from '@devvit/shared-types/richtext/types.js';
 import { omit } from '../shared/omit';
+import { Flairs } from './core/flairs';
 import { Admin } from './core/admin';
 import analyticsRouter from './analytics';
+import { Timezones } from './core/timezones';
 
 // Formats a duration in milliseconds to a human-readable long form like
 // "2 hours 5 minutes 3 seconds" or "2 minutes 45 seconds" or "5 seconds".
@@ -114,11 +116,28 @@ const appRouter = router({
       return { success: true } as const;
     }),
 
-    setReminder: publicProcedure.input(z.object({})).mutation(async () => {
+    isOptedIntoReminders: publicProcedure.query(async () => {
       const current = await User.getCurrent();
-      await Reminders.setReminderForUsername({ username: current.username });
-      return { success: true } as const;
+      return await Reminders.isUserOptedIntoReminders({ username: current.username });
     }),
+
+    setReminder: publicProcedure
+      .input(z.object({ timezone: z.string().min(1).optional() }))
+      .mutation(async ({ input }) => {
+        const current = await User.getCurrent();
+        await Reminders.setReminderForUsername({ username: current.username });
+        if (input?.timezone) {
+          try {
+            await Timezones.setUserTimezone({
+              username: current.username,
+              timezone: input.timezone,
+            });
+          } catch (e) {
+            console.error('Failed to set user timezone', e);
+          }
+        }
+        return { success: true } as const;
+      }),
 
     getCommentSuffix: publicProcedure
       .input(
@@ -814,6 +833,26 @@ app.post('/internal/triggers/on-comment-create', async (req, res): Promise<void>
 
     // 4) Handle !wtf logic
     const text = commentBodyRaw.trim();
+    // Assign flair using LLM classifier, guarded by cheap keyword prefilter
+    try {
+      const authorName: string | undefined = body?.author?.name;
+      if (authorName && typeof authorName === 'string' && authorName.length > 0) {
+        const lowered = text.toLowerCase();
+        if (lowered.includes('hate') && lowered.includes('tomorrow')) {
+          const shouldAssign = await Flairs.classifyIHateThisGameTomorrow({ raw: text });
+          if (shouldAssign) {
+            await reddit.setUserFlair({
+              subredditName: context.subredditName!,
+              username: authorName,
+              flairTemplateId: Flairs.FLAIRS.I_HATE_THIS_GAME_SEE_YALL_TOMORROW,
+            });
+          }
+        }
+      }
+    } catch (e) {
+      console.error('Failed to assign user flair via classifier', e);
+    }
+
     const containsWtf = /!wtf\b/i.test(text);
     const isRoot = typeof parentId === 'string' && parentId === parentPostId;
     if (containsWtf) {

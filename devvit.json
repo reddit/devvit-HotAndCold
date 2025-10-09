@@ -25,24 +25,28 @@
     "items": [
       {
         "label": "[queue] Add to queue",
+        "description": "classic",
         "forUserType": "moderator",
         "location": "subreddit",
         "endpoint": "/internal/menu/add"
       },
       {
         "label": "[queue] Clear queue",
+        "description": "classic",
         "forUserType": "moderator",
         "location": "subreddit",
         "endpoint": "/internal/menu/clear"
       },
       {
         "label": "[queue] Get size",
+        "description": "classic",
         "forUserType": "moderator",
         "location": "subreddit",
         "endpoint": "/internal/menu/size"
       },
       {
         "label": "[queue] Peek next 3",
+        "description": "classic",
         "forUserType": "moderator",
         "location": "subreddit",
         "endpoint": "/internal/menu/peek"
@@ -51,19 +55,21 @@
         "label": "[queue] Get contents via DM",
         "forUserType": "moderator",
         "location": "subreddit",
-        "description": "Look in chat requests if you don't see it",
+        "description": "classic",
         "endpoint": "/internal/menu/dm"
       },
       {
         "label": "[queue] Post next",
         "forUserType": "moderator",
         "location": "subreddit",
+        "description": "classic",
         "endpoint": "/internal/menu/post-next"
       },
       {
         "label": "[migrate] Backfill secret words 1-25",
         "forUserType": "moderator",
         "location": "subreddit",
+        "description": "classic",
         "endpoint": "/internal/menu/migrate-secret-words"
       },
       {
@@ -82,6 +88,7 @@
         "label": "[stats] Export last 30 days",
         "forUserType": "moderator",
         "location": "subreddit",
+        "description": "classic",
         "endpoint": "/internal/menu/export-last-30-days"
       }
     ]
@@ -108,7 +115,12 @@
       "asUser": ["SUBMIT_COMMENT", "SUBSCRIBE_TO_SUBREDDIT"]
     },
     "http": {
-      "domains": ["us.i.posthog.com", "us-assets.i.posthog.com"],
+      "domains": [
+        "us.i.posthog.com",
+        "us-assets.i.posthog.com",
+        "api.openai.com",
+        "jbbhyxtpholdwrxencjx.supabase.co"
+      ],
       "enable": true
     }
   },
@@ -116,6 +128,11 @@
     "global": {
       "SUPABASE_SECRET": {
         "label": "Supabase Secret",
+        "isSecret": true,
+        "type": "string"
+      },
+      "OPEN_AI_API_KEY": {
+        "label": "OpenAI API Key",
         "isSecret": true,
         "type": "string"
       }

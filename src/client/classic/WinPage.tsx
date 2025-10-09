@@ -13,6 +13,7 @@ import { getPrettyDuration } from '../../shared/prettyDuration';
 import { ScoreBreakdownModal } from './scoreBreakdownModal';
 import { loadHintsForChallenge, type HintWord } from '../core/hints';
 import { context } from '@devvit/web/client';
+import { getUtcLabel } from '../../shared/timezones';
 
 type LeaderboardEntry = { member: string; score: number };
 
@@ -64,6 +65,25 @@ const CallToAction = ({
     })();
   }, [challengeNumber]);
 
+  // Temporary backfill shim: for ~1 week, whenever a user reaches the win page
+  // and already has reminders enabled, send their timezone so we can populate
+  // missing data for users who opted in before we collected timezones.
+  // Use a reliable tRPC check instead of CTA to determine opt-in state.
+  // TODO: Remove this after the backfill window ends.
+  useEffect(() => {
+    void (async () => {
+      try {
+        const isOptedIn = await trpc.cta.isOptedIntoReminders.query();
+        if (!isOptedIn) return;
+        const timezone = getUtcLabel();
+        await trpc.cta.setReminder.mutate({ timezone });
+      } catch (err) {
+        console.error('Error backfilling timezone', err);
+        // ignore
+      }
+    })();
+  }, []);
+
   if (cta === null) return null;
 
   const doAction = async () => {
@@ -83,7 +103,8 @@ const CallToAction = ({
         posthog.setPersonProperties({
           opted_into_reminders: true,
         });
-        await trpc.cta.setReminder.mutate({});
+        const timezone = getUtcLabel();
+        await trpc.cta.setReminder.mutate({ timezone });
       } else if (cta === 'COMMENT') {
         // Preload the server-computed suffix before opening modal
         try {

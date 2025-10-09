@@ -16,6 +16,7 @@ Rules:
 
 - Assume that typescript, vite, tailwind, eslint, prettier, and all codebase configuration is working. If there is a bug, it is more likely your code than the codebase configuration.
 - Prefer type aliases over interfaces when writing typescript
+- Prefer named exports over default exports
 
 Game modes:
 There are two game modes:
