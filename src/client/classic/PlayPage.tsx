@@ -3,7 +3,6 @@ import { WordInput } from '../shared/wordInput';
 import { Guesses } from '../shared/guesses';
 import type { GuessEngine, GuessHistoryItem } from '../core/guessEngine';
 import { formatOrdinal } from '../../shared/ordinal';
-import { experiments } from '../../shared/experiments/experiments';
 import { formatCompactNumber } from '../../shared/formatCompactNumber';
 import { context } from '@devvit/web/client';
 import { openHowToPlay } from './state/howToPlay';
@@ -11,8 +10,6 @@ import posthog from 'posthog-js';
 
 export function PlayPage({ engine }: { engine?: GuessEngine }) {
   const [feedback, setFeedback] = useState<string | null>(null);
-  const useNewSplash =
-    experiments.evaluate(context.userId ?? '', 'exp_new_splash').treatment === 'new';
 
   const { items, itemsArray, latest } = useMemo(() => {
     const itemsSignal = engine ? engine.history : null;
@@ -49,13 +46,9 @@ export function PlayPage({ engine }: { engine?: GuessEngine }) {
 
   return (
     <>
-      {useNewSplash ? (
-        <h1 className="text-center text-2xl font-bold">
-          {useNewSplash ? 'Can you guess the secret word?' : `Guesses: ${itemsArray.length}`}
-        </h1>
-      ) : (
-        <h1 className="text-center text-2xl font-bold">Guesses: {itemsArray.length}</h1>
-      )}
+      <h1 className="text-center text-2xl font-bold">
+        {itemsArray.length > 0 ? `Guesses: ${itemsArray.length}` : 'Can you guess the secret word?'}
+      </h1>
 
       <div className="relative mx-auto w-full max-w-xl pb-6">
         <WordInput
@@ -82,30 +75,26 @@ export function PlayPage({ engine }: { engine?: GuessEngine }) {
           </p>
         )}
       </div>
-      {useNewSplash ? (
-        items?.value?.length ? (
-          <Guesses items={items as any} latest={latest} />
-        ) : (
-          <div className="flex flex-1 min-h-0 flex-col gap-4 items-center">
-            <p className="text-sm text-gray-400">
-              {totalPlayers > 0
-                ? `${solveRatePct}% of ${formatCompactNumber(totalPlayers)} players have succeeded`
-                : "You're the first to play!"}
-            </p>
-            <button
-              className={'text-sm bg-gray-700 rounded-md px-4 py-2 cursor-pointer'}
-              onClick={() => {
-                posthog.capture('Game Page How to Play Button Below Input Clicked');
-
-                openHowToPlay();
-              }}
-            >
-              How to Play
-            </button>
-          </div>
-        )
+      {items?.value?.length ? (
+        <Guesses items={items as any} latest={latest} />
       ) : (
-        items && <Guesses items={items as any} latest={latest} />
+        <div className="flex flex-1 min-h-0 flex-col gap-4 items-center">
+          <p className="text-sm text-gray-400">
+            {totalPlayers > 0
+              ? `${solveRatePct}% of ${formatCompactNumber(totalPlayers)} players have succeeded`
+              : "You're the first to play!"}
+          </p>
+          <button
+            className={'text-sm bg-gray-700 rounded-md px-4 py-2 cursor-pointer'}
+            onClick={() => {
+              posthog.capture('Game Page How to Play Button Below Input Clicked');
+
+              openHowToPlay();
+            }}
+          >
+            How to Play
+          </button>
+        </div>
       )}
     </>
   );
