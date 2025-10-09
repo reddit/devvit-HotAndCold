@@ -79,13 +79,15 @@ export function PlayPage({ engine }: { engine?: GuessEngine }) {
         <Guesses items={items as any} latest={latest} />
       ) : (
         <div className="flex flex-1 min-h-0 flex-col gap-4 items-center">
-          <p className="text-sm text-gray-400">
+          <p className="text-sm dark:text-gray-400 text-gray-600">
             {totalPlayers > 0
               ? `${solveRatePct}% of ${formatCompactNumber(totalPlayers)} players have succeeded`
               : "You're the first to play!"}
           </p>
           <button
-            className={'text-sm bg-gray-700 rounded-md px-4 py-2 cursor-pointer'}
+            className={
+              'text-sm rounded-md px-4 py-2 cursor-pointer bg-gray-200 text-black hover:bg-gray-300 dark:bg-gray-700 dark:text-white dark:hover:bg-gray-600'
+            }
             onClick={() => {
               posthog.capture('Game Page How to Play Button Below Input Clicked');
 
