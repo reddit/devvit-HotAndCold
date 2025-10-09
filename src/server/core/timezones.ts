@@ -65,18 +65,30 @@ export namespace Timezones {
   );
 
   /**
-   * Iterate users within a timezone using cursor-based scanning to avoid
-   * loading the entire sorted set. Continue calling until cursor === 0.
+   * Scan users within a timezone via cursor. Returns next cursor and members.
+   * No ordering guarantees beyond Redis ZSCAN semantics.
    */
   export const getUsersInTimezone = fn(
     z.object({
       timezone: zTimezone,
       cursor: z.number().int().min(0).optional().default(0),
-      count: z.number().int().min(1).max(1000).optional().default(200),
-      pattern: z.string().optional(),
+      limit: z.number().int().min(1).max(1000).optional().default(200),
     }),
-    async ({ timezone, cursor, count, pattern }) => {
-      return await redis.zScan(ZoneKey(timezone), cursor, pattern, count);
+    async ({ timezone, cursor, limit }) => {
+      const total = (await redis.zCard(ZoneKey(timezone))) ?? 0;
+      if (total <= 0 || cursor >= total) return { cursor: 0, members: [] };
+
+      const start = Math.max(0, cursor);
+      const result = await redis.zRange(ZoneKey(timezone), 0, -1, {
+        by: 'rank',
+        reverse: true,
+        offset: start,
+        count: Math.max(1, limit),
+      });
+
+      const nextCursorRaw = start + result.length;
+      const nextCursor = nextCursorRaw >= total ? 0 : nextCursorRaw;
+      return { cursor: nextCursor, members: result };
     }
   );
 

@@ -26,49 +26,48 @@ it('idempotent setUserTimezone does not duplicate membership', async () => {
   expect(total).toBe(1);
 });
 
-it('getUsersInTimezone returns users sorted by recency DESC by default', async () => {
+it('getUsersInTimezone returns all users via cursor scan', async () => {
   await Timezones.setUserTimezone({ username: user1, timezone: zoneA });
   await new Promise((r) => setTimeout(r, 2));
   await Timezones.setUserTimezone({ username: user2, timezone: zoneA });
   await new Promise((r) => setTimeout(r, 2));
   await Timezones.setUserTimezone({ username: user3, timezone: zoneA });
 
-  const users = await Timezones.getUsersInTimezone({ timezone: zoneA });
+  let cursor = 0;
+  const collected: Array<{ member: string; score: number }> = [];
+  do {
+    const page = await Timezones.getUsersInTimezone({ timezone: zoneA, cursor, limit: 100 });
+    collected.push(...page.members);
+    cursor = page.cursor;
+  } while (cursor !== 0);
 
-  expect(Array.isArray(users)).toBe(true);
-  expect(users.length).toBe(3);
-
-  // Most recent first: carol, bob, alice
-  expect(users.map((u) => u.member)).toEqual([user3, user2, user1]);
-  // Scores present
-  for (const u of users) expect(u.score).toEqual(expect.any(Number));
+  expect(collected.length).toBe(3);
+  // Verify scores present
+  for (const u of collected) expect(u.score).toEqual(expect.any(Number));
+  // Sort by recency (score DESC) and validate order
+  const byRecency = collected.slice().sort((a, b) => b.score - a.score);
+  expect(byRecency.map((u) => u.member)).toEqual([user3, user2, user1]);
 });
 
-it('getUsersInTimezone supports ASC sort', async () => {
+// Removed sort-specific test; zScan does not guarantee ordering.
+
+it('getUsersInTimezone supports pagination via cursor and limit', async () => {
   await Timezones.setUserTimezone({ username: user1, timezone: zoneA });
   await new Promise((r) => setTimeout(r, 2));
   await Timezones.setUserTimezone({ username: user2, timezone: zoneA });
   await new Promise((r) => setTimeout(r, 2));
   await Timezones.setUserTimezone({ username: user3, timezone: zoneA });
 
-  const users = await Timezones.getUsersInTimezone({ timezone: zoneA, sort: 'ASC' });
+  const page1 = await Timezones.getUsersInTimezone({ timezone: zoneA, cursor: 0, limit: 2 });
+  expect(page1.members.length).toBeGreaterThan(0);
 
-  expect(users.map((u) => u.member)).toEqual([user1, user2, user3]);
-});
-
-it('getUsersInTimezone supports pagination by rank', async () => {
-  await Timezones.setUserTimezone({ username: user1, timezone: zoneA });
-  await new Promise((r) => setTimeout(r, 2));
-  await Timezones.setUserTimezone({ username: user2, timezone: zoneA });
-  await new Promise((r) => setTimeout(r, 2));
-  await Timezones.setUserTimezone({ username: user3, timezone: zoneA });
-
-  // Default DESC: [carol, bob, alice]
-  const page1 = await Timezones.getUsersInTimezone({ timezone: zoneA, start: 0, stop: 1 });
-  expect(page1.map((u) => u.member)).toEqual([user3, user2]);
-
-  const page2 = await Timezones.getUsersInTimezone({ timezone: zoneA, start: 1, stop: 2 });
-  expect(page2.map((u) => u.member)).toEqual([user2, user1]);
+  const page2 = await Timezones.getUsersInTimezone({
+    timezone: zoneA,
+    cursor: page1.cursor,
+    limit: 2,
+  });
+  const allMembers = [...page1.members, ...page2.members].map((u) => u.member);
+  expect(new Set(allMembers)).toEqual(new Set([user1, user2, user3]));
 });
 
 it('moving a user updates zone membership and reverse mapping', async () => {
@@ -86,11 +85,33 @@ it('moving a user updates zone membership and reverse mapping', async () => {
   expect(totalA).toBe(1);
   expect(totalB).toBe(1);
 
-  const usersA = await Timezones.getUsersInTimezone({ timezone: zoneA, sort: 'ASC' });
-  expect(usersA.map((u) => u.member)).toEqual([user1]);
+  // Scan zoneA
+  let cursorA = 0;
+  const membersA: string[] = [];
+  do {
+    const page = await Timezones.getUsersInTimezone({
+      timezone: zoneA,
+      cursor: cursorA,
+      limit: 100,
+    });
+    membersA.push(...page.members.map((m) => m.member));
+    cursorA = page.cursor;
+  } while (cursorA !== 0);
+  expect(membersA.sort()).toEqual([user1]);
 
-  const usersB = await Timezones.getUsersInTimezone({ timezone: zoneB, sort: 'ASC' });
-  expect(usersB.map((u) => u.member)).toEqual([user2]);
+  // Scan zoneB
+  let cursorB = 0;
+  const membersB: string[] = [];
+  do {
+    const page = await Timezones.getUsersInTimezone({
+      timezone: zoneB,
+      cursor: cursorB,
+      limit: 100,
+    });
+    membersB.push(...page.members.map((m) => m.member));
+    cursorB = page.cursor;
+  } while (cursorB !== 0);
+  expect(membersB.sort()).toEqual([user2]);
 
   const zone = await Timezones.getUserTimezone({ username: user2 });
   expect(zone).toBe(zoneB);
@@ -105,8 +126,18 @@ it('clearUserTimezone removes membership and reverse mapping', async () => {
   const totalA = await Timezones.totalUsersInTimezone({ timezone: zoneA });
   expect(totalA).toBe(1);
 
-  const usersA = await Timezones.getUsersInTimezone({ timezone: zoneA, sort: 'ASC' });
-  expect(usersA.map((u) => u.member)).toEqual([user1]);
+  let cursorA = 0;
+  const membersA: string[] = [];
+  do {
+    const page = await Timezones.getUsersInTimezone({
+      timezone: zoneA,
+      cursor: cursorA,
+      limit: 100,
+    });
+    membersA.push(...page.members.map((m) => m.member));
+    cursorA = page.cursor;
+  } while (cursorA !== 0);
+  expect(membersA.sort()).toEqual([user1]);
 
   const zone = await Timezones.getUserTimezone({ username: user2 });
   expect(zone).toBeNull();

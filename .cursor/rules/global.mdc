@@ -16,3 +16,9 @@ Rules:
 
 - Assume that typescript, vite, tailwind, eslint, prettier, and all codebase configuration is working. If there is a bug, it is more likely your code than the codebase configuration.
 - Prefer type aliases over interfaces when writing typescript
+
+Game modes:
+There are two game modes:
+
+1. Classic: This is a daily game that is single player. A user tries to guess the secret word. Entry point is src/client/classic.html. Most server files assume classic mode.
+2. Horde: This is a multiplayer version where everyone plays together to solve words in waves of increasing difficulty. They start with an initial timer and they guess words until the timer hits 0. Entry point is src/client/classic.html. All horde specific code lives in src/server/core/horde. Please name files here like this: filename.horde.ts. For TRPC routes, make everything namespaced under horde.
