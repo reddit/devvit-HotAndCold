@@ -75,20 +75,13 @@ export namespace Timezones {
       limit: z.number().int().min(1).max(1000).optional().default(200),
     }),
     async ({ timezone, cursor, limit }) => {
-      const total = (await redis.zCard(ZoneKey(timezone))) ?? 0;
-      if (total <= 0 || cursor >= total) return { cursor: 0, members: [] };
-
-      const start = Math.max(0, cursor);
-      const result = await redis.zRange(ZoneKey(timezone), 0, -1, {
-        by: 'rank',
-        reverse: true,
-        offset: start,
-        count: Math.max(1, limit),
-      });
-
-      const nextCursorRaw = start + result.length;
-      const nextCursor = nextCursorRaw >= total ? 0 : nextCursorRaw;
-      return { cursor: nextCursor, members: result };
+      const { cursor: nextCursor, members } = await redis.zScan(
+        ZoneKey(timezone),
+        Math.max(0, cursor),
+        undefined,
+        Math.max(1, limit)
+      );
+      return { cursor: nextCursor, members };
     }
   );
 

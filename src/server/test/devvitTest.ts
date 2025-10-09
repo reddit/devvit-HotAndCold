@@ -417,7 +417,10 @@ class MockedRedisApi implements RedisAPI {
     const [cursor, elements] = (await (conn as any).zscan(...args)) as [string, string[]];
     const members: { member: string; score: number }[] = [];
     for (let i = 0; i < elements.length; i += 2) {
-      members.push({ member: elements[i + 1]!, score: Number(elements[i]) });
+      // ioredis returns [member, score] pairs from zscan with WITHSCORES-like structure
+      const member = elements[i]!;
+      const score = Number(elements[i + 1]);
+      members.push({ member, score });
     }
     return { cursor: Number(cursor), members } as ZScanResponse;
   }

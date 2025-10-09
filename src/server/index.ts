@@ -5,6 +5,8 @@ import { publicProcedure, router } from './trpc';
 import { createContext } from './context';
 import { createServer, getServerPort, redis } from '@devvit/web/server';
 import { Challenge } from './core/challenge';
+import { SpoilerGuard } from './core/spoilerGuard';
+import { WtfResponder } from './core/wtfResponder';
 import {
   buildHintCsvForChallenge,
   buildLetterCsvForChallenge,
@@ -768,6 +770,7 @@ app.post('/internal/triggers/on-comment-create', async (req, res): Promise<void>
     const commentId: string | undefined = body?.comment?.id;
     const parentPostId: string | undefined = body?.post?.id ?? body?.comment?.postId;
     const commentBodyRaw: string = String(body?.comment?.body ?? '');
+    const parentId: string | undefined = body?.comment?.parentId;
 
     if (!commentId || !parentPostId) {
       res.status(200).json({ handled: false });
@@ -792,29 +795,75 @@ app.post('/internal/triggers/on-comment-create', async (req, res): Promise<void>
       return;
     }
 
-    // 3) Check comment text, ignoring spoiler-wrapped segments (>! ... !<)
-    const lower = commentBodyRaw.toLowerCase();
-    const withoutSpoilers = lower.replace(/>!([\s\S]*?)!</g, ' ');
-    const haystack = withoutSpoilers;
-
-    const escaped = secretWord.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    const re = new RegExp(`(?:^|[^a-z0-9])${escaped}(?:[^a-z0-9]|$)`, 'i');
-    const revealsSecret = re.test(haystack);
-
-    if (!revealsSecret) {
-      res.status(200).json({ handled: true, action: 'noop' });
+    // 3) Run spoiler guard (remove comment if it reveals secret outside spoiler)
+    const sgResult = await SpoilerGuard.checkAndRemoveIfNeeded({
+      commentId,
+      text: commentBodyRaw,
+      secretWord,
+    });
+    if (sgResult.removed) {
+      console.log('[spoiler-guard] Removed revealing comment', {
+        commentId,
+        parentPostId,
+        challengeNumber,
+        author: body?.author?.name,
+      });
+      res.status(200).json({ handled: true, action: 'removed' });
       return;
     }
 
-    console.log('[spoiler-guard] Removing comment that reveals secret word', {
-      commentId,
-      parentPostId,
-      challengeNumber,
-      author: body?.author?.name,
-      secretWord,
-    });
-    await reddit.remove(commentId as any, false);
-    res.status(200).json({ handled: true, action: 'removed' });
+    // 4) Handle !wtf logic
+    const text = commentBodyRaw.trim();
+    const containsWtf = /!wtf\b/i.test(text);
+    const isRoot = typeof parentId === 'string' && parentId === parentPostId;
+    if (containsWtf) {
+      try {
+        let sourceText = text;
+        const isJustWtf = /^!wtf$/i.test(text);
+        // If it's a bare !wtf on a reply (not root), use the parent comment's body as the source
+        if (isJustWtf && !isRoot) {
+          try {
+            const parentComment = await reddit.getCommentById(parentId as any);
+            sourceText = parentComment.body;
+          } catch (e) {
+            // ignore fetch failure; we'll fall back to the triggering text
+          }
+        }
+
+        const reply = await WtfResponder.explainCloseness({
+          challengeNumber,
+          raw: sourceText,
+        });
+        if (!reply) {
+          res.status(200).json({ handled: true, action: 'wtf-noop' });
+          return;
+        }
+
+        // Build richtext with reply and a small superscript note
+        const builder = new RichTextBuilder();
+        builder.paragraph((p) => {
+          p.text({ text: reply });
+        });
+        const note = "I'm a sometimes helpful bot and can make mistakes.";
+        builder.paragraph((p) => {
+          p.text({
+            text: note,
+            formatting: [[FormattingFlag.superscript, 0, note.length]],
+          });
+        });
+
+        await reddit.submitComment({ id: commentId as any, richtext: builder });
+        res.status(200).json({ handled: true, action: 'wtf-replied' });
+        return;
+      } catch (e) {
+        console.error('Failed to handle !wtf', e);
+        res.status(200).json({ handled: false, error: 'wtf-failed' });
+        return;
+      }
+    }
+
+    // Nothing to do
+    res.status(200).json({ handled: true, action: 'noop' });
   } catch (err: any) {
     console.error('Failed on-comment-create trigger', err);
     res.status(200).json({ handled: false, error: err?.message });
