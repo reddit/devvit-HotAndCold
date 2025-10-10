@@ -6,6 +6,7 @@ import { makeGuess } from '../core/guess';
 import type { ClientGuessResult } from '../core/guessEngine';
 import { experiments } from '../../shared/experiments/experiments';
 import { context } from '@devvit/web/client';
+import posthog from 'posthog-js';
 
 export type WordInputResult = {
   similarity: number;
@@ -86,6 +87,7 @@ export function WordInput({
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const newDataRef = useRef<PixelData[]>([]);
   const inputRef = useRef<HTMLInputElement>(null);
+  const hasCapturedKeypressForFocusRef = useRef(false);
 
   const startAnimation = () => {
     intervalRef.current = window.setInterval(() => {
@@ -328,6 +330,37 @@ export function WordInput({
     }
   };
 
+  const handleFocus = () => {
+    hasCapturedKeypressForFocusRef.current = false;
+    posthog.capture('Word Input Focused', {
+      challengeNumber: context.postData?.challengeNumber ?? null,
+      inputHasValue: internalValue.length > 0,
+      placeholderIndex: currentPlaceholder,
+      autoFocusOnKeypress,
+    });
+  };
+
+  const handleBlur = () => {
+    posthog.capture('Word Input Blurred', {
+      challengeNumber: context.postData?.challengeNumber ?? null,
+      inputHasValue: internalValue.length > 0,
+    });
+  };
+
+  const handleKeyPress = (e: JSX.TargetedKeyboardEvent<HTMLInputElement>) => {
+    if (isAnimating || isLoading) return;
+    if ((e as KeyboardEvent).key.length !== 1) return;
+    if (hasCapturedKeypressForFocusRef.current) return;
+    // Only capture the first character keypress per focus session to limit volume.
+    hasCapturedKeypressForFocusRef.current = true;
+    posthog.capture('Word Input Key Press', {
+      challengeNumber: context.postData?.challengeNumber ?? null,
+      // Do not include the actual character; just record that a character was typed.
+      keyType: 'character',
+      inputLengthBefore: internalValue.length,
+    });
+  };
+
   return (
     <div
       className={cn(
@@ -351,6 +384,9 @@ export function WordInput({
           setInternalValue(next);
           onChange?.(next);
         }}
+        onFocus={handleFocus}
+        onBlur={handleBlur}
+        onKeyPress={handleKeyPress}
         spellcheck={false}
         onKeyDown={handleKeyDown}
         ref={inputRef}

@@ -21,11 +21,11 @@ export const initPosthog = ({ mode }: { mode: 'classic' | 'horde' }) => {
     defaults: '2025-05-24',
     capture_exceptions: true,
     disable_surveys: true,
-    autocapture: false,
+    autocapture: true,
     disable_session_recording: true,
-    enable_heatmaps: false,
-    capture_heatmaps: false,
-    disable_compression: true,
+    enable_heatmaps: true,
+    capture_heatmaps: true,
+    disable_compression: false,
     before_send: beforeSend(IS_PROD),
   });
 
