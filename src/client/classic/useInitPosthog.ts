@@ -21,7 +21,6 @@ export const initPosthog = ({ mode }: { mode: 'classic' | 'horde' }) => {
     defaults: '2025-05-24',
     capture_exceptions: true,
     disable_surveys: true,
-    autocapture: true,
     disable_session_recording: true,
     enable_heatmaps: true,
     capture_heatmaps: true,

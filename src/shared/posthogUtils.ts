@@ -16,7 +16,6 @@ export const beforeSend =
       return null;
     }
 
-    console.log('Sending event:', rawEvent);
     // This rips through our quota quickly, remove to save money on event cost
     if (sampledEvent.event === '$pageview' && sampledEvent.properties.page === 'splash') {
       return null;
@@ -35,6 +34,8 @@ export const beforeSend =
       console.warn('Skipping event due to malformed data:', !isProd ? event : event?.event);
       return null;
     }
+
+    console.log('Sending event:', rawEvent);
 
     return event;
   };

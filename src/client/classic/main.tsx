@@ -63,52 +63,6 @@ export function App() {
     });
   }, [page.value]);
 
-  // Register generic pointer down tracking (taps/clicks) relative to iframe viewport
-  useEffect(() => {
-    const handler = (event: PointerEvent) => {
-      try {
-        const viewportWidth =
-          window.innerWidth ||
-          document.documentElement.clientWidth ||
-          document.body.clientWidth ||
-          0;
-        const viewportHeight =
-          window.innerHeight ||
-          document.documentElement.clientHeight ||
-          document.body.clientHeight ||
-          0;
-
-        const xPixels = Math.max(0, Math.min(viewportWidth, event.clientX));
-        const yPixels = Math.max(0, Math.min(viewportHeight, event.clientY));
-
-        const xPercent = viewportWidth > 0 ? xPixels / viewportWidth : 0;
-        const yPercent = viewportHeight > 0 ? yPixels / viewportHeight : 0;
-
-        const target = event.target as HTMLElement | null;
-
-        posthog.capture('Pointer Down', {
-          page: page.value,
-          x_px: xPixels,
-          y_px: yPixels,
-          width_px: viewportWidth,
-          height_px: viewportHeight,
-          x_pct: Math.round(xPercent * 1000) / 1000,
-          y_pct: Math.round(yPercent * 1000) / 1000,
-          pointer_type: event.pointerType,
-          button: event.button,
-          target_tag: target?.tagName?.toLowerCase() ?? null,
-          target_id: target?.id || null,
-        });
-      } catch {
-        // ignore
-      }
-    };
-    window.addEventListener('pointerdown', handler, { capture: true, passive: true });
-    return () => {
-      window.removeEventListener('pointerdown', handler as any, { capture: true } as any);
-    };
-  }, []);
-
   useEffect(() => {
     const fetchIsAdmin = async () => {
       try {
