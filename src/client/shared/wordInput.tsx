@@ -392,6 +392,9 @@ export function WordInput({
         ref={inputRef}
         value={internalValue}
         type="text"
+        onClick={() => {
+          posthog.capture('Word Input Clicked');
+        }}
         autoCorrect="on"
         autoComplete="off"
         enterKeyHint="send"

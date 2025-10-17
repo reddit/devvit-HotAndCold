@@ -71,14 +71,24 @@ import { markSolvedForCurrentChallenge } from '../classic/state/navigation';
 import posthog from 'posthog-js';
 // import { rankToProgress } from '../../shared/progress';
 
-const submitBatchToServer = async (
+type Submitter = (
   challengeNumber: number,
   items: GuessSubmission[]
-): Promise<{ solvedAtMs?: number | null } | void> => {
-  const res = await trpc.guess.submitBatch.mutate({
-    challengeNumber,
-    guesses: items,
-  });
+) => Promise<{
+  solvedAtMs?: number | null;
+} | void>;
+
+const submitClassic: Submitter = async (challengeNumber, items) => {
+  const res = await trpc.guess.submitBatch.mutate({ challengeNumber, guesses: items });
+  if (res && typeof res === 'object' && 'challengeUserInfo' in res) {
+    const anyRes = res as any;
+    return { solvedAtMs: anyRes.challengeUserInfo?.solvedAtMs ?? null };
+  }
+};
+
+const submitHorde: Submitter = async (challengeNumber, items) => {
+  const res = await trpc.horde.guess.submitBatch.mutate({ challengeNumber, guesses: items });
+  // horde does not include score/solve; return void (no-op) for compatibility
   if (res && typeof res === 'object' && 'challengeUserInfo' in res) {
     const anyRes = res as any;
     return { solvedAtMs: anyRes.challengeUserInfo?.solvedAtMs ?? null };
@@ -91,9 +101,13 @@ const submitBatchToServer = async (
 export function createGuessEngine(params: {
   challengeNumber: number;
   rateLimitMs?: number;
+  mode?: 'classic' | 'horde';
+  waveId?: string | number; // optional sub-key for HORDE waves
 }): GuessEngine {
-  const { challengeNumber, rateLimitMs = 150 } = params;
-  const historyKey = `guess-history:${String(challengeNumber)}`;
+  const { challengeNumber, rateLimitMs = 150, mode = 'horde', waveId } = params;
+  const subKey = mode === 'horde' && waveId != null ? `:wave:${String(waveId)}` : '';
+  const historyKey = `guess-history:${String(challengeNumber)}${subKey}`;
+  const submitBatchToServer: Submitter = mode === 'horde' ? submitHorde : submitClassic;
 
   // signals
   const { signal: history } = createLocalStorageSignal<GuessHistoryItem[]>({
@@ -112,19 +126,45 @@ export function createGuessEngine(params: {
   let preloadTierReached = 0; // 0=none,1=first batch,2=second batch,3=all remaining
   let letterOrderPromise: Promise<string[]> | null = null;
 
-  const ensureLetterOrder = (): Promise<string[]> =>
-    (letterOrderPromise ??= getLetterPreloadOrder(challengeNumber));
+  const ensureLetterOrder = (): Promise<string[]> => {
+    const source =
+      mode === 'horde' && waveId != null
+        ? ({ mode, wave: Number(waveId) } as const)
+        : ({ mode } as const);
+    return (letterOrderPromise ??= getLetterPreloadOrder(challengeNumber, source));
+  };
 
   const triggerPreloadForTier = async (tier: number) => {
     try {
       const order = await ensureLetterOrder();
       if (!Array.isArray(order) || order.length === 0) return;
       if (tier === 1) {
-        await preloadLetterMaps({ challengeNumber, letters: order.slice(0, 6), concurrency: 3 });
+        const source =
+          mode === 'horde' && waveId != null
+            ? ({ mode, wave: Number(waveId) } as const)
+            : ({ mode } as const);
+        await preloadLetterMaps(
+          { challengeNumber, letters: order.slice(0, 6), concurrency: 3 },
+          source
+        );
       } else if (tier === 2) {
-        await preloadLetterMaps({ challengeNumber, letters: order.slice(6, 12), concurrency: 3 });
+        const source =
+          mode === 'horde' && waveId != null
+            ? ({ mode, wave: Number(waveId) } as const)
+            : ({ mode } as const);
+        await preloadLetterMaps(
+          { challengeNumber, letters: order.slice(6, 12), concurrency: 3 },
+          source
+        );
       } else if (tier >= 3) {
-        await preloadLetterMaps({ challengeNumber, letters: order.slice(12), concurrency: 4 });
+        const source =
+          mode === 'horde' && waveId != null
+            ? ({ mode, wave: Number(waveId) } as const)
+            : ({ mode } as const);
+        await preloadLetterMaps(
+          { challengeNumber, letters: order.slice(12), concurrency: 4 },
+          source
+        );
       }
     } catch (e) {
       console.error(e);
@@ -170,7 +210,10 @@ export function createGuessEngine(params: {
   void (async () => {
     const localHistorySnapshot: GuessHistoryItem[] = history.value.slice();
     try {
-      const server = await trpc.game.get.query({ challengeNumber });
+      const server =
+        mode === 'horde'
+          ? await trpc.horde.game.get.query({ challengeNumber })
+          : await trpc.game.get.query({ challengeNumber });
       const serverWords = server.challengeUserInfo.guesses.map((g: any) => g.word);
       const serverHistory: GuessHistoryItem[] = server.challengeUserInfo.guesses.map((g: any) => {
         const s = Number(g.similarity);
@@ -311,7 +354,11 @@ export function createGuessEngine(params: {
     try {
       // Only start rate-limit window for actual lookups that pass guards
       lastSubmitTs = now;
-      const data = await makeGuess(word);
+      const source =
+        mode === 'horde' && waveId != null
+          ? ({ mode, wave: Number(waveId), challengeNumber } as const)
+          : ({ mode, challengeNumber } as const);
+      const data = await makeGuess(word, source);
       if (!data) {
         const res: Extract<ClientGuessResult, { ok: false }> = {
           ok: false,
@@ -492,7 +539,11 @@ export function createGuessEngine(params: {
     // Look up similarity/rank for the hint word using the same path as free guesses
     try {
       isSubmitting.value = true;
-      const data = await makeGuess(word);
+      const source =
+        mode === 'horde' && waveId != null
+          ? ({ mode, wave: Number(waveId), challengeNumber } as const)
+          : ({ mode, challengeNumber } as const);
+      const data = await makeGuess(word, source);
       if (!data) {
         const res: Extract<ClientGuessResult, { ok: false }> = {
           ok: false,

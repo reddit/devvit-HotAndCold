@@ -22,13 +22,16 @@ export const initPosthog = ({ mode }: { mode: 'classic' | 'horde' }) => {
     capture_exceptions: true,
     disable_surveys: true,
     disable_session_recording: true,
-    enable_heatmaps: true,
-    capture_heatmaps: true,
+    enable_heatmaps: false,
+    disable_persistence: true,
+    capture_heatmaps: false,
     disable_compression: false,
     before_send: beforeSend(IS_PROD),
   });
 
-  const allExperiments = context.userId ? experiments.evaluateAll(context.userId) : null;
+  const allExperiments = context.userId
+    ? experiments.evaluateAll(context.userId)
+    : null;
 
   posthog.register({
     mode,
@@ -38,7 +41,10 @@ export const initPosthog = ({ mode }: { mode: 'classic' | 'horde' }) => {
     app_name: context.appName ?? null,
     // Just attach all experiments as properties and we'll figure it out on posthog
     ...Object.fromEntries(
-      Object.entries(allExperiments ?? []).map(([key, value]) => [key, value.treatment])
+      Object.entries(allExperiments ?? []).map(([key, value]) => [
+        key,
+        value.treatment,
+      ])
     ),
   });
 
@@ -48,7 +54,10 @@ export const initPosthog = ({ mode }: { mode: 'classic' | 'horde' }) => {
       const hashed = await hash(context.userId);
       // Identify sends an event, so you may want to limit how often you call it
       posthog.identify(hashed);
-      console.log('DEBUG: user', JSON.stringify({ hashed, userId: context.userId }, null, 2));
+      console.log(
+        'DEBUG: user',
+        JSON.stringify({ hashed, userId: context.userId }, null, 2)
+      );
     }
   };
 

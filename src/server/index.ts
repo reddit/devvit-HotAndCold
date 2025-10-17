@@ -29,6 +29,8 @@ import { Flairs } from './core/flairs';
 import { Admin } from './core/admin';
 import analyticsRouter from './analytics';
 import { Timezones } from './core/timezones';
+import hordeRouter, { hordeTrpcRouter } from './horde';
+import { Challenge as HordeChallenge } from './core/horde/challenge.horde';
 
 // Formats a duration in milliseconds to a human-readable long form like
 // "2 hours 5 minutes 3 seconds" or "2 minutes 45 seconds" or "5 seconds".
@@ -372,6 +374,7 @@ const appRouter = router({
         return neighbors;
       }),
   },
+  horde: hordeTrpcRouter,
   // Returns whether the current user is an admin. Caches result in Redis.
 });
 
@@ -384,6 +387,83 @@ const app = express();
 app.use('/api', analyticsRouter);
 
 app.use(express.json());
+
+// Mount HORDE router under /internal/horde
+app.use('/internal/horde', hordeRouter);
+
+// HORDE: Hint CSV for a specific wave word
+app.get('/api/horde/:challengeNumber/wave/:wave/_hint.csv', async (req, res): Promise<void> => {
+  try {
+    const challengeNumber = Number.parseInt(String(req.params.challengeNumber), 10);
+    const wave = Number.parseInt(String(req.params.wave), 10);
+    if (!Number.isFinite(challengeNumber) || challengeNumber <= 0) {
+      res.status(400).send('Invalid challenge number');
+      return;
+    }
+    if (!Number.isFinite(wave) || wave <= 0) {
+      res.status(400).send('Invalid wave');
+      return;
+    }
+
+    const challenge = await HordeChallenge.getChallenge({ challengeNumber });
+    const target = challenge.words[wave - 1];
+    if (!target) {
+      res.status(404).send('Wave not found');
+      return;
+    }
+
+    const csv = await buildHintCsvForChallenge({ challengeSecretWord: String(target), max: 500 });
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Cache-Control', 'public, max-age=31536000, s-maxage=31536000, immutable');
+    res.setHeader('Surrogate-Control', 'max-age=31536000, immutable');
+    res.status(200).send(csv);
+  } catch (err: any) {
+    console.error('Failed to serve HORDE hint CSV', err);
+    res.status(500).send('Failed to generate HORDE wave CSV');
+  }
+});
+
+// HORDE: Letter CSV for a specific wave word
+app.get('/api/horde/:challengeNumber/wave/:wave/:letter.csv', async (req, res): Promise<void> => {
+  try {
+    const challengeNumber = Number.parseInt(String(req.params.challengeNumber), 10);
+    const wave = Number.parseInt(String(req.params.wave), 10);
+    const rawLetter = String(req.params.letter || '')
+      .trim()
+      .toLowerCase();
+    if (!Number.isFinite(challengeNumber) || challengeNumber <= 0) {
+      res.status(400).send('Invalid challenge number');
+      return;
+    }
+    if (!Number.isFinite(wave) || wave <= 0) {
+      res.status(400).send('Invalid wave');
+      return;
+    }
+    if (!/^[a-z]$/.test(rawLetter)) {
+      res.status(400).send('Invalid letter');
+      return;
+    }
+
+    const challenge = await HordeChallenge.getChallenge({ challengeNumber });
+    const target = challenge.words[wave - 1];
+    if (!target) {
+      res.status(404).send('Wave not found');
+      return;
+    }
+
+    const csv = await buildLetterCsvForChallenge({
+      challengeSecretWord: String(target),
+      letter: rawLetter,
+    });
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Cache-Control', 'public, max-age=31536000, s-maxage=31536000, immutable');
+    res.setHeader('Surrogate-Control', 'max-age=31536000, immutable');
+    res.status(200).send(csv);
+  } catch (err: any) {
+    console.error('Failed to serve HORDE letter CSV', err);
+    res.status(500).send('Failed to generate HORDE wave CSV');
+  }
+});
 
 // Needs to be before /api/challenges/:challengeNumber/:letter.csv!!
 app.get('/api/challenges/:challengeNumber/_hint.csv', async (req, res): Promise<void> => {

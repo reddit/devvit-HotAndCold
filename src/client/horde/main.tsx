@@ -5,24 +5,22 @@ import { createGuessEngine } from '../core/guessEngine';
 import { requireChallengeNumber } from '../requireChallengeNumber';
 import { Header } from './header';
 import { page, initNavigation } from './state/navigation';
-import { WinPage } from './WinPage';
-import { Progress } from './Progress';
+// import { WinPage } from './WinPage';
 import { PlayPage } from './PlayPage';
 import { HowToPlayModal } from './howToPlayModal';
 import { ExperimentsModal } from './ExperimentsModal';
 import { ErrorBoundary } from '../shared/error';
-import { initPosthog } from '../shared/useInitPosthog';
+// import { initPosthog } from '../shared/useInitPosthog';
 import posthog from 'posthog-js';
 import { GUESS_SAMPLE_RATE } from '../config';
 import type { GuessEngine } from '../core/guessEngine';
 import { remountKey } from './state/experiments';
 import { trpc } from '../trpc';
-import { context } from '@devvit/web/client';
-import { App as HordeApp } from '../horde/main';
+import { GuessTicker } from './ticker';
+import { useHordeRealtime } from './state/realtime';
+import { hordeGameUpdate } from './state/realtime';
 
-const mode = (context.postData?.mode as any) ?? 'classic';
-
-initPosthog({ mode });
+// initPosthog({ mode: 'horde' });
 
 function AppContent({
   engine,
@@ -33,14 +31,40 @@ function AppContent({
   challengeNumber: number;
   isAdmin: boolean;
 }) {
+  useHordeRealtime(challengeNumber);
+  const status = hordeGameUpdate.value?.status ?? 'running';
+  // Wave & timer moved to Header
+
+  const renderStatusView = () => {
+    if (status === 'running') return <PlayPage engine={engine} />;
+    if (status === 'won')
+      return (
+        <div className="mx-auto my-8 flex w-full max-w-xl flex-col items-center gap-3 text-center">
+          <p className="text-xl font-semibold">Horde Cleared!</p>
+          <p className="text-sm text-gray-600 dark:text-gray-300">
+            Great work. Waiting for the next wave.
+          </p>
+        </div>
+      );
+    if (status === 'lost')
+      return (
+        <div className="mx-auto my-8 flex w-full max-w-xl flex-col items-center gap-3 text-center">
+          <p className="text-xl font-semibold">Time’s Up</p>
+          <p className="text-sm text-gray-600 dark:text-gray-300">
+            The horde fell this time. Try again soon.
+          </p>
+        </div>
+      );
+    return <PlayPage engine={engine} />;
+  };
   return (
     <div className="h-[100dvh] min-h-[100dvh] w-full overflow-hidden">
       <div className="mx-auto flex max-w-2xl flex-col px-4 md:px-6 py-6 h-full min-h-0 overflow-hidden">
         <Header engine={engine} isAdmin={isAdmin} />
-        {page.value === 'win' ? <WinPage /> : <PlayPage engine={engine} />}
-        <div className="relative mx-auto w-full max-w-xl">
-          <Progress challengeNumber={Number(challengeNumber)} engine={engine} />
+        <div className="relative mx-auto w-full max-w-xl mb-2">
+          <GuessTicker />
         </div>
+        {renderStatusView()}
         <HowToPlayModal />
         <ExperimentsModal />
       </div>
@@ -51,10 +75,11 @@ function AppContent({
 export function App() {
   const [isAdmin, setIsAdmin] = useState(false);
   const challengeNumber = requireChallengeNumber();
+  const currentWave = hordeGameUpdate.value?.currentHordeLevel ?? 1;
 
   const engine = useMemo(() => {
-    return createGuessEngine({ challengeNumber, mode: 'classic' });
-  }, [challengeNumber]);
+    return createGuessEngine({ challengeNumber, mode: 'horde', waveId: currentWave });
+  }, [challengeNumber, currentWave]);
 
   // Initialize navigation from cached state – non-blocking
   useEffect(() => {
@@ -180,6 +205,8 @@ export function App() {
 }
 
 render(
-  <ErrorBoundary>{mode === 'horde' ? <HordeApp /> : <App />}</ErrorBoundary>,
+  <ErrorBoundary>
+    <App />
+  </ErrorBoundary>,
   document.getElementById('root')!
 );

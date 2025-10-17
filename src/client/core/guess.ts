@@ -23,13 +23,19 @@ type CachedMapData = {
   challengeNumber: number;
 };
 
-// Map key is `${challengeNumber}-${letter}` ➜ value is Map<word, ShardMapEntry>
+// Map key is `${nsKey}-${letter}` ➜ value is Map<word, ShardMapEntry>
 const fileCache: Map<string, Map<string, ShardMapEntry>> = new Map();
 
 // Export a readonly snapshot accessor so preloaders can check memory warmness
-export const isLetterLoadedInMemory = (challengeNumber: number, letter: string): boolean => {
+export type GuessSource = { mode?: 'classic' | 'horde'; wave?: number };
+
+export const isLetterLoadedInMemory = (
+  challengeNumber: number,
+  letter: string,
+  opts?: GuessSource
+): boolean => {
   const normalized = letter.toLowerCase();
-  const fileKey = `${String(challengeNumber)}-${normalized}`;
+  const fileKey = buildFileKey(challengeNumber, normalized, opts);
   return fileCache.has(fileKey);
 };
 
@@ -164,8 +170,18 @@ const normalizeLetter = (letterRaw: string): string | null => {
   const letter = letterRaw.trim().toLowerCase();
   return LETTERS_SET.has(letter) ? letter : null;
 };
-const buildFileKey = (challengeNumber: number, letter: string): string =>
-  `${String(challengeNumber)}-${letter}`;
+const namespaceKey = (challengeNumber: number, opts?: GuessSource): string => {
+  const mode = opts?.mode ?? 'classic';
+  if (mode === 'horde') {
+    const wave =
+      Number.isFinite(Number(opts?.wave)) && Number(opts?.wave) > 0 ? Number(opts?.wave) : 1;
+    return `h-${String(challengeNumber)}-w${String(wave)}`;
+  }
+  return `c-${String(challengeNumber)}`;
+};
+
+const buildFileKey = (challengeNumber: number, letter: string, opts?: GuessSource): string =>
+  `${namespaceKey(challengeNumber, opts)}-${letter}`;
 
 // ---------------------------------------------------------
 // Parsing utility
@@ -317,19 +333,28 @@ export const DEFAULT_PRELOAD_ORDER: string[] = [
   'z',
 ];
 
-const hintOrderCache = new Map<number, string[]>();
+const hintOrderCache = new Map<string, string[]>();
 
 /**
  * Compute a challenge-specific letter order from `_hint.csv` (top 500 words),
  * falling back to DEFAULT_PRELOAD_ORDER when unavailable.
  */
-export async function getLetterPreloadOrder(challengeNumber: number): Promise<string[]> {
-  if (hintOrderCache.has(challengeNumber)) return hintOrderCache.get(challengeNumber)!;
+export async function getLetterPreloadOrder(
+  challengeNumber: number,
+  opts?: GuessSource
+): Promise<string[]> {
+  const ns = namespaceKey(challengeNumber, opts);
+  if (hintOrderCache.has(ns)) return hintOrderCache.get(ns)!;
   try {
-    const csv = await fetcher.request<string>(`/api/challenges/${challengeNumber}/_hint.csv`, {
-      timeout: 3000,
-      maxAttempts: 2,
-    });
+    const csv = await fetcher.request<string>(
+      (opts?.mode ?? 'classic') === 'horde' && Number(opts?.wave) > 0
+        ? `/api/horde/${String(challengeNumber)}/wave/${String(opts?.wave)}/_hint.csv`
+        : `/api/challenges/${String(challengeNumber)}/_hint.csv`,
+      {
+        timeout: 3000,
+        maxAttempts: 2,
+      }
+    );
     const counts = new Map<string, number>();
     for (const row of csv.split(/\r?\n/)) {
       if (!row || row.startsWith('word,')) continue;
@@ -346,10 +371,10 @@ export async function getLetterPreloadOrder(challengeNumber: number): Promise<st
       if (db !== da) return db - da;
       return DEFAULT_PRELOAD_ORDER.indexOf(a) - DEFAULT_PRELOAD_ORDER.indexOf(b);
     });
-    hintOrderCache.set(challengeNumber, byFreq);
+    hintOrderCache.set(ns, byFreq);
     return byFreq;
   } catch {
-    hintOrderCache.set(challengeNumber, DEFAULT_PRELOAD_ORDER);
+    hintOrderCache.set(ns, DEFAULT_PRELOAD_ORDER);
     return DEFAULT_PRELOAD_ORDER;
   }
 }
@@ -359,11 +384,12 @@ export async function getLetterPreloadOrder(challengeNumber: number): Promise<st
  */
 async function loadLetterMap(
   challengeNumber: number,
-  letterRaw: string
+  letterRaw: string,
+  opts?: GuessSource
 ): Promise<Map<string, ShardMapEntry>> {
   const letter = normalizeLetter(letterRaw);
   if (!letter) return new Map();
-  const fileKey = buildFileKey(challengeNumber, letter);
+  const fileKey = buildFileKey(challengeNumber, letter, opts);
 
   const inMemory = fileCache.get(fileKey);
   if (inMemory) return inMemory;
@@ -380,10 +406,15 @@ async function loadLetterMap(
   }
 
   // Fetch and parse
-  const csv = await fetcher.request<string>(`/api/challenges/${challengeNumber}/${letter}.csv`, {
-    timeout: 15000,
-    maxAttempts: 2,
-  });
+  const csv = await fetcher.request<string>(
+    (opts?.mode ?? 'classic') === 'horde' && Number(opts?.wave) > 0
+      ? `/api/horde/${String(challengeNumber)}/wave/${String(opts?.wave)}/${letter}.csv`
+      : `/api/challenges/${String(challengeNumber)}/${letter}.csv`,
+    {
+      timeout: 15000,
+      maxAttempts: 2,
+    }
+  );
   const map = parseCsvToMap(csv);
   fileCache.set(fileKey, map);
   // Persist asynchronously
@@ -392,23 +423,30 @@ async function loadLetterMap(
 }
 
 /** Ensure a single letter map is loaded into memory and IndexedDB cache. */
-async function ensureLetterMapLoaded(challengeNumber: number, letterRaw: string): Promise<void> {
-  await loadLetterMap(challengeNumber, letterRaw);
+async function ensureLetterMapLoaded(
+  challengeNumber: number,
+  letterRaw: string,
+  opts?: GuessSource
+): Promise<void> {
+  await loadLetterMap(challengeNumber, letterRaw, opts);
 }
 
 /**
  * Preload a set of letter maps with limited concurrency. Skips already-warm letters.
  */
-export async function preloadLetterMaps(params: {
-  challengeNumber: number;
-  letters: string[];
-  concurrency?: number;
-}): Promise<void> {
+export async function preloadLetterMaps(
+  params: {
+    challengeNumber: number;
+    letters: string[];
+    concurrency?: number;
+  },
+  opts?: GuessSource
+): Promise<void> {
   const { challengeNumber, letters, concurrency = 3 } = params;
   const queue = letters
     .map((l) => normalizeLetter(l))
     .filter((l): l is string => !!l)
-    .filter((l) => !isLetterLoadedInMemory(challengeNumber, l));
+    .filter((l) => !isLetterLoadedInMemory(challengeNumber, l, opts));
 
   if (queue.length === 0) return;
 
@@ -419,7 +457,7 @@ export async function preloadLetterMaps(params: {
       while (index < queue.length) {
         const current = queue[index++]!;
         try {
-          await ensureLetterMapLoaded(challengeNumber, current);
+          await ensureLetterMapLoaded(challengeNumber, current, opts);
         } catch {
           // ignore failures; best-effort preloading
         }
@@ -434,8 +472,13 @@ export async function preloadLetterMaps(params: {
 // ---------------------------------------------------------
 // Main function (lookup single word by its first-letter shard)
 // ---------------------------------------------------------
-export const makeGuess = async (guess: string): Promise<GuessLookupResult | null> => {
-  const challengeNumber = requireChallengeNumber();
+export const makeGuess = async (
+  guess: string,
+  opts?: GuessSource & { challengeNumber?: number }
+): Promise<GuessLookupResult | null> => {
+  const challengeNumber = Number.isFinite(Number(opts?.challengeNumber))
+    ? Number(opts?.challengeNumber)
+    : requireChallengeNumber();
 
   const overallStart = performance.now();
   if (!guess) return null;
@@ -454,9 +497,9 @@ export const makeGuess = async (guess: string): Promise<GuessLookupResult | null
   // Measure source for logging
   let cacheSource = 'memory/IDB/network';
   const idbStart = performance.now();
-  const mapBefore = fileCache.get(buildFileKey(challengeNumber, normalizedLetter));
+  const mapBefore = fileCache.get(buildFileKey(challengeNumber, normalizedLetter, opts));
 
-  const wordMap = await loadLetterMap(challengeNumber, normalizedLetter);
+  const wordMap = await loadLetterMap(challengeNumber, normalizedLetter, opts);
 
   if (mapBefore) {
     cacheSource = 'memory (0ms)';

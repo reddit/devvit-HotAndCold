@@ -7,6 +7,10 @@
       "default": {
         "entry": "classic.html",
         "inline": true
+      },
+      "horde": {
+        "entry": "horde.html",
+        "inline": true
       }
     }
   },
@@ -19,7 +23,9 @@
   },
   "forms": {
     "queueAddForm": "/internal/form/queue/add",
-    "queueClearForm": "/internal/form/queue/clear"
+    "queueClearForm": "/internal/form/queue/clear",
+    "hordeQueueAddForm": "/internal/horde/form/queue/add",
+    "hordeQueueClearForm": "/internal/horde/form/queue/clear"
   },
   "menu": {
     "items": [
@@ -66,6 +72,48 @@
         "endpoint": "/internal/menu/post-next"
       },
       {
+        "label": "[horde][queue] Add to queue",
+        "description": "horde",
+        "forUserType": "moderator",
+        "location": "subreddit",
+        "endpoint": "/internal/horde/menu/add"
+      },
+      {
+        "label": "[horde][queue] Clear queue",
+        "description": "horde",
+        "forUserType": "moderator",
+        "location": "subreddit",
+        "endpoint": "/internal/horde/menu/clear"
+      },
+      {
+        "label": "[horde][queue] Get size",
+        "description": "horde",
+        "forUserType": "moderator",
+        "location": "subreddit",
+        "endpoint": "/internal/horde/menu/size"
+      },
+      {
+        "label": "[horde][queue] Peek next 3",
+        "description": "horde",
+        "forUserType": "moderator",
+        "location": "subreddit",
+        "endpoint": "/internal/horde/menu/peek"
+      },
+      {
+        "label": "[horde][queue] Get contents via DM",
+        "description": "horde",
+        "forUserType": "moderator",
+        "location": "subreddit",
+        "endpoint": "/internal/horde/menu/dm"
+      },
+      {
+        "label": "[horde][queue] Post next",
+        "description": "horde",
+        "forUserType": "moderator",
+        "location": "subreddit",
+        "endpoint": "/internal/horde/menu/post-next"
+      },
+      {
         "label": "[migrate] Backfill secret words 1-25",
         "forUserType": "moderator",
         "location": "subreddit",
@@ -104,6 +152,11 @@
         "cron": "*/5 * * * *",
         "endpoint": "/internal/scheduler/update-post-data",
         "data": {}
+      },
+      "horde-game-update": {
+        "cron": "*/5 * * * * *",
+        "endpoint": "/internal/horde/scheduler/game-update",
+        "data": {}
       }
     }
   },
@@ -122,7 +175,8 @@
         "jbbhyxtpholdwrxencjx.supabase.co"
       ],
       "enable": true
-    }
+    },
+    "realtime": true
   },
   "settings": {
     "global": {
