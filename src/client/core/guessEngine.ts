@@ -73,7 +73,8 @@ import posthog from 'posthog-js';
 
 type Submitter = (
   challengeNumber: number,
-  items: GuessSubmission[]
+  items: GuessSubmission[],
+  wave?: number | null
 ) => Promise<{
   solvedAtMs?: number | null;
 } | void>;
@@ -86,8 +87,8 @@ const submitClassic: Submitter = async (challengeNumber, items) => {
   }
 };
 
-const submitHorde: Submitter = async (challengeNumber, items) => {
-  const res = await trpc.horde.guess.submitBatch.mutate({ challengeNumber, guesses: items });
+const submitHorde: Submitter = async (challengeNumber, items, wave) => {
+  const res = await trpc.horde.guess.submitBatch.mutate({ challengeNumber, guesses: items, wave: Number.isFinite(Number(wave)) ? Number(wave) : 1 });
   // horde does not include score/solve; return void (no-op) for compatibility
   if (res && typeof res === 'object' && 'challengeUserInfo' in res) {
     const anyRes = res as any;
@@ -125,6 +126,15 @@ export function createGuessEngine(params: {
   const sessionGuessedSet = new Set<string>();
   let preloadTierReached = 0; // 0=none,1=first batch,2=second batch,3=all remaining
   let letterOrderPromise: Promise<string[]> | null = null;
+  const targetWave =
+    mode === 'horde' && waveId != null && Number.isFinite(Number(waveId))
+      ? Math.max(1, Math.floor(Number(waveId)))
+      : null;
+  const filterHistoryForWave = <T extends GuessHistoryItem>(list: T[]): T[] => {
+    if (!targetWave) return list;
+    return list.filter((entry) => Number(entry.wave) === targetWave);
+  };
+  const waveScope = targetWave ?? undefined;
 
   const ensureLetterOrder = (): Promise<string[]> => {
     const source =
@@ -192,6 +202,10 @@ export function createGuessEngine(params: {
   // hydrate tier 1: local history from localStorageSignal
   // Seed guessedSet from hydrated history (used for duplicate checks only)
   if (Array.isArray(history.value) && history.value.length > 0) {
+    const filteredLocalHistory = filterHistoryForWave(history.value);
+    if (filteredLocalHistory.length !== history.value.length) {
+      history.value = filteredLocalHistory;
+    }
     const words = history.value.map((i) => i.word);
     words.forEach((w) => guessedSet.add(w));
     const winning = history.value.find((i) => i.similarity === 1);
@@ -214,7 +228,6 @@ export function createGuessEngine(params: {
         mode === 'horde'
           ? await trpc.horde.game.get.query({ challengeNumber })
           : await trpc.game.get.query({ challengeNumber });
-      const serverWords = server.challengeUserInfo.guesses.map((g: any) => g.word);
       const serverHistory: GuessHistoryItem[] = server.challengeUserInfo.guesses.map((g: any) => {
         const s = Number(g.similarity);
         const r = Number(g.rank);
@@ -224,8 +237,10 @@ export function createGuessEngine(params: {
           similarity: Number.isFinite(s) ? s : 0,
           rank: Number.isFinite(r) ? r : -1,
           timestamp: Number.isFinite(t) ? t : Date.now(),
+          wave: Number((g as any)?.wave) || null,
         };
       });
+      const filteredServerHistory = filterHistoryForWave(serverHistory);
 
       // If server indicates solved, mark immediately
       const serverSolvedAt = server?.challengeUserInfo?.solvedAtMs;
@@ -249,9 +264,9 @@ export function createGuessEngine(params: {
 
       // Always prefer server and persist locally via localStorageSignal
       batch(() => {
-        history.value = serverHistory;
+        history.value = filteredServerHistory;
         guessedSet.clear();
-        serverWords.forEach((w: string) => guessedSet.add(w));
+        filteredServerHistory.forEach((item) => guessedSet.add(item.word));
       });
     } catch (e) {
       // ignore network/server errors; keep local
@@ -271,7 +286,7 @@ export function createGuessEngine(params: {
           rank: Number.isFinite(winning.rank) ? winning.rank : -1,
           atMs: winning.timestamp,
         },
-      ]);
+      ], waveScope ?? undefined);
       if (res && res.solvedAtMs) {
         const at = Number(res.solvedAtMs) || Date.now();
         solvedAtMs.value = at;
@@ -400,6 +415,7 @@ export function createGuessEngine(params: {
           similarity: data.similarity,
           rank: Number.isFinite(data.rank) ? (data.rank as number) : -1,
           timestamp: now,
+          wave: waveScope ?? null,
         };
         history.value = [...history.value, item];
       });
@@ -420,7 +436,7 @@ export function createGuessEngine(params: {
                 rank: Number.isFinite(data.rank) ? (data.rank as number) : -1,
                 atMs: now,
               },
-            ]);
+            ], waveScope ?? undefined);
             if (serverState && serverState.solvedAtMs) {
               const solvedAt = Number(serverState.solvedAtMs) || Date.now();
               solvedAtMs.value = solvedAt;
@@ -450,7 +466,7 @@ export function createGuessEngine(params: {
               rank: Number.isFinite(data.rank) ? (data.rank as number) : -1,
               atMs: now,
             },
-          ]);
+          ], waveScope ?? undefined);
           if (serverState && serverState.solvedAtMs) {
             const solvedAt = Number(serverState.solvedAtMs) || now;
             solvedAtMs.value = solvedAt;
@@ -473,6 +489,7 @@ export function createGuessEngine(params: {
               similarity: data.similarity,
               rank: Number.isFinite(data.rank) ? (data.rank as number) : -1,
               timestamp: now,
+              wave: waveScope ?? null,
             });
             try {
               posthog.capture('Solved Word', {
@@ -493,6 +510,7 @@ export function createGuessEngine(params: {
             similarity: data.similarity,
             rank: Number.isFinite(data.rank) ? (data.rank as number) : -1,
             timestamp: now,
+            wave: waveScope ?? null,
           });
           try {
             posthog.capture('Solved Word', {
@@ -576,6 +594,7 @@ export function createGuessEngine(params: {
             similarity: data.similarity,
             rank: Number.isFinite(data.rank) ? (data.rank as number) : -1,
             timestamp: now,
+            wave: waveScope ?? null,
           },
         ];
       });
@@ -591,7 +610,7 @@ export function createGuessEngine(params: {
               atMs: now,
               isHint: true,
             },
-          ]);
+          ], waveScope ?? undefined);
           if (serverState && serverState.solvedAtMs) {
             const solvedAt = Number(serverState.solvedAtMs) || Date.now();
             solvedAtMs.value = solvedAt;
@@ -655,4 +674,5 @@ export type GuessHistoryItem = {
   similarity: number;
   rank: number; // -1 when unknown
   timestamp: number;
+  wave?: number | null;
 };

@@ -1,3 +1,4 @@
+import type { ComponentChildren } from 'preact';
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { Signal } from '@preact/signals';
 import { cn } from '../utils/cn';
@@ -9,14 +10,18 @@ export type GuessItem = {
   similarity: number; // 0..1 (display as %)
   rank: number; // -1 if unknown
   timestamp: number;
+  username?: string | null;
+  avatarUrl?: string | null;
 };
 
 export function Guesses({
   items,
   latest,
+  renderLeading,
 }: {
   items: GuessItem[] | Signal<GuessItem[]>;
   latest?: GuessItem | null;
+  renderLeading?: (item: GuessItem) => ComponentChildren;
 }) {
   const list: GuessItem[] = Array.isArray((items as any).value)
     ? (items as Signal<GuessItem[]>).value
@@ -49,11 +54,24 @@ export function Guesses({
     if (!parent) return;
 
     const probe = document.createElement('p');
-    probe.className = 'relative flex w-full justify-between gap-1 rounded px-1';
+    probe.className = 'relative flex w-full items-center justify-between gap-1 rounded px-1';
     probe.style.visibility = 'hidden';
-    // minimal content to realize line height
+
+    const hasLeading = typeof renderLeading === 'function';
     const left = document.createElement('span');
-    left.textContent = 'W';
+    left.className = 'flex min-w-0 items-center gap-2';
+    if (hasLeading) {
+      const avatarWrap = document.createElement('span');
+      avatarWrap.className = 'inline-flex flex-shrink-0';
+      avatarWrap.style.width = '28px';
+      avatarWrap.style.height = '28px';
+      avatarWrap.style.borderRadius = '9999px';
+      left.appendChild(avatarWrap);
+    }
+    const leftText = document.createElement('span');
+    leftText.textContent = 'W';
+    left.appendChild(leftText);
+
     const right = document.createElement('span');
     right.textContent = '00%';
     probe.appendChild(left);
@@ -67,7 +85,7 @@ export function Guesses({
       setMeasuredRowHeight(Math.max(1, Math.round(height + gap)));
       parent.removeChild(probe);
     });
-  }, [listColumnRef.current, layout]);
+  }, [listColumnRef.current, layout, renderLeading]);
   const [currentPage, setCurrentPage] = useState(1);
 
   // Prefer the provided latest item, otherwise derive it
@@ -127,12 +145,17 @@ export function Guesses({
       {sorted.length > 0 && latestItem && (
         <p
           className={cn(
-            'relative flex w-full justify-between gap-1 rounded px-1 border border-gray-300 bg-gray-100/70 dark:border-gray-500 dark:bg-gray-700/50'
+            'relative flex w-full items-center justify-between gap-1 rounded px-1 border border-gray-300 bg-gray-100/70 dark:border-gray-500 dark:bg-gray-700/50'
           )}
         >
-          <span className="truncate font-medium text-gray-900 dark:text-white">
-            {latestItem.word}
-            {getRankEmoji(latestItem.rank) ? ` ${getRankEmoji(latestItem.rank)}` : null}
+          <span className="flex min-w-0 items-center gap-2 text-gray-900 dark:text-white">
+            {renderLeading ? (
+              <span className="flex-shrink-0">{renderLeading(latestItem)}</span>
+            ) : null}
+            <span className="truncate font-medium">
+              {latestItem.word}
+              {getRankEmoji(latestItem.rank) ? ` ${getRankEmoji(latestItem.rank)}` : null}
+            </span>
           </span>
           <span
             className={cn(
@@ -150,11 +173,14 @@ export function Guesses({
           {pageItems.map((g) => (
             <p
               key={`${g.word}-${g.timestamp}`}
-              className="relative flex w-full justify-between gap-1 rounded px-1"
+              className="relative flex w-full items-center justify-between gap-1 rounded px-1"
             >
-              <span className="truncate text-gray-900 dark:text-gray-50">
-                {g.word}
-                {getRankEmoji(g.rank) ? ` ${getRankEmoji(g.rank)}` : null}
+              <span className="flex min-w-0 items-center gap-2 text-gray-900 dark:text-gray-50">
+                {renderLeading ? <span className="flex-shrink-0">{renderLeading(g)}</span> : null}
+                <span className="truncate">
+                  {g.word}
+                  {getRankEmoji(g.rank) ? ` ${getRankEmoji(g.rank)}` : null}
+                </span>
               </span>
               <span
                 className={cn(

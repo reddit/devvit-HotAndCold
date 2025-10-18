@@ -1,4 +1,5 @@
-import { useMemo, useState } from 'preact/hooks';
+import type { JSX } from 'preact';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { WordInput } from '../shared/wordInput';
 import { Guesses } from '../shared/guesses';
 import type { GuessItem } from '../shared/guesses';
@@ -9,6 +10,78 @@ import { context } from '@devvit/web/client';
 import { openHowToPlay } from './state/howToPlay';
 import posthog from 'posthog-js';
 import { hordeTickerGuesses } from './state/realtime';
+
+const DEFAULT_SNOOVATAR = '/assets/default_snoovatar.png';
+
+const CommunityGuessAvatar = ({ item }: { item: GuessItem }) => {
+  const username = item.username ?? null;
+  const [showTooltip, setShowTooltip] = useState(false);
+  const hideTimerRef = useRef<number | null>(null);
+
+  const clearTimer = () => {
+    if (hideTimerRef.current !== null) {
+      window.clearTimeout(hideTimerRef.current);
+      hideTimerRef.current = null;
+    }
+  };
+
+  const reveal = () => {
+    if (!username) return;
+    clearTimer();
+    setShowTooltip(true);
+  };
+
+  const conceal = () => {
+    clearTimer();
+    setShowTooltip(false);
+  };
+
+  const handleTouchStart = (event: JSX.TargetedTouchEvent<HTMLButtonElement>) => {
+    if (!username) return;
+    event.stopPropagation();
+    clearTimer();
+    reveal();
+    hideTimerRef.current = window.setTimeout(() => {
+      setShowTooltip(false);
+      hideTimerRef.current = null;
+    }, 1800);
+  };
+
+  useEffect(() => {
+    return () => {
+      if (hideTimerRef.current !== null) {
+        window.clearTimeout(hideTimerRef.current);
+      }
+    };
+  }, []);
+
+  return (
+    <div className="relative flex items-center">
+      <button
+        type="button"
+        className="relative inline-flex h-7 w-7 flex-shrink-0 cursor-pointer items-center justify-center overflow-hidden rounded-full border border-gray-300 bg-white text-transparent transition hover:brightness-95 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-500 dark:border-gray-600 dark:bg-gray-800"
+        onMouseEnter={reveal}
+        onMouseLeave={conceal}
+        onFocus={reveal}
+        onBlur={conceal}
+        onTouchStart={handleTouchStart}
+        title={username ?? undefined}
+        aria-label={username ? `${username}'s avatar` : 'Player avatar'}
+      >
+        <img
+          src={item.avatarUrl || DEFAULT_SNOOVATAR}
+          alt={username ? `${username}'s avatar` : 'Player avatar'}
+          className="h-full w-full object-cover"
+        />
+      </button>
+      {username && showTooltip && (
+        <span className="pointer-events-none absolute left-1/2 top-full z-20 mt-1 -translate-x-1/2 whitespace-nowrap rounded bg-gray-900 px-2 py-1 text-xs text-white shadow">
+          {username}
+        </span>
+      )}
+    </div>
+  );
+};
 
 export function PlayPage({ engine }: { engine?: GuessEngine }) {
   const [feedback, setFeedback] = useState<string | null>(null);
@@ -42,17 +115,25 @@ export function PlayPage({ engine }: { engine?: GuessEngine }) {
     return MESSAGES[idx] ?? null;
   };
 
+
   const totalPlayers = Number(context.postData?.totalPlayers ?? 0);
   const totalSolves = Number(context.postData?.totalSolves ?? 0);
   const solveRatePct = totalPlayers > 0 ? Math.round((totalSolves / totalPlayers) * 100) : 0;
   const communityItems: GuessItem[] = useMemo(() => {
     return (hordeTickerGuesses.value ?? []).map((g) => ({
-      word: g.username ? `${g.username}: ${g.word}` : g.word,
+      word: g.word,
       similarity: g.similarity,
       rank: Number.isFinite(g.rank) ? (g.rank as number) : -1,
       timestamp: Number.isFinite(g.atMs) ? (g.atMs as number) : Date.now(),
+      username: g.username ?? null,
+      avatarUrl: g.snoovatar ?? null,
     }));
   }, [hordeTickerGuesses.value]);
+
+  const renderCommunityLeading = useCallback(
+    (item: GuessItem) => <CommunityGuessAvatar item={item} />,
+    []
+  );
 
   return (
     <div className="flex flex-1 min-h-0 flex-col">
@@ -87,7 +168,7 @@ export function PlayPage({ engine }: { engine?: GuessEngine }) {
           <h2 className="mb-1 text-sm font-semibold text-gray-700 dark:text-gray-200">
             Your guesses
           </h2>
-          <div className="flex-1 min-h-0 rounded-md">
+          <div className="flex flex-col flex-1 min-h-0 rounded-md">
             {items?.value?.length ? (
               <Guesses items={items as any} latest={latest} />
             ) : (
@@ -119,9 +200,9 @@ export function PlayPage({ engine }: { engine?: GuessEngine }) {
           <h2 className="mb-1 text-sm font-semibold text-gray-700 dark:text-gray-200">
             Community stream
           </h2>
-          <div className="flex-1 min-h-0 rounded-md">
+          <div className="flex flex-col flex-1 min-h-0 rounded-md">
             {communityItems.length > 0 ? (
-              <Guesses items={communityItems} />
+              <Guesses items={communityItems} renderLeading={renderCommunityLeading} />
             ) : (
               <div className="flex h-full min-h-0 items-center justify-center">
                 <p className="text-sm text-gray-600 dark:text-gray-400">Waiting for guesses…</p>

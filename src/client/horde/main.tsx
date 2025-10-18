@@ -18,7 +18,7 @@ import { remountKey } from './state/experiments';
 import { trpc } from '../trpc';
 import { GuessTicker } from './ticker';
 import { useHordeRealtime } from './state/realtime';
-import { hordeGameUpdate } from './state/realtime';
+import { hordeGameUpdate, hordeWaveClear } from './state/realtime';
 
 // initPosthog({ mode: 'horde' });
 
@@ -32,7 +32,8 @@ function AppContent({
   isAdmin: boolean;
 }) {
   useHordeRealtime(challengeNumber);
-  const status = hordeGameUpdate.value?.status ?? 'running';
+  const status = hordeGameUpdate.value?.hordeStatus ?? 'running';
+  const waveOverlay = hordeWaveClear.value;
   // Wave & timer moved to Header
 
   const renderStatusView = () => {
@@ -42,7 +43,7 @@ function AppContent({
         <div className="mx-auto my-8 flex w-full max-w-xl flex-col items-center gap-3 text-center">
           <p className="text-xl font-semibold">Horde Cleared!</p>
           <p className="text-sm text-gray-600 dark:text-gray-300">
-            Great work. Waiting for the next wave.
+            Great work. Waiting for the next horde challenge.
           </p>
         </div>
       );
@@ -60,6 +61,29 @@ function AppContent({
   return (
     <div className="h-[100dvh] min-h-[100dvh] w-full overflow-hidden">
       <div className="mx-auto flex max-w-2xl flex-col px-4 md:px-6 py-6 h-full min-h-0 overflow-hidden">
+        {waveOverlay && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70">
+            <div className="mx-auto w-full max-w-md rounded-lg bg-white p-4 text-center shadow-lg dark:bg-gray-800">
+              <p className="text-lg font-semibold text-gray-900 dark:text-white">
+                {waveOverlay.isFinalWave ? 'Horde Cleared!' : 'Wave Cleared!'}
+              </p>
+              <div className="mt-3 flex flex-col items-center gap-2">
+                <img
+                  src={waveOverlay.winnerSnoovatar || '/assets/default_snoovatar.png'}
+                  className="h-12 w-12 rounded-full border border-gray-300 dark:border-gray-600 object-contain"
+                />
+                <p className="text-sm text-gray-700 dark:text-gray-300">
+                  {waveOverlay.winner} found “{waveOverlay.word}”
+                </p>
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  {waveOverlay.isFinalWave
+                    ? 'All waves cleared! Claiming victory…'
+                    : 'Next wave starting…'}
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
         <Header engine={engine} isAdmin={isAdmin} />
         <div className="relative mx-auto w-full max-w-xl mb-2">
           <GuessTicker />
@@ -75,10 +99,14 @@ function AppContent({
 export function App() {
   const [isAdmin, setIsAdmin] = useState(false);
   const challengeNumber = requireChallengeNumber();
-  const currentWave = hordeGameUpdate.value?.currentHordeLevel ?? 1;
+  const currentWave = hordeGameUpdate.value?.currentHordeWave ?? 1;
 
   const engine = useMemo(() => {
-    return createGuessEngine({ challengeNumber, mode: 'horde', waveId: currentWave });
+    return createGuessEngine({
+      challengeNumber,
+      mode: 'horde',
+      waveId: currentWave,
+    });
   }, [challengeNumber, currentWave]);
 
   // Initialize navigation from cached state – non-blocking

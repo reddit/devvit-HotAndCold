@@ -60,6 +60,7 @@ export const GuessSchema = z.object({
   similarity: z.number(),
   rank: z.number(),
   isHint: z.boolean(),
+  wave: z.number().int().min(1).optional(),
 });
 
 export const PlayerProgressSchema = z.object({

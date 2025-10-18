@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { fn } from '../../../shared/fn';
 import { redis } from '@devvit/web/server';
 import { zodRedditUsername } from '../../utils';
+import { User } from '../user';
 
 export namespace HordeGuess {
   // ZSET of words scored by best (lowest) rank seen so far
@@ -41,6 +42,72 @@ export namespace HordeGuess {
         member: username,
         score: Date.now(),
       });
+    }
+  );
+
+  // Per-wave variant of the above structures
+  export const WaveRankKey = (challengeNumber: number, wave: number) =>
+    `horde:challenge:${challengeNumber}:wave:${wave}:guessesByRank` as const;
+  export const WaveAuthorsKey = (challengeNumber: number, wave: number, word: string) =>
+    `horde:challenge:${challengeNumber}:wave:${wave}:guess:${word}:authors` as const;
+
+  export const addWave = fn(
+    z.object({
+      challengeNumber: z.number().gt(0),
+      wave: z.number().int().min(1),
+      word: z.string().trim().toLowerCase(),
+      username: zodRedditUsername,
+      rank: z.number(),
+      similarity: z.number(),
+    }),
+    async ({ challengeNumber, wave, word, username, rank }) => {
+      // Ignore invalid ranks for the wave leaderboard
+      if (!Number.isFinite(rank) || rank < 0) {
+        await redis.zAdd(WaveAuthorsKey(challengeNumber, wave, word), {
+          member: username,
+          score: Date.now(),
+        });
+        return;
+      }
+      const key = WaveRankKey(challengeNumber, wave);
+      const current = await redis.zScore(key, word);
+      if (current === null || current === undefined || rank < current) {
+        await redis.zAdd(key, { member: word, score: rank });
+      }
+      await redis.zAdd(WaveAuthorsKey(challengeNumber, wave, word), {
+        member: username,
+        score: Date.now(),
+      });
+    }
+  );
+
+  export const getWaveTopByRank = fn(
+    z.object({
+      challengeNumber: z.number().gt(0),
+      wave: z.number().int().min(1),
+      limit: z.number().int().min(1).max(1000).default(25),
+    }),
+    async ({ challengeNumber, wave, limit }) => {
+      const items = await redis.zRange(WaveRankKey(challengeNumber, wave), 0, limit - 1, {
+        by: 'rank',
+      });
+      const result: Array<{ word: string; rank: number; username: string }> = [];
+      const usernames: string[] = [];
+      for (const it of items) {
+        const authorsZ = await redis.zRange(WaveAuthorsKey(challengeNumber, wave, it.member), 0, 0, {
+          by: 'rank',
+        });
+        const username = authorsZ[0]?.member ?? '';
+        result.push({ word: it.member, rank: it.score, username });
+        if (username) usernames.push(username);
+      }
+      const avatarMap = await hydrateSnoovatars(usernames);
+      return result.map((entry) => ({
+        ...entry,
+        ...(entry.username && avatarMap.get(entry.username)
+          ? { snoovatar: avatarMap.get(entry.username) }
+          : {}),
+      }));
     }
   );
 
@@ -86,9 +153,37 @@ export namespace HordeGuess {
       const results = await redis.zRange(GuesserCountKey(challengeNumber), -limit, -1, {
         by: 'rank',
       });
-      return results.reverse();
+      const ordered = results.reverse();
+      const usernames = ordered.map((r) => r.member);
+      const avatarMap = await hydrateSnoovatars(usernames);
+      return ordered.map((entry) => ({
+        ...entry,
+        ...(entry.member && avatarMap.get(entry.member)
+          ? { snoovatar: avatarMap.get(entry.member) }
+          : {}),
+      }));
     }
   );
+
+  async function hydrateSnoovatars(usernames: string[]): Promise<Map<string, string>> {
+    const unique = Array.from(new Set(usernames.filter((name) => !!name)));
+    if (unique.length === 0) return new Map();
+    const pairs = await Promise.all(
+      unique.map(async (name) => {
+        try {
+          const info = await User.getCachedByUsername(name);
+          return [name, info?.snoovatar ?? null] as const;
+        } catch {
+          return [name, null] as const;
+        }
+      })
+    );
+    const map = new Map<string, string>();
+    for (const [name, avatar] of pairs) {
+      if (avatar) map.set(name, avatar);
+    }
+    return map;
+  }
 
   export const clear = fn(
     z.object({ challengeNumber: z.number().gt(0) }),

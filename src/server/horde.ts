@@ -516,6 +516,7 @@ export const hordeTrpcRouter = trpcRouter({
       .input(
         z.object({
           challengeNumber: z.number(),
+          wave: z.number().int().min(1),
           guesses: z.array(
             z.object({
               word: z.string(),
@@ -528,7 +529,7 @@ export const hordeTrpcRouter = trpcRouter({
         })
       )
       .mutation(async ({ input }) => {
-        const { challengeNumber, guesses } = input;
+        const { challengeNumber, guesses, wave } = input;
         const current = await User.getCurrent();
         const username = current.username;
 
@@ -542,6 +543,7 @@ export const hordeTrpcRouter = trpcRouter({
         const response = await HordeUserGuess.submitGuesses({
           username,
           challengeNumber,
+          wave,
           guesses: mapped,
         });
 
@@ -552,19 +554,21 @@ export const hordeTrpcRouter = trpcRouter({
         }
 
         // Send realtime message to the HORDE channel for this challenge
-        const channel = hordeChannelName(challengeNumber);
-        const payload: HordeMessage = {
-          type: 'guess_batch',
-          challengeNumber,
-          guesses: guesses.map((g) => ({
-            word: g.word,
-            similarity: g.similarity,
-            rank: g.rank,
-            atMs: g.atMs,
-            username,
-          })),
-        };
         try {
+          const channel = hordeChannelName(challengeNumber);
+          const payload: HordeMessage = {
+            type: 'guess_batch',
+            challengeNumber,
+            guesses: guesses.map((g) => ({
+              word: g.word,
+              similarity: g.similarity,
+              rank: g.rank,
+              atMs: g.atMs,
+              wave,
+              username,
+              snoovatar: current.snoovatar ?? null,
+            })),
+          };
           console.log('sending realtime horde guess_batch', payload);
           console.log('channel', channel);
           console.log('payload', payload);
@@ -572,6 +576,7 @@ export const hordeTrpcRouter = trpcRouter({
         } catch (e) {
           console.error('Failed to send realtime horde guess_batch', e);
         }
+
         return response;
       }),
     giveUp: publicProcedure

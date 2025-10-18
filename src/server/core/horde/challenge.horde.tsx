@@ -1,5 +1,4 @@
 import { z } from 'zod';
-import { redisNumberString } from '../../utils';
 import { fn } from '../../../shared/fn';
 import { redis, reddit, Post, settings, context } from '@devvit/web/server';
 import { HordeWordQueue } from './wordQueue.horde';
@@ -7,19 +6,206 @@ import { getWordConfigCached } from '../api';
 import { HordeGuess } from './guess.horde';
 import type { HordeMessage } from '../../../shared/realtime.horde';
 
-export const stringifyValues = <T extends Record<string, any>>(obj: T): Record<keyof T, string> => {
-  return Object.fromEntries(
-    Object.entries(obj).map(([key, value]) => {
-      // Persist complex values (arrays/objects) as JSON strings so they round‑trip correctly
-      if (value !== null && typeof value === 'object') {
-        return [key, JSON.stringify(value)];
+const ChallengeStatusSchema = z.enum(['running', 'lost', 'won']);
+
+const WordListSchema = z.array(z.string().min(1)).min(1);
+
+const WaveClearSchema = z.object({
+  wave: z.number().int().min(1),
+  username: z.string(),
+  snoovatar: z.string().url().optional(),
+  word: z.string(),
+  clearedAtMs: z.number().int().min(0),
+});
+export type HordeWaveClear = z.infer<typeof WaveClearSchema>;
+
+const RawWaveClearSchema = WaveClearSchema.partial({ wave: true });
+const WaveClearListSchema = z
+  .array(RawWaveClearSchema)
+  .transform((list): HordeWaveClear[] =>
+    list
+      .map((entry, idx) =>
+        WaveClearSchema.parse({
+          ...entry,
+          wave: entry.wave ?? idx + 1,
+        })
+      )
+      .sort((a, b) => a.wave - b.wave)
+  );
+
+const WinnerListValueSchema = z.union([z.string(), z.null()]);
+const WinnerListSchema = z
+  .array(WinnerListValueSchema)
+  .transform((list): Array<string | null> =>
+    list.map((value) => (typeof value === 'string' && value.length > 0 ? value : null))
+  );
+type WinnerList = z.infer<typeof WinnerListSchema>;
+
+const ChallengeFieldSchemas = {
+  words: WordListSchema,
+  totalPlayers: z.number().int().min(0),
+  totalGuesses: z.number().int().min(0),
+  currentHordeLevel: z.number().int().min(1),
+  timeRemainingMs: z.number().int().min(0),
+  lastTickMs: z.number().int().min(0).optional(),
+  winners: WinnerListSchema,
+  waveClears: WaveClearListSchema,
+  status: ChallengeStatusSchema.optional(),
+} as const;
+
+const ChallengeRecordSchema = z.object({
+  challengeNumber: z.number().int().min(1),
+  ...ChallengeFieldSchemas,
+});
+export type HordeChallengeRecord = z.infer<typeof ChallengeRecordSchema>;
+
+const ChallengeConfigSchema = z.object({
+  words: ChallengeFieldSchemas.words,
+  totalPlayers: ChallengeFieldSchemas.totalPlayers.optional().default(0),
+  totalGuesses: ChallengeFieldSchemas.totalGuesses.optional().default(0),
+  currentHordeLevel: ChallengeFieldSchemas.currentHordeLevel.optional().default(1),
+  timeRemainingMs: ChallengeFieldSchemas.timeRemainingMs.optional().default(0),
+  lastTickMs: ChallengeFieldSchemas.lastTickMs,
+  winners: ChallengeFieldSchemas.winners.optional().default([]),
+  waveClears: ChallengeFieldSchemas.waveClears.optional().default([]),
+  status: ChallengeFieldSchemas.status,
+});
+type ChallengeConfig = z.infer<typeof ChallengeConfigSchema>;
+export type HordeChallengeConfig = ChallengeConfig;
+
+const parseRedisInt = (field: string, min: number) =>
+  z
+    .union([z.string(), z.number()])
+    .transform((value, ctx) => {
+      const parsed =
+        typeof value === 'number'
+          ? value
+          : Number.parseInt(value, 10);
+      if (!Number.isFinite(parsed)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: `Invalid ${field} value: ${String(value)}`,
+        });
+        return z.NEVER;
       }
-      return [key, String(value)];
+      return parsed;
     })
-  ) as Record<keyof T, string>;
+    .pipe(z.number().int().min(min));
+
+const parseOptionalRedisInt = (field: string, min: number, fallback: number) =>
+  parseRedisInt(field, min)
+    .optional()
+    .transform((value) => (value === undefined ? fallback : value));
+
+const parseRedisJson = <Schema extends z.ZodTypeAny>(field: string, schema: Schema) =>
+  z
+    .union([z.string(), schema])
+    .transform((value, ctx) => {
+      if (typeof value === 'string') {
+        try {
+          return JSON.parse(value) as unknown;
+        } catch (error) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: `Failed to parse ${field} JSON: ${(error as Error).message}`,
+          });
+          return z.NEVER;
+        }
+      }
+      return value;
+    })
+    .pipe(schema);
+
+const parseOptionalRedisJson = <Schema extends z.ZodTypeAny>(
+  field: string,
+  schema: Schema,
+  fallback: () => z.output<Schema>
+) =>
+  parseRedisJson(field, schema)
+    .optional()
+    .transform((value) => (value === undefined ? fallback() : value));
+
+const RedisWinnerListSchema = parseOptionalRedisJson('winners', WinnerListSchema, () => []);
+const RedisWaveClearListSchema = parseOptionalRedisJson('waveClears', WaveClearListSchema, () => []);
+const RedisWordListSchema = parseRedisJson('words', WordListSchema);
+
+const parseWinnersFromRedis = (raw?: string | null): WinnerList =>
+  RedisWinnerListSchema.parse(raw ?? undefined);
+
+const parseWaveClearsFromRedis = (raw?: string | null): HordeWaveClear[] =>
+  RedisWaveClearListSchema.parse(raw ?? undefined);
+
+const ChallengeRedisRecordSchema = z
+  .object({
+    challengeNumber: parseRedisInt('challengeNumber', 1),
+    words: RedisWordListSchema,
+    totalPlayers: parseOptionalRedisInt('totalPlayers', 0, 0),
+    totalGuesses: parseOptionalRedisInt('totalGuesses', 0, 0),
+    currentHordeLevel: parseOptionalRedisInt('currentHordeLevel', 1, 1),
+    timeRemainingMs: parseOptionalRedisInt('timeRemainingMs', 0, 0),
+    lastTickMs: parseRedisInt('lastTickMs', 0).optional(),
+    winners: RedisWinnerListSchema,
+    waveClears: RedisWaveClearListSchema,
+    status: ChallengeStatusSchema.optional(),
+  })
+  .passthrough()
+  .transform((value) =>
+    ChallengeRecordSchema.parse({
+      challengeNumber: value.challengeNumber,
+      words: value.words,
+      totalPlayers: value.totalPlayers,
+      totalGuesses: value.totalGuesses,
+      currentHordeLevel: value.currentHordeLevel,
+      timeRemainingMs: value.timeRemainingMs,
+      lastTickMs: value.lastTickMs,
+      winners: value.winners,
+      waveClears: value.waveClears,
+      status: value.status,
+    })
+  );
+
+const normalizeChallengeRecord = (raw: Record<string, unknown>): HordeChallengeRecord =>
+  ChallengeRedisRecordSchema.parse(raw);
+
+const serializeWinners = (winners: WinnerList): string =>
+  JSON.stringify(WinnerListSchema.parse(winners.map((value) => value ?? null)));
+
+const serializeWaveClears = (waveClears: ReadonlyArray<HordeWaveClear>): string =>
+  JSON.stringify(WaveClearListSchema.parse([...waveClears]));
+
+const toRedisPayload = (record: HordeChallengeRecord): Record<string, string> => {
+  const payload: Record<string, string> = {
+    challengeNumber: String(record.challengeNumber),
+    words: JSON.stringify(record.words),
+    totalPlayers: String(record.totalPlayers),
+    totalGuesses: String(record.totalGuesses),
+    currentHordeLevel: String(record.currentHordeLevel),
+    timeRemainingMs: String(record.timeRemainingMs),
+    winners: serializeWinners(record.winners),
+    waveClears: serializeWaveClears(record.waveClears),
+  };
+
+  if (record.lastTickMs != null) payload.lastTickMs = String(record.lastTickMs);
+  if (record.status) payload.status = record.status;
+
+  return payload;
+};
+
+const serializeChallengeConfig = (
+  challengeNumber: number,
+  config: ChallengeConfig
+): Record<string, string> => {
+  const parsed = ChallengeConfigSchema.parse(config);
+  const record = ChallengeRecordSchema.parse({
+    challengeNumber,
+    ...parsed,
+  });
+  return toRedisPayload(record);
 };
 
 export namespace Challenge {
+  export type Record = HordeChallengeRecord;
+  export type Config = HordeChallengeConfig;
   // Compute game status from current counters in a single place (DRY)
   export function computeStatus(args: {
     timeRemainingMs: number;
@@ -27,9 +213,9 @@ export namespace Challenge {
     totalWaves: number;
   }): 'running' | 'lost' | 'won' {
     const { timeRemainingMs, currentHordeLevel, totalWaves } = args;
-    if (timeRemainingMs > 0) {
-      return currentHordeLevel > totalWaves ? 'won' : 'running';
-    }
+    // If all waves have been cleared, the game is won regardless of timer
+    if (currentHordeLevel > totalWaves) return 'won';
+    if (timeRemainingMs > 0) return 'running';
     return 'lost';
   }
   // Shared builder to keep postData in sync everywhere it's set (HORDE version)
@@ -62,57 +248,6 @@ export namespace Challenge {
   export const ChallengePostIdKey = (challengeNumber: number) =>
     `horde:challenge:${challengeNumber}:postId` as const;
 
-  // Parsed challenge shape returned by getChallenge
-  const challengeSchema = z
-    .object({
-      challengeNumber: z.string(),
-      // Stored in Redis as JSON string; parsed to array here
-      words: z
-        .string()
-        .transform((raw) => {
-          try {
-            const parsed = JSON.parse(raw);
-            return Array.isArray(parsed) ? parsed : [];
-          } catch {
-            return [] as string[];
-          }
-        })
-        .pipe(z.array(z.string().min(1)).min(1)),
-      totalPlayers: redisNumberString.optional(),
-      totalGuesses: redisNumberString.optional(),
-      currentHordeLevel: redisNumberString.optional(),
-      timeRemainingMs: redisNumberString.optional(),
-      lastTickMs: redisNumberString.optional(),
-      winners: z
-        .string()
-        .transform((raw) => {
-          try {
-            const parsed = JSON.parse(raw);
-            return Array.isArray(parsed) ? parsed : [];
-          } catch {
-            return [] as string[];
-          }
-        })
-        .optional(),
-      status: z.string().optional(),
-    })
-    .strict();
-
-  // Input shape accepted by setChallenge; allows arrays for words
-  const challengeInputSchema = z
-    .object({
-      challengeNumber: z.string(),
-      words: z.array(z.string().min(1)).min(1),
-      totalPlayers: redisNumberString.optional(),
-      totalGuesses: redisNumberString.optional(),
-      currentHordeLevel: redisNumberString.optional(),
-      timeRemainingMs: redisNumberString.optional(),
-      lastTickMs: redisNumberString.optional(),
-      winners: z.array(z.string()).optional(),
-      status: z.string().optional(),
-    })
-    .strict();
-
   export const getCurrentChallengeNumber = fn(z.void(), async () => {
     const currentChallengeNumber = await redis.get(Challenge.CurrentChallengeNumberKey());
 
@@ -144,20 +279,21 @@ export namespace Challenge {
     async ({ challengeNumber }) => {
       const result = await redis.hGetAll(Challenge.ChallengeKey(challengeNumber));
 
-      if (!result) {
+      if (!result || Object.keys(result).length === 0) {
         throw new Error('No challenge found');
       }
-      return challengeSchema.parse(result);
+      return normalizeChallengeRecord(result);
     }
   );
 
   export const setChallenge = fn(
     z.object({
       challengeNumber: z.number().gt(0),
-      config: challengeInputSchema,
+      config: ChallengeConfigSchema,
     }),
     async ({ challengeNumber, config }) => {
-      await redis.hSet(Challenge.ChallengeKey(challengeNumber), stringifyValues(config));
+      const payload = serializeChallengeConfig(challengeNumber, config);
+      await redis.hSet(Challenge.ChallengeKey(challengeNumber), payload);
     }
   );
 
@@ -240,22 +376,50 @@ export namespace Challenge {
     }),
     async ({ challengeNumber, wave, username }) => {
       const key = Challenge.ChallengeKey(challengeNumber);
-      const raw = (await redis.hGet(key, 'winners')) ?? '[]';
-      let arr: string[] = [];
-      try {
-        const parsed = JSON.parse(raw);
-        if (Array.isArray(parsed)) arr = parsed;
-      } catch {}
-      const idx = Math.max(0, wave - 1);
-      if (arr.length <= idx) arr.length = idx + 1;
-      if (!arr[idx]) arr[idx] = username;
-      await redis.hSet(key, { winners: JSON.stringify(arr) });
-      return arr;
+      const current = parseWinnersFromRedis(await redis.hGet(key, 'winners'));
+      const next = [...current];
+      const targetIndex = Math.max(0, wave - 1);
+      while (next.length <= targetIndex) next.push(null);
+      if (!next[targetIndex]) next[targetIndex] = username;
+      const normalized = WinnerListSchema.parse(next);
+      await redis.hSet(key, { winners: serializeWinners(normalized) });
+      return normalized;
+    }
+  );
+
+  export const appendWaveClear = fn(
+    z.object({
+      challengeNumber: z.number().gt(0),
+      wave: z.number().int().min(1),
+      username: z.string(),
+      snoovatar: z.string().url().optional(),
+      word: z.string(),
+      clearedAtMs: z.number().int().min(0),
+    }),
+    async ({ challengeNumber, wave, username, snoovatar, word, clearedAtMs }) => {
+      const key = Challenge.ChallengeKey(challengeNumber);
+      const existing = parseWaveClearsFromRedis(await redis.hGet(key, 'waveClears'));
+      const next = [...existing];
+      const entry = WaveClearSchema.parse({
+        wave,
+        username,
+        snoovatar,
+        word,
+        clearedAtMs,
+      });
+      const existingIndex = next.findIndex((item) => item.wave === wave);
+      if (existingIndex >= 0) next[existingIndex] = entry;
+      else next.push(entry);
+      const normalized = next.sort((a, b) => a.wave - b.wave);
+      await redis.hSet(key, {
+        waveClears: serializeWaveClears(normalized),
+      });
+      return normalized;
     }
   );
 
   export const setStatus = fn(
-    z.object({ challengeNumber: z.number().gt(0), status: z.enum(['running', 'lost', 'won']) }),
+    z.object({ challengeNumber: z.number().gt(0), status: ChallengeStatusSchema }),
     async ({ challengeNumber, status }) => {
       await redis.hSet(Challenge.ChallengeKey(challengeNumber), { status });
       return status;
@@ -278,10 +442,16 @@ export namespace Challenge {
     z.object({ challengeNumber: z.number().gt(0) }),
     async ({ challengeNumber }) => {
       const key = Challenge.ChallengeKey(challengeNumber);
-      const [timeStr, lastStr] = await Promise.all([
+      const [timeStr, lastStr, status] = await Promise.all([
         redis.hGet(key, 'timeRemainingMs'),
         redis.hGet(key, 'lastTickMs'),
+        redis.hGet(key, 'status'),
       ]);
+      // Freeze timer once the game is won
+      if ((status ?? '') === 'won') {
+        const current = Number.parseInt(String(timeStr ?? '0'), 10) || 0;
+        return current;
+      }
       const now = Date.now();
       const last = Number.parseInt(String(lastStr ?? '0'), 10) || now;
       const delta = Math.max(0, now - last);
@@ -307,19 +477,31 @@ export namespace Challenge {
       const challenge = await getChallenge({ challengeNumber });
       const remaining = tick
         ? await tickTimeRemaining({ challengeNumber })
-        : Number.parseInt(String(challenge.timeRemainingMs ?? '0'), 10) || 0;
+        : challenge.timeRemainingMs;
 
-      const top = await HordeGuess.getTopByRank({ challengeNumber, limit: 50 });
-      const topGuessersRaw = await HordeGuess.topGuessers({ challengeNumber, limit: 20 });
-      const topGuessers = topGuessersRaw.map((r) => ({ username: r.member, count: r.score }));
-
-      const status = computeStatus({
-        timeRemainingMs: remaining,
-        currentHordeLevel: Number.parseInt(String(challenge.currentHordeLevel ?? '1'), 10) || 1,
-        totalWaves: Array.isArray(challenge.words) ? challenge.words.length : 0,
+      const currentWave = challenge.currentHordeLevel;
+      const totalWaves = challenge.words.length;
+      const topWave = await HordeGuess.getWaveTopByRank({
+        challengeNumber,
+        wave: currentWave,
+        limit: 50,
       });
+      const topGuessersRaw = await HordeGuess.topGuessers({ challengeNumber, limit: 20 });
+      const topHordeGuessers = topGuessersRaw.map((r) => ({
+        username: r.member,
+        count: r.score,
+        ...(r.snoovatar ? { snoovatar: r.snoovatar } : {}),
+      }));
 
-      if (persistLost && status === 'lost' && (challenge as any).status !== 'lost') {
+      // Prefer persisted 'won' status to avoid regressions if time hits 0 later
+      let status = computeStatus({
+        timeRemainingMs: remaining,
+        currentHordeLevel: currentWave,
+        totalWaves,
+      });
+      if (challenge.status === 'won') status = 'won';
+
+      if (persistLost && status === 'lost' && challenge.status !== 'lost') {
         try {
           await setStatus({ challengeNumber, status: 'lost' });
         } catch (e) {
@@ -331,15 +513,21 @@ export namespace Challenge {
         type: 'game_update',
         update: {
           challengeNumber,
-          totalPlayers: Number.parseInt(String(challenge.totalPlayers ?? '0'), 10) || 0,
-          totalGuesses: Number.parseInt(String(challenge.totalGuesses ?? '0'), 10) || 0,
-          currentHordeLevel:
-            Number.parseInt(String(challenge.currentHordeLevel ?? '1'), 10) || 1,
+          totalPlayers: challenge.totalPlayers,
+          totalGuesses: challenge.totalGuesses,
+          currentHordeWave: currentWave,
           timeRemainingMs: remaining,
-          status,
-          topGuesses: top,
-          winners: (challenge as any).winners ?? [],
-          topGuessers,
+          hordeStatus: status,
+          totalWaves,
+          waves: challenge.waveClears.map(({ wave, username, snoovatar, word, clearedAtMs }) => ({
+            wave,
+            username,
+            word,
+            clearedAtMs,
+            ...(snoovatar ? { snoovatar } : {}),
+          })),
+          currentWaveTopGuesses: topWave,
+          topHordeGuessers,
         },
       };
       return payload;
@@ -402,14 +590,14 @@ export namespace Challenge {
       await setChallenge({
         challengeNumber: newChallengeNumber,
         config: {
-          challengeNumber: newChallengeNumber.toString(),
           words: newWords,
-          totalPlayers: '0',
-          totalGuesses: '0',
-          currentHordeLevel: '1',
-          timeRemainingMs: '600000',
-          lastTickMs: String(Date.now()),
+          totalPlayers: 0,
+          totalGuesses: 0,
+          currentHordeLevel: 1,
+          timeRemainingMs: 600_000,
+          lastTickMs: Date.now(),
           winners: [],
+          waveClears: [],
           status: 'running',
         },
       });
@@ -475,12 +663,12 @@ export namespace Challenge {
         try {
           const challenge = await getChallenge({ challengeNumber });
           return {
-            challengeNumber: parseInt(challenge.challengeNumber),
+            challengeNumber: challenge.challengeNumber,
             words: challenge.words,
-            totalPlayers: challenge.totalPlayers ?? 0,
-            totalGuesses: challenge.totalGuesses ?? 0,
-            currentHordeLevel: challenge.currentHordeLevel ?? 0,
-            timeRemainingMs: challenge.timeRemainingMs ?? 0,
+            totalPlayers: challenge.totalPlayers,
+            totalGuesses: challenge.totalGuesses,
+            currentHordeLevel: challenge.currentHordeLevel,
+            timeRemainingMs: challenge.timeRemainingMs,
           };
         } catch (error) {
           console.error('Error getting challenge for stat export:', error);
@@ -516,10 +704,10 @@ export namespace Challenge {
 
         // Load latest counters for this challenge
         const c = await getChallenge({ challengeNumber });
-        const totalPlayers = Number.parseInt(String(c.totalPlayers ?? '0'), 10) || 0;
-        const totalGuesses = Number.parseInt(String(c.totalGuesses ?? '0'), 10) || 0;
-        const currentHordeLevel = Number.parseInt(String(c.currentHordeLevel ?? '1'), 10) || 1;
-        const timeRemainingMs = Number.parseInt(String(c.timeRemainingMs ?? '0'), 10) || 0;
+        const totalPlayers = c.totalPlayers;
+        const totalGuesses = c.totalGuesses;
+        const currentHordeLevel = c.currentHordeLevel;
+        const timeRemainingMs = c.timeRemainingMs;
 
         const post = await reddit.getPostById(postId as any);
         await post.setPostData(

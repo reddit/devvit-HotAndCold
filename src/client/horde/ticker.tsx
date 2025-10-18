@@ -4,6 +4,8 @@ import { Fragment } from 'preact/jsx-runtime';
 import { cn } from '../utils/cn';
 import { hordeTickerGuesses } from './state/realtime';
 
+const DEFAULT_SNOOVATAR = '/assets/default_snoovatar.png';
+
 export const GuessTicker = () => {
   const items = hordeTickerGuesses;
 
@@ -25,13 +27,14 @@ export const GuessTicker = () => {
             <Fragment key={`${item.atMs}-${item.username ?? ''}-${item.word}`}>
               <p className={cn('flex-shrink-0 text-xs text-[#8BA2AD]', colorClass)}>
                 {item.username ? (
-                  <>
+                  <span className="mr-1 inline-flex items-center">
                     <img
-                      src={'/assets/default_snoovatar.png'}
-                      className="inline h-[16px] object-contain"
+                      src={item.snoovatar || DEFAULT_SNOOVATAR}
+                      alt={item.username ? `${item.username}'s avatar` : 'Player avatar'}
+                      title={item.username}
+                      className="h-4 w-4 rounded-full object-cover"
                     />
-                    &nbsp;{item.username}:&nbsp;
-                  </>
+                  </span>
                 ) : null}
                 {item.word} {safeRank > 0 ? `( #${safeRank} )` : ''}
               </p>

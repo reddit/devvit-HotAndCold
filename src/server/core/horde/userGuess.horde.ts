@@ -105,6 +105,7 @@ export namespace HordeUserGuess {
     z.object({
       username: zodRedditUsername,
       challengeNumber: z.number().gt(0),
+      wave: z.number().int().min(1).optional(),
       guesses: z.array(
         z.object({
           word: z.string().trim().toLowerCase(),
@@ -114,37 +115,54 @@ export namespace HordeUserGuess {
         })
       ),
     }),
-    async ({ username, challengeNumber, guesses: rawGuesses }) => {
+    async ({ username, challengeNumber, wave, guesses: rawGuesses }) => {
       if (rawGuesses.length === 0) throw new Error('Must provide at least one guess');
 
       await maybeInitForUser({ username, challengeNumber });
 
       let challengeUserInfo = await getChallengeUserInfo({ username, challengeNumber });
-      const challengeInfo = await Challenge.getChallenge({ challengeNumber });
+      let challengeInfo = await Challenge.getChallenge({ challengeNumber });
+
+      const toWaveNumber = (value: unknown): number => {
+        const num = Number(value);
+        if (!Number.isFinite(num) || num < 1) return 1;
+        return Math.floor(num);
+      };
+
+      // Use the caller-provided wave if available to avoid races in realtime
+      const batchWave = wave != null ? toWaveNumber(wave) : toWaveNumber(challengeInfo.currentHordeLevel);
 
       for (const raw of rawGuesses) {
         const { word, similarity, rank } = raw;
+        const currentWaveForGuess = batchWave;
 
         // First-ever guess bookkeeping
         if (!challengeUserInfo.startedPlayingAtMs) {
           const started = Date.now();
-          const userInfo = await User.getCurrent();
           await Challenge.incrementChallengeTotalPlayers({ challengeNumber });
           await redis.hSet(Key(challengeNumber, username), {
             startedPlayingAtMs: started.toString(),
           });
           // No progress service in HORDE
-          void userInfo; // avoid unused warning
+          void (await User.getCurrent());
         }
 
         // Prevent duplicates for this user
-        if (challengeUserInfo.guesses?.some((g) => g.word === word)) {
+        if (
+          (challengeUserInfo.guesses ?? []).some((g) => {
+            const guessWave = toWaveNumber(g.wave ?? 1);
+            return g.word === word && guessWave === currentWaveForGuess;
+          })
+        ) {
           throw new Error(`You already guessed ${word}.`);
         }
 
         await Challenge.incrementChallengeTotalGuesses({ challengeNumber });
         // Track per-user guess count for leaderboard
-        await HordeGuess.incrementGuesserCount({ challengeNumber, username });
+        await HordeGuess.incrementGuesserCount({
+          challengeNumber,
+          username,
+        });
 
         const guessToAdd: z.infer<typeof GuessSchema> = {
           word,
@@ -152,6 +170,7 @@ export namespace HordeUserGuess {
           similarity,
           rank: Number.isFinite(rank) ? rank : -1,
           isHint: raw.isHint === true,
+          wave: currentWaveForGuess,
         };
 
         const newGuesses = z
@@ -159,41 +178,86 @@ export namespace HordeUserGuess {
           .parse([...(challengeUserInfo.guesses ?? []), guessToAdd]);
         await redis.hSet(Key(challengeNumber, username), { guesses: JSON.stringify(newGuesses) });
 
-        // Update global HORDE aggregates
+        // Update global HORDE aggregates and per-wave aggregates
         await HordeGuess.add({ challengeNumber, word, username, rank, similarity });
+        await HordeGuess.addWave({
+          challengeNumber,
+          wave: currentWaveForGuess,
+          word,
+          username,
+          rank,
+          similarity,
+        });
 
         // If this was the secret for the current wave, record winner and emit wave_cleared
         if (similarity === 1) {
           // Only accept win if the guess matches the current wave's word
-          const currentLevel = Number(challengeInfo.currentHordeLevel ?? 1);
+          const currentLevel = currentWaveForGuess;
           const target = challengeInfo.words?.[currentLevel - 1];
           if (target && target.toLowerCase() === word.toLowerCase()) {
             // Atomic-ish: re-read level and set winner for that wave index only if unset
             const refreshed = await Challenge.getChallenge({ challengeNumber });
             const liveLevel = Number(refreshed.currentHordeLevel ?? currentLevel);
-            const waveIdx = Math.max(1, liveLevel);
-            const winners = (refreshed as any).winners ?? [];
-            if (!winners[waveIdx - 1]) {
-              await Challenge.appendWinner({ challengeNumber, wave: waveIdx, username });
-              await Challenge.setCurrentHordeLevel({ challengeNumber, level: waveIdx + 1 });
-              const newTimeRemaining = await Challenge.incrementTimeRemaining({
-                challengeNumber,
-                deltaMs: 2 * 60 * 1000,
-              });
+            // Only proceed if the live wave matches the batch wave to avoid races
+            if (liveLevel !== currentLevel) {
+              // Treat as a normal guess; do not clear
+            } else {
+              const waveIdx = Math.max(1, liveLevel);
+              const winners = refreshed.winners ?? [];
+              if (!winners[waveIdx - 1]) {
+                // Persist winner username (legacy array) and detailed wave clear info
+                const nowMs = Date.now();
+                const me = await User.getCurrent();
+                await Challenge.appendWinner({ challengeNumber, wave: waveIdx, username });
+                await Challenge.appendWaveClear({
+                  challengeNumber,
+                  wave: waveIdx,
+                  username,
+                  ...(me.snoovatar ? { snoovatar: me.snoovatar } : {}),
+                  word: target,
+                  clearedAtMs: nowMs,
+                });
 
-              const channel = hordeChannelName(challengeNumber);
-              const payload: HordeMessage = {
-                type: 'wave_cleared',
-                challengeNumber,
-                wave: waveIdx,
-                winner: username,
-                nextWave: waveIdx + 1,
-                timeRemainingMs: newTimeRemaining,
-              };
-              try {
-                await realtime.send(channel, payload);
-              } catch (e) {
-                console.error('Failed to emit wave_cleared', e);
+                await Challenge.setCurrentHordeLevel({ challengeNumber, level: waveIdx + 1 });
+                const newTimeRemaining = await Challenge.incrementTimeRemaining({
+                  challengeNumber,
+                  deltaMs: 2 * 60 * 1000,
+                });
+
+                // If this was the final wave, mark the challenge as won and freeze the timer
+                const totalWaves = Array.isArray(refreshed.words) ? refreshed.words.length : 0;
+                if (waveIdx >= totalWaves) {
+                  try {
+                    await Challenge.setStatus({ challengeNumber, status: 'won' });
+                  } catch (e) {
+                    console.error('Failed to persist won status for horde', e);
+                  }
+                }
+
+                const channel = hordeChannelName(challengeNumber);
+                const totalWavesMsg = Array.isArray(challengeInfo.words)
+                  ? challengeInfo.words.length
+                  : 0;
+                const payload: HordeMessage = {
+                  type: 'wave_cleared',
+                  challengeNumber,
+                  wave: waveIdx,
+                  winner: username,
+                  ...(me.snoovatar ? { winnerSnoovatar: me.snoovatar } : {}),
+                  word: target,
+                  clearedAtMs: nowMs,
+                  nextWave: waveIdx + 1,
+                  timeRemainingMs: newTimeRemaining,
+                  totalWaves: totalWavesMsg,
+                };
+                try {
+                  await realtime.send(channel, payload);
+                } catch (e) {
+                  console.error('Failed to emit wave_cleared', e);
+                }
+
+                // Refresh cached challenge info for subsequent guesses
+                challengeInfo = refreshed;
               }
             }
           }

@@ -5,19 +5,22 @@ export type HordeGuessBatchItem = {
   similarity: number;
   rank: number;
   atMs: number;
+  wave: number; // wave this guess belongs to
   username?: string;
+  snoovatar?: string | null;
 };
 
 export type HordeGameUpdate = {
   challengeNumber: number;
   totalPlayers?: number;
   totalGuesses?: number;
-  currentHordeLevel?: number;
+  currentHordeWave?: number;
   timeRemainingMs?: number;
-  status?: 'running' | 'lost' | 'won';
-  winners?: string[]; // winners per wave, index = wave-1
-  topGuesses?: Array<{ word: string; bestRank: number; authors: string[] }>;
-  topGuessers?: Array<{ username: string; count: number }>;
+  hordeStatus?: 'running' | 'lost' | 'won';
+  totalWaves?: number;
+  waves: { wave: number; username: string; snoovatar?: string; word: string; clearedAtMs: number }[];
+  currentWaveTopGuesses?: Array<{ word: string; rank: number; username: string; snoovatar?: string }>;
+  topHordeGuessers?: Array<{ username: string; count: number; snoovatar?: string }>;
 };
 
 export type HordeMessage =
@@ -28,8 +31,12 @@ export type HordeMessage =
       challengeNumber: number;
       wave: number; // wave that was cleared
       winner: string;
+      winnerSnoovatar?: string;
+      word: string;
+      clearedAtMs: number;
       timeRemainingMs: number;
       nextWave: number; // wave index after increment
+      totalWaves: number;
     };
 
 export const hordeChannelName = (challengeNumber: number) =>

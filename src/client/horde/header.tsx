@@ -4,16 +4,7 @@ import { cn } from '../utils/cn';
 import { useEffect, useMemo, useState } from 'preact/hooks';
 import { hordeConnectionStatus, hordeGameUpdate } from './state/realtime';
 import type { GuessEngine } from '../core/guessEngine';
-import {
-  loadHintsForChallenge,
-  loadPreviousGuessesFromSession,
-  selectNextHint,
-} from '../core/hints';
-// import { context } from '@devvit/web/client';
-import { requireChallengeNumber } from '../requireChallengeNumber';
-import { userSettings, toggleLayout, toggleSortType } from './state/userSettings';
-import { trpc } from '../trpc';
-import { navigate } from './state/navigation';
+import { userSettings, toggleLayout } from './state/userSettings';
 import { resetGuessCache } from '../core/guess';
 import posthog from 'posthog-js';
 import { openExperiments } from './state/experiments';
@@ -37,17 +28,12 @@ export function Header({ engine, isAdmin }: { engine?: GuessEngine; isAdmin: boo
 
   // Settings via signals
   const layout = userSettings.value.layout;
-  const sortType = userSettings.value.sortType;
   const isUserOptedIntoReminders = userSettings.value.isUserOptedIntoReminders;
   const [accessStatus] = useState<'inactive' | 'active'>('inactive');
 
-  const challengeNumber = requireChallengeNumber();
-
-  const isActivelyPlaying = true; // Placeholder; wire real state when available
-
   // ---------------------- Horde center status ----------------------
-  const status = hordeGameUpdate.value?.status ?? 'running';
-  const wave = hordeGameUpdate.value?.currentHordeLevel ?? 1;
+  const status = hordeGameUpdate.value?.hordeStatus ?? 'running';
+  const wave = hordeGameUpdate.value?.currentHordeWave ?? 1;
   const timeRemainingMs = hordeGameUpdate.value?.timeRemainingMs ?? null;
 
   const [nowMs, setNowMs] = useState<number>(() => Date.now());
@@ -81,22 +67,6 @@ export function Header({ engine, isAdmin }: { engine?: GuessEngine; isAdmin: boo
     return <span title={title} className={`inline-block h-2 w-2 rounded-full ${color}`} />;
   };
 
-  async function requestHint() {
-    const [hints, previous] = await Promise.all([
-      loadHintsForChallenge(challengeNumber),
-      Promise.resolve(loadPreviousGuessesFromSession(challengeNumber)),
-    ]);
-    const next = selectNextHint({ hintWords: hints, previousGuesses: previous });
-    if (!next) return;
-    // Submit via local engine so UI updates and sync is queued
-    try {
-      if (engine) {
-        await engine.submitHint(next.word);
-      }
-    } catch (e) {
-      console.error('Failed to submit hint guess', e);
-    }
-  }
 
   return (
     <>
@@ -140,35 +110,10 @@ export function Header({ engine, isAdmin }: { engine?: GuessEngine; isAdmin: boo
         <div className="flex flex-1 items-center justify-end gap-2">
           <HelpMenu
             items={[
-              { name: 'Toggle Size', action: () => toggleLayout() },
               {
                 name: isUserOptedIntoReminders ? 'Unsubscribe' : 'Subscribe',
                 action: async () => {
                   // TODO: add subscribe endpoint when available
-                },
-              },
-              {
-                name: `Sort by ${sortType === 'TIMESTAMP' ? 'Similarity' : 'Time'}`,
-                disabled: !isActivelyPlaying,
-                action: () => toggleSortType(),
-              },
-              {
-                name: 'Hint',
-                disabled: !isActivelyPlaying,
-                action: async () => {
-                  await requestHint();
-                },
-              },
-              {
-                name: 'Give Up',
-                disabled: !isActivelyPlaying,
-                action: async () => {
-                  try {
-                    await trpc.guess.giveUp.mutate({ challengeNumber });
-                    navigate('win');
-                  } catch (e) {
-                    console.error('Failed to give up', e);
-                  }
                 },
               },
               {
