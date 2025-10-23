@@ -9,7 +9,6 @@ import { experiments } from '../../shared/experiments/experiments';
 let initialized = false;
 
 export const initPosthog = ({ mode }: { mode: 'classic' | 'horde' }) => {
-  console.log('initPosthog called');
   if (initialized) {
     console.warn('Posthog already initialized');
     return;
@@ -43,7 +42,6 @@ export const initPosthog = ({ mode }: { mode: 'classic' | 'horde' }) => {
   });
 
   const identify = async () => {
-    console.log('identify called');
     if (context.userId) {
       const hashed = await hash(context.userId);
       // Identify sends an event, so you may want to limit how often you call it
