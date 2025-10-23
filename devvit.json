@@ -19,7 +19,10 @@
   },
   "forms": {
     "queueAddForm": "/internal/form/queue/add",
-    "queueClearForm": "/internal/form/queue/clear"
+    "queueClearForm": "/internal/form/queue/clear",
+    "postCreateForm": "/internal/form/post-create",
+    "notificationsManageForm": "/internal/form/notifications/manage",
+    "notificationsSendSingleForm": "/internal/form/notifications/send-single"
   },
   "menu": {
     "items": [
@@ -90,6 +93,40 @@
         "location": "subreddit",
         "description": "classic",
         "endpoint": "/internal/menu/export-last-30-days"
+      },
+      {
+        "label": "[notifications] Manage queue",
+        "forUserType": "moderator",
+        "location": "subreddit",
+        "description": "classic",
+        "endpoint": "/internal/menu/notifications/manage"
+      },
+      {
+        "label": "[notifications] Dry run latest",
+        "forUserType": "moderator",
+        "location": "subreddit",
+        "description": "classic",
+        "endpoint": "/internal/menu/notifications/dry-run-latest"
+      },
+      {
+        "label": "[notifications] Send single",
+        "forUserType": "moderator",
+        "location": "subreddit",
+        "description": "classic",
+        "endpoint": "/internal/menu/notifications/send-single"
+      },
+      {
+        "label": "[ops] Sync PostHog user properties",
+        "forUserType": "moderator",
+        "location": "subreddit",
+        "endpoint": "/internal/menu/analytics/sync-user-props"
+      },
+      {
+        "label": "[migrate] Timezones: Offsets → IANA",
+        "forUserType": "moderator",
+        "location": "subreddit",
+        "description": "classic",
+        "endpoint": "/internal/menu/timezones/migrate-to-iana"
       }
     ]
   },
@@ -104,6 +141,17 @@
         "cron": "*/5 * * * *",
         "endpoint": "/internal/scheduler/update-post-data",
         "data": {}
+      },
+      "notifications-backup-sweep": {
+        "cron": "0 * * * *",
+        "endpoint": "/internal/scheduler/notifications-backup-sweep",
+        "data": {}
+      },
+      "notifications-send-group": "/internal/scheduler/notifications-send-group",
+      "posthog-user-prop-sync": {
+        "cron": "0 3 * * *",
+        "endpoint": "/internal/scheduler/posthog-user-prop-sync",
+        "data": { "stage": "reminders", "cursor": 0, "limit": 1000 }
       }
     }
   },

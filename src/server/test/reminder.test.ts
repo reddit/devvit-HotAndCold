@@ -32,14 +32,14 @@ it('removeReminderForUsername removes a user', async () => {
   expect(isIn).toBe(false);
 });
 
-it('getUsersOptedIntoReminders returns all users who opted in (order by score)', async () => {
+it('getAllUsersOptedIntoReminders returns all users who opted in (order by score)', async () => {
   await resetRedis();
   await Reminders.setReminderForUsername({ username: testUser1 });
   await new Promise((r) => setTimeout(r, 2));
   await Reminders.setReminderForUsername({ username: testUser2 });
   await new Promise((r) => setTimeout(r, 2));
   await Reminders.setReminderForUsername({ username: testUser3 });
-  const users = await Reminders.getUsersOptedIntoReminders();
+  const users = await Reminders.getAllUsersOptedIntoReminders();
   expect(Array.isArray(users)).toBe(true);
   expect(users.length).toBe(3);
   expect(users).toEqual(

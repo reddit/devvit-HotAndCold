@@ -1,27 +1,50 @@
-import { describe, it, expect } from 'vitest';
-import { getOffsetMinutes, getUtcLabel } from './timezones';
+import { describe, it, expect, vi, afterEach } from 'vitest';
+import { getBrowserIanaTimeZone } from './timezones';
 
-// We avoid asserting specific timezone values because they vary by environment.
-// Instead, we assert invariants and formatting.
+const getResolvedOptions = () => new Intl.DateTimeFormat().resolvedOptions();
 
-describe('timezones', () => {
-  it('getOffsetMinutes matches -Date#getTimezoneOffset()', () => {
-    expect(getOffsetMinutes()).toBe(-new Date().getTimezoneOffset());
+afterEach(() => {
+  vi.restoreAllMocks();
+});
+
+describe('getBrowserIanaTimeZone', () => {
+  it('returns the mocked IANA timezone when available', () => {
+    const base = getResolvedOptions();
+    vi.spyOn(Intl.DateTimeFormat.prototype, 'resolvedOptions').mockImplementation(() => ({
+      ...base,
+      timeZone: 'America/New_York',
+    }));
+
+    const tz = getBrowserIanaTimeZone();
+    expect(tz).toBe('America/New_York');
   });
 
-  it('getUtcLabel formats 0 minutes as UTC+00:00', () => {
-    expect(getUtcLabel(0)).toBe('UTC+00:00');
+  it('returns undefined when timeZone is empty', () => {
+    const base = getResolvedOptions();
+    vi.spyOn(Intl.DateTimeFormat.prototype, 'resolvedOptions').mockImplementation(() => ({
+      ...base,
+      timeZone: '',
+    }));
+
+    const tz = getBrowserIanaTimeZone();
+    expect(tz).toBeUndefined();
   });
 
-  it('getUtcLabel formats positive offsets with + sign and padding', () => {
-    expect(getUtcLabel(330)).toBe('UTC+05:30'); // 5h30m
-    expect(getUtcLabel(90)).toBe('UTC+01:30'); // 1h30m
-    expect(getUtcLabel(840)).toBe('UTC+14:00'); // 14h (extreme east)
+  it('returns undefined when resolvedOptions throws', () => {
+    vi.spyOn(Intl.DateTimeFormat.prototype, 'resolvedOptions').mockImplementation(() => {
+      throw new Error('boom');
+    });
+
+    const tz = getBrowserIanaTimeZone();
+    expect(tz).toBeUndefined();
   });
 
-  it('getUtcLabel formats negative offsets with - sign and padding', () => {
-    expect(getUtcLabel(-60)).toBe('UTC-01:00'); // 1h west
-    expect(getUtcLabel(-90)).toBe('UTC-01:30'); // 1h30m west
-    expect(getUtcLabel(-660)).toBe('UTC-11:00'); // 11h (extreme west)
+  it('does not throw in the real environment and returns string or undefined', () => {
+    expect(() => getBrowserIanaTimeZone()).not.toThrow();
+    const tz = getBrowserIanaTimeZone();
+    if (tz !== undefined) {
+      expect(typeof tz).toBe('string');
+      expect(tz.length).toBeGreaterThan(0);
+    }
   });
 });

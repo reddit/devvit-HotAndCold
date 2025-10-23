@@ -3,7 +3,7 @@ import { createExpressMiddleware } from '@trpc/server/adapters/express';
 import { z } from 'zod';
 import { publicProcedure, router } from './trpc';
 import { createContext } from './context';
-import { createServer, getServerPort, redis } from '@devvit/web/server';
+import { createServer, getServerPort, redis, scheduler } from '@devvit/web/server';
 import { Challenge } from './core/challenge';
 import { SpoilerGuard } from './core/spoilerGuard';
 import { WtfResponder } from './core/wtfResponder';
@@ -27,8 +27,13 @@ import { FormattingFlag } from '@devvit/shared-types/richtext/types.js';
 import { omit } from '../shared/omit';
 import { Flairs } from './core/flairs';
 import { Admin } from './core/admin';
-import analyticsRouter from './analytics';
+import makeAnalyticsRouter from './analytics';
+import { usePosthog, usePosthogErrorTracking } from './posthog';
 import { Timezones } from './core/timezones';
+import { Notifications } from './core/notifications';
+import { makeClientConfig } from '../shared/makeClientConfig';
+import { AnalyticsSync } from './core/analyticsSync';
+// no-op
 
 // Formats a duration in milliseconds to a human-readable long form like
 // "2 hours 5 minutes 3 seconds" or "2 minutes 45 seconds" or "5 seconds".
@@ -130,16 +135,33 @@ const appRouter = router({
         const current = await User.getCurrent();
         await Reminders.setReminderForUsername({ username: current.username });
         if (input?.timezone) {
-          try {
-            await Timezones.setUserTimezone({
-              username: current.username,
-              timezone: input.timezone,
-            });
-          } catch (e) {
-            console.error('Failed to set user timezone', e);
-          }
+          await Timezones.setUserTimezone({ username: current.username, timezone: input.timezone });
         }
         return { success: true } as const;
+      }),
+
+    removeReminder: publicProcedure.input(z.object({})).mutation(async () => {
+      const current = await User.getCurrent();
+      await Reminders.removeReminderForUsername({ username: current.username });
+      return { success: true } as const;
+    }),
+
+    toggleReminder: publicProcedure
+      .input(z.object({ timezone: z.string().min(1).optional() }))
+      .mutation(async ({ input }) => {
+        const current = await User.getCurrent();
+        const { newValue } = await Reminders.toggleReminderForUsername({
+          username: current.username,
+        });
+        if (newValue && input?.timezone) {
+          try {
+            const tz = String(input.timezone);
+            await Timezones.setUserTimezone({ username: current.username, timezone: tz });
+          } catch (e) {
+            console.error('Failed to set user timezone on toggle', e);
+          }
+        }
+        return { newValue } as const;
       }),
 
     getCommentSuffix: publicProcedure
@@ -381,9 +403,17 @@ export type AppRouter = typeof appRouter;
 const app = express();
 
 // Mount analytics proxy BEFORE any body parsers to avoid mangling raw bodies
-app.use('/api', analyticsRouter);
+app.use('/api', (...args) => {
+  const isProd = context.subredditName === 'HotAndCold';
+  return makeAnalyticsRouter({
+    posthogKey: makeClientConfig(isProd).POSTHOG_KEY,
+  })(...args);
+});
 
 app.use(express.json());
+
+// Attach PostHog to res.locals and error tracking middleware
+app.use(usePosthog);
 
 // Needs to be before /api/challenges/:challengeNumber/:letter.csv!!
 app.get('/api/challenges/:challengeNumber/_hint.csv', async (req, res): Promise<void> => {
@@ -465,13 +495,34 @@ app.use(
 
 app.post('/internal/menu/post-create', async (_req, res): Promise<void> => {
   try {
-    const post = await Challenge.makeNewChallenge();
+    const post = await Challenge.makeNewChallenge({ enqueueNotifications: true });
 
     res.json({
       navigateTo: post.postUrl,
     });
   } catch (error) {
     console.error(`Error creating post: ${error}`);
+    res.status(400).json({
+      status: 'error',
+      message: 'Failed to create post',
+    });
+  }
+});
+
+app.post('/internal/form/post-create', async (req, res): Promise<void> => {
+  try {
+    const { skipNotifications } = (req.body as any) ?? {};
+    const post = await Challenge.makeNewChallenge({ enqueueNotifications: !skipNotifications });
+
+    res.json({
+      navigateTo: post.postUrl,
+      showToast: {
+        text: skipNotifications ? 'Post created (notifications skipped)' : 'Post created',
+        appearance: 'success',
+      },
+    });
+  } catch (error) {
+    console.error(`Error creating post (advanced): ${error}`);
     res.status(400).json({
       status: 'error',
       message: 'Failed to create post',
@@ -762,24 +813,24 @@ app.post('/internal/menu/dm', async (_req, res): Promise<void> => {
 
 // [queue] Post next queued challenge (immediate action)
 app.post('/internal/menu/post-next', async (_req, res): Promise<void> => {
-  try {
-    const post = await Challenge.makeNewChallenge();
-
-    res.status(200).json({
-      showToast: {
-        text: `Next queued word: ${post.word}`,
-        appearance: 'success',
+  // Show a form that allows moderator to optionally skip notifications
+  res.status(200).json({
+    showForm: {
+      name: 'postCreateForm',
+      form: {
+        title: 'Create next challenge',
+        acceptLabel: 'Create',
+        fields: [
+          {
+            name: 'skipNotifications',
+            label: 'Skip sending reminder DMs',
+            type: 'boolean',
+            defaultValue: false,
+          },
+        ],
       },
-      navigateTo: post.postUrl,
-    });
-  } catch (err: any) {
-    res.status(500).json({
-      showToast: {
-        text: err?.message || 'Failed to post next queued challenge',
-        appearance: 'neutral',
-      },
-    });
-  }
+    },
+  });
 });
 // Trigger: on comment create → remove spoilers that reveal the secret word (unless within spoiler)
 app.post('/internal/triggers/on-comment-create', async (req, res): Promise<void> => {
@@ -794,6 +845,27 @@ app.post('/internal/triggers/on-comment-create', async (req, res): Promise<void>
     if (!commentId || !parentPostId) {
       res.status(200).json({ handled: false });
       return;
+    }
+
+    const text = commentBodyRaw.trim();
+    // Assign flair using LLM classifier, guarded by cheap keyword prefilter
+    try {
+      const authorName: string | undefined = body?.author?.name;
+      if (authorName && typeof authorName === 'string' && authorName.length > 0) {
+        const lowered = text.toLowerCase();
+        if (lowered.includes('hate') && lowered.includes('tomorrow')) {
+          const shouldAssign = await Flairs.classifyIHateThisGameTomorrow({ raw: text });
+          if (shouldAssign) {
+            await reddit.setUserFlair({
+              subredditName: context.subredditName!,
+              username: authorName,
+              flairTemplateId: Flairs.FLAIRS.I_HATE_THIS_GAME_SEE_YALL_TOMORROW,
+            });
+          }
+        }
+      }
+    } catch (e) {
+      console.error('Failed to assign user flair via classifier', e);
     }
 
     // TODO: This will probably get ratelimited but no other way to get post data right now
@@ -832,26 +904,6 @@ app.post('/internal/triggers/on-comment-create', async (req, res): Promise<void>
     }
 
     // 4) Handle !wtf logic
-    const text = commentBodyRaw.trim();
-    // Assign flair using LLM classifier, guarded by cheap keyword prefilter
-    try {
-      const authorName: string | undefined = body?.author?.name;
-      if (authorName && typeof authorName === 'string' && authorName.length > 0) {
-        const lowered = text.toLowerCase();
-        if (lowered.includes('hate') && lowered.includes('tomorrow')) {
-          const shouldAssign = await Flairs.classifyIHateThisGameTomorrow({ raw: text });
-          if (shouldAssign) {
-            await reddit.setUserFlair({
-              subredditName: context.subredditName!,
-              username: authorName,
-              flairTemplateId: Flairs.FLAIRS.I_HATE_THIS_GAME_SEE_YALL_TOMORROW,
-            });
-          }
-        }
-      }
-    } catch (e) {
-      console.error('Failed to assign user flair via classifier', e);
-    }
 
     const containsWtf = /!wtf\b/i.test(text);
     const isRoot = typeof parentId === 'string' && parentId === parentPostId;
@@ -1032,8 +1084,9 @@ app.post('/internal/menu/migrate-secret-words', async (_req, res): Promise<void>
 });
 app.post('/internal/scheduler/create-new-challenge', async (_req, res): Promise<void> => {
   try {
-    console.log('Creating new challenge from scheduler');
-    await Challenge.makeNewChallenge();
+    console.log('[Scheduler] create-new-challenge invoked');
+    await Challenge.makeNewChallenge({ enqueueNotifications: true });
+    console.log('[Scheduler] create-new-challenge completed');
     res.json({
       status: 'success',
     });
@@ -1047,8 +1100,9 @@ app.post('/internal/scheduler/create-new-challenge', async (_req, res): Promise<
 });
 app.post('/internal/scheduler/update-post-data', async (_req, res): Promise<void> => {
   try {
-    console.log('Updating recent challenges postData from scheduler');
+    console.log('[Scheduler] update-post-data invoked');
     const result = await Challenge.updatePostDataForRecentChallenges();
+    console.log('[Scheduler] update-post-data completed', { updated: result.updated });
     res.json({
       status: 'success',
       updated: result.updated,
@@ -1058,6 +1112,189 @@ app.post('/internal/scheduler/update-post-data', async (_req, res): Promise<void
     res.status(400).json({
       status: 'error',
       message: 'Failed to update post data',
+    });
+  }
+});
+// Backup sweeper: drains any due groups that may have been missed by the
+// precise one-off job executor. See Notifications.sendDueGroups and
+// the architecture notes in Notifications for details.
+app.post('/internal/scheduler/notifications-backup-sweep', async (_req, res): Promise<void> => {
+  try {
+    console.log('[Scheduler] notifications-backup-sweep invoked');
+    const { processed, sent } = await Notifications.sendDueGroups({ limit: 10 });
+    console.log('[Scheduler] notifications-backup-sweep completed', { processed, sent });
+    res.json({ status: 'success', processed, sent });
+  } catch (error) {
+    console.error('Error processing notifications:', error);
+    res.status(400).json({ status: 'error', message: 'Failed to process notifications' });
+  }
+});
+
+// Daily analytics reconciliation: sync reminders and joined_subreddit to PostHog
+app.post('/internal/scheduler/posthog-user-prop-sync', async (req, res): Promise<void> => {
+  try {
+    const body = (req.body as any) ?? {};
+    const data = body?.data ?? {};
+    const stage = (data?.stage as any) ?? 'reminders';
+    const cursor = Number.parseInt(String(data?.cursor ?? '0'), 10) || 0;
+    const limit = Number.parseInt(String(data?.limit ?? '500'), 10) || 500;
+    console.log('[Scheduler] posthog-user-prop-sync invoked', { stage, cursor, limit });
+    const result = await AnalyticsSync.runOrRequeue({ stage, cursor, limit });
+    console.log('[Scheduler] posthog-user-prop-sync completed', { result });
+    res.json({ status: 'success', next: result });
+  } catch (error) {
+    console.error('Error running PostHog user property sync:', error);
+    res.status(400).json({ status: 'error', message: 'Failed to sync PostHog properties' });
+  }
+});
+
+// One-off job target for scheduled timezone groups
+app.post('/internal/scheduler/notifications-send-group', async (req, res): Promise<void> => {
+  try {
+    const body = (req.body as any) ?? {};
+    const groupId: string | undefined = body?.groupId;
+    if (!groupId) {
+      res.status(400).json({ status: 'error', message: 'groupId is required' });
+      return;
+    }
+    console.log('[Scheduler] notifications-send-group invoked', { groupId });
+    const result = await Notifications.sendGroupNow({ groupId });
+    console.log('[Scheduler] notifications-send-group completed', { groupId, result });
+    res.json({ status: 'success', result });
+  } catch (error) {
+    console.error('Error sending notification group:', error);
+    res.status(400).json({ status: 'error', message: 'Failed to send group' });
+  }
+});
+
+// Notifications management menu
+app.post('/internal/menu/notifications/manage', async (_req, res): Promise<void> => {
+  res.status(200).json({
+    showForm: {
+      name: 'notificationsManageForm',
+      form: {
+        title: 'Manage notifications queue',
+        acceptLabel: 'Run',
+        fields: [
+          {
+            name: 'action',
+            label: 'Action',
+            type: 'select',
+            options: [
+              { label: 'Show stats', value: 'stats' },
+              { label: 'Process now (200)', value: 'process' },
+              { label: 'Clear queue', value: 'clear' },
+            ],
+            defaultValue: 'stats',
+          },
+        ],
+      },
+    },
+  });
+});
+
+// [notifications] Send single (form launcher)
+app.post('/internal/menu/notifications/send-single', async (_req, res): Promise<void> => {
+  res.status(200).json({
+    showForm: {
+      name: 'notificationsSendSingleForm',
+      form: {
+        title: 'Send notification to user',
+        acceptLabel: 'Send',
+        fields: [
+          { name: 'username', label: 'Username', type: 'string', required: true },
+          { name: 'postId', label: 'Post ID (t3_...)', type: 'string', required: true },
+          { name: 'title', label: 'Title', type: 'string', required: true },
+          { name: 'body', label: 'Body', type: 'paragraph', required: true },
+        ],
+      },
+    },
+  });
+});
+
+app.post('/internal/form/notifications/manage', async (req, res): Promise<void> => {
+  try {
+    const { action } = (req.body as any) ?? {};
+    if (action === 'process') {
+      const { processed, sent } = await Notifications.sendDueGroups({ limit: 200 });
+      res.status(200).json({
+        showToast: { text: `Processed ${processed}, sent ${sent}`, appearance: 'success' },
+      });
+      return;
+    }
+    if (action === 'clear') {
+      await Notifications.clearAllPending();
+      res.status(200).json({
+        showToast: {
+          text: 'Notifications queue cleared',
+          appearance: 'success',
+        },
+      });
+      return;
+    }
+    // default: stats
+    const s = await Notifications.pendingStats();
+    const next = s.next.map((n) => `${n.groupId}@${new Date(n.dueAtMs).toISOString()}`).join(', ');
+    res.status(200).json({
+      showToast: {
+        text: `Queue size: ${s.total}${next ? ` | Next: ${next}` : ''}`,
+        appearance: 'neutral',
+      },
+    });
+  } catch (err: any) {
+    console.error('Failed notifications manage action', err);
+    res.status(500).json({
+      showToast: {
+        text: err?.message || 'Failed notifications manage action',
+        appearance: 'neutral',
+      },
+    });
+  }
+});
+
+// [notifications] Send single (form handler)
+app.post('/internal/form/notifications/send-single', async (req, res): Promise<void> => {
+  try {
+    const { username, postId, title, body } = (req.body as any) ?? {};
+    if (typeof username !== 'string' || username.trim().length === 0) {
+      res.status(400).json({
+        showToast: { text: 'Username is required', appearance: 'neutral' },
+      });
+      return;
+    }
+    if (typeof postId !== 'string' || postId.trim().length === 0) {
+      res.status(400).json({
+        showToast: { text: 'Post ID is required', appearance: 'neutral' },
+      });
+      return;
+    }
+    if (typeof title !== 'string' || title.trim().length === 0) {
+      res.status(400).json({
+        showToast: { text: 'Title is required', appearance: 'neutral' },
+      });
+      return;
+    }
+    if (typeof body !== 'string' || body.trim().length === 0) {
+      res.status(400).json({
+        showToast: { text: 'Body is required', appearance: 'neutral' },
+      });
+      return;
+    }
+
+    const result = await Notifications.sendSingleNow({ username, postId, title, body });
+    if (!result.ok && result.reason === 'user-not-found') {
+      res.status(400).json({
+        showToast: { text: `User not found: ${username}`, appearance: 'neutral' },
+      });
+      return;
+    }
+    res.status(200).json({
+      showToast: { text: `Notification sent to ${username}`, appearance: 'success' },
+    });
+  } catch (err: any) {
+    console.error('Failed to send single notification', err);
+    res.status(500).json({
+      showToast: { text: err?.message || 'Failed to send notification', appearance: 'neutral' },
     });
   }
 });
@@ -1145,5 +1382,110 @@ app.post('/internal/menu/export-last-30-days', async (_req, res): Promise<void> 
     });
   }
 });
+
+// [notifications] Dry run notifications for latest challenge (immediate action)
+app.post('/internal/menu/notifications/dry-run-latest', async (_req, res): Promise<void> => {
+  try {
+    const { userId } = context;
+    if (!userId) {
+      res.status(400).json({
+        showToast: 'userId is required',
+      });
+      return;
+    }
+
+    const me = await reddit.getUserById(userId);
+    if (!me) {
+      res.status(400).json({
+        showToast: 'Could not resolve current user',
+      });
+      return;
+    }
+
+    const challengeNumber = await Challenge.getCurrentChallengeNumber();
+    const currentPostId = await Challenge.getPostIdForChallenge({ challengeNumber });
+    const { groups, totalRecipients } = await Notifications.enqueueNewChallengeByTimezone({
+      challengeNumber: Math.max(1, challengeNumber || 1),
+      postId: currentPostId ?? 't3_placeholder',
+      postUrl: 'https://reddit.com',
+      localSendHour: 9,
+      localSendMinute: 0,
+      dryRun: true,
+    });
+
+    const subject = 'Hot & Cold - Dry run notifications preview';
+    const lines: string[] = [];
+    lines.push(`Preview for challenge #${challengeNumber}`);
+    lines.push(`Total recipients: ${totalRecipients}`);
+    lines.push(`Groups: ${groups.length}`);
+    lines.push('');
+    for (const g of groups) {
+      const when = new Date(g.dueAtMs).toISOString();
+      lines.push(`groupId=${g.groupId} | timezone=${g.zone} | size=${g.size} | dueAtUtc=${when}`);
+    }
+    const body = lines.join('\n');
+
+    await reddit.sendPrivateMessage({
+      to: me.username,
+      subject,
+      text: body,
+    });
+
+    res.status(200).json({
+      showToast: 'Sent dry-run preview via DM',
+    });
+  } catch (err: any) {
+    console.error('Failed dry-run notifications DM', err);
+    res.status(500).json({
+      showToast: {
+        text: err?.message || 'Failed to send dry-run notifications DM',
+        appearance: 'neutral',
+      },
+    });
+  }
+});
+
+// Ops menu: kick off PostHog user property sync now
+app.post('/internal/menu/analytics/sync-user-props', async (_req, res): Promise<void> => {
+  try {
+    console.log('[Menu] Starting PostHog user properties sync now');
+    await scheduler.runJob({
+      name: 'posthog-user-prop-sync',
+      runAt: new Date(),
+      data: { stage: 'reminders', cursor: 0, limit: 500 },
+    });
+    console.log('[Menu] PostHog user properties sync queued');
+    res.status(200).json({
+      showToast: { text: 'Started PostHog user properties sync', appearance: 'success' },
+    });
+  } catch (err: any) {
+    console.error('Failed to start PostHog user property sync', err);
+    res.status(500).json({
+      showToast: { text: err?.message || 'Failed to start sync', appearance: 'neutral' },
+    });
+  }
+});
+
+// [migrate] Timezones: offsets -> IANA (immediate action)
+app.post('/internal/menu/timezones/migrate-to-iana', async (_req, res): Promise<void> => {
+  try {
+    console.log('[Menu] Starting timezone migration offsets -> IANA');
+    const { migrated, skipped } = await Timezones.migrateOffsetsToIana({ batchSize: 500 });
+    res.status(200).json({
+      showToast: {
+        text: `Timezone migration complete: migrated ${migrated}, skipped ${skipped}`,
+        appearance: 'success',
+      },
+    });
+  } catch (err: any) {
+    console.error('Failed timezone migration offsets -> IANA', err);
+    res.status(500).json({
+      showToast: { text: err?.message || 'Failed timezone migration', appearance: 'neutral' },
+    });
+  }
+});
+
+// Error tracking should be last among middleware to catch downstream errors
+app.use(usePosthogErrorTracking);
 
 createServer(app).listen(getServerPort());

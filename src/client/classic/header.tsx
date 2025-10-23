@@ -1,9 +1,9 @@
 import { Logo, HardcoreMascot } from '../shared/logo';
 import { HelpMenu } from '../shared/helpMenu';
 import { IconButton } from '../shared/button';
-import { InfoIcon } from '../shared/icons';
+import { InfoIcon, BellIcon, BellOffIcon } from '../shared/icons';
 import { cn } from '../utils/cn';
-import { useState } from 'preact/hooks';
+import { useEffect, useState } from 'preact/hooks';
 // How-to-play modal state via global helpers
 import { openHowToPlay } from './state/howToPlay';
 import type { GuessEngine } from '../core/guessEngine';
@@ -14,12 +14,14 @@ import {
 } from '../core/hints';
 // import { context } from '@devvit/web/client';
 import { requireChallengeNumber } from '../requireChallengeNumber';
-import { userSettings, toggleLayout, toggleSortType } from './state/userSettings';
+import { userSettings, toggleLayout, toggleSortType, setReminderOptIn } from './state/userSettings';
 import { trpc } from '../trpc';
 import { navigate } from './state/navigation';
 import { resetGuessCache } from '../core/guess';
 import posthog from 'posthog-js';
 import { openExperiments } from './state/experiments';
+import { getBrowserIanaTimeZone } from '../../shared/timezones';
+import { showToast } from '@devvit/web/client';
 
 const SpeechBubbleTail = ({ className }: { className?: string }) => (
   <svg
@@ -48,6 +50,18 @@ export function Header({ engine, isAdmin }: { engine?: GuessEngine; isAdmin: boo
 
   const isActivelyPlaying = true; // Placeholder; wire real state when available
 
+  // Hydrate reminder opt-in state from server on mount
+  useEffect(() => {
+    void (async () => {
+      try {
+        const isIn = await trpc.cta.isOptedIntoReminders.query();
+        setReminderOptIn(isIn);
+      } catch {
+        // ignore
+      }
+    })();
+  }, []);
+
   async function requestHint() {
     const [hints, previous] = await Promise.all([
       loadHintsForChallenge(challengeNumber),
@@ -62,6 +76,26 @@ export function Header({ engine, isAdmin }: { engine?: GuessEngine; isAdmin: boo
       }
     } catch (e) {
       console.error('Failed to submit hint guess', e);
+    }
+  }
+
+  async function toggleReminderShared() {
+    try {
+      const timezone = getBrowserIanaTimeZone();
+      const res = await trpc.cta.toggleReminder.mutate({ timezone });
+      setReminderOptIn(res.newValue);
+      if (res.newValue) {
+        posthog.setPersonProperties({ opted_into_reminders: true });
+        showToast({ text: 'Subscribed to daily reminders', appearance: 'success' });
+      } else {
+        posthog.setPersonProperties({ opted_into_reminders: false });
+        showToast({ text: 'Unsubscribed from reminders', appearance: 'neutral' });
+      }
+      return res.newValue;
+    } catch (err) {
+      console.error('Failed to toggle reminder', err);
+      showToast({ text: 'Failed to update reminder settings' });
+      return isUserOptedIntoReminders;
     }
   }
 
@@ -94,7 +128,7 @@ export function Header({ engine, isAdmin }: { engine?: GuessEngine; isAdmin: boo
           </button>
         </div>
 
-        <div className="flex flex-1 items-center justify-end gap-2">
+        <div className="flex flex-1 items-center justify-end gap-1">
           <IconButton
             type="button"
             onClick={() => {
@@ -106,13 +140,28 @@ export function Header({ engine, isAdmin }: { engine?: GuessEngine; isAdmin: boo
           >
             How to Play
           </IconButton>
+          <IconButton
+            type="button"
+            onClick={async () => {
+              posthog.capture('Game Page Notification Icon Toggled', {
+                newState: isUserOptedIntoReminders ? 'off' : 'on',
+              });
+              await toggleReminderShared();
+            }}
+            icon={isUserOptedIntoReminders ? <BellIcon /> : <BellOffIcon />}
+            aria-label={
+              isUserOptedIntoReminders ? 'Unsubscribe from reminders' : 'Subscribe to reminders'
+            }
+          >
+            Notifications
+          </IconButton>
           <HelpMenu
             items={[
               { name: 'Toggle Size', action: () => toggleLayout() },
               {
                 name: isUserOptedIntoReminders ? 'Unsubscribe' : 'Subscribe',
                 action: async () => {
-                  // TODO: add subscribe endpoint when available
+                  await toggleReminderShared();
                 },
               },
               {

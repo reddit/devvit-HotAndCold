@@ -10,7 +10,6 @@ import { GameResponseSchema, GuessSchema, ChallengeUserInfoSchema } from '../uti
 import { User } from './user';
 import { ChallengeProgress } from './challengeProgress';
 import { rankToProgress } from '../../shared/progress';
-import { getWordConfigCached } from './api';
 
 /**
  * Returns the next hint for a player based on their previous guesses.

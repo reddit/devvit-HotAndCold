@@ -13,7 +13,7 @@ import { getPrettyDuration } from '../../shared/prettyDuration';
 import { ScoreBreakdownModal } from './scoreBreakdownModal';
 import { loadHintsForChallenge, type HintWord } from '../core/hints';
 import { context } from '@devvit/web/client';
-import { getUtcLabel } from '../../shared/timezones';
+import { getBrowserIanaTimeZone } from '../../shared/timezones';
 
 type LeaderboardEntry = { member: string; score: number };
 
@@ -84,7 +84,7 @@ const CallToAction = ({
       try {
         const isOptedIn = await trpc.cta.isOptedIntoReminders.query();
         if (!isOptedIn) return;
-        const timezone = getUtcLabel();
+        const timezone = getBrowserIanaTimeZone();
         await trpc.cta.setReminder.mutate({ timezone });
       } catch (err) {
         console.error('Error backfilling timezone', err);
@@ -112,7 +112,7 @@ const CallToAction = ({
         posthog.setPersonProperties({
           opted_into_reminders: true,
         });
-        const timezone = getUtcLabel();
+        const timezone = getBrowserIanaTimeZone();
         await trpc.cta.setReminder.mutate({ timezone });
       } else if (cta === 'COMMENT') {
         // Preload the server-computed suffix before opening modal

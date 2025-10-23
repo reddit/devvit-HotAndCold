@@ -1,144 +1,63 @@
 import { expect } from 'vitest';
 import { it } from '../test/devvitTest';
 import { Timezones } from './timezones';
+import { redis } from '@devvit/web/server';
 
-const zoneA = 'UTC+00:00';
-const zoneB = 'UTC+05:30';
 const user1 = 'alice';
 const user2 = 'bob';
 const user3 = 'carol';
+const zoneA = 'America/New_York';
+const zoneB = 'Asia/Kolkata';
 
-it('setUserTimezone adds a user and sets reverse mapping', async () => {
+it('setUserTimezone saves IANA and getUserTimezone returns it', async () => {
   await Timezones.setUserTimezone({ username: user1, timezone: zoneA });
-
-  const total = await Timezones.totalUsersInTimezone({ timezone: zoneA });
-  expect(total).toBe(1);
-
-  const zone = await Timezones.getUserTimezone({ username: user1 });
-  expect(zone).toBe(zoneA);
+  const tz = await Timezones.getUserTimezone({ username: user1 });
+  expect(tz).toBe(zoneA);
 });
 
-it('idempotent setUserTimezone does not duplicate membership', async () => {
+it('idempotent setUserTimezone overwrites to the same value without error', async () => {
   await Timezones.setUserTimezone({ username: user1, timezone: zoneA });
   await Timezones.setUserTimezone({ username: user1, timezone: zoneA });
-
-  const total = await Timezones.totalUsersInTimezone({ timezone: zoneA });
-  expect(total).toBe(1);
+  const tz = await Timezones.getUserTimezone({ username: user1 });
+  expect(tz).toBe(zoneA);
 });
 
-it('getUsersInTimezone returns all users via cursor scan', async () => {
-  await Timezones.setUserTimezone({ username: user1, timezone: zoneA });
-  await new Promise((r) => setTimeout(r, 2));
+it('moving a user updates IANA mapping', async () => {
   await Timezones.setUserTimezone({ username: user2, timezone: zoneA });
-  await new Promise((r) => setTimeout(r, 2));
-  await Timezones.setUserTimezone({ username: user3, timezone: zoneA });
-
-  let cursor = 0;
-  const collected: Array<{ member: string; score: number }> = [];
-  do {
-    const page = await Timezones.getUsersInTimezone({ timezone: zoneA, cursor, limit: 100 });
-    collected.push(...page.members);
-    cursor = page.cursor;
-  } while (cursor !== 0);
-
-  expect(collected.length).toBe(3);
-  // Verify scores present
-  for (const u of collected) expect(u.score).toEqual(expect.any(Number));
-  // Sort by recency (score DESC) and validate order
-  const byRecency = collected.slice().sort((a, b) => b.score - a.score);
-  expect(byRecency.map((u) => u.member)).toEqual([user3, user2, user1]);
-});
-
-// Removed sort-specific test; zScan does not guarantee ordering.
-
-it('getUsersInTimezone supports pagination via cursor and limit', async () => {
-  await Timezones.setUserTimezone({ username: user1, timezone: zoneA });
-  await new Promise((r) => setTimeout(r, 2));
-  await Timezones.setUserTimezone({ username: user2, timezone: zoneA });
-  await new Promise((r) => setTimeout(r, 2));
-  await Timezones.setUserTimezone({ username: user3, timezone: zoneA });
-
-  const page1 = await Timezones.getUsersInTimezone({ timezone: zoneA, cursor: 0, limit: 2 });
-  expect(page1.members.length).toBeGreaterThan(0);
-
-  const page2 = await Timezones.getUsersInTimezone({
-    timezone: zoneA,
-    cursor: page1.cursor,
-    limit: 2,
-  });
-  const allMembers = [...page1.members, ...page2.members].map((u) => u.member);
-  expect(new Set(allMembers)).toEqual(new Set([user1, user2, user3]));
-});
-
-it('moving a user updates zone membership and reverse mapping', async () => {
-  await Timezones.setUserTimezone({ username: user1, timezone: zoneA });
-  await Timezones.setUserTimezone({ username: user2, timezone: zoneA });
-
-  let totalA = await Timezones.totalUsersInTimezone({ timezone: zoneA });
-  expect(totalA).toBe(2);
-
-  // Move bob to zoneB
+  let tz = await Timezones.getUserTimezone({ username: user2 });
+  expect(tz).toBe(zoneA);
   await Timezones.setUserTimezone({ username: user2, timezone: zoneB });
-
-  totalA = await Timezones.totalUsersInTimezone({ timezone: zoneA });
-  const totalB = await Timezones.totalUsersInTimezone({ timezone: zoneB });
-  expect(totalA).toBe(1);
-  expect(totalB).toBe(1);
-
-  // Scan zoneA
-  let cursorA = 0;
-  const membersA: string[] = [];
-  do {
-    const page = await Timezones.getUsersInTimezone({
-      timezone: zoneA,
-      cursor: cursorA,
-      limit: 100,
-    });
-    membersA.push(...page.members.map((m) => m.member));
-    cursorA = page.cursor;
-  } while (cursorA !== 0);
-  expect(membersA.sort()).toEqual([user1]);
-
-  // Scan zoneB
-  let cursorB = 0;
-  const membersB: string[] = [];
-  do {
-    const page = await Timezones.getUsersInTimezone({
-      timezone: zoneB,
-      cursor: cursorB,
-      limit: 100,
-    });
-    membersB.push(...page.members.map((m) => m.member));
-    cursorB = page.cursor;
-  } while (cursorB !== 0);
-  expect(membersB.sort()).toEqual([user2]);
-
-  const zone = await Timezones.getUserTimezone({ username: user2 });
-  expect(zone).toBe(zoneB);
+  tz = await Timezones.getUserTimezone({ username: user2 });
+  expect(tz).toBe(zoneB);
 });
 
-it('clearUserTimezone removes membership and reverse mapping', async () => {
-  await Timezones.setUserTimezone({ username: user1, timezone: zoneA });
-  await Timezones.setUserTimezone({ username: user2, timezone: zoneA });
+it('clearUserTimezone removes IANA mapping', async () => {
+  await Timezones.setUserTimezone({ username: user3, timezone: zoneA });
+  await Timezones.clearUserTimezone({ username: user3 });
+  const tz = await Timezones.getUserTimezone({ username: user3 });
+  expect(tz).toBeNull();
+});
 
-  await Timezones.clearUserTimezone({ username: user2 });
+it('migrates known offsets to canonical IANA zones and skips unknowns', async () => {
+  // Seed legacy hash: tz:userToZone
+  await redis.hSet(Timezones.UserToZoneKey(), {
+    alice: 'UTC-05:00', // -> America/New_York
+    bob: 'UTC+05:30', // -> Asia/Kolkata
+    carol: 'UTC+01:00', // -> Europe/Paris
+    dave: 'UTC-07:00', // -> America/Denver
+    eve: 'UTC+09:00', // -> Asia/Tokyo
+    frank: 'UTC+00:15', // unknown -> skipped
+  });
 
-  const totalA = await Timezones.totalUsersInTimezone({ timezone: zoneA });
-  expect(totalA).toBe(1);
+  const { migrated, skipped } = await Timezones.migrateOffsetsToIana({ batchSize: 10 });
+  expect(migrated).toBe(5);
+  expect(skipped).toBe(1);
 
-  let cursorA = 0;
-  const membersA: string[] = [];
-  do {
-    const page = await Timezones.getUsersInTimezone({
-      timezone: zoneA,
-      cursor: cursorA,
-      limit: 100,
-    });
-    membersA.push(...page.members.map((m) => m.member));
-    cursorA = page.cursor;
-  } while (cursorA !== 0);
-  expect(membersA.sort()).toEqual([user1]);
-
-  const zone = await Timezones.getUserTimezone({ username: user2 });
-  expect(zone).toBeNull();
+  const iana = await redis.hGetAll(Timezones.UserToIanaKey());
+  expect(iana.alice).toBe('America/New_York');
+  expect(iana.bob).toBe('Asia/Kolkata');
+  expect(iana.carol).toBe('Europe/Paris');
+  expect(iana.dave).toBe('America/Denver');
+  expect(iana.eve).toBe('Asia/Tokyo');
+  expect(iana.frank).toBeUndefined();
 });

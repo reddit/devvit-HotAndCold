@@ -45,6 +45,24 @@ export namespace JoinedSubreddit {
     return data;
   });
 
+  // Batched scan by rank for large reconciliations
+  export const scanUsers = fn(
+    z.object({
+      cursor: z.number().int().min(0).default(0),
+      limit: z.number().int().min(1).max(1000).default(500),
+    }),
+    async ({ cursor, limit }) => {
+      const { cursor: nextCursor, members } = await redis.zScan(
+        getJoinedSubredditKey(),
+        Math.max(0, cursor),
+        undefined,
+        Math.max(1, limit)
+      );
+      const list = members.map((member) => member.member);
+      return { members: list, nextCursor, done: nextCursor === 0 } as const;
+    }
+  );
+
   export const totalJoinedSubreddit = fn(z.void(), async () => {
     return await redis.zCard(getJoinedSubredditKey());
   });

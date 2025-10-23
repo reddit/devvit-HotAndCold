@@ -4,6 +4,7 @@ import { fn } from '../../shared/fn';
 import { redis, reddit, Post, settings, context } from '@devvit/web/server';
 import { WordQueue } from './wordQueue';
 import { getWordConfigCached } from './api';
+import { Notifications } from './notifications';
 
 export const stringifyValues = <T extends Record<string, any>>(obj: T): Record<keyof T, string> => {
   return Object.fromEntries(
@@ -168,47 +169,50 @@ export namespace Challenge {
     }
   );
 
-  export const makeNewChallenge = fn(z.void(), async () => {
-    console.log('Making new challenge...');
-    const [currentChallengeNumber, currentSubreddit] = await Promise.all([
-      getCurrentChallengeNumber(),
-      reddit.getCurrentSubreddit(),
-    ]);
+  export const makeNewChallenge = fn(
+    z.object({ enqueueNotifications: z.boolean().optional() }).optional(),
+    async (input) => {
+      const enqueueNotifications = input?.enqueueNotifications ?? true;
+      console.log('Making new challenge...');
+      const [currentChallengeNumber, currentSubreddit] = await Promise.all([
+        getCurrentChallengeNumber(),
+        reddit.getCurrentSubreddit(),
+      ]);
 
-    const newChallengeNumber = currentChallengeNumber + 1;
+      const newChallengeNumber = currentChallengeNumber + 1;
 
-    console.log('New challenge number:', newChallengeNumber);
+      console.log('New challenge number:', newChallengeNumber);
 
-    let post: Post | undefined;
+      let post: Post | undefined;
 
-    const newWord = (await WordQueue.shift())?.word;
-    if (!newWord) {
-      throw new Error('No more words available for new challenge. Need to add more to the list!');
-    }
+      const newWord = (await WordQueue.shift())?.word;
+      if (!newWord) {
+        throw new Error('No more words available for new challenge. Need to add more to the list!');
+      }
 
-    try {
-      // Sets the value in the redis cache for fast lookups
-      await getWordConfigCached({ word: newWord });
-
-      post = await reddit.submitCustomPost({
-        subredditName: currentSubreddit.name,
-        title: `Hot and cold #${newChallengeNumber}`,
-        splash: {
-          appDisplayName: 'Hot and Cold',
-          backgroundUri: 'transparent.png',
-        },
-        postData: makePostData({
-          challengeNumber: newChallengeNumber,
-          totalPlayers: 0,
-          totalSolves: 0,
-        }),
-      });
-
-      // Pin the how-to-play comment
       try {
-        const comment = await reddit.submitComment({
-          id: post.id,
-          text: `Welcome to Hot and Cold, the delightfully frustrating word guessing game! 
+        // Sets the value in the redis cache for fast lookups
+        await getWordConfigCached({ word: newWord });
+
+        post = await reddit.submitCustomPost({
+          subredditName: currentSubreddit.name,
+          title: `Hot and cold #${newChallengeNumber}`,
+          splash: {
+            appDisplayName: 'Hot and Cold',
+            backgroundUri: 'transparent.png',
+          },
+          postData: makePostData({
+            challengeNumber: newChallengeNumber,
+            totalPlayers: 0,
+            totalSolves: 0,
+          }),
+        });
+
+        // Pin the how-to-play comment
+        try {
+          const comment = await reddit.submitComment({
+            id: post.id,
+            text: `Welcome to Hot and Cold, the delightfully frustrating word guessing game! 
           
 To play, guess the secret word by typing any word you think is related.
 
@@ -220,69 +224,82 @@ The rank is based on how AI models see the relationships between the words. So a
 
 Enjoy! If you have feedback on how we can improve the game, please let us know!
   `,
+          });
+          await comment.distinguish(true);
+        } catch (error) {
+          // This is bugged as of 10/8 but maybe for only playtesting?
+          console.error('Error pinning how-to-play comment:', error);
+        }
+
+        await setChallenge({
+          challengeNumber: newChallengeNumber,
+          config: {
+            challengeNumber: newChallengeNumber.toString(),
+            secretWord: newWord,
+            totalPlayers: '0',
+            totalSolves: '0',
+            totalGuesses: '0',
+            totalHints: '0',
+            totalGiveUps: '0',
+          },
         });
-        await comment.distinguish(true);
-      } catch (error) {
-        // This is bugged as of 10/8 but maybe for only playtesting?
-        console.error('Error pinning how-to-play comment:', error);
-      }
 
-      await setChallenge({
-        challengeNumber: newChallengeNumber,
-        config: {
-          challengeNumber: newChallengeNumber.toString(),
-          secretWord: newWord,
-          totalPlayers: '0',
-          totalSolves: '0',
-          totalGuesses: '0',
-          totalHints: '0',
-          totalGiveUps: '0',
-        },
-      });
+        await setPostIdForChallenge({ challengeNumber: newChallengeNumber, postId: post.id });
 
-      await setPostIdForChallenge({ challengeNumber: newChallengeNumber, postId: post.id });
+        await setCurrentChallengeNumber({ number: newChallengeNumber });
 
-      await setCurrentChallengeNumber({ number: newChallengeNumber });
+        console.log(
+          'New challenge created:',
+          'New Challenge Number:',
+          newChallengeNumber,
+          'New word:',
+          newWord,
+          'Post ID:',
+          post.id
+        );
 
-      console.log(
-        'New challenge created:',
-        'New Challenge Number:',
-        newChallengeNumber,
-        'New word:',
-        newWord,
-        'Post ID:',
-        post.id
-      );
+        const flairId = await settings.get<string>('flairId');
+        if (flairId) {
+          await reddit.setPostFlair({
+            postId: post.id,
+            subredditName: context.subredditName!,
+            flairTemplateId: flairId,
+          });
+        } else {
+          console.warn('No flair ID configured, skipping...');
+        }
 
-      const flairId = await settings.get<string>('flairId');
-      if (flairId) {
-        await reddit.setPostFlair({
+        if (enqueueNotifications) {
+          try {
+            await Notifications.enqueueNewChallengeByTimezone({
+              challengeNumber: newChallengeNumber,
+              postId: post.id,
+              postUrl: post.url,
+            });
+          } catch (e) {
+            console.error('Failed to schedule reminder notifications', e);
+          }
+        }
+
+        return {
           postId: post.id,
-          subredditName: context.subredditName!,
-          flairTemplateId: flairId,
-        });
-      } else {
-        console.warn('No flair ID configured, skipping...');
+          postUrl: post.url,
+          challenge: newChallengeNumber,
+          word: newWord,
+        };
+      } catch (error) {
+        console.error('Error making new challenge:', error);
+
+        // If the transaction fails, remove the post if created
+        if (post) {
+          console.log(`Removing post ${post.id} due to new challenge error`);
+          await reddit.remove(post.id, false);
+        }
+
+        throw error;
       }
-
-      return {
-        postId: post.id,
-        postUrl: post.url,
-        challenge: newChallengeNumber,
-        word: newWord,
-      };
-    } catch (error) {
-      console.error('Error making new challenge:', error);
-
-      // If the transaction fails, remove the post if created
-      if (post) {
-        console.log(`Removing post ${post.id} due to new challenge error`);
-        await reddit.remove(post.id, false);
-      }
-
-      throw error;
     }
-  });
+  );
 
   export const exportLast30Days = fn(z.void(), async () => {
     const currentChallengeNumber = await getCurrentChallengeNumber();

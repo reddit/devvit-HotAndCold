@@ -3,95 +3,121 @@ import { fn } from '../../shared/fn';
 import { redis } from '@devvit/web/server';
 import { zodRedditUsername } from '../utils';
 
-/**
- * Maintain a sorted set of users per timezone label and a reverse mapping
- * of username -> current timezone. We key ZSETs by the timezone label so we
- * can iterate all users in a given timezone for notifications.
- */
 export namespace Timezones {
-  // ZSET key for a specific timezone label (e.g., "UTC+05:30")
-  export const ZoneKey = (zone: string) => `tz:${zone}` as const;
-  // HASH key for reverse lookup of a user's current timezone
+  // Keys (v1 legacy hash for offsets; v2 IANA hash)
   export const UserToZoneKey = () => `tz:userToZone` as const;
+  export const UserToIanaKey = () => `tzv2:userToIana` as const;
 
-  // Schema for an IANA-like or UTC label timezone string
-  // We accept any non-empty trimmed string to remain flexible
-  const zTimezone = z.string().trim().min(1);
+  // Basic offset-label -> canonical IANA guess. Imperfect by design, covers major regions.
+  const OFFSET_TO_IANA: Record<string, string> = {
+    // North America
+    'UTC-08:00': 'America/Los_Angeles',
+    'UTC-07:00': 'America/Denver',
+    'UTC-06:00': 'America/Chicago',
+    'UTC-05:00': 'America/New_York',
+    'UTC-04:00': 'America/New_York',
 
-  /**
-   * Add user to a timezone's ZSET and update reverse mapping.
-   * Score is Date.now() so we can optionally iterate by recency.
-   */
+    // Europe
+    'UTC+00:00': 'Etc/UTC',
+    'UTC+01:00': 'Europe/Paris',
+    'UTC+02:00': 'Europe/Paris',
+
+    // Asia
+    'UTC+05:30': 'Asia/Kolkata',
+    'UTC+08:00': 'Asia/Shanghai',
+    'UTC+09:00': 'Asia/Tokyo',
+
+    // Australia / New Zealand
+    'UTC+10:00': 'Australia/Sydney',
+    'UTC+11:00': 'Australia/Sydney',
+    'UTC+12:00': 'Pacific/Auckland',
+
+    // Middle East / Russia (coarse)
+    'UTC+03:00': 'Europe/Moscow',
+    'UTC+04:00': 'Asia/Dubai',
+
+    // South America (coarse)
+    'UTC-03:00': 'America/Sao_Paulo',
+  } as const;
+
+  function mapOffsetLabelToIana(label: string): string | null {
+    const key = label.trim();
+    return OFFSET_TO_IANA[key] ?? null;
+  }
+
+  // All non-migration APIs are IANA-only
+
+  /** set IANA for user (IANA required) */
   export const setUserTimezone = fn(
-    z.object({
-      username: zodRedditUsername,
-      timezone: zTimezone,
-    }),
+    z.object({ username: zodRedditUsername, timezone: z.string().trim().min(1) }),
     async ({ username, timezone }) => {
-      const prev = await redis.hGet(UserToZoneKey(), username);
-      if (prev && prev !== timezone) {
-        // Remove from previous zone set if moving zones
-        await redis.zRem(ZoneKey(prev), [username]);
-      }
-
-      await redis.zAdd(ZoneKey(timezone), { member: username, score: Date.now() });
-      await redis.hSet(UserToZoneKey(), { [username]: timezone });
+      const raw = timezone.trim();
+      const iana = raw.includes('/') ? raw : 'America/New_York';
+      await redis.hSet(UserToIanaKey(), { [username]: iana });
     }
   );
 
-  /**
-   * Remove a user from their current timezone ZSET and clear reverse mapping.
-   */
-  export const clearUserTimezone = fn(
-    z.object({ username: zodRedditUsername }),
-    async ({ username }) => {
-      const prev = await redis.hGet(UserToZoneKey(), username);
-      if (prev) {
-        await redis.zRem(ZoneKey(prev), [username]);
-      }
-      await redis.hDel(UserToZoneKey(), [username]);
+  /** explicit IANA setter (alias) */
+  export const setTimezone = fn(
+    z.object({ username: zodRedditUsername, iana: z.string().trim().min(1) }),
+    async ({ username, iana }) => {
+      const tz = iana.trim();
+      const final = tz.includes('/') ? tz : 'America/New_York';
+      await redis.hSet(UserToIanaKey(), { [username]: final });
     }
   );
 
-  /**
-   * Get the stored timezone label for a user, if any.
-   */
+  /** v2 getter */
   export const getUserTimezone = fn(
     z.object({ username: zodRedditUsername }),
     async ({ username }) => {
-      const zone = await redis.hGet(UserToZoneKey(), username);
-      return zone ?? null;
+      const iana = await redis.hGet(UserToIanaKey(), username);
+      return iana ?? null;
+    }
+  );
+
+  /** clear IANA */
+  export const clearUserTimezone = fn(
+    z.object({ username: zodRedditUsername }),
+    async ({ username }) => {
+      await redis.hDel(UserToIanaKey(), [username]);
     }
   );
 
   /**
-   * Scan users within a timezone via cursor. Returns next cursor and members.
-   * No ordering guarantees beyond Redis ZSCAN semantics.
+   * One-off migration: copy users from tz:userToZone (UTC±HH:MM labels)
+   * to tzv2:userToIana (IANA strings). Unknown/ambiguous offsets are skipped.
    */
-  export const getUsersInTimezone = fn(
-    z.object({
-      timezone: zTimezone,
-      cursor: z.number().int().min(0).optional().default(0),
-      limit: z.number().int().min(1).max(1000).optional().default(200),
-    }),
-    async ({ timezone, cursor, limit }) => {
-      const { cursor: nextCursor, members } = await redis.zScan(
-        ZoneKey(timezone),
-        Math.max(0, cursor),
-        undefined,
-        Math.max(1, limit)
-      );
-      return { cursor: nextCursor, members };
-    }
-  );
-
-  /**
-   * Count users in a timezone.
-   */
-  export const totalUsersInTimezone = fn(
-    z.object({ timezone: zTimezone }),
-    async ({ timezone }) => {
-      return await redis.zCard(ZoneKey(timezone));
+  export const migrateOffsetsToIana = fn(
+    z.object({ batchSize: z.number().int().min(1).max(5000).default(500) }),
+    async ({ batchSize }) => {
+      const legacyHashKey = UserToZoneKey();
+      const ianaHashKey = UserToIanaKey();
+      let cursor = 0;
+      let migrated = 0;
+      let skipped = 0;
+      do {
+        console.log(
+          `Migrating Timezones data from ${legacyHashKey} to ${ianaHashKey}, at cursor ${cursor}`
+        );
+        const { cursor: next, fieldValues } = await redis.hScan(
+          legacyHashKey,
+          cursor,
+          undefined,
+          batchSize
+        );
+        cursor = next;
+        for (const { field: username, value: offsetLabel } of fieldValues) {
+          const iana = mapOffsetLabelToIana(offsetLabel);
+          if (!iana) {
+            skipped++;
+            continue;
+          }
+          await redis.hSet(ianaHashKey, { [username]: iana });
+          migrated++;
+        }
+      } while (cursor !== 0);
+      return { migrated, skipped } as const;
     }
   );
 }

@@ -38,12 +38,45 @@ export namespace Reminders {
     }
   );
 
-  export const getUsersOptedIntoReminders = fn(z.void(), async () => {
-    const data = await redis.zRange(getRemindersKey(), 0, '+inf', {
-      by: 'score',
-    });
-    return data;
+  export const getAllUsersOptedIntoReminders = fn(z.void(), async () => {
+    const all: Array<{ member: string; score: number }> = [];
+    let cursor = 0;
+    const limit = 1000;
+
+    do {
+      const { cursor: nextCursor, members } = await redis.zScan(
+        getRemindersKey(),
+        cursor,
+        undefined,
+        limit
+      );
+      for (const m of members) {
+        all.push({ member: m.member, score: m.score });
+      }
+      cursor = nextCursor ?? 0;
+    } while (cursor !== 0);
+
+    all.sort((a, b) => a.score - b.score);
+    return all;
   });
+
+  // Batched scan by rank for large reconciliations
+  export const scanUsers = fn(
+    z.object({
+      cursor: z.number().int().min(0).default(0),
+      limit: z.number().int().min(1).max(1000).default(500),
+    }),
+    async ({ cursor, limit }) => {
+      const { cursor: nextCursor, members } = await redis.zScan(
+        getRemindersKey(),
+        Math.max(0, cursor),
+        undefined,
+        Math.max(1, limit)
+      );
+      const list = members.map((m) => m.member);
+      return { members: list, nextCursor, done: nextCursor === 0 } as const;
+    }
+  );
 
   export const totalReminders = fn(z.void(), async () => {
     return await redis.zCard(getRemindersKey());

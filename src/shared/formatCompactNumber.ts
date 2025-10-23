@@ -3,6 +3,14 @@ export type FormatCompactNumberOptions = {
   trimZeros?: boolean;
 };
 
+function trimDecimalZeros(str: string): string {
+  if (str.indexOf('.') === -1) return str;
+  let s = str;
+  while (s.endsWith('0')) s = s.slice(0, -1);
+  if (s.endsWith('.')) s = s.slice(0, -1);
+  return s;
+}
+
 /**
  * Formats large numbers in a compact format..
  * Examples:
@@ -33,33 +41,31 @@ export function formatCompactNumber(
     { threshold: 1_000_000_000_000_000, symbol: 'Q' },
   ] as const;
 
-  let unitIndex = 0;
-  for (let i = 0; i < UNITS.length; i++) {
-    if (abs < UNITS[i].threshold) {
-      unitIndex = i - 1;
+  let unit: (typeof UNITS)[number] = UNITS[0];
+  let nextUnit: (typeof UNITS)[number] | undefined;
+  for (const candidate of UNITS) {
+    if (abs < candidate.threshold) {
+      nextUnit = candidate;
       break;
     }
-    // If we've reached the largest threshold and still larger, use the last unit
-    if (i === UNITS.length - 1) unitIndex = i;
+    unit = candidate;
   }
 
-  const base = UNITS[unitIndex].threshold;
-  const symbol = UNITS[unitIndex].symbol;
+  const base = unit.threshold;
 
   // Round to the desired decimals
   let compact = abs / base;
   let rounded = Number(compact.toFixed(decimals));
 
   // Handle rollover like 999.95K -> 1.0M
-  if (rounded >= 1000 && unitIndex < UNITS.length - 1) {
-    unitIndex += 1;
-    compact = abs / UNITS[unitIndex].threshold;
+  if (rounded >= 1000 && nextUnit) {
+    unit = nextUnit;
+    compact = abs / unit.threshold;
     rounded = Number(compact.toFixed(decimals));
   }
 
-  const formatted = trimZeros
-    ? rounded.toFixed(decimals).replace(/\.0+$|(?<=\.[0-9]*?)0+$/g, '')
-    : rounded.toFixed(decimals);
+  const withDecimals = rounded.toFixed(decimals);
+  const formatted = trimZeros ? trimDecimalZeros(withDecimals) : withDecimals;
 
-  return `${sign}${formatted}${UNITS[unitIndex].symbol}`;
+  return `${sign}${formatted}${unit.symbol}`;
 }
