@@ -1254,14 +1254,43 @@ app.post('/internal/form/notifications/manage', async (req, res): Promise<void> 
       });
       return;
     }
-    // default: stats
+    // default: stats → DM detailed info to invoking moderator
+    const { userId } = context;
+    if (!userId) {
+      res.status(400).json({
+        showToast: 'userId is required',
+      });
+      return;
+    }
+    const me = await reddit.getUserById(userId);
+    if (!me) {
+      res.status(400).json({
+        showToast: 'Could not resolve current user',
+      });
+      return;
+    }
+
     const s = await Notifications.pendingStats();
-    const next = s.next.map((n) => `${n.groupId}@${new Date(n.dueAtMs).toISOString()}`).join(', ');
+    const lines: string[] = [];
+    lines.push('Notifications queue stats');
+    lines.push('');
+    lines.push(`Total pending groups: ${s.total}`);
+    if (s.next.length > 0) {
+      lines.push('');
+      lines.push('Next groups (up to 10):');
+      for (const n of s.next) {
+        lines.push(`- ${n.groupId} at ${new Date(n.dueAtMs).toISOString()}`);
+      }
+    }
+
+    await reddit.sendPrivateMessage({
+      to: me.username,
+      subject: 'Hot & Cold notifications queue stats',
+      text: lines.join('\n'),
+    });
+
     res.status(200).json({
-      showToast: {
-        text: `Queue size: ${s.total}${next ? ` | Next: ${next}` : ''}`,
-        appearance: 'neutral',
-      },
+      showToast: { text: 'Sent notifications queue stats via DM', appearance: 'success' },
     });
   } catch (err: any) {
     console.error('Failed notifications manage action', err);
@@ -1501,7 +1530,7 @@ app.post('/internal/menu/notifications/dry-run-latest', async (_req, res): Promi
     lines.push('');
     for (const g of groups) {
       const when = new Date(g.dueAtMs).toISOString();
-      lines.push(`groupId=${g.groupId} | timezone=${g.zone} | size=${g.size} | dueAtUtc=${when}`);
+      lines.push(`- groupId=${g.groupId} | timezone=${g.zone} | size=${g.size} | dueAtUtc=${when}`);
     }
     const body = lines.join('\n');
 

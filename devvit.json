@@ -10,6 +10,9 @@
       }
     }
   },
+  "marketingAssets": {
+    "icon": "assets/icon.png"
+  },
   "media": {
     "dir": "assets"
   },
@@ -151,7 +154,7 @@
         "data": {}
       },
       "notifications-backup-sweep": {
-        "cron": "0 * * * *",
+        "cron": "10 * * * *",
         "endpoint": "/internal/scheduler/notifications-backup-sweep",
         "data": {}
       },

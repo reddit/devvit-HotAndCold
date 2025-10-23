@@ -259,8 +259,8 @@ export namespace Notifications {
       case 'NEW_CHALLENGE': {
         const n = Number(params?.challengeNumber ?? 0) || 0;
         return {
-          title: `Hot and Cold #${n} is here!`,
-          body: `Can you guess the secret word?`,
+          title: `Today's puzzle is here!`,
+          body: `Play #${n} now.`,
         };
       }
       default:
