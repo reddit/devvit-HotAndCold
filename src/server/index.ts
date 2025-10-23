@@ -478,7 +478,13 @@ app.use(
     router: appRouter,
     createContext,
     onError({ error, path, type, input }) {
-      // Surface all procedure errors on the server for debugging/observability
+      // Suppress logging for expected user-facing errors
+      const message = String(error?.message ?? '');
+      if (message.includes('You already guessed')) {
+        return;
+      }
+
+      // Surface all other procedure errors on the server for debugging/observability
       console.error('[tRPC error]', {
         path,
         type,
