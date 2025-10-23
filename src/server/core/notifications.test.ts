@@ -24,9 +24,14 @@ it('groups recipients by timezone and schedules per-zone jobs', async () => {
     scheduled.push(job);
     return `job-${scheduled.length}`;
   });
-  const getUserSpy = vi
-    .spyOn(reddit, 'getUserByUsername')
-    .mockImplementation(async (username: string) => ({ id: `t2_${username}` }) as any);
+  const getUserSpy = vi.spyOn(reddit, 'getUserByUsername').mockImplementation(
+    async (username: string) =>
+      ({
+        id: `t2_${username}`,
+        username,
+        getSnoovatarUrl: async () => 'https://example.com/snoo.png',
+      }) as any
+  );
 
   try {
     // Opt-in three users and set timezones (two in Eastern, one in IST)
@@ -79,9 +84,14 @@ it('sendGroupNow sends bulk push and clears the group', async () => {
   vi.setSystemTime(new Date('2025-01-01T12:00:00.000Z'));
 
   const runJobSpy = vi.spyOn(scheduler, 'runJob').mockResolvedValue('job');
-  const getUserSpy = vi
-    .spyOn(reddit, 'getUserByUsername')
-    .mockImplementation(async (username: string) => ({ id: `t2_${username}` }) as any);
+  const getUserSpy = vi.spyOn(reddit, 'getUserByUsername').mockImplementation(
+    async (username: string) =>
+      ({
+        id: `t2_${username}`,
+        username,
+        getSnoovatarUrl: async () => 'https://example.com/snoo.png',
+      }) as any
+  );
   const bulkCalls: BulkPushNotifQueueOptions[] = [];
   const bulkSpy = vi
     .spyOn(pushnotif, 'bulkQueue')
@@ -134,9 +144,14 @@ it('sendDueGroups processes only due groups', async () => {
   vi.setSystemTime(new Date('2025-01-01T12:00:00.000Z'));
 
   const runJobSpy = vi.spyOn(scheduler, 'runJob').mockResolvedValue('job');
-  const getUserSpy = vi
-    .spyOn(reddit, 'getUserByUsername')
-    .mockImplementation(async (username: string) => ({ id: `t2_${username}` }) as any);
+  const getUserSpy = vi.spyOn(reddit, 'getUserByUsername').mockImplementation(
+    async (username: string) =>
+      ({
+        id: `t2_${username}`,
+        username,
+        getSnoovatarUrl: async () => 'https://example.com/snoo.png',
+      }) as any
+  );
   let bulkCount = 0;
   const bulkSpy = vi
     .spyOn(pushnotif, 'bulkQueue')
@@ -186,7 +201,12 @@ it('pendingStats and clearAllPending reflect queue state', async () => {
 
   vi.spyOn(scheduler, 'runJob').mockResolvedValue('job');
   vi.spyOn(reddit, 'getUserByUsername').mockImplementation(
-    async (username: string) => ({ id: `t2_${username}` }) as any
+    async (username: string) =>
+      ({
+        id: `t2_${username}`,
+        username,
+        getSnoovatarUrl: async () => 'https://example.com/snoo.png',
+      }) as any
   );
 
   await Reminders.setReminderForUsername({ username: 'alice' });
@@ -216,7 +236,12 @@ it('resumes from progress on retry and avoids duplicate sends', async () => {
 
   const runJobSpy = vi.spyOn(scheduler, 'runJob').mockResolvedValue('job');
   vi.spyOn(reddit, 'getUserByUsername').mockImplementation(
-    async (username: string) => ({ id: `t2_${username}` }) as any
+    async (username: string) =>
+      ({
+        id: `t2_${username}`,
+        username,
+        getSnoovatarUrl: async () => 'https://example.com/snoo.png',
+      }) as any
   );
 
   // Prepare >1000 recipients (ensures at least two batches with maxBatchSize=1000)
@@ -288,9 +313,14 @@ it('does not double-send when sendGroupNow is invoked concurrently', async () =>
   vi.setSystemTime(new Date('2025-01-01T12:00:00.000Z'));
 
   const runJobSpy = vi.spyOn(scheduler, 'runJob').mockResolvedValue('job');
-  const getUserSpy = vi
-    .spyOn(reddit, 'getUserByUsername')
-    .mockImplementation(async (username: string) => ({ id: `t2_${username}` }) as any);
+  const getUserSpy = vi.spyOn(reddit, 'getUserByUsername').mockImplementation(
+    async (username: string) =>
+      ({
+        id: `t2_${username}`,
+        username,
+        getSnoovatarUrl: async () => 'https://example.com/snoo.png',
+      }) as any
+  );
 
   const bulkCalls: BulkPushNotifQueueOptions[] = [];
   const bulkSpy = vi
@@ -344,7 +374,12 @@ it('schedules delivery at correct local times for IANA timezones', async () => {
 
   vi.spyOn(scheduler, 'runJob').mockResolvedValue('job');
   vi.spyOn(reddit, 'getUserByUsername').mockImplementation(
-    async (username: string) => ({ id: `t2_${username}` }) as any
+    async (username: string) =>
+      ({
+        id: `t2_${username}`,
+        username,
+        getSnoovatarUrl: async () => 'https://example.com/snoo.png',
+      }) as any
   );
 
   try {

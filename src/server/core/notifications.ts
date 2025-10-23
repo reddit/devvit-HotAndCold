@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { fn } from '../../shared/fn';
-import { redis, scheduler, reddit } from '@devvit/web/server';
+import { redis, scheduler } from '@devvit/web/server';
 import { Reminders } from './reminder';
 import { pushnotif } from '@devvit/pushnotif';
 import type { BulkPushNotifQueueOptions } from '@devvit/pushnotif';
@@ -133,6 +133,28 @@ export namespace Notifications {
     return `UTC${sign}${hh}:${mm}`;
   }
 
+  // Concurrency utility for fast Redis-bound workflows
+  async function parallelLimit<T, R>(
+    items: readonly T[],
+    limit: number,
+    mapper: (item: T, index: number) => Promise<R>
+  ): Promise<R[]> {
+    const results: R[] = new Array(items.length);
+    let next = 0;
+    async function worker(): Promise<void> {
+      for (;;) {
+        const i = next++;
+        if (i >= items.length) break;
+        const item = items[i];
+        if (item === undefined) continue;
+        results[i] = await mapper(item as T, i);
+      }
+    }
+    const workers = Array.from({ length: Math.min(limit, items.length) }, worker);
+    await Promise.all(workers);
+    return results;
+  }
+
   export const enqueueNewChallengeByTimezone = fn(
     z.object({
       challengeNumber: z.number().int().gt(0),
@@ -159,51 +181,115 @@ export namespace Notifications {
         dryRun,
         createdAtIso: new Date(createdAtMs).toISOString(),
       });
+      const tFetchRecipientsStart = Date.now();
       const recipients = await Reminders.getAllUsersOptedIntoReminders();
       const usernames = recipients.map((r) => r.member);
       console.log('[Notifications] reminder recipients fetched', {
         usernames: usernames.length,
+        elapsedMs: Date.now() - tFetchRecipientsStart,
       });
 
       const zoneToRecipients = new Map<string, Recipient[]>();
+      const totals = {
+        totalRecipients: usernames.length,
+        resolvedIds: 0,
+        missingIds: 0,
+        cachedId: 0,
+        apiLookupId: 0,
+        apiLookupFailures: 0,
+        timezoneHits: 0,
+        timezoneMissing: 0,
+        defaultedTimezone: 0,
+      };
+      const tMapStart = Date.now();
+      // Stage 1: Resolve user ids from Redis mapping only (no Reddit API fallbacks)
+      const idResults = await parallelLimit(usernames, 1000, async (username) => {
+        const id = await User.lookupIdByUsername(username);
+        return { username, userId: id };
+      });
+      const withIds = idResults.filter((r) => r.userId !== null) as Array<{
+        username: string;
+        userId: string;
+      }>;
+      totals.resolvedIds = withIds.length;
+      totals.missingIds = usernames.length - withIds.length;
+      totals.cachedId = withIds.length; // all ids came from cache
+      totals.apiLookupId = 0;
+      totals.apiLookupFailures = 0;
 
-      async function resolveUserIdForUsername(username: string): Promise<string | null> {
-        const mapped = await User.lookupIdByUsername(username);
-        if (mapped) return mapped;
-        try {
-          const u = await reddit.getUserByUsername(username);
-          return (u as any)?.id ?? null;
-        } catch {
-          return null;
-        }
-      }
-
-      for (const username of usernames) {
-        const userId = await resolveUserIdForUsername(username);
-        if (!userId) continue;
-
+      // Stage 2: Fetch timezones in parallel with 1000-concurrency and group
+      const tzResults = await parallelLimit(withIds, 1000, async ({ username, userId }) => {
+        const tTzStart = Date.now();
         const iana = await Timezones.getUserTimezone({ username });
-        const zone = iana ?? 'America/New_York';
+        const tzLookupMs = Date.now() - tTzStart;
+        return { username, userId, iana, tzLookupMs };
+      });
+
+      let slowTzLookups = 0;
+      for (const r of tzResults) {
+        if (r.tzLookupMs > 200) slowTzLookups++;
+        const zone = r.iana ?? 'America/New_York';
+        if (r.iana) totals.timezoneHits++;
+        else {
+          totals.timezoneMissing++;
+          totals.defaultedTimezone++;
+        }
         const arr = zoneToRecipients.get(zone) ?? [];
-        arr.push({ userId, link: postId, data: { username } });
+        arr.push({ userId: r.userId, link: postId, data: { username: r.username } });
         zoneToRecipients.set(zone, arr);
       }
+      if (slowTzLookups > 0) {
+        console.log('[Notifications] slow timezone lookups', { count: slowTzLookups });
+      }
+
+      // Log grouping distribution summary
+      const groupingSummary: Array<{ zone: string; size: number }> = [];
+      for (const [z, rs] of zoneToRecipients.entries()) {
+        groupingSummary.push({ zone: z, size: rs.length });
+      }
+      groupingSummary.sort((a, b) => b.size - a.size);
+      const topZones = groupingSummary.slice(0, Math.min(10, groupingSummary.length));
+      console.log('[Notifications] timezone grouping summary', {
+        uniqueZones: zoneToRecipients.size,
+        topZones,
+        totals,
+        mapElapsedMs: Date.now() - tMapStart,
+      });
 
       const scheduled: Array<{ groupId: string; zone: string; dueAtMs: number; size: number }> = [];
 
-      for (const [zone, recipients] of zoneToRecipients.entries()) {
-        assertValidZoneString(zone);
+      // Coalesce by offset-at-due-time to ensure a single group per offset/dueAt
+      const buckets = new Map<
+        string,
+        { label: string; dueAtMs: number; recipients: Recipient[] }
+      >();
+      for (const [iana, recipients] of zoneToRecipients.entries()) {
         if (recipients.length === 0) continue;
-        // Compute dueAtMs using IANA for precise local time; group label by offset at due time
         const dueAtMs = nextLocalSendTimeUtcMsIana({
           baseUtcMs: createdAtMs,
-          timeZone: zone,
+          timeZone: iana,
           hourLocal: localSendHour,
           minuteLocal: localSendMinute,
         });
-        // Pick grouping label: for IANA, derive UTC± at the due time
-        const groupingLabel = utcOffsetLabelAt(zone, dueAtMs);
-        const groupId = generateGroupId(groupingLabel);
+        const label = utcOffsetLabelAt(iana, dueAtMs);
+        const key = `${label}|${dueAtMs}`;
+        const bucket = buckets.get(key);
+        if (bucket) bucket.recipients.push(...recipients);
+        else buckets.set(key, { label, dueAtMs, recipients: recipients.slice() });
+      }
+
+      for (const { label, dueAtMs, recipients } of buckets.values()) {
+        assertValidZoneString(label);
+        const groupId = generateGroupId(label);
+        const dueAtIso = new Date(dueAtMs).toISOString();
+        if (dryRun) {
+          console.log('[Notifications] group prepared (dry-run)', {
+            groupId,
+            zone: label,
+            size: recipients.length,
+            dueAtIso,
+          });
+        }
         if (!dryRun) {
           const payload: GroupPayload = {
             type: 'NEW_CHALLENGE',
@@ -211,26 +297,29 @@ export namespace Notifications {
             recipients,
             dueAtMs,
           };
-
-          // See top-level comment: store payload in HASH (by groupId) and schedule in ZSET by dueAtMs
+          const tStoreStart = Date.now();
           await redis.hSet(GroupPayloadsKey(), { [groupId]: JSON.stringify(payload) });
+          const tHsetMs = Date.now() - tStoreStart;
+          const tZaddStart = Date.now();
           await redis.zAdd(GroupPendingKey(), { member: groupId, score: dueAtMs });
-
+          const tZaddMs = Date.now() - tZaddStart;
+          const tSchedStart = Date.now();
           await scheduler.runJob({
             name: 'notifications-send-group',
             runAt: new Date(dueAtMs),
             data: { groupId },
           });
+          const tSchedMs = Date.now() - tSchedStart;
           console.log('[Notifications] scheduled group', {
             groupId,
-            zone: groupingLabel,
+            zone: label,
             size: recipients.length,
             dueAtMs,
             runAtIso: new Date(dueAtMs).toISOString(),
+            timingsMs: { hset: tHsetMs, zadd: tZaddMs, schedule: tSchedMs },
           });
         }
-
-        scheduled.push({ groupId, zone: groupingLabel, dueAtMs, size: recipients.length });
+        scheduled.push({ groupId, zone: label, dueAtMs, size: recipients.length });
       }
 
       // Sort by due time for nicer presentation
@@ -245,6 +334,7 @@ export namespace Notifications {
         firstRunAtIso: scheduled[0]?.dueAtMs
           ? new Date(scheduled[0].dueAtMs).toISOString()
           : undefined,
+        totals,
       });
       return {
         groups: scheduled,
