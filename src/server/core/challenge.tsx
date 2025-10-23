@@ -174,6 +174,32 @@ export namespace Challenge {
     async (input) => {
       const enqueueNotifications = input?.enqueueNotifications ?? true;
       console.log('Making new challenge...');
+      // Guard against manual double-creation in the same UTC day
+      const today = new Date().toISOString().slice(0, 10);
+      const postedKey = `challenge:posted:${today}`;
+      const already = await redis.get(postedKey);
+      if (already) {
+        try {
+          const parsed = JSON.parse(already) as { c?: number; postId?: string };
+          const postId = parsed?.postId;
+          let postUrl: string | undefined;
+          if (postId) {
+            try {
+              const post = await reddit.getPostById(postId as any);
+              postUrl = post.url;
+            } catch {
+              // ignore
+            }
+          }
+          return {
+            postId,
+            postUrl,
+            challenge: parsed?.c ?? (await getCurrentChallengeNumber()),
+          } as const;
+        } catch {
+          // fall through to creation if parsing fails
+        }
+      }
       const [currentChallengeNumber, currentSubreddit] = await Promise.all([
         getCurrentChallengeNumber(),
         reddit.getCurrentSubreddit(),
@@ -271,15 +297,24 @@ Enjoy! If you have feedback on how we can improve the game, please let us know!
 
         if (enqueueNotifications) {
           try {
-            await Notifications.enqueueNewChallengeByTimezone({
-              challengeNumber: newChallengeNumber,
-              postId: post.id,
-              postUrl: post.url,
-            });
+            // Ensure notifications are only enqueued once per challenge
+            const notifKey = `notifications:enqueued:ch:${newChallengeNumber}`;
+            const first = await redis.incrBy(notifKey, 1);
+            if (first === 1) {
+              await Notifications.enqueueNewChallengeByTimezone({
+                challengeNumber: newChallengeNumber,
+                postId: post.id,
+                postUrl: post.url,
+              });
+            } else {
+              console.log('Notifications already enqueued for challenge', newChallengeNumber);
+            }
           } catch (e) {
             console.error('Failed to schedule reminder notifications', e);
           }
         }
+        // Record daily marker after successful creation and setup
+        await redis.set(postedKey, JSON.stringify({ c: newChallengeNumber, postId: post.id }));
 
         return {
           postId: post.id,
@@ -379,5 +414,60 @@ Enjoy! If you have feedback on how we can improve the game, please let us know!
     }
 
     return { updated } as const;
+  });
+
+  export const ensureLatestClassicPostOrRetry = fn(z.void(), async () => {
+    // Daily idempotency using UTC date; lock with short TTL to avoid duplicate posts
+    const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD (UTC)
+    const postedKey = `challenge:posted:${today}`;
+    const lockKey = `challenge:ensure:${today}:lock`;
+
+    // Fast path: if we've already recorded today's post, exit
+    const readMarker = async (): Promise<{ c?: number; postId?: string } | null> => {
+      const raw = await redis.get(postedKey);
+      if (!raw) return null;
+      try {
+        return JSON.parse(raw) as { c?: number; postId?: string };
+      } catch {
+        return null;
+      }
+    };
+
+    const existing = await readMarker();
+    if (existing) {
+      return {
+        status: 'exists' as const,
+        challengeNumber: existing.c ?? (await getCurrentChallengeNumber()),
+        postId: existing.postId ?? null,
+      };
+    }
+
+    // Acquire short-lived creation lock (first writer proceeds)
+    const claim = await redis.incrBy(lockKey, 1);
+    if (claim === 1) {
+      // Ensure lock auto-expires to allow later retries on failure
+      await redis.expire(lockKey, 5 * 60);
+    } else {
+      return { status: 'skipped' as const };
+    }
+
+    // Double-check after acquiring the lock to avoid races
+    const recheck = await readMarker();
+    if (recheck) {
+      return {
+        status: 'exists' as const,
+        challengeNumber: recheck.c ?? (await getCurrentChallengeNumber()),
+        postId: recheck.postId ?? null,
+      };
+    }
+
+    // Create the new challenge once and record the daily marker
+    const created = await makeNewChallenge({ enqueueNotifications: true });
+    await redis.set(postedKey, JSON.stringify({ c: created.challenge, postId: created.postId }));
+    return {
+      status: 'created' as const,
+      challengeNumber: created.challenge,
+      postId: created.postId,
+    };
   });
 }

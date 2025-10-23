@@ -126,6 +126,13 @@
         "endpoint": "/internal/menu/analytics/sync-user-props"
       },
       {
+        "label": "[ops] Warm user cache",
+        "forUserType": "moderator",
+        "location": "subreddit",
+        "description": "classic",
+        "endpoint": "/internal/menu/users/warm-cache"
+      },
+      {
         "label": "[migrate] Timezones: Offsets → IANA",
         "forUserType": "moderator",
         "location": "subreddit",
@@ -148,6 +155,21 @@
         "endpoint": "/internal/scheduler/create-new-challenge",
         "data": {}
       },
+      "create-new-challenge-retry-1": {
+        "cron": "5 12 * * *",
+        "endpoint": "/internal/scheduler/create-new-challenge-retry",
+        "data": {}
+      },
+      "create-new-challenge-retry-2": {
+        "cron": "15 12 * * *",
+        "endpoint": "/internal/scheduler/create-new-challenge-retry",
+        "data": {}
+      },
+      "create-new-challenge-retry-3": {
+        "cron": "30 12 * * *",
+        "endpoint": "/internal/scheduler/create-new-challenge-retry",
+        "data": {}
+      },
       "update-post-data": {
         "cron": "*/5 * * * *",
         "endpoint": "/internal/scheduler/update-post-data",
@@ -159,6 +181,7 @@
         "data": {}
       },
       "notifications-send-group": "/internal/scheduler/notifications-send-group",
+      "users-warm-cache": "/internal/scheduler/users-warm-cache",
       "posthog-user-prop-sync": {
         "cron": "0 3 * * *",
         "endpoint": "/internal/scheduler/posthog-user-prop-sync",

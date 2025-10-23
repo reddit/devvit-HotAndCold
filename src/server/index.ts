@@ -487,6 +487,9 @@ app.use(
       if (message.includes('You already guessed')) {
         return;
       }
+      if (message.includes('User not found')) {
+        return;
+      }
 
       // Surface all other procedure errors on the server for debugging/observability
       console.error('[tRPC error]', {
@@ -1093,16 +1096,14 @@ app.post('/internal/menu/migrate-secret-words', async (_req, res): Promise<void>
 app.post('/internal/scheduler/create-new-challenge', async (_req, res): Promise<void> => {
   try {
     console.log('[Scheduler] create-new-challenge invoked');
-    await Challenge.makeNewChallenge({ enqueueNotifications: true });
-    console.log('[Scheduler] create-new-challenge completed');
-    res.json({
-      status: 'success',
-    });
+    const result = await Challenge.ensureLatestClassicPostOrRetry();
+    console.log('[Scheduler] create-new-challenge result', result);
+    res.json({ status: 'success', result });
   } catch (error) {
     console.error(`Error creating new challenge from scheduler: ${error}`);
     res.status(400).json({
       status: 'error',
-      message: 'Failed to create post',
+      message: 'Failed to create or ensure post',
     });
   }
 });
@@ -1123,6 +1124,22 @@ app.post('/internal/scheduler/update-post-data', async (_req, res): Promise<void
     });
   }
 });
+
+// Retry: Ensure a challenge exists shortly after the main cron time and a few times later.
+// This endpoint is idempotent and safe to call; it will create only if missing for today,
+// maintain unique challenge numbers, and enqueue notifications at most once.
+app.post('/internal/scheduler/create-new-challenge-retry', async (_req, res): Promise<void> => {
+  try {
+    console.log('[Scheduler] create-new-challenge-retry invoked');
+    const result = await Challenge.ensureLatestClassicPostOrRetry();
+    console.log('[Scheduler] create-new-challenge-retry result', result);
+    res.json({ status: 'success', result });
+  } catch (error) {
+    console.error('Error in create-new-challenge-retry:', error);
+    res.status(400).json({ status: 'error', message: 'Retry failed' });
+  }
+});
+
 // Backup sweeper: drains any due groups that may have been missed by the
 // precise one-off job executor. See Notifications.sendDueGroups and
 // the architecture notes in Notifications for details.
@@ -1172,6 +1189,96 @@ app.post('/internal/scheduler/notifications-send-group', async (req, res): Promi
   } catch (error) {
     console.error('Error sending notification group:', error);
     res.status(400).json({ status: 'error', message: 'Failed to send group' });
+  }
+});
+
+// Scheduler: users-warm-cache — process a batch and requeue until done
+app.post('/internal/scheduler/users-warm-cache', async (req, res): Promise<void> => {
+  const startedAt = Date.now();
+  try {
+    const body = (req.body as any) ?? {};
+    const data = body?.data ?? {};
+    const cursor = Number.parseInt(String(data?.cursor ?? '0'), 10) || 0;
+    const processedSoFar = Number.parseInt(String(data?.processed ?? '0'), 10) || 0;
+    const batchSize = Number.parseInt(String(data?.batchSize ?? '200'), 10) || 200;
+    console.log('[WarmCache] batch start', { cursor, processedSoFar, batchSize });
+
+    // Scan a chunk of reminder users
+    const scanStart = Date.now();
+    const { nextCursor, members, done } = await Reminders.scanUsers({ cursor, limit: batchSize });
+    console.log('[WarmCache] scan complete', {
+      scanned: members.length,
+      nextCursor,
+      done,
+      elapsedMs: Date.now() - scanStart,
+    });
+
+    // Process one batch (<= batchSize) and then daisy-chain
+    const tBatchStart = Date.now();
+    let ok = 0;
+    let fail = 0;
+    for (const username of members) {
+      try {
+        await User.getByUsername(username);
+        ok++;
+      } catch {
+        fail++;
+      }
+    }
+    const processedInThisHandler = members.length;
+    console.log('[WarmCache] processed batch', {
+      size: processedInThisHandler,
+      ok,
+      fail,
+      elapsedMs: Date.now() - tBatchStart,
+      totalProcessed: processedSoFar + processedInThisHandler,
+    });
+
+    const newProcessedTotal = processedSoFar + processedInThisHandler;
+    const totalElapsed = Date.now() - startedAt;
+    console.log('[WarmCache] batch end', {
+      processedInThisHandler,
+      newProcessedTotal,
+      nextCursor,
+      done,
+      elapsedMs: totalElapsed,
+    });
+
+    // Daisy-chain next batch if not done and there is more to scan
+    if (!done) {
+      await scheduler.runJob({
+        name: 'users-warm-cache',
+        runAt: new Date(),
+        data: { cursor: nextCursor, processed: newProcessedTotal, batchSize },
+      });
+      res.json({ status: 'success', requeued: true, nextCursor, processed: newProcessedTotal });
+      return;
+    }
+
+    res.json({ status: 'success', requeued: false, processed: newProcessedTotal });
+  } catch (error: any) {
+    console.error('[WarmCache] batch error', {
+      message: error?.message,
+      name: error?.name,
+      stack: error?.stack,
+    });
+    // Attempt to requeue with same cursor to continue despite transient failure
+    try {
+      const body = (req.body as any) ?? {};
+      const data = body?.data ?? {};
+      const cursor = Number.parseInt(String(data?.cursor ?? '0'), 10) || 0;
+      const processed = Number.parseInt(String(data?.processed ?? '0'), 10) || 0;
+      const batchSize = Number.parseInt(String(data?.batchSize ?? '200'), 10) || 200;
+      await scheduler.runJob({
+        name: 'users-warm-cache',
+        runAt: new Date(),
+        data: { cursor, processed, batchSize },
+      });
+      console.log('[WarmCache] requeued after error', { cursor, processed, batchSize });
+    } catch (e) {
+      console.error('[WarmCache] failed to requeue after error', e);
+    }
+    res.status(500).json({ status: 'error', message: 'Failed during user cache warming' });
   }
 });
 
@@ -1502,6 +1609,8 @@ app.post('/internal/menu/export-last-30-days', async (_req, res): Promise<void> 
 
 // [notifications] Dry run notifications for latest challenge (immediate action)
 app.post('/internal/menu/notifications/dry-run-latest', async (_req, res): Promise<void> => {
+  const handlerStartMs = Date.now();
+  console.log('[Menu] notifications dry-run-latest invoked');
   try {
     const { userId } = context;
     if (!userId) {
@@ -1511,7 +1620,12 @@ app.post('/internal/menu/notifications/dry-run-latest', async (_req, res): Promi
       return;
     }
 
+    const tGetUserStart = Date.now();
     const me = await reddit.getUserById(userId);
+    console.log('[Menu] notifications dry-run-latest resolved invoking user', {
+      elapsedMs: Date.now() - tGetUserStart,
+      hasUser: !!me,
+    });
     if (!me) {
       res.status(400).json({
         showToast: 'Could not resolve current user',
@@ -1519,15 +1633,41 @@ app.post('/internal/menu/notifications/dry-run-latest', async (_req, res): Promi
       return;
     }
 
+    const tGetChallengeStart = Date.now();
     const challengeNumber = await Challenge.getCurrentChallengeNumber();
+    console.log('[Menu] notifications dry-run-latest got current challenge number', {
+      challengeNumber,
+      elapsedMs: Date.now() - tGetChallengeStart,
+    });
+
+    const tGetPostIdStart = Date.now();
     const currentPostId = await Challenge.getPostIdForChallenge({ challengeNumber });
-    const { groups, totalRecipients } = await Notifications.enqueueNewChallengeByTimezone({
+    console.log('[Menu] notifications dry-run-latest got current post id', {
+      challengeNumber,
+      postId: currentPostId,
+      elapsedMs: Date.now() - tGetPostIdStart,
+    });
+
+    const enqueueOpts = {
       challengeNumber: Math.max(1, challengeNumber || 1),
       postId: currentPostId ?? 't3_placeholder',
       postUrl: 'https://reddit.com',
       localSendHour: 9,
       localSendMinute: 0,
-      dryRun: true,
+      dryRun: true as const,
+    };
+    console.log(
+      '[Menu] notifications dry-run-latest calling enqueueNewChallengeByTimezone',
+      enqueueOpts
+    );
+    const tEnqueueStart = Date.now();
+    const { groups, totalRecipients } = await Notifications.enqueueNewChallengeByTimezone({
+      ...enqueueOpts,
+    });
+    console.log('[Menu] notifications dry-run-latest enqueue completed', {
+      groups: groups.length,
+      totalRecipients,
+      elapsedMs: Date.now() - tEnqueueStart,
     });
 
     const subject = 'Hot & Cold - Dry run notifications preview';
@@ -1542,17 +1682,29 @@ app.post('/internal/menu/notifications/dry-run-latest', async (_req, res): Promi
     }
     const body = lines.join('\n');
 
+    const tDmStart = Date.now();
     await reddit.sendPrivateMessage({
       to: me.username,
       subject,
       text: body,
+    });
+    console.log('[Menu] notifications dry-run-latest DM sent', {
+      to: me.username,
+      bodyLength: body.length,
+      elapsedMs: Date.now() - tDmStart,
+      totalElapsedMs: Date.now() - handlerStartMs,
     });
 
     res.status(200).json({
       showToast: 'Sent dry-run preview via DM',
     });
   } catch (err: any) {
-    console.error('Failed dry-run notifications DM', err);
+    console.error('Failed dry-run notifications DM', {
+      message: err?.message,
+      name: err?.name,
+      stack: err?.stack,
+      totalElapsedMs: Date.now() - handlerStartMs,
+    });
     res.status(500).json({
       showToast: {
         text: err?.message || 'Failed to send dry-run notifications DM',
@@ -1579,6 +1731,26 @@ app.post('/internal/menu/analytics/sync-user-props', async (_req, res): Promise<
     console.error('Failed to start PostHog user property sync', err);
     res.status(500).json({
       showToast: { text: err?.message || 'Failed to start sync', appearance: 'neutral' },
+    });
+  }
+});
+
+// Ops menu: Warm user cache by iterating reminders in batches
+app.post('/internal/menu/users/warm-cache', async (_req, res): Promise<void> => {
+  try {
+    console.log('[Menu] Starting users-warm-cache job chain');
+    await scheduler.runJob({
+      name: 'users-warm-cache',
+      runAt: new Date(),
+      data: { cursor: 0, processed: 0, batchSize: 200 },
+    });
+    res.status(200).json({
+      showToast: { text: 'Started user cache warming', appearance: 'success' },
+    });
+  } catch (err: any) {
+    console.error('Failed to start users-warm-cache', err);
+    res.status(500).json({
+      showToast: { text: err?.message || 'Failed to start warming', appearance: 'neutral' },
     });
   }
 });
