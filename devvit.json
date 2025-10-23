@@ -22,7 +22,8 @@
     "queueClearForm": "/internal/form/queue/clear",
     "postCreateForm": "/internal/form/post-create",
     "notificationsManageForm": "/internal/form/notifications/manage",
-    "notificationsSendSingleForm": "/internal/form/notifications/send-single"
+    "notificationsSendSingleForm": "/internal/form/notifications/send-single",
+    "cleanupUsersForm": "/internal/form/admin/cleanup-users"
   },
   "menu": {
     "items": [
@@ -127,6 +128,13 @@
         "location": "subreddit",
         "description": "classic",
         "endpoint": "/internal/menu/timezones/migrate-to-iana"
+      },
+      {
+        "label": "[ops] Remove reminders/timezones",
+        "forUserType": "moderator",
+        "location": "subreddit",
+        "description": "classic",
+        "endpoint": "/internal/menu/admin/cleanup-users"
       }
     ]
   },

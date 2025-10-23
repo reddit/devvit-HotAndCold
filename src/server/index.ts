@@ -1193,6 +1193,28 @@ app.post('/internal/menu/notifications/manage', async (_req, res): Promise<void>
   });
 });
 
+// [ops] Remove reminders/timezones (form launcher)
+app.post('/internal/menu/admin/cleanup-users', async (_req, res): Promise<void> => {
+  res.status(200).json({
+    showForm: {
+      name: 'cleanupUsersForm',
+      form: {
+        title: 'Remove reminders and timezones',
+        acceptLabel: 'Remove',
+        fields: [
+          {
+            name: 'usernamesCsv',
+            label: 'Usernames (comma-separated)',
+            type: 'paragraph',
+            required: true,
+            placeholder: 'user1, user2, user3',
+          },
+        ],
+      },
+    },
+  });
+});
+
 // [notifications] Send single (form launcher)
 app.post('/internal/menu/notifications/send-single', async (_req, res): Promise<void> => {
   res.status(200).json({
@@ -1295,6 +1317,64 @@ app.post('/internal/form/notifications/send-single', async (req, res): Promise<v
     console.error('Failed to send single notification', err);
     res.status(500).json({
       showToast: { text: err?.message || 'Failed to send notification', appearance: 'neutral' },
+    });
+  }
+});
+
+// [ops] Remove reminders/timezones (form handler)
+app.post('/internal/form/admin/cleanup-users', async (req, res): Promise<void> => {
+  try {
+    const { usernamesCsv } = (req.body as any) ?? {};
+    if (typeof usernamesCsv !== 'string' || usernamesCsv.trim().length === 0) {
+      res.status(400).json({
+        showToast: { text: 'Usernames are required', appearance: 'neutral' },
+      });
+      return;
+    }
+
+    const usernames = usernamesCsv
+      .split(',')
+      .map((u: string) => u.trim())
+      .filter((u: string) => u.length > 0);
+
+    if (usernames.length === 0) {
+      res.status(400).json({
+        showToast: { text: 'No usernames provided after parsing', appearance: 'neutral' },
+      });
+      return;
+    }
+
+    let remindersRemoved = 0;
+    let timezonesCleared = 0;
+    const failures: Array<{ username: string; error: string }> = [];
+
+    for (const username of usernames) {
+      try {
+        await Reminders.removeReminderForUsername({ username });
+        remindersRemoved++;
+      } catch (e: any) {
+        failures.push({ username, error: e?.message || 'Failed to remove reminder' });
+      }
+      try {
+        await Timezones.clearUserTimezone({ username });
+        timezonesCleared++;
+      } catch (e: any) {
+        failures.push({ username, error: e?.message || 'Failed to clear timezone' });
+      }
+    }
+
+    const issues = failures.length
+      ? ` | Failed: ${[...new Set(failures.map((f) => f.username))].join(', ')}`
+      : '';
+    const text = `Removed reminders: ${remindersRemoved} | Cleared timezones: ${timezonesCleared}${issues}`;
+
+    res.status(200).json({
+      showToast: { text, appearance: failures.length === 0 ? 'success' : 'neutral' },
+    });
+  } catch (err: any) {
+    console.error('Failed to cleanup users', err);
+    res.status(500).json({
+      showToast: { text: err?.message || 'Failed to cleanup users', appearance: 'neutral' },
     });
   }
 });

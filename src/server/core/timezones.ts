@@ -12,9 +12,9 @@ export namespace Timezones {
   const OFFSET_TO_IANA: Record<string, string> = {
     // North America
     'UTC-08:00': 'America/Los_Angeles',
-    'UTC-07:00': 'America/Denver',
-    'UTC-06:00': 'America/Chicago',
-    'UTC-05:00': 'America/New_York',
+    'UTC-07:00': 'America/Los_Angeles',
+    'UTC-06:00': 'America/Denver',
+    'UTC-05:00': 'America/Chicago',
     'UTC-04:00': 'America/New_York',
 
     // Europe
