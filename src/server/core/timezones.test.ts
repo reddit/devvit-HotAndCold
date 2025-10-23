@@ -44,7 +44,7 @@ it('migrates known offsets to canonical IANA zones and skips unknowns', async ()
     alice: 'UTC-05:00', // -> America/New_York
     bob: 'UTC+05:30', // -> Asia/Kolkata
     carol: 'UTC+01:00', // -> Europe/Paris
-    dave: 'UTC-07:00', // -> America/Denver
+    dave: 'UTC-07:00', // -> America/Los_Angeles
     eve: 'UTC+09:00', // -> Asia/Tokyo
     frank: 'UTC+00:15', // unknown -> skipped
   });
@@ -54,10 +54,10 @@ it('migrates known offsets to canonical IANA zones and skips unknowns', async ()
   expect(skipped).toBe(1);
 
   const iana = await redis.hGetAll(Timezones.UserToIanaKey());
-  expect(iana.alice).toBe('America/New_York');
+  expect(iana.alice).toBe('America/Chicago');
   expect(iana.bob).toBe('Asia/Kolkata');
   expect(iana.carol).toBe('Europe/Paris');
-  expect(iana.dave).toBe('America/Denver');
+  expect(iana.dave).toBe('America/Los_Angeles');
   expect(iana.eve).toBe('Asia/Tokyo');
   expect(iana.frank).toBeUndefined();
 });

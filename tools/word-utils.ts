@@ -2,9 +2,9 @@
 // Feel free to extend this list or tweak the predicates as needs evolve.
 
 import OpenAI from 'openai';
-import fs from 'node:fs/promises';
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+// import fs from 'node:fs/promises';
+// import path from 'node:path';
+// import { fileURLToPath } from 'node:url';
 
 // ---------------------------------------------------------------------------
 // OpenAI Lemmatizer Setup
@@ -18,42 +18,42 @@ function getOpenAIKey(): string {
   return key;
 }
 
-const LEMMA_SYSTEM_PROMPT = `You are a English lemmatizer.
-Given a single English token, return ONLY its lemma (dictionary base form).
+// const LEMMA_SYSTEM_PROMPT = `You are a English lemmatizer.
+// Given a single English token, return ONLY its lemma (dictionary base form).
 
-Rules:
-- Output exactly one lowercase word, no punctuation, no quotes, no extra text.
-- If the input is already a lemma, return it unchanged.
-- Handle nouns, verbs, adjectives, adverbs.
-- Do not translate or explain. If unsure, return the input as-is.
-- Keep proper nouns lowercase as provided.
+// Rules:
+// - Output exactly one lowercase word, no punctuation, no quotes, no extra text.
+// - If the input is already a lemma, return it unchanged.
+// - Handle nouns, verbs, adjectives, adverbs.
+// - Do not translate or explain. If unsure, return the input as-is.
+// - Keep proper nouns lowercase as provided.
 
-Examples:
-doing -> do
-apples -> apple
-eyeball -> eyeball
-when -> when
-running -> run
-children -> child
-chronologically -> chronology
-mathematically -> mathematics
-geese -> goose`;
+// Examples:
+// doing -> do
+// apples -> apple
+// eyeball -> eyeball
+// when -> when
+// running -> run
+// children -> child
+// chronologically -> chronology
+// mathematically -> mathematics
+// geese -> goose`;
 
-async function getLemmaFromOpenAI(word: string): Promise<string | null> {
-  const client = new OpenAI({ apiKey: getOpenAIKey() });
-  const response = await client.responses.create({
-    model: 'gpt-5',
-    reasoning: {
-      effort: 'minimal',
-      summary: 'auto',
-    },
-    instructions: LEMMA_SYSTEM_PROMPT,
-    input: `Input: ${word}\nOutput:`,
-  });
-  // Normalize: pick first alphabetical token, lowercase
-  const match = response.output_text.toLowerCase().match(/[a-z'-]+/);
-  return match ? match[0] : null;
-}
+// async function getLemmaFromOpenAI(word: string): Promise<string | null> {
+//   const client = new OpenAI({ apiKey: getOpenAIKey() });
+//   const response = await client.responses.create({
+//     model: 'gpt-5',
+//     reasoning: {
+//       effort: 'minimal',
+//       summary: 'auto',
+//     },
+//     instructions: LEMMA_SYSTEM_PROMPT,
+//     input: `Input: ${word}\nOutput:`,
+//   });
+//   // Normalize: pick first alphabetical token, lowercase
+//   const match = response.output_text.toLowerCase().match(/[a-z'-]+/);
+//   return match ? match[0] : null;
+// }
 
 // ---------------------------------------------------------------------------
 // LLM-based winner selection for conflicting lemmas
@@ -125,27 +125,27 @@ export async function chooseWinningLemma(word: string, candidates: string[]): Pr
 // Lemma CSV writer
 // ---------------------------------------------------------------------------
 
-const THIS_DIR = path.dirname(fileURLToPath(import.meta.url));
-const LEMMA_OUT_DIR = path.join(THIS_DIR, '..', 'new');
-const LEMMA_OUT_FILE = path.join(LEMMA_OUT_DIR, 'lemma.csv');
+// const THIS_DIR = path.dirname(fileURLToPath(import.meta.url));
+// const LEMMA_OUT_DIR = path.join(THIS_DIR, '..', 'new');
+// const LEMMA_OUT_FILE = path.join(LEMMA_OUT_DIR, 'lemma.csv');
 
-let lemmaFileInitialized = false;
+// let lemmaFileInitialized = false;
 
-async function ensureLemmaFileReady(): Promise<void> {
-  if (lemmaFileInitialized) return;
-  await fs.mkdir(LEMMA_OUT_DIR, { recursive: true });
-  try {
-    await fs.access(LEMMA_OUT_FILE);
-  } catch {
-    await fs.writeFile(LEMMA_OUT_FILE, 'word,lemma\n', 'utf8');
-  }
-  lemmaFileInitialized = true;
-}
+// async function ensureLemmaFileReady(): Promise<void> {
+//   if (lemmaFileInitialized) return;
+//   await fs.mkdir(LEMMA_OUT_DIR, { recursive: true });
+//   try {
+//     await fs.access(LEMMA_OUT_FILE);
+//   } catch {
+//     await fs.writeFile(LEMMA_OUT_FILE, 'word,lemma\n', 'utf8');
+//   }
+//   lemmaFileInitialized = true;
+// }
 
-async function appendLemmaPair(original: string, lemma: string): Promise<void> {
-  await ensureLemmaFileReady();
-  await fs.appendFile(LEMMA_OUT_FILE, `${original},${lemma}\n`, 'utf8');
-}
+// async function appendLemmaPair(original: string, lemma: string): Promise<void> {
+//   await ensureLemmaFileReady();
+//   await fs.appendFile(LEMMA_OUT_FILE, `${original},${lemma}\n`, 'utf8');
+// }
 
 class ProfanityFilter {
   private profanitySet: Set<string>;

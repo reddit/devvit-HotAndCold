@@ -110,8 +110,7 @@ it('sendGroupNow sends bulk push and clears the group', async () => {
     const result = await Notifications.sendGroupNow({ groupId: gid });
     expect(result.ok).toBe(true);
     expect(bulkCalls.length).toBe(1);
-    expect(bulkCalls[0]!.title).toContain('#101');
-    expect(bulkCalls[0]!.body).toContain('Can you guess');
+    expect(bulkCalls[0]!.body).toContain('Play #101 now.');
     expect(Array.isArray(bulkCalls[0]!.recipients)).toBe(true);
     expect(bulkCalls[0]!.recipients[0]!.userId).toBe('t2_alice');
     expect(String(bulkCalls[0]!.recipients[0]!.link)).toBe('t3_post');

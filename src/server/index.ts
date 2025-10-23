@@ -383,6 +383,10 @@ const appRouter = router({
       )
       .query(async ({ input }) => {
         const challengeNumber = input.challengeNumber;
+        // Gracefully handle unauthenticated context to avoid log noise
+        if (!context.userId) {
+          return [] as const;
+        }
         const current = await User.getCurrent();
         const username = current.username;
         const neighbors = await ChallengeProgress.getNearestByStartTime({
