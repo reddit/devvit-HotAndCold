@@ -1,4 +1,5 @@
 import { trpc } from '../trpc';
+import { context } from '@devvit/web/client';
 
 export type PlayerProgress = {
   username: string;
@@ -17,6 +18,7 @@ export async function getNearestPlayersByStartTime(params: {
   windowAfter?: number;
 }): Promise<PlayerProgress[]> {
   const { challengeNumber, windowBefore = 10, windowAfter = 10 } = params;
+  if (!context.userId) return [];
   const neighbors = await trpc.progress.nearestByStartTime.query({
     challengeNumber,
     windowBefore,

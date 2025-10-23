@@ -12,7 +12,7 @@ import {
   loadPreviousGuessesFromSession,
   selectNextHint,
 } from '../core/hints';
-// import { context } from '@devvit/web/client';
+import { context } from '@devvit/web/client';
 import { requireChallengeNumber } from '../requireChallengeNumber';
 import { userSettings, toggleLayout, toggleSortType, setReminderOptIn } from './state/userSettings';
 import { trpc } from '../trpc';
@@ -52,6 +52,7 @@ export function Header({ engine, isAdmin }: { engine?: GuessEngine; isAdmin: boo
 
   // Hydrate reminder opt-in state from server on mount
   useEffect(() => {
+    if (!context.userId) return;
     void (async () => {
       try {
         const isIn = await trpc.cta.isOptedIntoReminders.query();
@@ -81,6 +82,7 @@ export function Header({ engine, isAdmin }: { engine?: GuessEngine; isAdmin: boo
 
   async function toggleReminderShared() {
     try {
+      if (!context.userId) return isUserOptedIntoReminders;
       const timezone = getBrowserIanaTimeZone();
       const res = await trpc.cta.toggleReminder.mutate({ timezone });
       setReminderOptIn(res.newValue);

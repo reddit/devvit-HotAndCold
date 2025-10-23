@@ -82,6 +82,7 @@ const CallToAction = ({
   useEffect(() => {
     void (async () => {
       try {
+        if (!context.userId) return;
         const isOptedIn = await trpc.cta.isOptedIntoReminders.query();
         if (!isOptedIn) return;
         const timezone = getBrowserIanaTimeZone();

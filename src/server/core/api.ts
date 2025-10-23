@@ -95,7 +95,6 @@ export const getWordConfigCached = fn(
 
     // Try cache first. On any failure, fall back to fresh fetch.
     try {
-      console.log('Getting word config cached', key);
       const cached = await redis.get(key);
       if (cached) {
         try {

@@ -447,8 +447,6 @@ app.get('/api/challenges/:challengeNumber/:letter.csv', async (req, res): Promis
     const rawLetter = String(req.params.letter || '')
       .trim()
       .toLowerCase();
-    console.log('challengeNumber', challengeNumber);
-    console.log('rawLetter', rawLetter);
     if (!Number.isFinite(challengeNumber) || challengeNumber <= 0) {
       res.status(400).send('Invalid challenge number');
       return;
@@ -1224,7 +1222,7 @@ app.post('/internal/menu/notifications/send-single', async (_req, res): Promise<
         title: 'Send notification to user',
         acceptLabel: 'Send',
         fields: [
-          { name: 'username', label: 'Username', type: 'string', required: true },
+          { name: 'username', label: 'Username (case-sensitive)', type: 'string', required: true },
           { name: 'postId', label: 'Post ID (t3_...)', type: 'string', required: true },
           { name: 'title', label: 'Title', type: 'string', required: true },
           { name: 'body', label: 'Body', type: 'paragraph', required: true },
