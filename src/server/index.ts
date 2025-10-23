@@ -522,13 +522,22 @@ app.post('/internal/menu/post-create', async (_req, res): Promise<void> => {
 
 app.post('/internal/form/post-create', async (req, res): Promise<void> => {
   try {
-    const { skipNotifications } = (req.body as any) ?? {};
-    const post = await Challenge.makeNewChallenge({ enqueueNotifications: !skipNotifications });
+    const { skipNotifications, force } = (req.body as any) ?? {};
+    const post = await Challenge.makeNewChallenge({
+      enqueueNotifications: !skipNotifications,
+      force: !!force,
+    });
 
     res.json({
       navigateTo: post.postUrl,
       showToast: {
-        text: skipNotifications ? 'Post created (notifications skipped)' : 'Post created',
+        text: skipNotifications
+          ? force
+            ? 'Post created (forced; notifications skipped)'
+            : 'Post created (notifications skipped)'
+          : force
+            ? 'Post created (forced)'
+            : 'Post created',
         appearance: 'success',
       },
     });
@@ -835,6 +844,12 @@ app.post('/internal/menu/post-next', async (_req, res): Promise<void> => {
           {
             name: 'skipNotifications',
             label: 'Skip sending reminder DMs',
+            type: 'boolean',
+            defaultValue: false,
+          },
+          {
+            name: 'force',
+            label: 'Force allow multiple challenges today',
             type: 'boolean',
             defaultValue: false,
           },

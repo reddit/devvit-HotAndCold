@@ -174,3 +174,97 @@ it('makeNewChallenge respects daily marker and does not double-post or re-enqueu
     vi.useRealTimers();
   }
 });
+
+it('makeNewChallenge with force bypasses daily guard and creates another for same day', async () => {
+  await resetRedis();
+  vi.useFakeTimers();
+  vi.setSystemTime(new Date('2025-01-10T04:00:00.000Z'));
+
+  // Prepare two distinct words for two creations on the same day
+  vi.spyOn(api, 'getWordConfigCached').mockResolvedValue({} as any);
+  const shiftSpy = vi.spyOn(WordQueue, 'shift');
+  shiftSpy.mockResolvedValueOnce({ word: 'dayone' } as any);
+  shiftSpy.mockResolvedValueOnce({ word: 'dayone-forced' } as any);
+  vi.spyOn(reddit, 'getCurrentSubreddit').mockResolvedValue({ name: 'testsub' } as any);
+  const postSpy = vi
+    .spyOn(reddit, 'submitCustomPost')
+    .mockImplementationOnce(
+      async () => ({ id: 't3_first', url: 'https://example.com/first' }) as any
+    )
+    .mockImplementationOnce(
+      async () => ({ id: 't3_forced', url: 'https://example.com/forced' }) as any
+    );
+  vi.spyOn(reddit, 'submitComment').mockResolvedValue({ distinguish: async () => {} } as any);
+  vi.spyOn(settings, 'get').mockResolvedValue(undefined as any);
+  const notifSpy = vi
+    .spyOn(Notifications, 'enqueueNewChallengeByTimezone')
+    .mockResolvedValue({ groups: [], totalRecipients: 0, scheduled: 0 } as any);
+
+  try {
+    // First creation for the day (via ensure)
+    const first = await Challenge.ensureLatestClassicPostOrRetry();
+    expect(first.status).toBe('created');
+    expect(first.challengeNumber).toBe(1);
+    expect(first.postId).toBe('t3_first');
+
+    // Force-create another in the same day
+    const forced = await Challenge.makeNewChallenge({ force: true });
+    expect(forced.challenge).toBe(2);
+    expect(forced.postId).toBe('t3_forced');
+
+    // Marker updated to latest
+    const postedKey = `challenge:posted:${new Date().toISOString().slice(0, 10)}`;
+    const markerRaw = await redis.get(postedKey);
+    const marker = JSON.parse(String(markerRaw));
+    expect(marker.c).toBe(2);
+    expect(marker.postId).toBe('t3_forced');
+
+    // Current challenge number advanced
+    expect(await Challenge.getCurrentChallengeNumber()).toBe(2);
+
+    // Two posts created, notifications scheduled twice (distinct challenge numbers)
+    expect(postSpy).toHaveBeenCalledTimes(2);
+    expect(notifSpy).toHaveBeenCalledTimes(2);
+  } finally {
+    vi.useRealTimers();
+  }
+});
+
+it('makeNewChallenge uses zod defaults: enqueueNotifications=true and force=false', async () => {
+  await resetRedis();
+  vi.useFakeTimers();
+  vi.setSystemTime(new Date('2025-01-11T05:00:00.000Z'));
+
+  vi.spyOn(api, 'getWordConfigCached').mockResolvedValue({} as any);
+  const shiftSpy = vi.spyOn(WordQueue, 'shift');
+  shiftSpy.mockResolvedValueOnce({ word: 'default-a' } as any);
+  vi.spyOn(reddit, 'getCurrentSubreddit').mockResolvedValue({ name: 'testsub' } as any);
+  const postSpy = vi
+    .spyOn(reddit, 'submitCustomPost')
+    .mockImplementationOnce(
+      async () => ({ id: 't3_default1', url: 'https://example.com/d1' }) as any
+    );
+  vi.spyOn(reddit, 'submitComment').mockResolvedValue({ distinguish: async () => {} } as any);
+  vi.spyOn(settings, 'get').mockResolvedValue(undefined as any);
+  const notifSpy = vi
+    .spyOn(Notifications, 'enqueueNewChallengeByTimezone')
+    .mockResolvedValue({ groups: [], totalRecipients: 0, scheduled: 0 } as any);
+
+  try {
+    // Call without args → defaults apply (enqueueNotifications=true, force=false)
+    const created = await Challenge.makeNewChallenge();
+    expect(created.challenge).toBe(1);
+    expect(created.postId).toBe('t3_default1');
+    expect(postSpy).toHaveBeenCalledTimes(1);
+    expect(notifSpy).toHaveBeenCalledTimes(1);
+
+    // With daily marker in place, calling again without args should NOT force
+    const again = await Challenge.makeNewChallenge();
+    expect(again.challenge).toBe(1); // unchanged; early-return path
+    expect(again.postId).toBe('t3_default1');
+    expect(postSpy).toHaveBeenCalledTimes(1);
+    expect(notifSpy).toHaveBeenCalledTimes(1);
+  } finally {
+    vi.useRealTimers();
+  }
+});

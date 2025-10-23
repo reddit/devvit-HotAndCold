@@ -170,15 +170,20 @@ export namespace Challenge {
   );
 
   export const makeNewChallenge = fn(
-    z.object({ enqueueNotifications: z.boolean().optional() }).optional(),
+    z
+      .object({
+        enqueueNotifications: z.boolean().default(true),
+        force: z.boolean().default(false),
+      })
+      .default({ enqueueNotifications: true, force: false }),
     async (input) => {
-      const enqueueNotifications = input?.enqueueNotifications ?? true;
+      const { enqueueNotifications, force } = input;
       console.log('Making new challenge...');
       // Guard against manual double-creation in the same UTC day
       const today = new Date().toISOString().slice(0, 10);
       const postedKey = `challenge:posted:${today}`;
       const already = await redis.get(postedKey);
-      if (already) {
+      if (already && !force) {
         try {
           const parsed = JSON.parse(already) as { c?: number; postId?: string };
           const postId = parsed?.postId;
@@ -313,7 +318,7 @@ Enjoy! If you have feedback on how we can improve the game, please let us know!
             console.error('Failed to schedule reminder notifications', e);
           }
         }
-        // Record daily marker after successful creation and setup
+        // Record daily marker after successful creation and setup (even in force mode)
         await redis.set(postedKey, JSON.stringify({ c: newChallengeNumber, postId: post.id }));
 
         return {
