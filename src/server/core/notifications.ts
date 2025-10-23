@@ -429,6 +429,11 @@ export namespace Notifications {
         console.log('[Notifications] sendSingleNow user not found', { username });
         return { ok: false as const, reason: 'user-not-found' as const };
       }
+      const isOptedIn = await Reminders.isUserOptedIntoReminders({ username });
+      if (!isOptedIn) {
+        console.log('[Notifications] sendSingleNow user not opted-in', { username });
+        throw new Error('User is not opted into push notifications');
+      }
       try {
         const recipients: NonNullable<BulkPushNotifQueueOptions['recipients']> = [
           {
