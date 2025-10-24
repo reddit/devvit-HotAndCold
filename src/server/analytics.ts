@@ -133,6 +133,23 @@ async function readRequestBody(req: express.Request): Promise<Uint8Array | undef
   });
 }
 
+// These are errors that I don't think we can do anything about and the noisy up the logs
+function shouldSuppressProxyError(error: unknown, endpoint?: string): boolean {
+  try {
+    const message =
+      typeof error === 'string'
+        ? error
+        : ((error as { message?: string })?.message ?? String(error ?? ''));
+    const haystack = `${endpoint || ''} ${message}`.toLowerCase();
+    if (!haystack) return false;
+    const isPosthog = haystack.includes('posthog.com');
+    const is502 = haystack.includes('502') && haystack.includes('bad gateway');
+    return isPosthog && is502;
+  } catch {
+    return false;
+  }
+}
+
 export type AnalyticsRouterOptions = {
   posthogKey: string;
   ingestBase?: string;
@@ -176,6 +193,7 @@ export default function makeAnalyticsRouter(options: AnalyticsRouterOptions) {
   }): express.RequestHandler {
     const { targetBase, stripPrefix } = opts;
     return async (req, res) => {
+      let endpoint: string | undefined;
       try {
         const originalUrl = req.originalUrl || req.url;
         const idx = originalUrl.indexOf(stripPrefix);
@@ -187,7 +205,7 @@ export default function makeAnalyticsRouter(options: AnalyticsRouterOptions) {
 
         const headers = filterOutgoingRequestHeaders(req);
         const body = await readRequestBody(req);
-        const endpoint = targetUrl.toString();
+        endpoint = targetUrl.toString();
 
         // One last check!
         if (
@@ -249,7 +267,9 @@ export default function makeAnalyticsRouter(options: AnalyticsRouterOptions) {
           );
         }
       } catch (error) {
-        console.error('Proxy error:', error);
+        if (!shouldSuppressProxyError(error, endpoint)) {
+          console.error('Proxy error:', error);
+        }
         res.status(502).json({ error: 'Bad Gateway' });
       }
     };

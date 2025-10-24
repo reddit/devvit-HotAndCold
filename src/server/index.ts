@@ -900,7 +900,9 @@ app.post('/internal/triggers/on-comment-create', async (req, res): Promise<void>
     const postData: any = await post.getPostData();
     const parsed = Number.parseInt(String(postData?.challengeNumber ?? ''));
     if (!Number.isFinite(parsed) || parsed <= 0) {
-      throw new Error('Missing challengeNumber in postData');
+      // Not a game post; skip spoiler and !wtf handling
+      res.status(200).json({ handled: false, action: 'skip-non-challenge-post' });
+      return;
     }
     const challengeNumber = parsed;
 
