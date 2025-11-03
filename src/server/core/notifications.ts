@@ -3,7 +3,7 @@ import { fn } from '../../shared/fn';
 import { redis, scheduler } from '@devvit/web/server';
 import { Reminders } from './reminder';
 import { pushnotif } from '@devvit/pushnotif';
-import type { BulkPushNotifQueueOptions } from '@devvit/pushnotif';
+import type { EnqueueOptions } from '@devvit/pushnotif';
 import { User } from './user';
 import { Timezones } from './timezones';
 
@@ -414,12 +414,18 @@ export namespace Notifications {
       let nextIndex = startIndex;
       for (let i = 0; i < mappedRecipients.length; i += maxBatchSize) {
         const batchRecipients = mappedRecipients.slice(i, i + maxBatchSize);
-        const bulk: BulkPushNotifQueueOptions = {
+        const bulk: EnqueueOptions = {
           title,
           body,
           recipients: batchRecipients,
         };
-        await pushnotif.bulkQueue(bulk);
+        const resp = await pushnotif.enqueue(bulk);
+        console.log('[Notifications] sendGroupNow enqueued batch', {
+          i,
+          groupId,
+          resp,
+          elapsedMs: Date.now() - startMs,
+        });
         nextIndex += batchRecipients.length;
         await redis.hSet(GroupProgressKey(), { [groupId]: String(nextIndex) });
       }
@@ -525,17 +531,18 @@ export namespace Notifications {
         throw new Error('User is not opted into push notifications');
       }
       try {
-        const recipients: NonNullable<BulkPushNotifQueueOptions['recipients']> = [
+        const recipients: NonNullable<EnqueueOptions['recipients']> = [
           {
             userId: userId as `t2_${string}`,
             link: postId as `t3_${string}`,
             data: { username },
           },
         ];
-        await pushnotif.bulkQueue({ title, body, recipients });
+        const resp = await pushnotif.enqueue({ title, body, recipients });
         console.log('[Notifications] sendSingleNow completed', {
           username,
           postId,
+          response: resp,
           elapsedMs: Date.now() - startMs,
         });
         return { ok: true as const };
