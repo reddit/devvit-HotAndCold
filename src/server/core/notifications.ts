@@ -18,6 +18,11 @@ export namespace Notifications {
   //   Purpose: Track per-group send progress to avoid re-sending on retries.
   export const GroupProgressKey = () => `notifications:groups:progress` as const;
 
+  // ChallengeSentTotalKey: STRING notifications:challenge:<n>:sent_total
+  //   Purpose: Track total enqueued notifications for a challenge across all groups.
+  export const ChallengeSentTotalKey = (challengeNumber: number) =>
+    `notifications:challenge:${challengeNumber}:sent_total` as const;
+
   // Notification delivery architecture
   // - enqueueNewChallengeByTimezone creates one notification "group" per timezone cohort and:
   //   (a) stores the group's payload in a HASH keyed by groupId, and
@@ -380,6 +385,7 @@ export namespace Notifications {
       return { ok: false, reason: 'missing' } as const;
     }
     const payload = JSON.parse(raw) as GroupPayload;
+    const challengeNumberForCounter = Number(payload?.params?.challengeNumber) || 0;
     const progressStr = await redis.hGet(GroupProgressKey(), groupId);
     const startIndex = Number.parseInt(progressStr || '0', 10) || 0;
     const totalRecipients = Array.isArray(payload.recipients) ? payload.recipients.length : 0;
@@ -428,6 +434,12 @@ export namespace Notifications {
         });
         nextIndex += batchRecipients.length;
         await redis.hSet(GroupProgressKey(), { [groupId]: String(nextIndex) });
+        if (challengeNumberForCounter > 0) {
+          await redis.incrBy(
+            ChallengeSentTotalKey(challengeNumberForCounter),
+            batchRecipients.length
+          );
+        }
       }
     } catch (error) {
       console.error('[Notifications] error queuing push notifications', { groupId, error });
@@ -438,6 +450,14 @@ export namespace Notifications {
     }
     await redis.hDel(GroupProgressKey(), [groupId]);
     await redis.hDel(GroupPayloadsKey(), [groupId]);
+    if (challengeNumberForCounter > 0) {
+      const totalStr = await redis.get(ChallengeSentTotalKey(challengeNumberForCounter));
+      const total = Number(totalStr || '0') || 0;
+      console.log('[Notifications] challenge sent total', {
+        challengeNumber: challengeNumberForCounter,
+        total,
+      });
+    }
     console.log('[Notifications] sendGroupNow completed', {
       groupId,
       sent: count,
