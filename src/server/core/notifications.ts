@@ -23,7 +23,7 @@ export namespace Notifications {
   //   (a) stores the group's payload in a HASH keyed by groupId, and
   //   (b) adds the groupId to a ZSET scored by dueAtMs for ordered scans.
   // - For precise delivery, we also schedule a one-off job (notifications-send-group) at dueAtMs
-  //   that POSTs back with { groupId }. This is the primary/happy-path executor.
+  //   that POSTs back with { data: { groupId } }. This is the primary/happy-path executor.
   // - For resilience, an hourly backup sweep (see /internal/scheduler/process-notifications)
   //   scans the ZSET by score<=now and sends any due-but-missed groups. This protects against
   //   transient failures, deploys, or handler errors that could cause a one-off job to be missed.
@@ -423,7 +423,7 @@ export namespace Notifications {
         console.log('[Notifications] sendGroupNow enqueued batch', {
           i,
           groupId,
-          resp,
+          resp: JSON.stringify(resp),
           elapsedMs: Date.now() - startMs,
         });
         nextIndex += batchRecipients.length;

@@ -1193,8 +1193,9 @@ app.post('/internal/scheduler/posthog-user-prop-sync', async (req, res): Promise
 // One-off job target for scheduled timezone groups
 app.post('/internal/scheduler/notifications-send-group', async (req, res): Promise<void> => {
   try {
+    console.log('[Scheduler] [Notifications] notifications-send-group invoked', req.body);
     const body = (req.body as any) ?? {};
-    const groupId: string | undefined = body?.groupId;
+    const groupId: string | undefined = body?.data?.groupId as string | undefined;
     if (!groupId) {
       res.status(400).json({ status: 'error', message: 'groupId is required' });
       return;
