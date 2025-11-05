@@ -1408,6 +1408,16 @@ app.post('/internal/form/notifications/manage', async (req, res): Promise<void> 
     lines.push('Notifications queue stats');
     lines.push('');
     lines.push(`Total pending groups: ${s.total}`);
+    try {
+      const challengeNumber = await Challenge.getCurrentChallengeNumber();
+      const totalStr = await redis.get(Notifications.ChallengeSentTotalKey(challengeNumber));
+      const sentTotal = Number(totalStr || '0') || 0;
+      lines.push('');
+      lines.push(`Current challenge: #${challengeNumber}`);
+      lines.push(`Sent total (attempted enqueues): ${sentTotal}`);
+    } catch (e) {
+      // ignore failures reading sent counter
+    }
     if (s.next.length > 0) {
       lines.push('');
       lines.push('Next groups (up to 10):');
