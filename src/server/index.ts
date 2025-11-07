@@ -936,11 +936,13 @@ app.post('/internal/triggers/on-comment-create', async (req, res): Promise<void>
     const containsWtf = /!wtf\b/i.test(text);
     const isRoot = typeof parentId === 'string' && parentId === parentPostId;
     if (containsWtf) {
+      console.log('[!wtf] containsWtf', { text, containsWtf, isRoot });
       try {
         let sourceText = text;
         const isJustWtf = /^!wtf$/i.test(text);
         // If it's a bare !wtf on a reply (not root), use the parent comment's body as the source
         if (isJustWtf && !isRoot) {
+          console.log('[!wtf] isJustWtf and !isRoot', { parentId, parentPostId });
           try {
             const parentComment = await reddit.getCommentById(parentId as any);
             sourceText = parentComment.body;
@@ -949,10 +951,12 @@ app.post('/internal/triggers/on-comment-create', async (req, res): Promise<void>
           }
         }
 
+        console.log('[!wtf] sourceText. getting ready to explain...', { sourceText });
         const reply = await WtfResponder.explainCloseness({
           challengeNumber,
           raw: sourceText,
         });
+        console.log('[!wtf] reply', { reply });
         if (!reply) {
           res.status(200).json({ handled: true, action: 'wtf-noop' });
           return;
@@ -971,7 +975,9 @@ app.post('/internal/triggers/on-comment-create', async (req, res): Promise<void>
           });
         });
 
+        console.log('[!wtf] submitting comment', { commentId, richtext: builder });
         await reddit.submitComment({ id: commentId as any, richtext: builder });
+        console.log('[!wtf] comment submitted', { commentId });
         res.status(200).json({ handled: true, action: 'wtf-replied' });
         return;
       } catch (e) {
