@@ -19,10 +19,11 @@ export const initPosthog = ({ mode }: { mode: 'classic' | 'horde' }) => {
     api_host: window.location.origin + '/api/collect',
     defaults: '2025-05-24',
     capture_exceptions: true,
+    autocapture: false,
     disable_surveys: true,
     disable_session_recording: true,
-    enable_heatmaps: true,
-    capture_heatmaps: true,
+    enable_heatmaps: false,
+    capture_heatmaps: false,
     disable_compression: false,
     before_send: beforeSend(IS_PROD),
   });
