@@ -788,6 +788,67 @@ app.post('/internal/menu/joined-count', async (_req, res): Promise<void> => {
   }
 });
 
+// [stats] Players count (form launcher)
+app.post('/internal/menu/stats/players-count', async (_req, res): Promise<void> => {
+  try {
+    let defaultChallenge: number | undefined = undefined;
+    try {
+      defaultChallenge = await Challenge.getCurrentChallengeNumber();
+    } catch {
+      // ignore failure to compute default
+    }
+    res.status(200).json({
+      showForm: {
+        name: 'statsPlayersForm',
+        form: {
+          title: 'Players count for challenge',
+          acceptLabel: 'Check',
+          fields: [
+            {
+              name: 'challengeNumber',
+              label: 'Challenge Number',
+              type: 'number',
+              required: true,
+              ...(defaultChallenge ? { defaultValue: defaultChallenge } : {}),
+            },
+          ],
+        },
+      },
+    });
+  } catch (err: any) {
+    res.status(500).json({
+      showToast: {
+        text: err?.message || 'Failed to open players count form',
+        appearance: 'neutral',
+      },
+    });
+  }
+});
+
+// [stats] Players count (form handler)
+app.post('/internal/form/stats/players-count', async (req, res): Promise<void> => {
+  try {
+    const { challengeNumber } = (req.body as any) ?? {};
+    const parsed = Number.parseInt(String(challengeNumber), 10);
+    if (!Number.isFinite(parsed) || parsed <= 0) {
+      res.status(400).json({
+        showToast: { text: 'Invalid challenge number', appearance: 'neutral' },
+      });
+      return;
+    }
+    const challenge = await Challenge.getChallenge({ challengeNumber: parsed });
+    const totalPlayers = Number.parseInt(String(challenge.totalPlayers ?? '0'), 10) || 0;
+    const text = `#${parsed}: "${challenge.secretWord}" — Total players: ${totalPlayers}`;
+    res.status(200).json({
+      showToast: { text, appearance: 'success' },
+    });
+  } catch (err: any) {
+    res.status(500).json({
+      showToast: { text: err?.message || 'Failed to fetch players count', appearance: 'neutral' },
+    });
+  }
+});
+
 // [queue] DM full queue contents to invoking moderator (immediate action)
 app.post('/internal/menu/dm', async (_req, res): Promise<void> => {
   try {

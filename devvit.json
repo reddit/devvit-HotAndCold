@@ -26,7 +26,8 @@
     "postCreateForm": "/internal/form/post-create",
     "notificationsManageForm": "/internal/form/notifications/manage",
     "notificationsSendSingleForm": "/internal/form/notifications/send-single",
-    "cleanupUsersForm": "/internal/form/admin/cleanup-users"
+    "cleanupUsersForm": "/internal/form/admin/cleanup-users",
+    "statsPlayersForm": "/internal/form/stats/players-count"
   },
   "menu": {
     "items": [
@@ -145,6 +146,13 @@
         "location": "subreddit",
         "description": "classic",
         "endpoint": "/internal/menu/admin/cleanup-users"
+      },
+      {
+        "label": "[stats] Players count for challenge",
+        "forUserType": "moderator",
+        "location": "subreddit",
+        "description": "classic",
+        "endpoint": "/internal/menu/stats/players-count"
       }
     ]
   },

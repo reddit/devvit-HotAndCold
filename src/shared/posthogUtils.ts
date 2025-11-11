@@ -2,7 +2,7 @@ import { sanitizeValueForEvent, sanitizeKeyForEvent } from './sanitize';
 import { mapValueWithKeys } from './walk';
 import { sampleByDistinctId } from 'posthog-js/lib/src/customizations';
 
-const SAMPLE_RATE = 0.3;
+const SAMPLE_RATE = 0.05;
 
 export const beforeSend =
   (isProd: boolean) =>
