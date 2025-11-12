@@ -44,7 +44,7 @@ export const initPosthog = ({ mode }: { mode: 'classic' | 'horde' }) => {
   });
 
   const identify = async () => {
-    if (context.userId) {
+    if (context.userId && !posthog._isIdentified()) {
       const hashed = await hash(context.userId);
       // Identify sends an event, so you may want to limit how often you call it
       posthog.identify(hashed);
