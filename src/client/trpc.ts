@@ -107,23 +107,23 @@ const instrumentedFetch = async (
     }
 
     try {
-      posthog.captureException(
-        new Error(
-          `[tRPC httpBatch error] ${response.status} ${response.statusText} ${responseBodySnippet}`
-        ),
-        {
-          source: 'trpc-http-batch',
-          errorKind: 'response-not-ok',
-          traceparent: responseTraceparent ?? traceparent ?? null,
-          requestTraceparent: traceparent ?? null,
-          requestUrl: requestUrl ? sanitizeUrlLikeString(requestUrl) : null,
-          status: response.status,
-          statusText: response.statusText,
-          responseContentType: contentType,
-          responseBodySnippet,
-          responseBodyWasTruncated,
-        }
-      );
+      const errorString = `[tRPC httpBatch error] ${response.status} ${response.statusText} ${responseBodySnippet}`;
+      posthog.captureException(new Error(errorString), {
+        source: 'trpc-http-batch',
+        errorKind: 'response-not-ok',
+        traceparent: responseTraceparent ?? traceparent ?? null,
+        requestTraceparent: traceparent ?? null,
+        requestUrl: requestUrl ? sanitizeUrlLikeString(requestUrl) : null,
+        status: response.status,
+        statusText: response.statusText,
+        responseContentType: contentType,
+        responseBodySnippet,
+        responseBodyWasTruncated,
+        // We need to add a fingerprint manually because posthog incorrectly
+        // groups these errors by its fingerprint mechanism since app errors
+        // are captured on the same line.
+        $exception_fingerprint: errorString.slice(0, 250),
+      });
     } catch {
       // Never throw from telemetry
     }

@@ -16,7 +16,10 @@ export class ErrorBoundary extends Component {
     console.error('ErrorBoundary caught error', error);
     this.setState({ error: error.message });
     try {
-      posthog.captureException(error, { source: 'errorBoundary' });
+      posthog.captureException(error, {
+        source: 'errorBoundary',
+        $exception_fingerprint: error.message.slice(0, 250),
+      });
     } catch {
       // ignore
     }
