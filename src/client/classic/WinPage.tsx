@@ -14,6 +14,7 @@ import { ScoreBreakdownModal } from './scoreBreakdownModal';
 import { loadHintsForChallenge, type HintWord } from '../core/hints';
 import { context } from '@devvit/web/client';
 import { getBrowserIanaTimeZone } from '../../shared/timezones';
+import { formatCompactNumber } from '../../shared/formatCompactNumber';
 
 type LeaderboardEntry = { member: string; score: number };
 
@@ -301,8 +302,17 @@ export function WinPage() {
   };
 
   const playerRank = userRank ?? 0;
-  const totalPlayers = challengeInfo.totalPlayers || 1;
-  const percentageOutperformed = calculatePercentageOutperformed(playerRank, totalPlayers);
+  const totalPlayers = challengeInfo?.totalPlayers ?? 0;
+  const percentageOutperformed = calculatePercentageOutperformed(
+    playerRank,
+    Math.max(totalPlayers, 1)
+  );
+  const totalSolves = challengeInfo?.totalSolves ?? 0;
+  const totalGuesses = challengeInfo?.totalGuesses ?? 0;
+  const totalHints = challengeInfo?.totalHints ?? 0;
+  const totalGiveUps = challengeInfo?.totalGiveUps ?? 0;
+  const averageGuessesRaw = totalPlayers > 0 ? totalGuesses / totalPlayers : 0;
+  const averageGuessesRounded = Math.round(averageGuessesRaw * 10) / 10;
 
   const tabList = [
     { name: 'Me' },
@@ -394,20 +404,18 @@ export function WinPage() {
         {activeIndex === 1 && (
           <div className="flex flex-col gap-6">
             <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
-              <StatCard title="Total Players" value={challengeInfo?.totalPlayers ?? 0} />
-              <StatCard title="Total Solves" value={challengeInfo?.totalSolves ?? 0} />
-              <StatCard title="Total Guesses" value={challengeInfo?.totalGuesses ?? 0} />
-              <StatCard title="Total Hints" value={challengeInfo?.totalHints ?? 0} />
-              <StatCard title="Give Ups" value={challengeInfo?.totalGiveUps ?? 0} />
+              <StatCard title="Total Players" value={formatCompactNumber(totalPlayers)} />
+              <StatCard title="Total Solves" value={formatCompactNumber(totalSolves)} />
+              <StatCard title="Total Guesses" value={formatCompactNumber(totalGuesses)} />
+              <StatCard title="Total Hints" value={formatCompactNumber(totalHints)} />
+              <StatCard title="Give Ups" value={formatCompactNumber(totalGiveUps)} />
               <StatCard
                 title="Solve Rate"
                 value={`${Math.round(((challengeInfo?.totalSolves ?? 0) / (challengeInfo?.totalPlayers ?? 1)) * 100)}%`}
               />
               <StatCard
                 title="Average Guesses"
-                value={Math.round(
-                  (challengeInfo?.totalGuesses ?? 0) / (challengeInfo?.totalPlayers ?? 1)
-                )}
+                value={formatCompactNumber(averageGuessesRounded)}
               />
             </div>
           </div>
@@ -526,17 +534,9 @@ export function WinPage() {
 
             {leaderboard?.length ? (
               <div className="overflow-y-auto max-h-[50vh] rounded-lg border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900">
-                {leaderboard.map((entry, index, entries) => {
+                {leaderboard.map((entry, index) => {
                   const isCurrentUser = entry.member === challengeUserInfo.username;
-                  let rank = 1;
-                  if (index > 0) {
-                    const prevScore = entries[index - 1]?.score ?? entry.score;
-                    if (entry.score === prevScore) {
-                      rank = Math.max(1, entries.findIndex((e) => e.score === entry.score) + 1);
-                    } else {
-                      rank = index + 1;
-                    }
-                  }
+                  const rank = index + 1;
                   const isTopThree = rank <= 3;
                   return (
                     <div

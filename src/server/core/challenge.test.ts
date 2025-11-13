@@ -77,8 +77,10 @@ it('is safe under concurrent invocations (one creates, others skip)', async () =
     await new Promise((r) => setTimeout(r, 5));
     return { id: 't3_conc', url: 'https://example.com/conc' } as any;
   });
-  vi.spyOn(reddit, 'submitComment').mockResolvedValue({ distinguish: async () => {} } as any);
-  vi.spyOn(settings, 'get').mockResolvedValue(undefined as any);
+  const commentSpy = vi
+    .spyOn(reddit, 'submitComment')
+    .mockResolvedValue({ distinguish: async () => {} } as any);
+  const settingsSpy = vi.spyOn(settings, 'get').mockResolvedValue(undefined as any);
   const notifSpy = vi
     .spyOn(Notifications, 'enqueueNewChallengeByTimezone')
     .mockResolvedValue({ groups: [], totalRecipients: 0, scheduled: 0 } as any);
@@ -99,6 +101,62 @@ it('is safe under concurrent invocations (one creates, others skip)', async () =
     subSpy.mockRestore();
     postSpy.mockRestore();
     notifSpy.mockRestore();
+  }
+});
+
+it('makeNewChallenge prevents duplicate creation under concurrency', async () => {
+  await resetRedis();
+
+  const getWordSpy = vi.spyOn(api, 'getWordConfigCached').mockResolvedValue({} as any);
+  const shiftSpy = vi.spyOn(WordQueue, 'shift').mockResolvedValueOnce({ word: 'gamma' } as any);
+  const subredditSpy = vi
+    .spyOn(reddit, 'getCurrentSubreddit')
+    .mockResolvedValue({ name: 'testsub' } as any);
+  let resolvePost: (() => void) | undefined;
+  const postSpy = vi.spyOn(reddit, 'submitCustomPost').mockImplementation(
+    () =>
+      new Promise((resolve) => {
+        resolvePost = () =>
+          resolve({ id: 't3_concurrent', url: 'https://example.com/concurrent' } as any);
+      })
+  );
+  const commentSpy = vi
+    .spyOn(reddit, 'submitComment')
+    .mockResolvedValue({ distinguish: async () => {} } as any);
+  const settingsSpy = vi.spyOn(settings, 'get').mockResolvedValue(undefined as any);
+  const notificationsSpy = vi
+    .spyOn(Notifications, 'enqueueNewChallengeByTimezone')
+    .mockResolvedValue({ groups: [], totalRecipients: 0, scheduled: 0 } as any);
+
+  try {
+    const resultPromise = Promise.all([
+      Challenge.makeNewChallenge({ enqueueNotifications: true }),
+      Challenge.makeNewChallenge({ enqueueNotifications: true }),
+    ]);
+
+    for (let i = 0; i < 5 && typeof resolvePost !== 'function'; i++) {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    }
+    expect(typeof resolvePost).toBe('function');
+    resolvePost?.();
+
+    const [first, second] = await resultPromise;
+
+    expect(first.postId).toBe('t3_concurrent');
+    expect(second.postId).toBe('t3_concurrent');
+    expect(first.challenge).toBe(1);
+    expect(second.challenge).toBe(1);
+    expect(postSpy).toHaveBeenCalledTimes(1);
+    expect(shiftSpy).toHaveBeenCalledTimes(1);
+    expect(notificationsSpy).toHaveBeenCalledTimes(1);
+  } finally {
+    getWordSpy.mockRestore();
+    shiftSpy.mockRestore();
+    subredditSpy.mockRestore();
+    postSpy.mockRestore();
+    commentSpy.mockRestore();
+    settingsSpy.mockRestore();
+    notificationsSpy.mockRestore();
   }
 });
 

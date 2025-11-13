@@ -1,7 +1,7 @@
 import { Logo, HardcoreMascot } from '../shared/logo';
 import { HelpMenu } from '../shared/helpMenu';
 import { IconButton } from '../shared/button';
-import { InfoIcon, BellIcon, BellOffIcon } from '../shared/icons';
+import { InfoIcon, BellIcon, BellOffIcon, MoreIcon } from '../shared/icons';
 import { cn } from '../utils/cn';
 import { useEffect, useState } from 'preact/hooks';
 // How-to-play modal state via global helpers
@@ -20,6 +20,7 @@ import { navigate } from './state/navigation';
 import { resetGuessCache } from '../core/guess';
 import posthog from 'posthog-js';
 import { openExperiments } from './state/experiments';
+import { openArchive } from './state/archive';
 import { getBrowserIanaTimeZone } from '../../shared/timezones';
 import { showToast } from '@devvit/web/client';
 
@@ -104,7 +105,7 @@ export function Header({ engine, isAdmin }: { engine?: GuessEngine; isAdmin: boo
   return (
     <>
       <div className="flex items-center justify-between mb-4" data-layout={layout}>
-        <div className="flex h-6 flex-1 gap-2 sm:h-10 sm:gap-4">
+        <div className="flex h-5 flex-1 gap-2 sm:h-10 sm:gap-4">
           {/* Hardcore logo is not migrated; show mascot CTA next to main logo */}
           <div
             onClick={() => {
@@ -156,6 +157,17 @@ export function Header({ engine, isAdmin }: { engine?: GuessEngine; isAdmin: boo
             }
           >
             Notifications
+          </IconButton>
+          <IconButton
+            type="button"
+            onClick={() => {
+              posthog.capture('Game Page Archive Opened');
+              openArchive();
+            }}
+            icon={<MoreIcon />}
+            aria-label="Play previous challenges"
+          >
+            Archive
           </IconButton>
           <HelpMenu
             items={[

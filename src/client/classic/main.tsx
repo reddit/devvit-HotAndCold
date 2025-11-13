@@ -10,6 +10,7 @@ import { Progress } from './Progress';
 import { PlayPage } from './PlayPage';
 import { HowToPlayModal } from './howToPlayModal';
 import { ExperimentsModal } from './ExperimentsModal';
+import { ArchiveModal } from './archiveModal';
 import { ErrorBoundary } from '../shared/error';
 import { initPosthog } from './useInitPosthog';
 import posthog from 'posthog-js';
@@ -39,6 +40,7 @@ function AppContent({
         </div>
         <HowToPlayModal />
         <ExperimentsModal />
+        <ArchiveModal />
       </div>
     </div>
   );

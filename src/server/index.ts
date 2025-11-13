@@ -124,6 +124,11 @@ const appRouter = router({
       return { success: true } as const;
     }),
 
+    hasJoinedSubreddit: publicProcedure.query(async () => {
+      const current = await User.getCurrent();
+      return await JoinedSubreddit.isUserJoinedSubreddit({ username: current.username });
+    }),
+
     isOptedIntoReminders: publicProcedure.query(async () => {
       const current = await User.getCurrent();
       return await Reminders.isUserOptedIntoReminders({ username: current.username });
@@ -292,6 +297,109 @@ const appRouter = router({
         }
 
         return { leaderboardByScore, userRank } as const;
+      }),
+  },
+  archive: {
+    list: publicProcedure
+      .input(
+        z
+          .object({
+            cursor: z.number().int().gt(0).optional(),
+            limit: z.number().int().min(1).max(100).optional(),
+          })
+          .default({})
+      )
+      .query(async ({ input }) => {
+        const limit = input.limit ?? 50;
+        const cursor = input.cursor;
+
+        const currentChallengeNumber = await Challenge.getCurrentChallengeNumber();
+        if (currentChallengeNumber <= 0) {
+          return { items: [], nextCursor: null };
+        }
+
+        const start = cursor ? Math.min(cursor, currentChallengeNumber) : currentChallengeNumber;
+
+        let username: string | null = null;
+        if (context.userId) {
+          try {
+            const currentUser = await User.getCurrent();
+            username = currentUser.username;
+          } catch (error) {
+            console.error('Failed to resolve current user for archive list', error);
+          }
+        }
+
+        const resolvePostUrl = (stored: unknown, postId: string | null): string | null => {
+          if (typeof stored === 'string' && stored.length > 0) {
+            return stored;
+          }
+          if (!postId) {
+            return null;
+          }
+          const trimmed = postId.startsWith('t3_') ? postId.slice(3) : postId;
+          return trimmed.length > 0 ? `https://www.reddit.com/comments/${trimmed}` : null;
+        };
+
+        const items: any[] = [];
+        const seen = new Set<number>();
+        let pointer = start;
+
+        while (pointer > 0 && items.length < limit) {
+          const challengeNumber = pointer;
+          pointer -= 1;
+
+          if (seen.has(challengeNumber)) {
+            continue;
+          }
+
+          try {
+            const [challenge, postId] = await Promise.all([
+              Challenge.getChallenge({ challengeNumber }),
+              Challenge.getPostIdForChallenge({ challengeNumber }),
+            ]);
+
+            const userInfo =
+              username != null
+                ? await UserGuess.getChallengeUserInfo({ username, challengeNumber })
+                : null;
+
+            const status =
+              userInfo?.solvedAtMs != null
+                ? 'solved'
+                : userInfo?.startedPlayingAtMs != null
+                  ? 'playing'
+                  : 'not_played';
+
+            const summary = {
+              challengeNumber,
+              totalPlayers: challenge.totalPlayers ?? 0,
+              totalSolves: challenge.totalSolves ?? 0,
+              totalGuesses: challenge.totalGuesses ?? 0,
+              totalHints: challenge.totalHints ?? 0,
+              totalGiveUps: challenge.totalGiveUps ?? 0,
+              status,
+              score: userInfo?.score?.finalScore ?? null,
+              startedPlayingAtMs: userInfo?.startedPlayingAtMs ?? null,
+              solvedAtMs: userInfo?.solvedAtMs ?? null,
+              gaveUpAtMs: userInfo?.gaveUpAtMs ?? null,
+              postUrl: resolvePostUrl(challenge.postUrl, postId),
+              postId,
+            };
+
+            items.push(summary);
+            seen.add(challengeNumber);
+          } catch (error) {
+            console.error('Failed to load challenge for archive list', {
+              challengeNumber,
+              error: error instanceof Error ? error.message : String(error),
+            });
+          }
+        }
+
+        const nextCursor = pointer > 0 ? pointer : null;
+
+        return { items, nextCursor };
       }),
   },
   guess: {
