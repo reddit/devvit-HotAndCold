@@ -27,6 +27,7 @@
     "notificationsManageForm": "/internal/form/notifications/manage",
     "notificationsSendSingleForm": "/internal/form/notifications/send-single",
     "cleanupUsersForm": "/internal/form/admin/cleanup-users",
+    "cleanupCacheForm": "/internal/form/admin/cleanup-cache",
     "statsPlayersForm": "/internal/form/stats/players-count"
   },
   "menu": {
@@ -134,6 +135,13 @@
         "endpoint": "/internal/menu/users/warm-cache"
       },
       {
+        "label": "[ops] Cleanup user cache",
+        "forUserType": "moderator",
+        "location": "subreddit",
+        "description": "classic",
+        "endpoint": "/internal/menu/admin/cleanup-cache"
+      },
+      {
         "label": "[migrate] Timezones: Offsets → IANA",
         "forUserType": "moderator",
         "location": "subreddit",
@@ -190,6 +198,7 @@
       },
       "notifications-send-group": "/internal/scheduler/notifications-send-group",
       "users-warm-cache": "/internal/scheduler/users-warm-cache",
+      "users-clean-reminderless-cache": "/internal/scheduler/users-clean-reminderless-cache",
       "posthog-user-prop-sync": {
         "cron": "0 3 * * *",
         "endpoint": "/internal/scheduler/posthog-user-prop-sync",

@@ -16,7 +16,31 @@ export namespace User {
     snoovatar: z.url().optional(),
   });
 
-  // getCurrent defined later with cache-mapping updates
+  const CACHE_TTL_SECONDS = 5 * 24 * 60 * 60;
+  export const CacheTtlSeconds = CACHE_TTL_SECONDS;
+
+  type UserInfo = z.infer<typeof Info>;
+
+  const cacheUserInfo = async (info: UserInfo) => {
+    await redis.set(Key(info.id), JSON.stringify(info));
+    await redis.expire(Key(info.id), CacheTtlSeconds);
+  };
+
+  const persistUserCacheById = async (id: string) => {
+    const key = Key(id);
+    const raw = await redis.get(key);
+    if (raw == null) return false;
+    await redis.set(key, raw);
+    return true;
+  };
+
+  const reapplyUserCacheExpiryById = async (id: string) => {
+    const key = Key(id);
+    const exists = await redis.exists(key);
+    if (!exists) return false;
+    await redis.expire(key, CacheTtlSeconds);
+    return true;
+  };
 
   /**
    * Get user by id from cache or reads from Reddit and caches the result
@@ -40,7 +64,7 @@ export namespace User {
       snoovatar,
     });
 
-    await redis.set(Key(id), JSON.stringify(info));
+    await cacheUserInfo(info);
     await redis.hSet(IdToUsernameKey(), { [id]: info.username });
     await redis.hSet(UsernameToIdKey(), { [info.username]: id });
     return info;
@@ -72,7 +96,7 @@ export namespace User {
       snoovatar,
     });
 
-    await redis.set(Key(user.id), JSON.stringify(info));
+    await cacheUserInfo(info);
     await redis.hSet(UsernameToIdKey(), { [info.username]: info.id });
     await redis.hSet(IdToUsernameKey(), { [info.id]: info.username });
     return info;
@@ -92,6 +116,18 @@ export namespace User {
     } catch {
       return null;
     }
+  });
+
+  export const persistCacheForUsername = fn(zodRedditUsername, async (username) => {
+    const info = await getByUsername(username);
+    await persistUserCacheById(info.id);
+    return info;
+  });
+
+  export const reapplyCacheExpiryForUsername = fn(zodRedditUsername, async (username) => {
+    const id = await lookupIdByUsername(username);
+    if (!id) return false;
+    return reapplyUserCacheExpiryById(id);
   });
 
   /**
@@ -118,7 +154,7 @@ export namespace User {
       snoovatar,
     });
 
-    await redis.set(Key(context.userId), JSON.stringify(info));
+    await cacheUserInfo(info);
     await redis.hSet(IdToUsernameKey(), { [info.id]: info.username });
     await redis.hSet(UsernameToIdKey(), { [info.username]: info.id });
     return info;

@@ -1321,15 +1321,16 @@ app.post('/internal/scheduler/update-post-data', async (_req, res): Promise<void
 // This endpoint is idempotent and safe to call; it will create only if missing for today,
 // maintain unique challenge numbers, and enqueue notifications at most once.
 app.post('/internal/scheduler/create-new-challenge-retry', async (_req, res): Promise<void> => {
-  try {
-    console.log('[Scheduler] create-new-challenge-retry invoked');
-    const result = await Challenge.ensureLatestClassicPostOrRetry();
-    console.log('[Scheduler] create-new-challenge-retry result', result);
-    res.json({ status: 'success', result });
-  } catch (error) {
-    console.error('Error in create-new-challenge-retry:', error);
-    res.status(400).json({ status: 'error', message: 'Retry failed' });
-  }
+  res.json({ status: 'success' });
+  // try {
+  //   console.log('[Scheduler] create-new-challenge-retry invoked');
+  //   const result = await Challenge.ensureLatestClassicPostOrRetry();
+  //   console.log('[Scheduler] create-new-challenge-retry result', result);
+  //   res.json({ status: 'success', result });
+  // } catch (error) {
+  //   console.error('Error in create-new-challenge-retry:', error);
+  //   res.status(400).json({ status: 'error', message: 'Retry failed' });
+  // }
 });
 
 // Backup sweeper: drains any due groups that may have been missed by the
@@ -1516,6 +1517,38 @@ app.post('/internal/menu/admin/cleanup-users', async (_req, res): Promise<void> 
             type: 'paragraph',
             required: true,
             placeholder: 'user1, user2, user3',
+          },
+        ],
+      },
+    },
+  });
+});
+
+app.post('/internal/menu/admin/cleanup-cache', async (_req, res): Promise<void> => {
+  res.status(200).json({
+    showForm: {
+      name: 'cleanupCacheForm',
+      form: {
+        title: 'Clear cache for users without reminders',
+        acceptLabel: 'Start cleanup',
+        fields: [
+          {
+            name: 'startAt',
+            label: 'Start cursor (default 0)',
+            type: 'number',
+            defaultValue: 0,
+          },
+          {
+            name: 'totalIterations',
+            label: 'Maximum scan iterations',
+            type: 'number',
+            defaultValue: 1000,
+          },
+          {
+            name: 'count',
+            label: 'Count per hScan (1-1000)',
+            type: 'number',
+            defaultValue: 250,
           },
         ],
       },
@@ -1722,6 +1755,55 @@ app.post('/internal/form/admin/cleanup-users', async (req, res): Promise<void> =
     console.error('Failed to cleanup users', err);
     res.status(500).json({
       showToast: { text: err?.message || 'Failed to cleanup users', appearance: 'neutral' },
+    });
+  }
+});
+
+app.post('/internal/form/admin/cleanup-cache', async (req, res): Promise<void> => {
+  try {
+    const body = (req.body as any) ?? {};
+    const parsedStart = Number.parseInt(String(body?.startAt ?? '0'), 10) || 0;
+    const parsedIterations = Number.parseInt(String(body?.totalIterations ?? '1000'), 10) || 1000;
+    const parsedCount = Number.parseInt(String(body?.count ?? '250'), 10) || 250;
+
+    if (parsedStart < 0) {
+      res.status(400).json({
+        showToast: { text: 'Start cursor must be >= 0', appearance: 'neutral' },
+      });
+      return;
+    }
+    if (parsedCount < 1 || parsedCount > 1000) {
+      res.status(400).json({
+        showToast: { text: 'Count must be between 1 and 1000', appearance: 'neutral' },
+      });
+      return;
+    }
+    if (parsedIterations < 1 || parsedIterations > 10000) {
+      res.status(400).json({
+        showToast: { text: 'Iterations must be between 1 and 10000', appearance: 'neutral' },
+      });
+      return;
+    }
+
+    await scheduler.runJob({
+      name: 'users-clean-reminderless-cache',
+      runAt: new Date(),
+      data: { startAt: parsedStart, totalIterations: parsedIterations, count: parsedCount },
+    });
+
+    res.status(200).json({
+      showToast: {
+        text: `Queued cache cleanup job (start=${parsedStart}, iterations=${parsedIterations}, count=${parsedCount})`,
+        appearance: 'success',
+      },
+    });
+  } catch (err: any) {
+    console.error('Failed to queue cache cleanup job', err);
+    res.status(500).json({
+      showToast: {
+        text: err?.message || 'Failed to queue cache cleanup job',
+        appearance: 'neutral',
+      },
     });
   }
 });
@@ -1954,6 +2036,32 @@ app.post('/internal/menu/users/warm-cache', async (_req, res): Promise<void> => 
     console.error('Failed to start users-warm-cache', err);
     res.status(500).json({
       showToast: { text: err?.message || 'Failed to start warming', appearance: 'neutral' },
+    });
+  }
+});
+
+app.post('/internal/scheduler/users-clean-reminderless-cache', async (req, res): Promise<void> => {
+  try {
+    const body = (req.body as any) ?? {};
+    const data = body?.data ?? {};
+    const startAt = Number.parseInt(String(data?.startAt ?? '0'), 10) || 0;
+    const totalIterations = Number.parseInt(String(data?.totalIterations ?? '1000'), 10) || 1000;
+    const count = Number.parseInt(String(data?.count ?? '250'), 10) || 250;
+
+    console.log('[UserCacheCleanup] job start', { startAt, totalIterations, count });
+    const result = await Reminders.clearCacheForNonReminderUsers({
+      startAt,
+      totalIterations,
+      count,
+    });
+    console.log('[UserCacheCleanup] job complete', result);
+
+    res.json({ status: 'success', result });
+  } catch (error: any) {
+    console.error('[UserCacheCleanup] job failed', error);
+    res.status(500).json({
+      status: 'error',
+      message: error?.message || 'Failed to clean reminderless caches',
     });
   }
 });

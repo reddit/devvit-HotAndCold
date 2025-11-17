@@ -235,6 +235,23 @@ it('getCurrent fetches from reddit on cache miss and caches the result', async (
   }
 });
 
+it('applies a 15-day expiry to cached user data', async () => {
+  await resetRedis();
+  const id = 't2_ttl_user';
+  const spy = vi
+    .spyOn(reddit, 'getUserById')
+    .mockResolvedValue(makeRedditUser(id, 'ttluser') as any);
+  try {
+    await User.getById(id);
+  } finally {
+    spy.mockRestore();
+  }
+  const expireTime = await redis.expireTime(User.Key(id));
+  const ttlRemaining = expireTime - Math.floor(Date.now() / 1000);
+  expect(ttlRemaining).toBeGreaterThanOrEqual(User.CacheTtlSeconds - 30);
+  expect(ttlRemaining).toBeLessThanOrEqual(User.CacheTtlSeconds + 1);
+});
+
 it('getCurrent throws when no user is in context', async () => {
   await resetRedis();
 
