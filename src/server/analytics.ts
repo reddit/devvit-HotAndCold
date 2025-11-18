@@ -202,6 +202,8 @@ export default function makeAnalyticsRouter(options: AnalyticsRouterOptions) {
         const targetUrl = new URL(targetBase + (suffix || '/'));
         // Ensure auth token is not forwarded upstream
         targetUrl.searchParams.delete('webbit_token');
+        // this is the new webbit_token param for pure webviews
+        targetUrl.searchParams.delete('token');
 
         const headers = filterOutgoingRequestHeaders(req);
         const body = await readRequestBody(req);
@@ -211,7 +213,8 @@ export default function makeAnalyticsRouter(options: AnalyticsRouterOptions) {
         if (
           (endpoint.includes('t2_') && !endpoint.includes('t2_xxx')) ||
           endpoint.includes('webbit_token') ||
-          endpoint.includes('webbitToken')
+          endpoint.includes('webbitToken') ||
+          endpoint.includes('token')
         ) {
           throw new Error('Malformed URL to proxy: ' + endpoint);
         }
