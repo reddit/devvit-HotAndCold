@@ -7,6 +7,96 @@ import { User } from './user';
 export namespace Reminders {
   // Original to make it super explicit since we might let people play the archive on any postId
   export const getRemindersKey = () => `reminders` as const;
+  const CLEANUP_CANCEL_KEY = 'userCacheCleanup:cancel' as const;
+  const CLEANUP_STATS_KEY = 'userCacheCleanup:stats' as const;
+
+  type CleanupStatsSnapshot = {
+    totalCleared: number;
+    totalExamined: number;
+    totalBytes: number;
+    totalDurationMs: number;
+    runs: number;
+    lastCursor: number;
+    lastRunAt: number;
+    done: boolean;
+  };
+
+  export type CleanupStatsSummary = CleanupStatsSnapshot & {
+    totalMegabytes: number;
+  };
+
+  export type CleanupRunResult = {
+    cleared: number;
+    examined: number;
+    iterations: number;
+    estimatedBytes: number;
+    estimatedMegabytes: number;
+    durationMs: number;
+    lastCursor: number;
+    done: boolean;
+  };
+
+  const defaultCleanupStats = (): CleanupStatsSnapshot => ({
+    totalCleared: 0,
+    totalExamined: 0,
+    totalBytes: 0,
+    totalDurationMs: 0,
+    runs: 0,
+    lastCursor: 0,
+    lastRunAt: 0,
+    done: false,
+  });
+
+  const withMegabytes = (stats: CleanupStatsSnapshot): CleanupStatsSummary => ({
+    ...stats,
+    totalMegabytes: stats.totalBytes / (1024 * 1024),
+  });
+
+  const parseCleanupStats = (raw: string | null | undefined): CleanupStatsSnapshot => {
+    if (!raw) return defaultCleanupStats();
+    try {
+      const parsed = JSON.parse(raw) as Partial<CleanupStatsSnapshot>;
+      return {
+        ...defaultCleanupStats(),
+        ...parsed,
+      };
+    } catch {
+      return defaultCleanupStats();
+    }
+  };
+
+  export const getCleanupStats = async (): Promise<CleanupStatsSummary> => {
+    const raw = await redis.get(CLEANUP_STATS_KEY);
+    return withMegabytes(parseCleanupStats(raw));
+  };
+
+  export const recordCleanupRun = async (run: CleanupRunResult): Promise<CleanupStatsSummary> => {
+    const existing = parseCleanupStats(await redis.get(CLEANUP_STATS_KEY));
+    const updated: CleanupStatsSnapshot = {
+      totalCleared: existing.totalCleared + run.cleared,
+      totalExamined: existing.totalExamined + run.examined,
+      totalBytes: existing.totalBytes + run.estimatedBytes,
+      totalDurationMs: existing.totalDurationMs + run.durationMs,
+      runs: existing.runs + 1,
+      lastCursor: run.lastCursor,
+      lastRunAt: Date.now(),
+      done: run.done,
+    };
+    await redis.set(CLEANUP_STATS_KEY, JSON.stringify(updated));
+    return withMegabytes(updated);
+  };
+
+  export const isCleanupJobCancelled = async () => {
+    return (await redis.get(CLEANUP_CANCEL_KEY)) === '1';
+  };
+
+  export const setCleanupJobCancelled = async (enabled: boolean) => {
+    if (enabled) {
+      await redis.set(CLEANUP_CANCEL_KEY, '1');
+    } else {
+      await redis.del(CLEANUP_CANCEL_KEY);
+    }
+  };
 
   export const setReminderForUsername = fn(
     z.object({
@@ -111,6 +201,7 @@ export namespace Reminders {
     async ({ startAt, totalIterations, count }) => {
       const startedAt = Date.now();
       const logEvery = 500;
+      const entriesPerJobLimit = 25_000;
       const remindersKey = getRemindersKey();
       let cursor = Math.max(0, startAt);
       const maxIterations = Math.max(1, totalIterations);
@@ -118,6 +209,21 @@ export namespace Reminders {
       let estimatedBytes = 0;
       let examined = 0;
       let iterations = 0;
+      let hitEntryLimit = false;
+
+      if (await isCleanupJobCancelled()) {
+        console.log('[UserCacheCleanup] Cancel flag enabled before run; skipping cleanup pass.');
+        return {
+          cleared: 0,
+          examined: 0,
+          iterations: 0,
+          estimatedBytes: 0,
+          estimatedMegabytes: 0,
+          durationMs: 0,
+          lastCursor: startAt,
+          done: false,
+        } satisfies CleanupRunResult;
+      }
 
       const totalUsers = await redis.hLen(User.UsernameToIdKey());
 
@@ -185,11 +291,23 @@ export namespace Reminders {
             }
           }
         }
-      } while (cursor !== 0 && iterations < maxIterations);
+        if (!hitEntryLimit && examined >= entriesPerJobLimit) {
+          hitEntryLimit = true;
+          console.log(
+            `[UserCacheCleanup] Hit per-run entry limit (${entriesPerJobLimit}) at cursor ${cursor}. Pausing to requeue.`
+          );
+        }
+        if (!hitEntryLimit && (await isCleanupJobCancelled())) {
+          hitEntryLimit = true;
+          console.log('[UserCacheCleanup] Cancel flag detected mid-run; stopping early.');
+        }
+      } while (cursor !== 0 && iterations < maxIterations && !hitEntryLimit);
 
       if (cleared > 0 && cleared % logEvery !== 0) {
         logProgress();
       }
+
+      const done = cursor === 0;
 
       return {
         cleared,
@@ -199,7 +317,8 @@ export namespace Reminders {
         estimatedMegabytes: estimatedBytes / (1024 * 1024),
         durationMs: Date.now() - startedAt,
         lastCursor: cursor,
-      } as const;
+        done,
+      } satisfies CleanupRunResult;
     }
   );
 }

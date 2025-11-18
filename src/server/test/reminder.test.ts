@@ -19,6 +19,19 @@ const seedUserCache = async (username: string) => {
   await redis.hSet(User.IdToUsernameKey(), { [id]: username });
   await redis.set(User.Key(id), JSON.stringify(cached));
 };
+const makeCleanupRunResult = (
+  overrides: Partial<Reminders.CleanupRunResult> = {}
+): Reminders.CleanupRunResult => ({
+  cleared: 0,
+  examined: 0,
+  iterations: 0,
+  estimatedBytes: 0,
+  estimatedMegabytes: 0,
+  durationMs: 0,
+  lastCursor: 0,
+  done: false,
+  ...overrides,
+});
 
 it('setReminderForUsername adds a user', async () => {
   await resetRedis();
@@ -150,4 +163,45 @@ it('clearCacheForNonReminderUsers removes caches for users without reminders', a
   expect(await redis.get(User.Key('t2_bob'))).toEqual(
     JSON.stringify({ id: 't2_bob', username: 'bob' })
   );
+});
+
+it('cleanup cancel flag can be toggled via redis key', async () => {
+  await resetRedis();
+  expect(await Reminders.isCleanupJobCancelled()).toBe(false);
+  await Reminders.setCleanupJobCancelled(true);
+  expect(await Reminders.isCleanupJobCancelled()).toBe(true);
+  await Reminders.setCleanupJobCancelled(false);
+  expect(await Reminders.isCleanupJobCancelled()).toBe(false);
+});
+
+it('recordCleanupRun aggregates stats across runs', async () => {
+  await resetRedis();
+  const first = await Reminders.recordCleanupRun(
+    makeCleanupRunResult({
+      cleared: 2,
+      examined: 10,
+      estimatedBytes: 2048,
+      durationMs: 500,
+      lastCursor: 123,
+    })
+  );
+  expect(first.totalCleared).toBe(2);
+  expect(first.totalExamined).toBe(10);
+  expect(first.totalMegabytes).toBeCloseTo(2048 / (1024 * 1024));
+
+  const second = await Reminders.recordCleanupRun(
+    makeCleanupRunResult({
+      cleared: 3,
+      examined: 5,
+      estimatedBytes: 1024,
+      durationMs: 250,
+      lastCursor: 0,
+      done: true,
+    })
+  );
+  expect(second.totalCleared).toBe(5);
+  expect(second.totalExamined).toBe(15);
+  expect(second.totalMegabytes).toBeCloseTo((2048 + 1024) / (1024 * 1024));
+  expect(second.done).toBe(true);
+  expect(second.runs).toBe(2);
 });

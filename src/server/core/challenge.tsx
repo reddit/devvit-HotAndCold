@@ -16,6 +16,228 @@ export const stringifyValues = <T extends Record<string, any>>(
   ) as Partial<Record<keyof T, string>>;
 };
 
+const CHALLENGE_PUBLISH_LOCK_KEY = 'challenge:publish:lock';
+const CHALLENGE_PUBLISH_LOCK_TTL_SECONDS = 60;
+
+const DAILY_POST_WINDOW_MS = 23 * 60 * 60 * 1000; // allow 1-hour cushion for cron jitter
+
+type ChallengePostSnapshot = {
+  challengeNumber: number;
+  postId: string;
+  postUrl: string | null;
+  createdAt: Date;
+};
+
+type ChallengeCreationResult = {
+  postId: string;
+  postUrl: string;
+  challenge: number;
+  word: string;
+};
+
+const tryAcquireChallengePublishLock = async (): Promise<boolean> => {
+  const claim = await redis.incrBy(CHALLENGE_PUBLISH_LOCK_KEY, 1);
+  if (claim === 1) {
+    await redis.expire(CHALLENGE_PUBLISH_LOCK_KEY, CHALLENGE_PUBLISH_LOCK_TTL_SECONDS);
+    return true;
+  }
+  await redis.incrBy(CHALLENGE_PUBLISH_LOCK_KEY, -1);
+  return false;
+};
+
+const releaseChallengePublishLock = async (): Promise<void> => {
+  try {
+    await redis.del(CHALLENGE_PUBLISH_LOCK_KEY);
+  } catch (error) {
+    console.error('Failed to release challenge publish lock', error);
+  }
+};
+
+const getLatestChallengePostSnapshot = async (): Promise<ChallengePostSnapshot | null> => {
+  const challengeNumber = await Challenge.getCurrentChallengeNumber();
+  if (challengeNumber <= 0) {
+    return null;
+  }
+  const postId = await Challenge.getPostIdForChallenge({ challengeNumber });
+  if (!postId) {
+    return null;
+  }
+
+  try {
+    const post = await reddit.getPostById(postId as any);
+    return {
+      challengeNumber,
+      postId,
+      postUrl: post.url ?? null,
+      createdAt: post.createdAt,
+    };
+  } catch (error) {
+    console.error('Failed to load latest challenge post from Reddit', {
+      challengeNumber,
+      postId,
+      error,
+    });
+    return null;
+  }
+};
+
+const getChallengeWithinWindow = async (
+  windowMs: number
+): Promise<ChallengePostSnapshot | null> => {
+  const snapshot = await getLatestChallengePostSnapshot();
+  if (!snapshot) return null;
+  const ageMs = Date.now() - snapshot.createdAt.getTime();
+  if (Number.isFinite(ageMs) && ageMs < windowMs) {
+    return snapshot;
+  }
+  return null;
+};
+
+const createChallengePost = async ({
+  enqueueNotifications,
+}: {
+  enqueueNotifications: boolean;
+}): Promise<ChallengeCreationResult> => {
+  console.log('Making new challenge...');
+
+  const [currentChallengeNumber, currentSubreddit] = await Promise.all([
+    Challenge.getCurrentChallengeNumber(),
+    reddit.getCurrentSubreddit(),
+  ]);
+
+  const newChallengeNumber = currentChallengeNumber + 1;
+  const newWord = (await WordQueue.shift())?.word;
+
+  if (!newWord) {
+    throw new Error('No more words available for new challenge. Need to add more to the list!');
+  }
+
+  let post: Post | undefined;
+
+  try {
+    await getWordConfigCached({ word: newWord });
+
+    post = await reddit.submitCustomPost({
+      subredditName: currentSubreddit.name,
+      title: `Hot and cold #${newChallengeNumber}`,
+      splash: {
+        appDisplayName: 'Hot and Cold',
+        backgroundUri: 'transparent.png',
+      },
+      postData: Challenge.makePostData({
+        challengeNumber: newChallengeNumber,
+        totalPlayers: 0,
+        totalSolves: 0,
+      }),
+    });
+
+    try {
+      const comment = await reddit.submitComment({
+        id: post.id,
+        text: `Welcome to Hot and Cold, the delightfully frustrating word guessing game! 
+        
+To play, guess the secret word by typing any word you think is related.
+
+For example, if the secret word is "hot":
+
+Guesses: banana -> #12956 (not close); sun -> #493 (getting warmer); hotdog -> #220 (hot); cold -> #42 (hot); freeze -> #1657 (getting colder); warm -> #15 (very hot!!); hot -> WINNER!
+
+The rank is based on how AI models see the relationships between the words. So antonyms can be "close" by the relationship of the words (cold -> hot). Additionally, words can be close based on the structure of the word (hotdog -> hot).
+
+Enjoy! If you have feedback on how we can improve the game, please let us know!
+  `,
+      });
+      await comment.distinguish(true);
+    } catch (error) {
+      console.error('Error pinning how-to-play comment:', error);
+    }
+
+    await Challenge.setChallenge({
+      challengeNumber: newChallengeNumber,
+      config: {
+        challengeNumber: newChallengeNumber.toString(),
+        secretWord: newWord,
+        totalPlayers: '0',
+        totalSolves: '0',
+        totalGuesses: '0',
+        totalHints: '0',
+        totalGiveUps: '0',
+        postUrl: post.url,
+      },
+    });
+
+    await Challenge.setPostIdForChallenge({ challengeNumber: newChallengeNumber, postId: post.id });
+    await Challenge.setCurrentChallengeNumber({ number: newChallengeNumber });
+
+    const flairId = await settings.get<string>('flairId');
+    if (flairId) {
+      await reddit.setPostFlair({
+        postId: post.id,
+        subredditName: context.subredditName!,
+        flairTemplateId: flairId,
+      });
+    } else {
+      console.warn('No flair ID configured, skipping...');
+    }
+
+    if (enqueueNotifications) {
+      try {
+        const notifKey = `notifications:enqueued:ch:${newChallengeNumber}`;
+        const first = await redis.incrBy(notifKey, 1);
+        if (first === 1) {
+          await Notifications.enqueueNewChallengeByTimezone({
+            challengeNumber: newChallengeNumber,
+            postId: post.id,
+            postUrl: post.url,
+          });
+        } else {
+          console.log('Notifications already enqueued for challenge', newChallengeNumber);
+        }
+      } catch (error) {
+        console.error('Failed to schedule reminder notifications', error);
+      }
+    }
+
+    return {
+      postId: post.id,
+      postUrl: post.url,
+      challenge: newChallengeNumber,
+      word: newWord,
+    };
+  } catch (error) {
+    console.error('Error making new challenge:', error);
+    if (post) {
+      try {
+        console.log(`Removing post ${post.id} due to new challenge error`);
+        await reddit.remove(post.id, false);
+      } catch (removeError) {
+        console.error('Failed to remove post after challenge error', removeError);
+      }
+    }
+    throw error;
+  }
+};
+
+const ensureChallengeWithinWindow = async ({
+  enqueueNotifications,
+  enforceWindow,
+}: {
+  enqueueNotifications: boolean;
+  enforceWindow: boolean;
+}): Promise<
+  | { kind: 'existing'; snapshot: ChallengePostSnapshot }
+  | { kind: 'created'; created: ChallengeCreationResult }
+> => {
+  if (enforceWindow) {
+    const existing = await getChallengeWithinWindow(DAILY_POST_WINDOW_MS);
+    if (existing) {
+      return { kind: 'existing', snapshot: existing };
+    }
+  }
+  const created = await createChallengePost({ enqueueNotifications });
+  return { kind: 'created', created };
+};
+
 export namespace Challenge {
   // Shared builder to keep postData in sync everywhere it's set
   export const makePostData = ({
@@ -27,11 +249,16 @@ export namespace Challenge {
     totalPlayers: number;
     totalSolves: number;
   }) => {
-    return {
+    const data: {
+      challengeNumber: number;
+      totalPlayers: number;
+      totalSolves: number;
+    } = {
       challengeNumber,
       totalPlayers,
       totalSolves,
-    } as const;
+    };
+    return data;
   };
   export const CurrentChallengeNumberKey = () => 'current_challenge_number' as const;
 
@@ -178,259 +405,33 @@ export namespace Challenge {
     z
       .object({
         enqueueNotifications: z.boolean().default(true),
-        force: z.boolean().default(false),
+        ignoreDailyWindow: z.boolean().default(false),
       })
-      .default({ enqueueNotifications: true, force: false }),
-    async (input) => {
-      const { enqueueNotifications, force } = input;
-      console.log('Making new challenge...');
-      // Guard against manual double-creation in the same UTC day
-      const today = new Date().toISOString().slice(0, 10);
-      const postedKey = `challenge:posted:${today}`;
-      const creationLockKey = `challenge:create:${today}:lock`;
-
-      const formatExisting = (existing: {
-        postId?: string;
-        postUrl?: string;
-        challenge: number;
-      }) => {
-        const payload: { challenge: number; postId?: string; postUrl?: string } = {
-          challenge: existing.challenge,
-        };
-        if (existing.postId) {
-          payload.postId = existing.postId;
-        }
-        if (existing.postUrl) {
-          payload.postUrl = existing.postUrl;
-        }
-        return payload;
-      };
-
-      const readExisting = async (): Promise<{
-        postId?: string;
-        postUrl?: string;
-        challenge: number;
-      } | null> => {
-        const raw = await redis.get(postedKey);
-        if (!raw) return null;
-        try {
-          const parsed = JSON.parse(raw) as { c?: number; postId?: string; postUrl?: string };
-          const challenge =
-            typeof parsed?.c === 'number' ? parsed.c : await getCurrentChallengeNumber();
-          let postUrl = parsed?.postUrl;
-          const postId = parsed?.postId;
-          if (!postUrl && postId) {
-            try {
-              const post = await reddit.getPostById(postId as any);
-              postUrl = post?.url;
-            } catch {
-              // ignore hydration failure
-            }
-          }
-          const result: { challenge: number; postId?: string; postUrl?: string } = { challenge };
-          if (postId) {
-            result.postId = postId;
-          }
-          if (postUrl) {
-            result.postUrl = postUrl;
-          }
-          return result;
-        } catch {
-          return null;
-        }
-      };
-
-      const waitForExisting = async () => {
-        const maxAttempts = 10;
-        const delayMs = 50;
-        for (let attempt = 0; attempt < maxAttempts; attempt++) {
-          const existing = await readExisting();
-          if (existing) {
-            return existing;
-          }
-          await new Promise((resolve) => setTimeout(resolve, delayMs));
-        }
-        return null as Awaited<ReturnType<typeof readExisting>>;
-      };
-
-      if (!force) {
-        const existing = await readExisting();
-        if (existing) {
-          return formatExisting(existing);
-        }
-      }
-
-      let hasCreationLock = false;
-      if (!force) {
-        const claim = await redis.incrBy(creationLockKey, 1);
-        if (claim === 1) {
-          hasCreationLock = true;
-          await redis.expire(creationLockKey, 5 * 60);
-        } else {
-          await redis.incrBy(creationLockKey, -1);
-          const existing = await waitForExisting();
-          if (existing) {
-            return formatExisting(existing);
-          }
-          throw new Error('Challenge creation already in progress. Please try again shortly.');
-        }
+      .default({ enqueueNotifications: true, ignoreDailyWindow: false }),
+    async ({ enqueueNotifications, ignoreDailyWindow }) => {
+      const lockAcquired = await tryAcquireChallengePublishLock();
+      if (!lockAcquired) {
+        throw new Error('Challenge creation already in progress. Please try again shortly.');
       }
 
       try {
-        if (!force) {
-          const existing = await readExisting();
-          if (existing) {
-            return formatExisting(existing);
-          }
-        }
+        const outcome = await ensureChallengeWithinWindow({
+          enqueueNotifications,
+          enforceWindow: !ignoreDailyWindow,
+        });
 
-        const [currentChallengeNumber, currentSubreddit] = await Promise.all([
-          getCurrentChallengeNumber(),
-          reddit.getCurrentSubreddit(),
-        ]);
-
-        const newChallengeNumber = currentChallengeNumber + 1;
-
-        console.log('New challenge number:', newChallengeNumber);
-
-        let post: Post | undefined;
-
-        const newWord = (await WordQueue.shift())?.word;
-        if (!newWord) {
-          throw new Error(
-            'No more words available for new challenge. Need to add more to the list!'
-          );
-        }
-
-        try {
-          // Sets the value in the redis cache for fast lookups
-          await getWordConfigCached({ word: newWord });
-
-          post = await reddit.submitCustomPost({
-            subredditName: currentSubreddit.name,
-            title: `Hot and cold #${newChallengeNumber}`,
-            splash: {
-              appDisplayName: 'Hot and Cold',
-              backgroundUri: 'transparent.png',
-            },
-            postData: makePostData({
-              challengeNumber: newChallengeNumber,
-              totalPlayers: 0,
-              totalSolves: 0,
-            }),
-          });
-
-          // Pin the how-to-play comment
-          try {
-            const comment = await reddit.submitComment({
-              id: post.id,
-              text: `Welcome to Hot and Cold, the delightfully frustrating word guessing game! 
-          
-To play, guess the secret word by typing any word you think is related.
-
-For example, if the secret word is "hot":
-
-Guesses: banana -> #12956 (not close); sun -> #493 (getting warmer); hotdog -> #220 (hot); cold -> #42 (hot); freeze -> #1657 (getting colder); warm -> #15 (very hot!!); hot -> WINNER!
-
-The rank is based on how AI models see the relationships between the words. So antonyms can be "close" by the relationship of the words (cold -> hot). Additionally, words can be close based on the structure of the word (hotdog -> hot).
-
-Enjoy! If you have feedback on how we can improve the game, please let us know!
-  `,
-            });
-            await comment.distinguish(true);
-          } catch (error) {
-            // This is bugged as of 10/8 but maybe for only playtesting?
-            console.error('Error pinning how-to-play comment:', error);
-          }
-
-          await setChallenge({
-            challengeNumber: newChallengeNumber,
-            config: {
-              challengeNumber: newChallengeNumber.toString(),
-              secretWord: newWord,
-              totalPlayers: '0',
-              totalSolves: '0',
-              totalGuesses: '0',
-              totalHints: '0',
-              totalGiveUps: '0',
-              postUrl: post.url,
-            },
-          });
-
-          await setPostIdForChallenge({ challengeNumber: newChallengeNumber, postId: post.id });
-
-          await setCurrentChallengeNumber({ number: newChallengeNumber });
-
-          console.log(
-            'New challenge created:',
-            'New Challenge Number:',
-            newChallengeNumber,
-            'New word:',
-            newWord,
-            'Post ID:',
-            post.id
-          );
-
-          const flairId = await settings.get<string>('flairId');
-          if (flairId) {
-            await reddit.setPostFlair({
-              postId: post.id,
-              subredditName: context.subredditName!,
-              flairTemplateId: flairId,
-            });
-          } else {
-            console.warn('No flair ID configured, skipping...');
-          }
-
-          if (enqueueNotifications) {
-            try {
-              // Ensure notifications are only enqueued once per challenge
-              const notifKey = `notifications:enqueued:ch:${newChallengeNumber}`;
-              const first = await redis.incrBy(notifKey, 1);
-              if (first === 1) {
-                await Notifications.enqueueNewChallengeByTimezone({
-                  challengeNumber: newChallengeNumber,
-                  postId: post.id,
-                  postUrl: post.url,
-                });
-              } else {
-                console.log('Notifications already enqueued for challenge', newChallengeNumber);
-              }
-            } catch (e) {
-              console.error('Failed to schedule reminder notifications', e);
-            }
-          }
-          // Record daily marker after successful creation and setup (even in force mode)
-          await redis.set(
-            postedKey,
-            JSON.stringify({ c: newChallengeNumber, postId: post.id, postUrl: post.url })
-          );
-
+        if (outcome.kind === 'existing') {
+          const { snapshot } = outcome;
           return {
-            postId: post.id,
-            postUrl: post.url,
-            challenge: newChallengeNumber,
-            word: newWord,
+            challenge: snapshot.challengeNumber,
+            postId: snapshot.postId,
+            postUrl: snapshot.postUrl ?? undefined,
           };
-        } catch (error) {
-          console.error('Error making new challenge:', error);
-
-          // If the transaction fails, remove the post if created
-          if (post) {
-            console.log(`Removing post ${post.id} due to new challenge error`);
-            await reddit.remove(post.id, false);
-          }
-
-          throw error;
         }
+
+        return outcome.created;
       } finally {
-        if (!force && hasCreationLock) {
-          try {
-            await redis.del(creationLockKey);
-          } catch (lockError) {
-            console.error('Failed to release challenge creation lock', lockError);
-          }
-        }
+        await releaseChallengePublishLock();
       }
     }
   );
@@ -516,57 +517,32 @@ Enjoy! If you have feedback on how we can improve the game, please let us know!
   });
 
   export const ensureLatestClassicPostOrRetry = fn(z.void(), async () => {
-    // Daily idempotency using UTC date; lock with short TTL to avoid duplicate posts
-    const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD (UTC)
-    const postedKey = `challenge:posted:${today}`;
-    const lockKey = `challenge:ensure:${today}:lock`;
-
-    // Fast path: if we've already recorded today's post, exit
-    const readMarker = async (): Promise<{ c?: number; postId?: string } | null> => {
-      const raw = await redis.get(postedKey);
-      if (!raw) return null;
-      try {
-        return JSON.parse(raw) as { c?: number; postId?: string };
-      } catch {
-        return null;
-      }
-    };
-
-    const existing = await readMarker();
-    if (existing) {
-      return {
-        status: 'exists' as const,
-        challengeNumber: existing.c ?? (await getCurrentChallengeNumber()),
-        postId: existing.postId ?? null,
-      };
-    }
-
-    // Acquire short-lived creation lock (first writer proceeds)
-    const claim = await redis.incrBy(lockKey, 1);
-    if (claim === 1) {
-      // Ensure lock auto-expires to allow later retries on failure
-      await redis.expire(lockKey, 5 * 60);
-    } else {
+    const lockAcquired = await tryAcquireChallengePublishLock();
+    if (!lockAcquired) {
       return { status: 'skipped' as const };
     }
 
-    // Double-check after acquiring the lock to avoid races
-    const recheck = await readMarker();
-    if (recheck) {
-      return {
-        status: 'exists' as const,
-        challengeNumber: recheck.c ?? (await getCurrentChallengeNumber()),
-        postId: recheck.postId ?? null,
-      };
-    }
+    try {
+      const outcome = await ensureChallengeWithinWindow({
+        enqueueNotifications: true,
+        enforceWindow: true,
+      });
 
-    // Create the new challenge once and record the daily marker
-    const created = await makeNewChallenge({ enqueueNotifications: true });
-    await redis.set(postedKey, JSON.stringify({ c: created.challenge, postId: created.postId }));
-    return {
-      status: 'created' as const,
-      challengeNumber: created.challenge,
-      postId: created.postId,
-    };
+      if (outcome.kind === 'existing') {
+        return {
+          status: 'exists' as const,
+          challengeNumber: outcome.snapshot.challengeNumber,
+          postId: outcome.snapshot.postId,
+        };
+      }
+
+      return {
+        status: 'created' as const,
+        challengeNumber: outcome.created.challenge,
+        postId: outcome.created.postId,
+      };
+    } finally {
+      await releaseChallengePublishLock();
+    }
   });
 }

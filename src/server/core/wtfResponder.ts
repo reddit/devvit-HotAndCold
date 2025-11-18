@@ -111,15 +111,22 @@ Respond in under three short sentences with a knowledgable and witty tone with h
       const apiKey = await settings.get<string>('OPEN_AI_API_KEY');
       if (!apiKey) return '';
       const client = new OpenAI({ apiKey });
-      const completion = await client.chat.completions.create({
-        model: 'gpt-5',
-        messages: [
-          { role: 'system', content: system },
-          { role: 'user', content: user },
-        ],
-        reasoning_effort: 'low',
-      });
-      let reply = completion.choices?.[0]?.message?.content ?? '';
+      const maxAttempts = 3;
+      let reply = '';
+      for (let attempt = 0; attempt < maxAttempts; attempt++) {
+        const completion = await client.chat.completions.create({
+          model: 'gpt-5',
+          messages: [
+            { role: 'system', content: system },
+            { role: 'user', content: user },
+          ],
+          reasoning_effort: 'low',
+        });
+        reply = (completion.choices?.[0]?.message?.content ?? '').trim();
+        if (reply) {
+          break;
+        }
+      }
 
       if (!reply) {
         return '';
@@ -131,7 +138,7 @@ Respond in under three short sentences with a knowledgable and witty tone with h
       if (re.test(reply)) {
         reply = reply.replace(new RegExp(secret, 'ig'), (m) => `>!${m}!<`);
       }
-      return reply.trim();
+      return reply;
     }
   );
 }

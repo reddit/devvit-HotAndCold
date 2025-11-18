@@ -614,7 +614,10 @@ app.use(
 
 app.post('/internal/menu/post-create', async (_req, res): Promise<void> => {
   try {
-    const post = await Challenge.makeNewChallenge({ enqueueNotifications: true });
+    const post = await Challenge.makeNewChallenge({
+      enqueueNotifications: true,
+      ignoreDailyWindow: true,
+    });
 
     res.json({
       navigateTo: post.postUrl,
@@ -630,22 +633,16 @@ app.post('/internal/menu/post-create', async (_req, res): Promise<void> => {
 
 app.post('/internal/form/post-create', async (req, res): Promise<void> => {
   try {
-    const { skipNotifications, force } = (req.body as any) ?? {};
+    const { skipNotifications } = (req.body as any) ?? {};
     const post = await Challenge.makeNewChallenge({
       enqueueNotifications: !skipNotifications,
-      force: !!force,
+      ignoreDailyWindow: true,
     });
 
     res.json({
       navigateTo: post.postUrl,
       showToast: {
-        text: skipNotifications
-          ? force
-            ? 'Post created (forced; notifications skipped)'
-            : 'Post created (notifications skipped)'
-          : force
-            ? 'Post created (forced)'
-            : 'Post created',
+        text: skipNotifications ? 'Post created (notifications skipped)' : 'Post created',
         appearance: 'success',
       },
     });
@@ -1016,12 +1013,6 @@ app.post('/internal/menu/post-next', async (_req, res): Promise<void> => {
             type: 'boolean',
             defaultValue: false,
           },
-          {
-            name: 'force',
-            label: 'Force allow multiple challenges today',
-            type: 'boolean',
-            defaultValue: false,
-          },
         ],
       },
     },
@@ -1321,16 +1312,15 @@ app.post('/internal/scheduler/update-post-data', async (_req, res): Promise<void
 // This endpoint is idempotent and safe to call; it will create only if missing for today,
 // maintain unique challenge numbers, and enqueue notifications at most once.
 app.post('/internal/scheduler/create-new-challenge-retry', async (_req, res): Promise<void> => {
-  res.json({ status: 'success' });
-  // try {
-  //   console.log('[Scheduler] create-new-challenge-retry invoked');
-  //   const result = await Challenge.ensureLatestClassicPostOrRetry();
-  //   console.log('[Scheduler] create-new-challenge-retry result', result);
-  //   res.json({ status: 'success', result });
-  // } catch (error) {
-  //   console.error('Error in create-new-challenge-retry:', error);
-  //   res.status(400).json({ status: 'error', message: 'Retry failed' });
-  // }
+  try {
+    console.log('[Scheduler] create-new-challenge-retry invoked');
+    const result = await Challenge.ensureLatestClassicPostOrRetry();
+    console.log('[Scheduler] create-new-challenge-retry result', result);
+    res.json({ status: 'success', result });
+  } catch (error) {
+    console.error('Error in create-new-challenge-retry:', error);
+    res.status(400).json({ status: 'error', message: 'Retry failed' });
+  }
 });
 
 // Backup sweeper: drains any due groups that may have been missed by the
@@ -1554,6 +1544,27 @@ app.post('/internal/menu/admin/cleanup-cache', async (_req, res): Promise<void> 
       },
     },
   });
+});
+
+app.post('/internal/menu/admin/toggle-cleanup-cancel', async (_req, res): Promise<void> => {
+  try {
+    const currentlyCancelled = await Reminders.isCleanupJobCancelled();
+    const nextState = !currentlyCancelled;
+    await Reminders.setCleanupJobCancelled(nextState);
+
+    res.status(200).json({
+      showToast: nextState
+        ? 'Cleanup cancel flag enabled. Future jobs will halt after the current run.'
+        : 'Cleanup cancel flag disabled. Cleanup jobs may resume.',
+    });
+  } catch (err: any) {
+    console.error('Failed to toggle cleanup cancel flag', err);
+    res.status(500).json({
+      showToast: {
+        text: err?.message || 'Failed to toggle cleanup cancel flag',
+      },
+    });
+  }
 });
 
 // [notifications] Send single (form launcher)
@@ -2048,6 +2059,17 @@ app.post('/internal/scheduler/users-clean-reminderless-cache', async (req, res):
     const totalIterations = Number.parseInt(String(data?.totalIterations ?? '1000'), 10) || 1000;
     const count = Number.parseInt(String(data?.count ?? '250'), 10) || 250;
 
+    const cancelFlag = await Reminders.isCleanupJobCancelled();
+    if (cancelFlag) {
+      console.log('[UserCacheCleanup] Cancel flag enabled; skipping job run.');
+      const stats = await Reminders.getCleanupStats();
+      res.json({ status: 'cancelled', reason: 'cancel-flag', stats });
+      return;
+    }
+
+    const previousStats = await Reminders.getCleanupStats();
+    console.log('[UserCacheCleanup] cumulative stats before run', previousStats);
+
     console.log('[UserCacheCleanup] job start', { startAt, totalIterations, count });
     const result = await Reminders.clearCacheForNonReminderUsers({
       startAt,
@@ -2056,7 +2078,35 @@ app.post('/internal/scheduler/users-clean-reminderless-cache', async (req, res):
     });
     console.log('[UserCacheCleanup] job complete', result);
 
-    res.json({ status: 'success', result });
+    const cumulativeStats = await Reminders.recordCleanupRun(result);
+    console.log('[UserCacheCleanup] cumulative stats after run', cumulativeStats);
+
+    if (!result.done && result.lastCursor !== 0) {
+      console.log('[UserCacheCleanup] Requeueing follow-up job', {
+        nextCursor: result.lastCursor,
+        examined: result.examined,
+        iterations: result.iterations,
+      });
+      await scheduler.runJob({
+        name: 'users-clean-reminderless-cache',
+        runAt: new Date(),
+        data: {
+          startAt: result.lastCursor,
+          totalIterations,
+          count,
+        },
+      });
+      res.json({
+        status: 'success',
+        result,
+        stats: cumulativeStats,
+        requeued: true,
+        nextCursor: result.lastCursor,
+      });
+      return;
+    }
+
+    res.json({ status: 'success', result, stats: cumulativeStats, requeued: false });
   } catch (error: any) {
     console.error('[UserCacheCleanup] job failed', error);
     res.status(500).json({

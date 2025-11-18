@@ -142,6 +142,13 @@
         "endpoint": "/internal/menu/admin/cleanup-cache"
       },
       {
+        "label": "[ops] Toggle cleanup cancel flag",
+        "forUserType": "moderator",
+        "location": "subreddit",
+        "description": "classic",
+        "endpoint": "/internal/menu/admin/toggle-cleanup-cancel"
+      },
+      {
         "label": "[migrate] Timezones: Offsets → IANA",
         "forUserType": "moderator",
         "location": "subreddit",
