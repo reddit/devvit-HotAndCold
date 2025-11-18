@@ -36,6 +36,7 @@ export const beforeSend =
       eventString.includes('webbit_token') ||
       // webbitToken in context
       eventString.includes('webbitToken') ||
+      eventString.includes('token') ||
       (eventString.includes('t2_') && !eventString.includes('t2_xxx'))
     ) {
       // don't show the event data
