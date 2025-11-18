@@ -94,7 +94,7 @@ it('sendGroupNow sends bulk push and clears the group', async () => {
   );
   const bulkCalls: BulkPushNotifQueueOptions[] = [];
   const bulkSpy = vi
-    .spyOn(pushnotif, 'bulkQueue')
+    .spyOn(pushnotif, 'enqueue')
     .mockImplementation(
       async (opts: BulkPushNotifQueueOptions): Promise<BulkPushNotifQueueResponse> => {
         bulkCalls.push(opts);
@@ -154,7 +154,7 @@ it('sendDueGroups processes only due groups', async () => {
   );
   let bulkCount = 0;
   const bulkSpy = vi
-    .spyOn(pushnotif, 'bulkQueue')
+    .spyOn(pushnotif, 'enqueue')
     .mockImplementation(async (): Promise<BulkPushNotifQueueResponse> => {
       bulkCount++;
       return { successCount: 1, failureCount: 0, errors: [] };
@@ -266,7 +266,7 @@ it('resumes from progress on retry and avoids duplicate sends', async () => {
   // First attempt: succeed first batch (1000) then fail on second batch
   let call = 0;
   const bulkSpy = vi
-    .spyOn(pushnotif, 'bulkQueue')
+    .spyOn(pushnotif, 'enqueue')
     .mockImplementation(async (opts: BulkPushNotifQueueOptions) => {
       call++;
       if (call === 2) {
@@ -324,7 +324,7 @@ it('does not double-send when sendGroupNow is invoked concurrently', async () =>
 
   const bulkCalls: BulkPushNotifQueueOptions[] = [];
   const bulkSpy = vi
-    .spyOn(pushnotif, 'bulkQueue')
+    .spyOn(pushnotif, 'enqueue')
     .mockImplementation(async (opts: BulkPushNotifQueueOptions) => {
       bulkCalls.push(opts);
       return { successCount: opts.recipients.length, failureCount: 0, errors: [] };
