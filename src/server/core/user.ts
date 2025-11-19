@@ -118,6 +118,25 @@ export namespace User {
     }
   });
 
+  export const lookupIdsByUsernames = fn(
+    z.object({ usernames: z.array(zodRedditUsername) }),
+    async ({ usernames }) => {
+      if (usernames.length === 0) return {};
+      // Chunk to avoid hitting command size limits
+      const chunkSize = 5000;
+      const result: Record<string, string | null> = {};
+
+      for (let i = 0; i < usernames.length; i += chunkSize) {
+        const chunk = usernames.slice(i, i + chunkSize);
+        const ids = await redis.hMGet(UsernameToIdKey(), chunk);
+        chunk.forEach((u, idx) => {
+          result[u] = ids[idx] ?? null;
+        });
+      }
+      return result;
+    }
+  );
+
   export const persistCacheForUsername = fn(zodRedditUsername, async (username) => {
     const info = await getByUsername(username);
     await persistUserCacheById(info.id);

@@ -423,3 +423,69 @@ it('schedules delivery at correct local times for IANA timezones', async () => {
     vi.useRealTimers();
   }
 });
+
+it('removes users from reminders if they have muted notifications', async () => {
+  await resetRedis();
+  vi.useFakeTimers();
+  vi.setSystemTime(new Date('2025-01-01T12:00:00.000Z'));
+
+  const runJobSpy = vi.spyOn(scheduler, 'runJob').mockResolvedValue('job');
+  const getUserSpy = vi.spyOn(reddit, 'getUserByUsername').mockImplementation(
+    async (username: string) =>
+      ({
+        id: `t2_${username}`,
+        username,
+        getSnoovatarUrl: async () => 'https://example.com/snoo.png',
+      }) as any
+  );
+
+  const bulkSpy = vi
+    .spyOn(pushnotif, 'enqueue')
+    .mockImplementation(async (opts: BulkPushNotifQueueOptions) => {
+      // Mock a partial failure where one user has muted notifications
+      return {
+        successCount: opts.recipients.length - 1,
+        failureCount: 1,
+        errors: [
+          {
+            userId: 't2_muteduser',
+            message: 'user has muted notifications for this subreddit',
+          },
+        ],
+      };
+    });
+
+  try {
+    await Reminders.setReminderForUsername({ username: 'validuser' });
+    await Timezones.setTimezone({ username: 'validuser', iana: 'America/New_York' });
+    await Reminders.setReminderForUsername({ username: 'muteduser' });
+    await Timezones.setTimezone({ username: 'muteduser', iana: 'America/New_York' });
+
+    // Enqueue
+    await Notifications.enqueueNewChallengeByTimezone({
+      challengeNumber: 500,
+      postId: 't3_mutedtest',
+      postUrl: 'https://example.com/muted',
+      localSendHour: 9,
+    });
+
+    const s = await Notifications.pendingStats();
+    expect(s.total).toBe(1);
+    const gid = s.next[0]!.groupId;
+
+    // Execute
+    await Notifications.sendGroupNow({ groupId: gid });
+
+    // Check results
+    const validStillOptedIn = await Reminders.isUserOptedIntoReminders({ username: 'validuser' });
+    expect(validStillOptedIn).toBe(true);
+
+    const mutedStillOptedIn = await Reminders.isUserOptedIntoReminders({ username: 'muteduser' });
+    expect(mutedStillOptedIn).toBe(false);
+  } finally {
+    runJobSpy.mockRestore();
+    getUserSpy.mockRestore();
+    bulkSpy.mockRestore();
+    vi.useRealTimers();
+  }
+});

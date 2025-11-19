@@ -1,10 +1,9 @@
 import { z } from 'zod';
 import { redisNumberString } from '../utils';
 import { fn } from '../../shared/fn';
-import { redis, reddit, Post, settings, context } from '@devvit/web/server';
+import { redis, reddit, Post, settings, context, scheduler } from '@devvit/web/server';
 import { WordQueue } from './wordQueue';
 import { getWordConfigCached } from './api';
-import { Notifications } from './notifications';
 
 export const stringifyValues = <T extends Record<string, any>>(
   obj: T
@@ -185,16 +184,21 @@ Enjoy! If you have feedback on how we can improve the game, please let us know!
         const notifKey = `notifications:enqueued:ch:${newChallengeNumber}`;
         const first = await redis.incrBy(notifKey, 1);
         if (first === 1) {
-          await Notifications.enqueueNewChallengeByTimezone({
-            challengeNumber: newChallengeNumber,
-            postId: post.id,
-            postUrl: post.url,
+          console.log('Scheduling notification enqueue job for challenge', newChallengeNumber);
+          await scheduler.runJob({
+            name: 'notifications-enqueue-new-challenge',
+            runAt: new Date(),
+            data: {
+              challengeNumber: newChallengeNumber,
+              postId: post.id,
+              postUrl: post.url,
+            },
           });
         } else {
           console.log('Notifications already enqueued for challenge', newChallengeNumber);
         }
       } catch (error) {
-        console.error('Failed to schedule reminder notifications', error);
+        console.error('Failed to schedule reminder notifications job', error);
       }
     }
 

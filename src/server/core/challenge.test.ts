@@ -1,8 +1,7 @@
 import { it, expect, resetRedis } from '../test/devvitTest';
 import { vi } from 'vitest';
-import { reddit, settings } from '@devvit/web/server';
+import { reddit, settings, scheduler } from '@devvit/web/server';
 import { Challenge } from './challenge';
-import { Notifications } from './notifications';
 import { WordQueue } from './wordQueue';
 import * as api from './api';
 
@@ -56,9 +55,7 @@ it('creates exactly one challenge within a 24 hour window', async () => {
     .spyOn(reddit, 'submitComment')
     .mockResolvedValue({ distinguish: async () => {} } as any);
   const flairSpy = vi.spyOn(settings, 'get').mockResolvedValue(undefined as any);
-  const notifSpy = vi
-    .spyOn(Notifications, 'enqueueNewChallengeByTimezone')
-    .mockResolvedValue({ groups: [], totalRecipients: 0, scheduled: 0 } as any);
+  const schedulerSpy = vi.spyOn(scheduler, 'runJob').mockResolvedValue({} as any);
   const { lookup, spy: getPostByIdSpy } = setupPostLookup();
 
   try {
@@ -79,7 +76,7 @@ it('creates exactly one challenge within a 24 hour window', async () => {
     expect(again.challengeNumber).toBe(1);
     expect(postSpy).toHaveBeenCalledTimes(1);
     expect(getPostByIdSpy).toHaveBeenCalledTimes(1);
-    expect(notifSpy).toHaveBeenCalledTimes(1);
+    expect(schedulerSpy).toHaveBeenCalledTimes(1);
   } finally {
     vi.useRealTimers();
     getWordSpy.mockRestore();
@@ -88,7 +85,7 @@ it('creates exactly one challenge within a 24 hour window', async () => {
     postSpy.mockRestore();
     commentSpy.mockRestore();
     flairSpy.mockRestore();
-    notifSpy.mockRestore();
+    schedulerSpy.mockRestore();
     getPostByIdSpy.mockRestore();
   }
 });
@@ -108,9 +105,7 @@ it('is safe under concurrent invocations (one creates, others skip)', async () =
     .spyOn(reddit, 'submitComment')
     .mockResolvedValue({ distinguish: async () => {} } as any);
   const settingsSpy = vi.spyOn(settings, 'get').mockResolvedValue(undefined as any);
-  const notifSpy = vi
-    .spyOn(Notifications, 'enqueueNewChallengeByTimezone')
-    .mockResolvedValue({ groups: [], totalRecipients: 0, scheduled: 0 } as any);
+  const schedulerSpy = vi.spyOn(scheduler, 'runJob').mockResolvedValue({} as any);
 
   try {
     const [a, b] = await Promise.all([
@@ -119,7 +114,7 @@ it('is safe under concurrent invocations (one creates, others skip)', async () =
     ]);
     const statuses = [a.status, b.status].sort();
     expect(statuses).toEqual(['created', 'skipped']);
-    expect(notifSpy).toHaveBeenCalledTimes(1);
+    expect(schedulerSpy).toHaveBeenCalledTimes(1);
   } finally {
     getWordSpy.mockRestore();
     shiftSpy.mockRestore();
@@ -127,7 +122,7 @@ it('is safe under concurrent invocations (one creates, others skip)', async () =
     postSpy.mockRestore();
     commentSpy.mockRestore();
     settingsSpy.mockRestore();
-    notifSpy.mockRestore();
+    schedulerSpy.mockRestore();
   }
 });
 
@@ -147,9 +142,7 @@ it('creates a new challenge on the next UTC day with incremented number', async 
     .mockImplementationOnce(async () => ({ id: 't3_day2', url: 'https://example.com/d2' }) as any);
   vi.spyOn(reddit, 'submitComment').mockResolvedValue({ distinguish: async () => {} } as any);
   vi.spyOn(settings, 'get').mockResolvedValue(undefined as any);
-  const notifSpy = vi
-    .spyOn(Notifications, 'enqueueNewChallengeByTimezone')
-    .mockResolvedValue({ groups: [], totalRecipients: 0, scheduled: 0 } as any);
+  const schedulerSpy = vi.spyOn(scheduler, 'runJob').mockResolvedValue({} as any);
   const { lookup, spy: getPostByIdSpy } = setupPostLookup();
 
   try {
@@ -179,11 +172,12 @@ it('creates a new challenge on the next UTC day with incremented number', async 
     expect(third.challengeNumber).toBe(2);
 
     expect(postSpy).toHaveBeenCalledTimes(2);
-    expect(notifSpy).toHaveBeenCalledTimes(2);
+    expect(schedulerSpy).toHaveBeenCalledTimes(2);
     expect(getPostByIdSpy).toHaveBeenCalledTimes(2);
   } finally {
     vi.useRealTimers();
     getPostByIdSpy.mockRestore();
+    schedulerSpy.mockRestore();
   }
 });
 
@@ -201,16 +195,14 @@ it('makeNewChallenge uses defaults and returns existing challenge when called tw
     .mockResolvedValue({ id: 't3_default1', url: 'https://example.com/d1' } as any);
   vi.spyOn(reddit, 'submitComment').mockResolvedValue({ distinguish: async () => {} } as any);
   vi.spyOn(settings, 'get').mockResolvedValue(undefined as any);
-  const notifSpy = vi
-    .spyOn(Notifications, 'enqueueNewChallengeByTimezone')
-    .mockResolvedValue({ groups: [], totalRecipients: 0, scheduled: 0 } as any);
+  const schedulerSpy = vi.spyOn(scheduler, 'runJob').mockResolvedValue({} as any);
   const { lookup, spy: getPostByIdSpy } = setupPostLookup();
 
   try {
     const created = await Challenge.makeNewChallenge();
     expect(created.challenge).toBe(1);
     expect(created.postId).toBe('t3_default1');
-    expect(notifSpy).toHaveBeenCalledTimes(1);
+    expect(schedulerSpy).toHaveBeenCalledTimes(1);
 
     registerPostStub({
       lookup,
@@ -227,6 +219,7 @@ it('makeNewChallenge uses defaults and returns existing challenge when called tw
   } finally {
     vi.useRealTimers();
     getPostByIdSpy.mockRestore();
+    schedulerSpy.mockRestore();
   }
 });
 
@@ -250,9 +243,7 @@ it('allows manual override via ignoreDailyWindow', async () => {
     );
   vi.spyOn(reddit, 'submitComment').mockResolvedValue({ distinguish: async () => {} } as any);
   vi.spyOn(settings, 'get').mockResolvedValue(undefined as any);
-  const notifSpy = vi
-    .spyOn(Notifications, 'enqueueNewChallengeByTimezone')
-    .mockResolvedValue({ groups: [], totalRecipients: 0, scheduled: 0 } as any);
+  const schedulerSpy = vi.spyOn(scheduler, 'runJob').mockResolvedValue({} as any);
   const { lookup } = setupPostLookup();
 
   const normal = await Challenge.makeNewChallenge();
@@ -268,5 +259,6 @@ it('allows manual override via ignoreDailyWindow', async () => {
   expect(override.challenge).toBe(2);
   expect(override.postId).toBe('t3_override');
   expect(postSpy).toHaveBeenCalledTimes(2);
-  expect(notifSpy).toHaveBeenCalledTimes(2);
+  expect(schedulerSpy).toHaveBeenCalledTimes(2);
+  schedulerSpy.mockRestore();
 });

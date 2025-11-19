@@ -1376,6 +1376,37 @@ app.post('/internal/scheduler/notifications-send-group', async (req, res): Promi
   }
 });
 
+// Enqueue new challenge notifications (job target)
+app.post(
+  '/internal/scheduler/notifications-enqueue-new-challenge',
+  async (req, res): Promise<void> => {
+    try {
+      console.log('[Scheduler] notifications-enqueue-new-challenge invoked', req.body);
+      const body = (req.body as any) ?? {};
+      const data = body?.data ?? {};
+      const challengeNumber = Number(data.challengeNumber);
+      const postId = String(data.postId);
+      const postUrl = String(data.postUrl);
+
+      if (!challengeNumber || !postId) {
+        res.status(400).json({ status: 'error', message: 'Missing challengeNumber or postId' });
+        return;
+      }
+
+      await Notifications.enqueueNewChallengeByTimezone({
+        challengeNumber,
+        postId,
+        postUrl,
+      });
+      console.log('[Scheduler] notifications-enqueue-new-challenge completed');
+      res.json({ status: 'success' });
+    } catch (error) {
+      console.error('Error enqueuing new challenge notifications:', error);
+      res.status(400).json({ status: 'error', message: 'Failed to enqueue notifications' });
+    }
+  }
+);
+
 // Scheduler: users-warm-cache — process a batch and requeue until done
 app.post('/internal/scheduler/users-warm-cache', async (req, res): Promise<void> => {
   const startedAt = Date.now();

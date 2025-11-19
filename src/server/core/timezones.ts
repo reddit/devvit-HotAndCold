@@ -76,6 +76,25 @@ export namespace Timezones {
     }
   );
 
+  /** Bulk v2 getter */
+  export const getUserTimezones = fn(
+    z.object({ usernames: z.array(zodRedditUsername) }),
+    async ({ usernames }) => {
+      if (usernames.length === 0) return {};
+      const chunkSize = 5000;
+      const result: Record<string, string | null> = {};
+
+      for (let i = 0; i < usernames.length; i += chunkSize) {
+        const chunk = usernames.slice(i, i + chunkSize);
+        const ianas = await redis.hMGet(UserToIanaKey(), chunk);
+        chunk.forEach((u, idx) => {
+          result[u] = ianas[idx] ?? null;
+        });
+      }
+      return result;
+    }
+  );
+
   /** clear IANA */
   export const clearUserTimezone = fn(
     z.object({ username: zodRedditUsername }),
