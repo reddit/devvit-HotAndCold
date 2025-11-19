@@ -1,8 +1,13 @@
 import { sanitizeValueForEvent, sanitizeKeyForEvent } from './sanitize';
 import { mapValueWithKeys } from './walk';
 import { sampleByDistinctId } from 'posthog-js/lib/src/customizations';
+import { sampleOnProperty } from 'posthog-js/lib/src/extensions/sampling';
 
 const SAMPLE_RATE = 0.05;
+
+export const shouldSampleUser = (distinctId: string): boolean => {
+  return sampleOnProperty(distinctId, SAMPLE_RATE);
+};
 
 export const beforeSend =
   (isProd: boolean) =>

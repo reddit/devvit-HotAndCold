@@ -1343,11 +1343,10 @@ app.post('/internal/scheduler/posthog-user-prop-sync', async (req, res): Promise
   try {
     const body = (req.body as any) ?? {};
     const data = body?.data ?? {};
-    const stage = (data?.stage as any) ?? 'reminders';
     const cursor = Number.parseInt(String(data?.cursor ?? '0'), 10) || 0;
     const limit = Number.parseInt(String(data?.limit ?? '500'), 10) || 500;
-    console.log('[Scheduler] posthog-user-prop-sync invoked', { stage, cursor, limit });
-    const result = await AnalyticsSync.runOrRequeue({ stage, cursor, limit });
+    console.log('[Scheduler] posthog-user-prop-sync invoked', { cursor, limit });
+    const result = await AnalyticsSync.runOrRequeue({ cursor, limit });
     console.log('[Scheduler] posthog-user-prop-sync completed', { result });
     res.json({ status: 'success', next: result });
   } catch (error) {
@@ -2048,7 +2047,7 @@ app.post('/internal/menu/analytics/sync-user-props', async (_req, res): Promise<
     await scheduler.runJob({
       name: 'posthog-user-prop-sync',
       runAt: new Date(),
-      data: { stage: 'reminders', cursor: 0, limit: 500 },
+      data: { cursor: 0, limit: 500 },
     });
     console.log('[Menu] PostHog user properties sync queued');
     res.status(200).json({

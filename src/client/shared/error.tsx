@@ -26,7 +26,7 @@ export class ErrorBoundary extends Component {
   }
 
   render() {
-    console.log('ErrorBoundary render', this.state.error);
+    // console.log('ErrorBoundary render', this.state.error);
     if (this.state.error) {
       const onIOS = typeof navigator !== 'undefined' ? isIOS(navigator.userAgent) : false;
       return (

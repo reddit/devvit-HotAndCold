@@ -48,7 +48,7 @@ export const initPosthog = ({ mode }: { mode: 'classic' | 'horde' }) => {
       const hashed = await hash(context.userId);
       // Identify sends an event, so you may want to limit how often you call it
       posthog.identify(hashed);
-      console.log('DEBUG: user', JSON.stringify({ hashed, userId: context.userId }, null, 2));
+      // console.log('DEBUG: user', JSON.stringify({ hashed, userId: context.userId }, null, 2));
     }
   };
 

@@ -209,7 +209,7 @@
       "posthog-user-prop-sync": {
         "cron": "0 3 * * *",
         "endpoint": "/internal/scheduler/posthog-user-prop-sync",
-        "data": { "stage": "reminders", "cursor": 0, "limit": 1000 }
+        "data": { "cursor": 0, "limit": 1000 }
       },
       "notifications-enqueue-new-challenge": "/internal/scheduler/notifications-enqueue-new-challenge"
     }
