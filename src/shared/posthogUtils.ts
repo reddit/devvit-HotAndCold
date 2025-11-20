@@ -17,7 +17,6 @@ export const beforeSend =
     if (sampledEvent === null) return null;
 
     if (sampledEvent.event === '$pageview' && !sampledEvent.properties.page) {
-      console.warn('Skipping pageview event due to no page property', sampledEvent);
       return null;
     }
 
