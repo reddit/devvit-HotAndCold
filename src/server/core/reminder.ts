@@ -3,10 +3,90 @@ import { fn } from '../../shared/fn';
 import { redis } from '@devvit/web/server';
 import { zodRedditUsername } from '../utils';
 import { User } from './user';
+import { notifications } from '@devvit/notifications';
 
 export namespace Reminders {
   // Original to make it super explicit since we might let people play the archive on any postId
   export const getRemindersKey = () => `reminders` as const;
+  export const getRemindersT2Key = () => `reminders_t2` as const;
+
+  export const migrateRemindersToT2 = fn(z.void(), async () => {
+    const remindersT2Key = getRemindersT2Key();
+    const remindersKey = getRemindersKey();
+
+    console.log('[MigrateRemindersT2] Starting migration. Deleting existing target key.');
+    await redis.del(remindersT2Key);
+
+    let cursor = 0;
+    const limit = 1000;
+    let totalProcessed = 0;
+    let totalAdded = 0;
+
+    do {
+      const { cursor: nextCursor, members } = await redis.zScan(
+        remindersKey,
+        cursor,
+        undefined,
+        limit
+      );
+      cursor = nextCursor ?? 0;
+
+      if (members.length === 0) continue;
+
+      const usernames = members.map((m) => m.member);
+      const idMap = await User.lookupIdsByUsernames({ usernames });
+
+      // Fallback: Try to resolve any missing IDs individually (concurrently)
+      const missingUsernames = usernames.filter((u) => !idMap[u]);
+      if (missingUsernames.length > 0) {
+        console.log(
+          `[MigrateRemindersT2] Resolving ${missingUsernames.length} missing IDs from Reddit API...`
+        );
+        await Promise.all(
+          missingUsernames.map(async (u) => {
+            try {
+              const id = await User.lookupIdByUsername(u);
+              if (id) {
+                idMap[u] = id;
+              } else {
+                console.error(`[MigrateRemindersT2] Failed to find ID for user: ${u}`);
+              }
+            } catch (e) {
+              console.error(`[MigrateRemindersT2] Error resolving user ${u}:`, e);
+            }
+          })
+        );
+      }
+
+      const toAdd: { member: string; score: number }[] = [];
+
+      for (const username of usernames) {
+        const id = idMap[username];
+        if (id) {
+          toAdd.push({ member: id, score: Date.now() });
+        }
+      }
+
+      if (toAdd.length > 0) {
+        await redis.zAdd(remindersT2Key, ...toAdd);
+        totalAdded += toAdd.length;
+      }
+
+      totalProcessed += members.length;
+
+      if (totalProcessed > 0 && totalProcessed % 1000 === 0) {
+        console.log(
+          `[MigrateRemindersT2] Processed ${totalProcessed} users, added ${totalAdded} to t2 reminders.`
+        );
+      }
+    } while (cursor !== 0);
+
+    console.log(
+      `[MigrateRemindersT2] Migration complete. Processed ${totalProcessed}, added ${totalAdded}.`
+    );
+    return { totalProcessed, totalAdded };
+  });
+
   const CLEANUP_CANCEL_KEY = 'userCacheCleanup:cancel' as const;
   const CLEANUP_STATS_KEY = 'userCacheCleanup:stats' as const;
 
@@ -103,6 +183,7 @@ export namespace Reminders {
       username: zodRedditUsername,
     }),
     async ({ username }) => {
+      await notifications.optInCurrentUser();
       await redis.zAdd(getRemindersKey(), {
         member: username,
         score: Date.now(),
@@ -126,6 +207,7 @@ export namespace Reminders {
       username: zodRedditUsername,
     }),
     async ({ username }) => {
+      await notifications.optOutCurrentUser();
       await redis.zRem(getRemindersKey(), [username]);
       await User.reapplyCacheExpiryForUsername(username);
     }

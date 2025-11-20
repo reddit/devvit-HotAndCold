@@ -26,8 +26,11 @@
     "postCreateForm": "/internal/form/post-create",
     "notificationsManageForm": "/internal/form/notifications/manage",
     "notificationsSendSingleForm": "/internal/form/notifications/send-single",
-    "cleanupUsersForm": "/internal/form/admin/cleanup-users",
+    "nukeUsersForm": "/internal/form/admin/nuke-users",
     "cleanupCacheForm": "/internal/form/admin/cleanup-cache",
+    "migrateChallengeProgressForm": "/internal/form/admin/migrate-challenge-progress-compression",
+    "migrateUserCacheForm": "/internal/form/admin/migrate-user-cache-compression",
+    "migrateUserGuessForm": "/internal/form/admin/migrate-user-guess-compression",
     "statsPlayersForm": "/internal/form/stats/players-count"
   },
   "menu": {
@@ -135,6 +138,13 @@
         "endpoint": "/internal/menu/users/warm-cache"
       },
       {
+        "label": "[ops] Migrate word config gzip",
+        "forUserType": "moderator",
+        "location": "subreddit",
+        "description": "classic",
+        "endpoint": "/internal/menu/word-config/migrate-compression"
+      },
+      {
         "label": "[ops] Cleanup user cache",
         "forUserType": "moderator",
         "location": "subreddit",
@@ -156,11 +166,54 @@
         "endpoint": "/internal/menu/timezones/migrate-to-iana"
       },
       {
-        "label": "[ops] Remove reminders/timezones",
+        "label": "[ops] Nuke reminders/timezones",
         "forUserType": "moderator",
         "location": "subreddit",
         "description": "classic",
-        "endpoint": "/internal/menu/admin/cleanup-users"
+        "endpoint": "/internal/menu/admin/nuke-users"
+      },
+      {
+        "label": "[ops] Migrate Reminders to T2",
+        "forUserType": "moderator",
+        "location": "subreddit",
+        "description": "classic",
+        "endpoint": "/internal/menu/admin/migrate-reminders-t2"
+      },
+      {
+        "label": "[ops] Migrate UserGuess compression",
+        "forUserType": "moderator",
+        "location": "subreddit",
+        "endpoint": "/internal/menu/admin/migrate-user-guess-compression"
+      },
+      {
+        "label": "[ops] Toggle UserGuess migration",
+        "forUserType": "moderator",
+        "location": "subreddit",
+        "endpoint": "/internal/menu/admin/migrate-user-guess-compression/toggle"
+      },
+      {
+        "label": "[ops] Migrate ChallengeProgress compression",
+        "forUserType": "moderator",
+        "location": "subreddit",
+        "endpoint": "/internal/menu/admin/migrate-challenge-progress-compression"
+      },
+      {
+        "label": "[ops] Toggle ChallengeProgress migration",
+        "forUserType": "moderator",
+        "location": "subreddit",
+        "endpoint": "/internal/menu/admin/migrate-challenge-progress-compression/toggle"
+      },
+      {
+        "label": "[ops] Migrate User cache compression",
+        "forUserType": "moderator",
+        "location": "subreddit",
+        "endpoint": "/internal/menu/admin/migrate-user-cache-compression"
+      },
+      {
+        "label": "[ops] Toggle User cache migration",
+        "forUserType": "moderator",
+        "location": "subreddit",
+        "endpoint": "/internal/menu/admin/migrate-user-cache-compression/toggle"
       },
       {
         "label": "[stats] Players count for challenge",
@@ -206,6 +259,9 @@
       "notifications-send-group": "/internal/scheduler/notifications-send-group",
       "users-warm-cache": "/internal/scheduler/users-warm-cache",
       "users-clean-reminderless-cache": "/internal/scheduler/users-clean-reminderless-cache",
+      "migrate-user-guess-compression": "/internal/scheduler/migrate-user-guess-compression",
+      "migrate-user-cache-compression": "/internal/scheduler/migrate-user-cache-compression",
+      "migrate-challenge-progress-compression": "/internal/scheduler/migrate-challenge-progress-compression",
       "posthog-user-prop-sync": {
         "cron": "0 3 * * *",
         "endpoint": "/internal/scheduler/posthog-user-prop-sync",

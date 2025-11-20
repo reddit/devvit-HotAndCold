@@ -3,6 +3,11 @@ import { it, resetRedis } from './devvitTest';
 import { Reminders } from '../core/reminder';
 import { User } from '../core/user';
 import { redis, reddit } from '@devvit/web/server';
+import { notifications } from '@devvit/notifications';
+
+// Mock notifications to avoid internal failures in tests
+vi.spyOn(notifications, 'optInCurrentUser').mockResolvedValue();
+vi.spyOn(notifications, 'optOutCurrentUser').mockResolvedValue();
 
 const testUser1 = 'alice';
 const testUser2 = 'bob';

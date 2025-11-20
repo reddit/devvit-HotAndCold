@@ -5,7 +5,7 @@ import { Challenge } from './challenge';
 import { ChallengeLeaderboard } from './challengeLeaderboard';
 import { Score } from './score';
 import { fn } from '../../shared/fn';
-import { redis } from '@devvit/web/server';
+import { redisCompressed as redis } from './redisCompression';
 import { GameResponseSchema, GuessSchema, ChallengeUserInfoSchema } from '../utils';
 import { User } from './user';
 import { ChallengeProgress } from './challengeProgress';

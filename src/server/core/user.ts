@@ -1,9 +1,9 @@
 import { z } from 'zod';
 import { fn } from '../../shared/fn';
-import { redis } from '@devvit/web/server';
 import { AppError } from '../../shared/errors';
 import { zodRedditUsername } from '../utils';
 import { context, reddit } from '@devvit/web/server';
+import { redisCompressed as redis } from './redisCompression';
 
 export namespace User {
   export const Key = (id: string) => `user:${id}` as const;
@@ -103,8 +103,8 @@ export namespace User {
   });
 
   /**
-   * Lookup user id by username using cache only (no Reddit API).
-   * Returns null if mapping is missing.
+   * Lookup user id by username. Checks cache first, then falls back to Reddit API.
+   * Returns null if user cannot be found.
    */
   export const lookupIdByUsername = fn(zodRedditUsername, async (username) => {
     const id = await redis.hGet(UsernameToIdKey(), username);

@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { fn } from '../../shared/fn';
-import { redis } from '@devvit/web/server';
+import { redisCompressed as redis } from './redisCompression';
 import { zodRedditUsername } from '../utils';
 import { Challenge } from './challenge';
 import { PROGRESS_POLL_TTL_SECONDS } from '../../shared/config';

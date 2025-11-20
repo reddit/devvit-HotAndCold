@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { fn } from '../../shared/fn';
-import { settings, redis } from '@devvit/web/server';
+import { settings } from '@devvit/web/server';
+import { redisCompressed as redis } from './redisCompression';
 
 export * as API from './api.js';
 
@@ -84,7 +85,7 @@ export const getWord = fn(
 );
 
 const THIRTY_DAYS_IN_SECONDS = 30 * 24 * 60 * 60;
-const WordConfigKey = (word: string) => `word_config2:${word}` as const;
+export const WordConfigKey = (word: string) => `word_config2:${word}` as const;
 
 export const getWordConfigCached = fn(
   z.object({

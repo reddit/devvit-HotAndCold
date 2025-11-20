@@ -8,6 +8,7 @@ import { Challenge } from './core/challenge';
 import { SpoilerGuard } from './core/spoilerGuard';
 import { WtfResponder } from './core/wtfResponder';
 import {
+  WordConfigKey,
   buildHintCsvForChallenge,
   buildLetterCsvForChallenge,
   getWord,
@@ -33,7 +34,12 @@ import { Timezones } from './core/timezones';
 import { Notifications } from './core/notifications';
 import { makeClientConfig } from '../shared/makeClientConfig';
 import { AnalyticsSync } from './core/analyticsSync';
-// no-op
+import { redisCompressed } from './core/redisCompression';
+
+const USER_GUESS_MIGRATION_DISABLED_KEY = 'userGuessCompressionMigration:disabled' as const;
+const CHALLENGE_PROGRESS_MIGRATION_DISABLED_KEY =
+  'challengeProgressCompressionMigration:disabled' as const;
+const USER_CACHE_MIGRATION_DISABLED_KEY = 'userCacheCompressionMigration:disabled' as const;
 
 // Formats a duration in milliseconds to a human-readable long form like
 // "2 hours 5 minutes 3 seconds" or "2 minutes 45 seconds" or "5 seconds".
@@ -1522,21 +1528,20 @@ app.post('/internal/menu/notifications/manage', async (_req, res): Promise<void>
   });
 });
 
-// [ops] Remove reminders/timezones (form launcher)
-app.post('/internal/menu/admin/cleanup-users', async (_req, res): Promise<void> => {
+// [ops] Nuke reminders/timezones (form launcher)
+app.post('/internal/menu/admin/nuke-users', async (_req, res): Promise<void> => {
   res.status(200).json({
     showForm: {
-      name: 'cleanupUsersForm',
+      name: 'nukeUsersForm',
       form: {
-        title: 'Remove reminders and timezones',
-        acceptLabel: 'Remove',
+        title: 'Nuke reminders and timezones',
+        acceptLabel: 'NUKE ALL',
         fields: [
           {
-            name: 'usernamesCsv',
-            label: 'Usernames (comma-separated)',
-            type: 'paragraph',
-            required: true,
-            placeholder: 'user1, user2, user3',
+            name: 'confirm',
+            label: 'This is super dangerous and should be used in development only',
+            type: 'boolean',
+            defaultValue: false,
           },
         ],
       },
@@ -1596,6 +1601,91 @@ app.post('/internal/menu/admin/toggle-cleanup-cancel', async (_req, res): Promis
     });
   }
 });
+
+// [ops] Toggle UserGuess migration (immediate action)
+app.post(
+  '/internal/menu/admin/migrate-user-guess-compression/toggle',
+  async (_req, res): Promise<void> => {
+    try {
+      const currentlyDisabled = (await redis.get(USER_GUESS_MIGRATION_DISABLED_KEY)) === '1';
+      if (currentlyDisabled) {
+        await redis.del(USER_GUESS_MIGRATION_DISABLED_KEY);
+      } else {
+        await redis.set(USER_GUESS_MIGRATION_DISABLED_KEY, '1');
+      }
+
+      res.status(200).json({
+        showToast: currentlyDisabled
+          ? 'UserGuess migration re-enabled.'
+          : 'UserGuess migration paused.',
+      });
+    } catch (err: any) {
+      console.error('Failed to toggle UserGuess migration', err);
+      res.status(500).json({
+        showToast: { text: err?.message || 'Failed to toggle migration', appearance: 'neutral' },
+      });
+    }
+  }
+);
+
+// [ops] Toggle ChallengeProgress migration (immediate action)
+app.post(
+  '/internal/menu/admin/migrate-challenge-progress-compression/toggle',
+  async (_req, res): Promise<void> => {
+    try {
+      const currentlyDisabled =
+        (await redis.get(CHALLENGE_PROGRESS_MIGRATION_DISABLED_KEY)) === '1';
+      if (currentlyDisabled) {
+        await redis.del(CHALLENGE_PROGRESS_MIGRATION_DISABLED_KEY);
+      } else {
+        await redis.set(CHALLENGE_PROGRESS_MIGRATION_DISABLED_KEY, '1');
+      }
+
+      res.status(200).json({
+        showToast: currentlyDisabled
+          ? 'ChallengeProgress migration re-enabled.'
+          : 'ChallengeProgress migration paused.',
+      });
+    } catch (err: any) {
+      console.error('Failed to toggle ChallengeProgress migration', err);
+      res.status(500).json({
+        showToast: {
+          text: err?.message || 'Failed to toggle ChallengeProgress migration',
+          appearance: 'neutral',
+        },
+      });
+    }
+  }
+);
+
+// [ops] Toggle User cache migration (immediate action)
+app.post(
+  '/internal/menu/admin/migrate-user-cache-compression/toggle',
+  async (_req, res): Promise<void> => {
+    try {
+      const currentlyDisabled = (await redis.get(USER_CACHE_MIGRATION_DISABLED_KEY)) === '1';
+      if (currentlyDisabled) {
+        await redis.del(USER_CACHE_MIGRATION_DISABLED_KEY);
+      } else {
+        await redis.set(USER_CACHE_MIGRATION_DISABLED_KEY, '1');
+      }
+
+      res.status(200).json({
+        showToast: currentlyDisabled
+          ? 'User cache migration re-enabled.'
+          : 'User cache migration paused.',
+      });
+    } catch (err: any) {
+      console.error('Failed to toggle user cache migration', err);
+      res.status(500).json({
+        showToast: {
+          text: err?.message || 'Failed to toggle user cache migration',
+          appearance: 'neutral',
+        },
+      });
+    }
+  }
+);
 
 // [notifications] Send single (form launcher)
 app.post('/internal/menu/notifications/send-single', async (_req, res): Promise<void> => {
@@ -1742,60 +1832,32 @@ app.post('/internal/form/notifications/send-single', async (req, res): Promise<v
   }
 });
 
-// [ops] Remove reminders/timezones (form handler)
-app.post('/internal/form/admin/cleanup-users', async (req, res): Promise<void> => {
+// [ops] Nuke reminders/timezones (form handler)
+app.post('/internal/form/admin/nuke-users', async (req, res): Promise<void> => {
   try {
-    const { usernamesCsv } = (req.body as any) ?? {};
-    if (typeof usernamesCsv !== 'string' || usernamesCsv.trim().length === 0) {
-      res.status(400).json({
-        showToast: { text: 'Usernames are required', appearance: 'neutral' },
+    const { confirm } = (req.body as any) ?? {};
+    if (!confirm) {
+      res.status(200).json({
+        showToast: { text: 'Canceled nuke', appearance: 'neutral' },
       });
       return;
     }
 
-    const usernames = usernamesCsv
-      .split(',')
-      .map((u: string) => u.trim())
-      .filter((u: string) => u.length > 0);
-
-    if (usernames.length === 0) {
-      res.status(400).json({
-        showToast: { text: 'No usernames provided after parsing', appearance: 'neutral' },
-      });
-      return;
-    }
-
-    let remindersRemoved = 0;
-    let timezonesCleared = 0;
-    const failures: Array<{ username: string; error: string }> = [];
-
-    for (const username of usernames) {
-      try {
-        await Reminders.removeReminderForUsername({ username });
-        remindersRemoved++;
-      } catch (e: any) {
-        failures.push({ username, error: e?.message || 'Failed to remove reminder' });
-      }
-      try {
-        await Timezones.clearUserTimezone({ username });
-        timezonesCleared++;
-      } catch (e: any) {
-        failures.push({ username, error: e?.message || 'Failed to clear timezone' });
-      }
-    }
-
-    const issues = failures.length
-      ? ` | Failed: ${[...new Set(failures.map((f) => f.username))].join(', ')}`
-      : '';
-    const text = `Removed reminders: ${remindersRemoved} | Cleared timezones: ${timezonesCleared}${issues}`;
+    console.log('[AdminNuke] Starting nuke of reminders and timezones');
+    // Remove everyone from the two keys: reminders (ZSET) and timezones (HASH)
+    await Promise.all([
+      redis.del(Reminders.getRemindersKey()),
+      redis.del(Timezones.UserToIanaKey()),
+    ]);
+    console.log('[AdminNuke] Nuke complete');
 
     res.status(200).json({
-      showToast: { text, appearance: failures.length === 0 ? 'success' : 'neutral' },
+      showToast: { text: 'Nuke completed immediately', appearance: 'success' },
     });
   } catch (err: any) {
-    console.error('Failed to cleanup users', err);
+    console.error('Failed to nuke users', err);
     res.status(500).json({
-      showToast: { text: err?.message || 'Failed to cleanup users', appearance: 'neutral' },
+      showToast: { text: err?.message || 'Failed to nuke users', appearance: 'neutral' },
     });
   }
 });
@@ -2146,6 +2208,75 @@ app.post('/internal/scheduler/users-clean-reminderless-cache', async (req, res):
   }
 });
 
+// Ops menu: Migrate all cached word config entries to gzip compression
+app.post('/internal/menu/word-config/migrate-compression', async (_req, res): Promise<void> => {
+  console.log('[Menu] Starting word config gzip migration');
+  try {
+    const currentChallengeNumber = await Challenge.getCurrentChallengeNumber();
+    if (currentChallengeNumber <= 0) {
+      res.status(200).json({
+        showToast: { text: 'No challenges found to migrate', appearance: 'success' },
+      });
+      return;
+    }
+
+    const seenWords = new Set<string>();
+    const summary = {
+      scannedChallenges: 0,
+      uniqueWords: 0,
+      migrated: 0,
+      missing: 0,
+      errors: 0,
+    };
+
+    for (let challengeNumber = currentChallengeNumber; challengeNumber >= 1; challengeNumber--) {
+      try {
+        const challenge = await Challenge.getChallenge({ challengeNumber });
+        summary.scannedChallenges++;
+        const rawWord = challenge.secretWord?.trim();
+        if (!rawWord) continue;
+        const normalizedWord = rawWord.toLowerCase();
+        if (seenWords.has(normalizedWord)) continue;
+        seenWords.add(normalizedWord);
+        summary.uniqueWords++;
+
+        const key = WordConfigKey(normalizedWord);
+        const val = await redisCompressed.get(key);
+        if (val) {
+          summary.migrated++;
+        } else {
+          summary.missing++;
+        }
+      } catch (error: any) {
+        summary.errors++;
+        console.error('[Menu] word-config gzip migration challenge failed', {
+          challengeNumber,
+          message: error?.message,
+        });
+      }
+    }
+
+    console.log('[Menu] word-config gzip migration complete', {
+      ...summary,
+      totalChallenges: currentChallengeNumber,
+    });
+
+    const toastText =
+      summary.uniqueWords === 0
+        ? 'No secret words found to migrate'
+        : `Word config migration complete: scanned/ensured ${summary.migrated}, missing ${summary.missing}`;
+
+    res.status(200).json({
+      showToast: { text: toastText, appearance: 'success' },
+    });
+  } catch (err: any) {
+    console.error('Failed to migrate word config caches', err);
+    res.status(500).json({
+      showToast: { text: err?.message || 'Failed word config migration', appearance: 'neutral' },
+    });
+  }
+});
+
 // [migrate] Timezones: offsets -> IANA (immediate action)
 app.post('/internal/menu/timezones/migrate-to-iana', async (_req, res): Promise<void> => {
   try {
@@ -2167,5 +2298,646 @@ app.post('/internal/menu/timezones/migrate-to-iana', async (_req, res): Promise<
 
 // Error tracking should be last among middleware to catch downstream errors
 app.use(usePosthogErrorTracking);
+
+// [ops] Migrate Reminders to T2 (immediate action)
+app.post('/internal/menu/admin/migrate-reminders-t2', async (_req, res): Promise<void> => {
+  try {
+    const { totalProcessed, totalAdded } = await Reminders.migrateRemindersToT2();
+    res.status(200).json({
+      showToast: {
+        text: `Migration complete: Processed ${totalProcessed}, Added ${totalAdded}`,
+        appearance: 'success',
+      },
+    });
+  } catch (err: any) {
+    console.error('Failed to migrate reminders to t2', err);
+    res.status(500).json({
+      showToast: {
+        text: err?.message || 'Failed to migrate reminders to t2',
+        appearance: 'neutral',
+      },
+    });
+  }
+});
+
+// [ops] Migrate UserGuess compression (form launcher)
+app.post(
+  '/internal/menu/admin/migrate-user-guess-compression',
+  async (_req, res): Promise<void> => {
+    res.status(200).json({
+      showForm: {
+        name: 'migrateUserGuessForm',
+        form: {
+          title: 'Migrate UserGuess compression',
+          acceptLabel: 'Start Migration',
+          fields: [
+            {
+              name: 'startChallenge',
+              label: 'Start Challenge Number',
+              type: 'number',
+              required: true,
+              defaultValue: 1,
+            },
+            {
+              name: 'endChallenge',
+              label: 'End Challenge Number',
+              type: 'number',
+              required: true,
+            },
+            {
+              name: 'chunkSize',
+              label: 'Chunk Size (users per batch)',
+              type: 'number',
+              defaultValue: 500,
+            },
+          ],
+        },
+      },
+    });
+  }
+);
+
+// [ops] Migrate UserGuess compression (form handler)
+app.post('/internal/form/admin/migrate-user-guess-compression', async (req, res): Promise<void> => {
+  try {
+    const { startChallenge, endChallenge, chunkSize } = (req.body as any) ?? {};
+    const start = Number(startChallenge);
+    const end = Number(endChallenge);
+    const chunk = Number(chunkSize) || 50;
+
+    const migrationDisabled = (await redis.get(USER_GUESS_MIGRATION_DISABLED_KEY)) === '1';
+    if (migrationDisabled) {
+      res.status(400).json({
+        showToast: {
+          text: 'Migration is currently paused. Toggle it back on to run.',
+          appearance: 'neutral',
+        },
+      });
+      return;
+    }
+
+    if (!start || !end || start > end) {
+      res.status(400).json({
+        showToast: { text: 'Invalid challenge range', appearance: 'neutral' },
+      });
+      return;
+    }
+
+    await scheduler.runJob({
+      name: 'migrate-user-guess-compression',
+      runAt: new Date(),
+      data: {
+        startChallenge: start,
+        endChallenge: end,
+        chunkSize: chunk,
+        currentChallenge: start,
+        cursor: 0,
+        processed: 0,
+      },
+    });
+
+    res.status(200).json({
+      showToast: {
+        text: `Migration started for challenges ${start}-${end}`,
+        appearance: 'success',
+      },
+    });
+  } catch (err: any) {
+    console.error('Failed to start migration', err);
+    res.status(500).json({
+      showToast: { text: err?.message || 'Failed to start migration', appearance: 'neutral' },
+    });
+  }
+});
+
+// Scheduler: migrate-user-guess-compression
+app.post('/internal/scheduler/migrate-user-guess-compression', async (req, res): Promise<void> => {
+  const startTime = Date.now();
+  try {
+    const body = (req.body as any) ?? {};
+    const data = body?.data ?? {};
+    const startChallenge = Number(data.startChallenge);
+    const endChallenge = Number(data.endChallenge);
+    const chunkSize = Number(data.chunkSize) || 500;
+    let currentChallenge = Number(data.currentChallenge) || startChallenge;
+    let cursor = Number(data.cursor) || 0;
+    const processedTotal = Number(data.processed) || 0;
+
+    const migrationDisabled = (await redis.get(USER_GUESS_MIGRATION_DISABLED_KEY)) === '1';
+    if (migrationDisabled) {
+      console.log('[MigrateCompression] Skipping job because migration is disabled via toggle');
+      res.json({ status: 'disabled', processed: processedTotal });
+      return;
+    }
+
+    console.log('[MigrateCompression] Job start', {
+      currentChallenge,
+      endChallenge,
+      cursor,
+      chunkSize,
+    });
+
+    let keepRunning = true;
+    let processedInJob = 0;
+    const ZSCAN_COUNT = 250;
+
+    while (keepRunning && currentChallenge <= endChallenge) {
+      if (processedInJob >= chunkSize) {
+        keepRunning = false;
+        break;
+      }
+
+      // Find users who played this challenge
+      const key = ChallengeProgress.StartKey(currentChallenge);
+      // zScan returns { cursor: number, members: [] } for Devvit redis client
+      const { cursor: nextCursor, members } = await redis.zScan(
+        key,
+        cursor,
+        undefined,
+        ZSCAN_COUNT
+      );
+
+      // Migrate each user found in parallel to stay within the 30s window
+      await Promise.allSettled(
+        members.map(async (member) => {
+          const username = member.member;
+          const userKey = UserGuess.Key(currentChallenge, username);
+          try {
+            // Read (decompress if needed)
+            const data = await redisCompressed.hGetAll(userKey);
+            if (data && Object.keys(data).length > 0) {
+              // Write (compress)
+              await redisCompressed.hSet(userKey, data);
+            }
+          } catch (error) {
+            console.error('[MigrateCompression] Failed user', { userKey, error });
+          }
+        })
+      );
+
+      processedInJob += members.length;
+
+      // Prepare for next iteration
+      if (nextCursor === 0) {
+        // Finished this challenge
+        currentChallenge++;
+        cursor = 0;
+      } else {
+        // Continue this challenge
+        cursor = nextCursor;
+      }
+
+      // Check time limit (safety buffer for 30s timeout)
+      if (Date.now() - startTime > 20000) {
+        keepRunning = false;
+      }
+    }
+
+    const newProcessedTotal = processedTotal + processedInJob;
+
+    const disabledAfterRun = (await redis.get(USER_GUESS_MIGRATION_DISABLED_KEY)) === '1';
+    if (disabledAfterRun) {
+      console.log('[MigrateCompression] Migration disabled mid-run; not requeueing', {
+        currentChallenge,
+      });
+      res.json({ status: 'disabled', processed: newProcessedTotal });
+      return;
+    }
+
+    if (currentChallenge <= endChallenge) {
+      // Requeue
+      await scheduler.runJob({
+        name: 'migrate-user-guess-compression',
+        runAt: new Date(),
+        data: {
+          startChallenge,
+          endChallenge,
+          chunkSize,
+          currentChallenge,
+          cursor,
+          processed: newProcessedTotal,
+        },
+      });
+      console.log('[MigrateCompression] Requeued', {
+        currentChallenge,
+        cursor,
+        processed: newProcessedTotal,
+      });
+      res.json({
+        status: 'requeued',
+        processed: newProcessedTotal,
+        nextChallenge: currentChallenge,
+      });
+    } else {
+      // Done
+      console.log('[MigrateCompression] Done', { processed: newProcessedTotal });
+      res.json({ status: 'success', processed: newProcessedTotal });
+    }
+  } catch (err: any) {
+    console.error('[MigrateCompression] Job failed', err);
+    res.status(500).json({ status: 'error', message: err?.message });
+  }
+});
+
+// [ops] Migrate ChallengeProgress compression (form launcher)
+app.post(
+  '/internal/menu/admin/migrate-challenge-progress-compression',
+  async (_req, res): Promise<void> => {
+    res.status(200).json({
+      showForm: {
+        name: 'migrateChallengeProgressForm',
+        form: {
+          title: 'Migrate ChallengeProgress compression',
+          acceptLabel: 'Start Migration',
+          fields: [
+            {
+              name: 'startChallenge',
+              label: 'Start Challenge Number',
+              type: 'number',
+              required: true,
+              defaultValue: 1,
+            },
+            {
+              name: 'endChallenge',
+              label: 'End Challenge Number',
+              type: 'number',
+              required: true,
+            },
+            {
+              name: 'chunkSize',
+              label: 'Chunk Size (players per batch)',
+              type: 'number',
+              defaultValue: 500,
+            },
+          ],
+        },
+      },
+    });
+  }
+);
+
+// [ops] Migrate ChallengeProgress compression (form handler)
+app.post(
+  '/internal/form/admin/migrate-challenge-progress-compression',
+  async (req, res): Promise<void> => {
+    try {
+      const { startChallenge, endChallenge, chunkSize } = (req.body as any) ?? {};
+      const start = Number(startChallenge);
+      const end = Number(endChallenge);
+      const chunk = Number(chunkSize) || 500;
+
+      const migrationDisabled =
+        (await redis.get(CHALLENGE_PROGRESS_MIGRATION_DISABLED_KEY)) === '1';
+      if (migrationDisabled) {
+        res.status(400).json({
+          showToast: {
+            text: 'ChallengeProgress migration is currently paused. Toggle it back on to run.',
+            appearance: 'neutral',
+          },
+        });
+        return;
+      }
+
+      if (!start || !end || start > end) {
+        res.status(400).json({
+          showToast: { text: 'Invalid challenge range', appearance: 'neutral' },
+        });
+        return;
+      }
+
+      await scheduler.runJob({
+        name: 'migrate-challenge-progress-compression',
+        runAt: new Date(),
+        data: {
+          startChallenge: start,
+          endChallenge: end,
+          chunkSize: chunk,
+          currentChallenge: start,
+          cursor: 0,
+          processed: 0,
+        },
+      });
+
+      res.status(200).json({
+        showToast: {
+          text: `ChallengeProgress migration started for challenges ${start}-${end}`,
+          appearance: 'success',
+        },
+      });
+    } catch (err: any) {
+      console.error('Failed to start ChallengeProgress migration', err);
+      res.status(500).json({
+        showToast: {
+          text: err?.message || 'Failed to start ChallengeProgress migration',
+          appearance: 'neutral',
+        },
+      });
+    }
+  }
+);
+
+// Scheduler: migrate-challenge-progress-compression
+app.post(
+  '/internal/scheduler/migrate-challenge-progress-compression',
+  async (req, res): Promise<void> => {
+    const startTime = Date.now();
+    try {
+      const body = (req.body as any) ?? {};
+      const data = body?.data ?? {};
+      const startChallenge = Number(data.startChallenge);
+      const endChallenge = Number(data.endChallenge);
+      const chunkSize = Number(data.chunkSize) || 500;
+      let currentChallenge = Number(data.currentChallenge) || startChallenge;
+      let cursor = Number(data.cursor) || 0;
+      const processedTotal = Number(data.processed) || 0;
+
+      const migrationDisabled =
+        (await redis.get(CHALLENGE_PROGRESS_MIGRATION_DISABLED_KEY)) === '1';
+      if (migrationDisabled) {
+        console.log('[ChallengeProgressMigration] Skipping job because migration is disabled');
+        res.json({ status: 'disabled', processed: processedTotal });
+        return;
+      }
+
+      console.log('[ChallengeProgressMigration] Job start', {
+        currentChallenge,
+        endChallenge,
+        cursor,
+        chunkSize,
+      });
+
+      let keepRunning = true;
+      let processedInJob = 0;
+      const HSCAN_COUNT = 250;
+
+      while (keepRunning && currentChallenge <= endChallenge) {
+        if (processedInJob >= chunkSize) {
+          keepRunning = false;
+          break;
+        }
+
+        const key = ChallengeProgress.PlayerInfoHashKey(currentChallenge);
+        const { cursor: nextCursor, fieldValues } = await redis.hScan(
+          key,
+          cursor,
+          undefined,
+          HSCAN_COUNT
+        );
+
+        await Promise.allSettled(
+          fieldValues.map(async ({ field }) => {
+            try {
+              const raw = await redisCompressed.hGet(key, field);
+              if (typeof raw === 'string' && raw.length > 0) {
+                await redisCompressed.hSet(key, { [field]: raw });
+              }
+            } catch (error) {
+              console.error('[ChallengeProgressMigration] Failed field', { key, field, error });
+            }
+          })
+        );
+
+        processedInJob += fieldValues.length;
+
+        if (nextCursor === 0) {
+          currentChallenge++;
+          cursor = 0;
+        } else {
+          cursor = nextCursor;
+        }
+
+        if (Date.now() - startTime > 20000) {
+          keepRunning = false;
+        }
+      }
+
+      const newProcessedTotal = processedTotal + processedInJob;
+
+      const disabledAfterRun = (await redis.get(CHALLENGE_PROGRESS_MIGRATION_DISABLED_KEY)) === '1';
+      if (disabledAfterRun) {
+        console.log('[ChallengeProgressMigration] Disabled mid-run; not requeueing', {
+          currentChallenge,
+        });
+        res.json({ status: 'disabled', processed: newProcessedTotal });
+        return;
+      }
+
+      if (currentChallenge <= endChallenge) {
+        await scheduler.runJob({
+          name: 'migrate-challenge-progress-compression',
+          runAt: new Date(),
+          data: {
+            startChallenge,
+            endChallenge,
+            chunkSize,
+            currentChallenge,
+            cursor,
+            processed: newProcessedTotal,
+          },
+        });
+        console.log('[ChallengeProgressMigration] Requeued', {
+          currentChallenge,
+          cursor,
+          processed: newProcessedTotal,
+        });
+        res.json({
+          status: 'requeued',
+          processed: newProcessedTotal,
+          nextChallenge: currentChallenge,
+        });
+      } else {
+        console.log('[ChallengeProgressMigration] Done', { processed: newProcessedTotal });
+        res.json({ status: 'success', processed: newProcessedTotal });
+      }
+    } catch (err: any) {
+      console.error('[ChallengeProgressMigration] Job failed', err);
+      res.status(500).json({ status: 'error', message: err?.message });
+    }
+  }
+);
+
+// [ops] Migrate User cache compression (form launcher)
+app.post(
+  '/internal/menu/admin/migrate-user-cache-compression',
+  async (_req, res): Promise<void> => {
+    res.status(200).json({
+      showForm: {
+        name: 'migrateUserCacheForm',
+        form: {
+          title: 'Migrate user cache compression',
+          acceptLabel: 'Start Migration',
+          fields: [
+            {
+              name: 'startCursor',
+              label: 'Start cursor (hScan)',
+              type: 'number',
+              defaultValue: 0,
+            },
+            {
+              name: 'chunkSize',
+              label: 'Chunk Size (users per batch)',
+              type: 'number',
+              defaultValue: 500,
+            },
+          ],
+        },
+      },
+    });
+  }
+);
+
+// [ops] Migrate User cache compression (form handler)
+app.post('/internal/form/admin/migrate-user-cache-compression', async (req, res): Promise<void> => {
+  try {
+    const { startCursor, chunkSize } = (req.body as any) ?? {};
+    const cursor = Math.max(0, Number(startCursor) || 0);
+    const chunk = Math.max(1, Number(chunkSize) || 500);
+
+    const migrationDisabled = (await redis.get(USER_CACHE_MIGRATION_DISABLED_KEY)) === '1';
+    if (migrationDisabled) {
+      res.status(400).json({
+        showToast: {
+          text: 'User cache migration is currently paused. Toggle it back on to run.',
+          appearance: 'neutral',
+        },
+      });
+      return;
+    }
+
+    await scheduler.runJob({
+      name: 'migrate-user-cache-compression',
+      runAt: new Date(),
+      data: {
+        cursor,
+        chunkSize: chunk,
+        processed: 0,
+      },
+    });
+
+    res.status(200).json({
+      showToast: {
+        text: `User cache migration started (cursor=${cursor}, chunk=${chunk})`,
+        appearance: 'success',
+      },
+    });
+  } catch (err: any) {
+    console.error('Failed to start user cache migration', err);
+    res.status(500).json({
+      showToast: {
+        text: err?.message || 'Failed to start user cache migration',
+        appearance: 'neutral',
+      },
+    });
+  }
+});
+
+// Scheduler: migrate-user-cache-compression
+app.post('/internal/scheduler/migrate-user-cache-compression', async (req, res): Promise<void> => {
+  const startTime = Date.now();
+  try {
+    const body = (req.body as any) ?? {};
+    const data = body?.data ?? {};
+    const chunkSize = Math.max(1, Number(data.chunkSize) || 500);
+    let cursor = Math.max(0, Number(data.cursor) || 0);
+    const processedTotal = Number(data.processed) || 0;
+
+    const migrationDisabled = (await redis.get(USER_CACHE_MIGRATION_DISABLED_KEY)) === '1';
+    if (migrationDisabled) {
+      console.log('[UserCacheMigration] Skipping job because migration is disabled via toggle');
+      res.json({ status: 'disabled', processed: processedTotal, cursor });
+      return;
+    }
+
+    console.log('[UserCacheMigration] Job start', { cursor, chunkSize });
+
+    let keepRunning = true;
+    let processedInJob = 0;
+    let done = false;
+    const HSCAN_COUNT = 250;
+
+    while (keepRunning) {
+      if (processedInJob >= chunkSize) break;
+
+      const { cursor: nextCursor, fieldValues } = await redis.hScan(
+        User.UsernameToIdKey(),
+        cursor,
+        undefined,
+        HSCAN_COUNT
+      );
+
+      await Promise.allSettled(
+        fieldValues.map(async ({ field: username, value: id }) => {
+          if (!id || !username) return;
+          const key = User.Key(id);
+          try {
+            const ttl = await redis.expireTime(key);
+            const raw = await redisCompressed.get(key);
+            if (typeof raw === 'string' && raw.length > 0) {
+              await redisCompressed.set(key, raw);
+              if (ttl > 0) {
+                const now = Math.floor(Date.now() / 1000);
+                const remaining = ttl - now;
+                if (remaining > 0) {
+                  await redis.expire(key, remaining);
+                }
+              } else if (ttl === -2) {
+                await redis.expire(key, User.CacheTtlSeconds);
+              }
+            }
+          } catch (error) {
+            console.error('[UserCacheMigration] Failed key', { key, error });
+          }
+        })
+      );
+
+      processedInJob += fieldValues.length;
+
+      if (nextCursor === 0) {
+        done = true;
+        cursor = 0;
+        break;
+      } else {
+        cursor = nextCursor;
+      }
+
+      if (Date.now() - startTime > 20000) {
+        keepRunning = false;
+      }
+    }
+
+    const newProcessedTotal = processedTotal + processedInJob;
+
+    const disabledAfterRun = (await redis.get(USER_CACHE_MIGRATION_DISABLED_KEY)) === '1';
+    if (disabledAfterRun) {
+      console.log('[UserCacheMigration] Disabled mid-run; not requeueing', { cursor });
+      res.json({ status: 'disabled', processed: newProcessedTotal, cursor });
+      return;
+    }
+
+    if (!done) {
+      await scheduler.runJob({
+        name: 'migrate-user-cache-compression',
+        runAt: new Date(),
+        data: {
+          cursor,
+          chunkSize,
+          processed: newProcessedTotal,
+        },
+      });
+      console.log('[UserCacheMigration] Requeued', { cursor, processed: newProcessedTotal });
+      res.json({
+        status: 'requeued',
+        processed: newProcessedTotal,
+        cursor,
+      });
+    } else {
+      console.log('[UserCacheMigration] Done', { processed: newProcessedTotal });
+      res.json({ status: 'success', processed: newProcessedTotal });
+    }
+  } catch (err: any) {
+    console.error('[UserCacheMigration] Job failed', err);
+    res.status(500).json({ status: 'error', message: err?.message });
+  }
+});
 
 createServer(app).listen(getServerPort());
