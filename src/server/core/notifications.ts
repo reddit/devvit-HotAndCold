@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { fn } from '../../shared/fn';
-import { redis, scheduler } from '@devvit/web/server';
+import { scheduler } from '@devvit/web/server';
+import { redisCompressed as redis } from './redisCompression';
 import { Reminders } from './reminder';
 import { notifications } from '@devvit/notifications';
 import type { EnqueueOptions } from '@devvit/notifications';
