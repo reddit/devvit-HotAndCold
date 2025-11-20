@@ -31,7 +31,8 @@
     "migrateChallengeProgressForm": "/internal/form/admin/migrate-challenge-progress-compression",
     "migrateUserCacheForm": "/internal/form/admin/migrate-user-cache-compression",
     "migrateUserGuessForm": "/internal/form/admin/migrate-user-guess-compression",
-    "statsPlayersForm": "/internal/form/stats/players-count"
+    "statsPlayersForm": "/internal/form/stats/players-count",
+    "peekUserGuessForm": "/internal/form/debug/peek-guess"
   },
   "menu": {
     "items": [
