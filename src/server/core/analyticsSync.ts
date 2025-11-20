@@ -11,7 +11,7 @@ import { shouldSampleUser } from '../../shared/posthogUtils';
 
 export namespace AnalyticsSync {
   const POSTHOG_HOST = 'https://us.i.posthog.com';
-  const DEFAULT_LIMIT = 500;
+  const DEFAULT_LIMIT = 10_000;
   const REQUEUE_DELAY_MS = 2_000;
 
   async function makePosthog(): Promise<PostHog> {

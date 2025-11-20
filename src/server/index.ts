@@ -1387,7 +1387,7 @@ app.post('/internal/scheduler/posthog-user-prop-sync', async (req, res): Promise
     const body = (req.body as any) ?? {};
     const data = body?.data ?? {};
     const cursor = Number.parseInt(String(data?.cursor ?? '0'), 10) || 0;
-    const limit = Number.parseInt(String(data?.limit ?? '500'), 10) || 500;
+    const limit = Number.parseInt(String(data?.limit ?? '10_000'), 10) || 10_000;
     console.log('[Scheduler] posthog-user-prop-sync invoked', { cursor, limit });
     const result = await AnalyticsSync.runOrRequeue({ cursor, limit });
     console.log('[Scheduler] posthog-user-prop-sync completed', { result });
