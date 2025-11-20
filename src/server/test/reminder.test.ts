@@ -21,7 +21,6 @@ const seedUserCache = async (username: string) => {
   const id = `t2_${username}`;
   const cached = { id, username };
   await redis.hSet(User.UsernameToIdKey(), { [username]: id });
-  await redis.hSet(User.IdToUsernameKey(), { [id]: username });
   await redis.set(User.Key(id), JSON.stringify(cached));
 };
 const makeCleanupRunResult = (

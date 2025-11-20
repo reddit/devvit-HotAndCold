@@ -8,6 +8,11 @@ import { PROGRESS_POLL_TTL_SECONDS } from '../../shared/config';
 export namespace ChallengeProgress {
   type HydratedEntry = { username: string; progress: number; avatar?: string };
 
+  // Expire challenge player data after 8 days to reduce storage footprint.
+  // Challenge metadata may persist longer, but individual player progress/rankings
+  // for old challenges are cleared.
+  const CHALLENGE_TTL_SECONDS = 60 * 60 * 24 * 8;
+
   let cachedTtl = PROGRESS_POLL_TTL_SECONDS;
   export const setCachedTtl = (ttl: number) => {
     cachedTtl = ttl;
@@ -15,8 +20,6 @@ export namespace ChallengeProgress {
 
   export const StartKey = (challengeNumber: number) =>
     `${Challenge.ChallengeKey(challengeNumber)}:players:start` as const;
-  export const ProgressKey = (challengeNumber: number) =>
-    `${Challenge.ChallengeKey(challengeNumber)}:players:progress` as const;
   // Consolidated per-player info for batch fetches: JSON { avatar?: string, progress?: number }
   export const PlayerInfoHashKey = (challengeNumber: number) =>
     `${Challenge.ChallengeKey(challengeNumber)}:players:info` as const;
@@ -121,16 +124,19 @@ export namespace ChallengeProgress {
         member: username,
         score: startedAtMs,
       });
+      await redis.expire(StartKey(challengeNumber), CHALLENGE_TTL_SECONDS);
+
       // Merge avatar into consolidated info (preserve existing progress if present)
       const prev = await redis.hGet(PlayerInfoHashKey(challengeNumber), username);
       const prevObj = prev ? (JSON.parse(prev) as { avatar?: string; progress?: number }) : {};
       const nextObj = { ...prevObj, ...(avatar ? { avatar } : {}) };
       await redis.hSet(PlayerInfoHashKey(challengeNumber), { [username]: JSON.stringify(nextObj) });
+      await redis.expire(PlayerInfoHashKey(challengeNumber), CHALLENGE_TTL_SECONDS);
     }
   );
 
   /**
-   * Upsert a player's progress (0..100) into a per-challenge ZSET.
+   * Upsert a player's progress (0..100).
    */
   export const upsertProgress = fn(
     z.object({
@@ -139,15 +145,12 @@ export namespace ChallengeProgress {
       progress: z.number().min(0).max(100),
     }),
     async ({ challengeNumber, username, progress }) => {
-      await redis.zAdd(ProgressKey(challengeNumber), {
-        member: username,
-        score: Math.round(progress),
-      });
       // Merge progress into consolidated info (preserve existing avatar if present)
       const prev = await redis.hGet(PlayerInfoHashKey(challengeNumber), username);
       const prevObj = prev ? (JSON.parse(prev) as { avatar?: string; progress?: number }) : {};
       const nextObj = { ...prevObj, progress: Math.round(progress) };
       await redis.hSet(PlayerInfoHashKey(challengeNumber), { [username]: JSON.stringify(nextObj) });
+      await redis.expire(PlayerInfoHashKey(challengeNumber), CHALLENGE_TTL_SECONDS);
     }
   );
 

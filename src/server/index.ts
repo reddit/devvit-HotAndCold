@@ -2698,6 +2698,11 @@ app.post(
         return;
       }
 
+      // Get latest challenge number for age estimation fallback
+      const currentMaxChallenge = await Challenge.getCurrentChallengeNumber().catch(() => 0);
+      const LATEST_CHALLENGES_TO_KEEP = 8;
+      const EIGHT_DAYS_MS = 8 * 24 * 60 * 60 * 1000;
+
       console.log('[ChallengeProgressMigration] Job start', {
         currentChallenge,
         endChallenge,
@@ -2713,6 +2718,41 @@ app.post(
         if (processedInJob >= chunkSize) {
           keepRunning = false;
           break;
+        }
+
+        // Check expiry/retention at the start of processing a challenge
+        if (cursor === 0) {
+          const startKey = ChallengeProgress.StartKey(currentChallenge);
+          const infoKey = ChallengeProgress.PlayerInfoHashKey(currentChallenge);
+          const progressKey = `challenge:${currentChallenge}:players:progress`; // Old key to remove
+
+          // If challenge is older than the latest 8, delete it
+          // We allow a small buffer if currentMaxChallenge is somehow 0
+          if (
+            currentMaxChallenge > 0 &&
+            currentChallenge <= currentMaxChallenge - LATEST_CHALLENGES_TO_KEEP
+          ) {
+            console.log('[ChallengeProgressMigration] Deleting expired challenge data', {
+              currentChallenge,
+              currentMaxChallenge,
+            });
+            await Promise.all([redis.del(startKey), redis.del(infoKey), redis.del(progressKey)]);
+            currentChallenge++;
+            // Check time budget even if we just deleted
+            if (Date.now() - startTime > 20000) {
+              keepRunning = false;
+            }
+            continue;
+          }
+
+          // Not expired: Ensure TTL is set correctly
+          // Use a fixed 8 day TTL for active challenges to ensure they auto-expire later
+          await Promise.all([
+            redis.expire(startKey, EIGHT_DAYS_MS / 1000),
+            redis.expire(infoKey, EIGHT_DAYS_MS / 1000),
+            // Cleanup the old progress key if it still exists for this active challenge
+            redis.del(progressKey),
+          ]);
         }
 
         const key = ChallengeProgress.PlayerInfoHashKey(currentChallenge);
