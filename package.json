@@ -53,7 +53,7 @@
   "dependencies": {
     "@devvit/shared-types": "0.12.4-next-2025-11-19-19-44-39-7a40ac905.0",
     "@devvit/web": "0.12.4-next-2025-11-19-19-44-39-7a40ac905.0",
-    "@devvit/notifications": "0.12.4-next-2025-11-19-19-44-39-7a40ac905.0",
+    "@devvit/pushnotif": "0.12.4-next-2025-11-19-19-44-39-7a40ac905.0",
     "@google/genai": "1.16.0",
     "@preact/signals": "^1.2.2",
     "@trpc/client": "11.4.4",
