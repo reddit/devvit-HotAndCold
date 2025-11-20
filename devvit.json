@@ -221,6 +221,20 @@
         "location": "subreddit",
         "description": "classic",
         "endpoint": "/internal/menu/stats/players-count"
+      },
+      {
+        "label": "[stats] Total guesses (All Time)",
+        "forUserType": "moderator",
+        "location": "subreddit",
+        "description": "classic",
+        "endpoint": "/internal/menu/stats/total-guesses"
+      },
+      {
+        "label": "[debug] Peek user guess (raw/decompressed)",
+        "forUserType": "moderator",
+        "location": "subreddit",
+        "description": "classic",
+        "endpoint": "/internal/menu/debug/peek-guess"
       }
     ]
   },

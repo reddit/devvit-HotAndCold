@@ -960,6 +960,43 @@ app.post('/internal/form/stats/players-count', async (req, res): Promise<void> =
   }
 });
 
+// [stats] Total guesses across all challenges
+app.post('/internal/menu/stats/total-guesses', async (_req, res): Promise<void> => {
+  try {
+    const currentChallengeNumber = await Challenge.getCurrentChallengeNumber();
+    let totalGuesses = 0;
+    const batchSize = 100;
+
+    for (let i = 1; i <= currentChallengeNumber; i += batchSize) {
+      const batchPromises: Promise<string | undefined>[] = [];
+      const end = Math.min(i + batchSize - 1, currentChallengeNumber);
+      for (let j = i; j <= end; j++) {
+        batchPromises.push(redis.hGet(Challenge.ChallengeKey(j), 'totalGuesses'));
+      }
+      const results = await Promise.all(batchPromises);
+      for (const val of results) {
+        if (val) {
+          totalGuesses += parseInt(val, 10) || 0;
+        }
+      }
+    }
+
+    res.status(200).json({
+      showToast: {
+        text: `Total guesses across all ${currentChallengeNumber} challenges: ${totalGuesses}`,
+        appearance: 'success',
+      },
+    });
+  } catch (err: any) {
+    res.status(500).json({
+      showToast: {
+        text: err?.message || 'Failed to calculate total guesses',
+        appearance: 'neutral',
+      },
+    });
+  }
+});
+
 // [queue] DM full queue contents to invoking moderator (immediate action)
 app.post('/internal/menu/dm', async (_req, res): Promise<void> => {
   try {
@@ -2939,6 +2976,149 @@ app.post('/internal/scheduler/migrate-user-cache-compression', async (req, res):
   } catch (err: any) {
     console.error('[UserCacheMigration] Job failed', err);
     res.status(500).json({ status: 'error', message: err?.message });
+  }
+});
+
+// [debug] Peek user guess (form launcher)
+app.post('/internal/menu/debug/peek-guess', async (_req, res): Promise<void> => {
+  try {
+    let currentChallenge = 1;
+    try {
+      currentChallenge = await Challenge.getCurrentChallengeNumber();
+    } catch {
+      // ignore
+    }
+
+    res.status(200).json({
+      showForm: {
+        name: 'peekUserGuessForm',
+        form: {
+          title: 'Peek user guess (Raw/Decompressed)',
+          acceptLabel: 'Peek',
+          fields: [
+            {
+              name: 'challengeNumber',
+              label: 'Challenge Number',
+              type: 'number',
+              required: true,
+              defaultValue: currentChallenge,
+            },
+            {
+              name: 'username',
+              label: 'Username (leave empty for current user)',
+              type: 'string',
+            },
+          ],
+        },
+      },
+    });
+  } catch (err: any) {
+    res.status(500).json({
+      showToast: {
+        text: err?.message || 'Failed to open peek form',
+        appearance: 'neutral',
+      },
+    });
+  }
+});
+
+// [debug] Peek user guess (form handler)
+app.post('/internal/form/debug/peek-guess', async (req, res): Promise<void> => {
+  try {
+    const { challengeNumber, username: inputUsername } = (req.body as any) ?? {};
+    const parsedChallengeNumber = Number(challengeNumber);
+
+    if (!parsedChallengeNumber || parsedChallengeNumber <= 0) {
+      res.status(400).json({
+        showToast: { text: 'Invalid challenge number', appearance: 'neutral' },
+      });
+      return;
+    }
+
+    let targetUsername = inputUsername;
+    if (
+      !targetUsername ||
+      typeof targetUsername !== 'string' ||
+      targetUsername.trim().length === 0
+    ) {
+      // If no username provided, try to use the invoker's username
+      const { userId } = context;
+      if (userId) {
+        const me = await reddit.getUserById(userId);
+        if (me) {
+          targetUsername = me.username;
+        }
+      }
+    }
+
+    if (!targetUsername) {
+      res.status(400).json({
+        showToast: { text: 'Could not resolve a username to peek', appearance: 'neutral' },
+      });
+      return;
+    }
+
+    // Clean username
+    targetUsername = targetUsername.trim();
+
+    const key = UserGuess.Key(parsedChallengeNumber, targetUsername);
+
+    // Parallel fetch
+    const [raw, decompressed] = await Promise.all([
+      redis.hGetAll(key),
+      redisCompressed.hGetAll(key),
+    ]);
+
+    const { userId } = context;
+    if (!userId) {
+      res.status(400).json({
+        showToast: { text: 'No calling user found to DM', appearance: 'neutral' },
+      });
+      return;
+    }
+    const me = await reddit.getUserById(userId);
+    if (!me) {
+      res.status(400).json({
+        showToast: { text: 'Calling user not found', appearance: 'neutral' },
+      });
+      return;
+    }
+
+    const subject = `Debug Peek: ${targetUsername} (Challenge #${parsedChallengeNumber})`;
+    const body = [
+      `**Key**: \`${key}\``,
+      '',
+      '**Raw (redis.hGetAll)**:',
+      '```json',
+      JSON.stringify(raw ?? {}, null, 2),
+      '```',
+      '',
+      '**Decompressed (redisCompressed.hGetAll)**:',
+      '```json',
+      JSON.stringify(decompressed ?? {}, null, 2),
+      '```',
+    ].join('\n');
+
+    await reddit.sendPrivateMessage({
+      to: me.username,
+      subject,
+      text: body,
+    });
+
+    res.status(200).json({
+      showToast: {
+        text: `Sent peek data for ${targetUsername} via DM`,
+        appearance: 'success',
+      },
+    });
+  } catch (err: any) {
+    console.error('Failed to peek user guess', err);
+    res.status(500).json({
+      showToast: {
+        text: err?.message || 'Failed to peek user guess',
+        appearance: 'neutral',
+      },
+    });
   }
 });
 
