@@ -24,9 +24,7 @@ it('getById returns cached user and updates mapping caches', async () => {
     expect(info).toEqual(cached);
 
     const u2i = await redis.hGet(User.UsernameToIdKey(), 'alice');
-    const i2u = await redis.hGet(User.IdToUsernameKey(), id);
     expect(u2i).toBe(id);
-    expect(i2u).toBe('alice');
     expect(spy).not.toHaveBeenCalled();
   } finally {
     spy.mockRestore();
@@ -51,9 +49,7 @@ it('getById fetches from reddit on cache miss and caches the result', async () =
     expect(parsed).toEqual(info);
 
     const u2i = await redis.hGet(User.UsernameToIdKey(), 'bob');
-    const i2u = await redis.hGet(User.IdToUsernameKey(), id);
     expect(u2i).toBe(id);
-    expect(i2u).toBe('bob');
     expect(spy).toHaveBeenCalledTimes(1);
   } finally {
     spy.mockRestore();
@@ -85,8 +81,6 @@ it('getByUsername returns from cache via mapping and updates id->username', asyn
     const info = await User.getByUsername(username);
     expect(info).toEqual({ id, username, snoovatar: undefined });
 
-    const i2u = await redis.hGet(User.IdToUsernameKey(), id);
-    expect(i2u).toBe(username);
     expect(spy).not.toHaveBeenCalled();
   } finally {
     spy.mockRestore();
@@ -113,9 +107,7 @@ it('getByUsername falls back to reddit when mapping exists but user cache missin
     expect(parsed).toEqual(info);
 
     const u2i = await redis.hGet(User.UsernameToIdKey(), username);
-    const i2u = await redis.hGet(User.IdToUsernameKey(), id);
     expect(u2i).toBe(id);
-    expect(i2u).toBe(username);
     expect(spy).toHaveBeenCalledTimes(1);
   } finally {
     spy.mockRestore();
@@ -140,9 +132,7 @@ it('getByUsername fetches from reddit and caches when mapping is missing', async
     expect(parsed).toEqual(info);
 
     const u2i = await redis.hGet(User.UsernameToIdKey(), username);
-    const i2u = await redis.hGet(User.IdToUsernameKey(), id);
     expect(u2i).toBe(id);
-    expect(i2u).toBe(username);
     expect(spy).toHaveBeenCalledTimes(1);
   } finally {
     spy.mockRestore();
@@ -168,9 +158,7 @@ it('lookupIdByUsername resolves via reddit and populates caches on miss', async 
     expect(id).toBe('t2_grace');
 
     const u2i = await redis.hGet(User.UsernameToIdKey(), 'grace');
-    const i2u = await redis.hGet(User.IdToUsernameKey(), 't2_grace');
     expect(u2i).toBe('t2_grace');
-    expect(i2u).toBe('grace');
     expect(spy).toHaveBeenCalledTimes(1);
   } finally {
     spy.mockRestore();
@@ -201,9 +189,7 @@ it('getCurrent returns cached current user and updates mapping caches', async ()
     expect(info).toEqual({ id, username: 'ivy', snoovatar: undefined });
 
     const u2i = await redis.hGet(User.UsernameToIdKey(), 'ivy');
-    const i2u = await redis.hGet(User.IdToUsernameKey(), id);
     expect(u2i).toBe(id);
-    expect(i2u).toBe('ivy');
     expect(spy).not.toHaveBeenCalled();
   } finally {
     spy.mockRestore();
@@ -226,9 +212,7 @@ it('getCurrent fetches from reddit on cache miss and caches the result', async (
     expect(parsed).toEqual(info);
 
     const u2i = await redis.hGet(User.UsernameToIdKey(), 'jack');
-    const i2u = await redis.hGet(User.IdToUsernameKey(), id);
     expect(u2i).toBe(id);
-    expect(i2u).toBe('jack');
     expect(spy).toHaveBeenCalledTimes(1);
   } finally {
     spy.mockRestore();

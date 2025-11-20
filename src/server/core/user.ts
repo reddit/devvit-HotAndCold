@@ -8,7 +8,6 @@ import { redisCompressed as redis } from './redisCompression';
 export namespace User {
   export const Key = (id: string) => `user:${id}` as const;
   export const UsernameToIdKey = () => `user:usernameToId` as const;
-  export const IdToUsernameKey = () => `user:idToUsername` as const;
 
   export const Info = z.object({
     id: z.string(),
@@ -49,7 +48,6 @@ export namespace User {
     const cached = await redis.get(Key(id));
     if (cached) {
       const info = Info.parse(JSON.parse(cached));
-      await redis.hSet(IdToUsernameKey(), { [id]: info.username });
       await redis.hSet(UsernameToIdKey(), { [info.username]: id });
       return info;
     }
@@ -65,7 +63,6 @@ export namespace User {
     });
 
     await cacheUserInfo(info);
-    await redis.hSet(IdToUsernameKey(), { [id]: info.username });
     await redis.hSet(UsernameToIdKey(), { [info.username]: id });
     return info;
   });
@@ -80,7 +77,6 @@ export namespace User {
       const cached = await redis.get(Key(mappedId));
       if (cached) {
         const info = Info.parse(JSON.parse(cached));
-        await redis.hSet(IdToUsernameKey(), { [mappedId]: info.username });
         return info;
       }
     }
@@ -98,7 +94,6 @@ export namespace User {
 
     await cacheUserInfo(info);
     await redis.hSet(UsernameToIdKey(), { [info.username]: info.id });
-    await redis.hSet(IdToUsernameKey(), { [info.id]: info.username });
     return info;
   });
 
@@ -137,6 +132,49 @@ export namespace User {
     }
   );
 
+  export const getManyInfoByUsernames = fn(
+    z.object({ usernames: z.array(zodRedditUsername) }),
+    async ({ usernames }) => {
+      if (usernames.length === 0) return {};
+
+      const usernameToId = await lookupIdsByUsernames({ usernames });
+      const keys: string[] = [];
+      const orderedUsernames: string[] = [];
+
+      for (const username of usernames) {
+        const id = usernameToId[username];
+        if (id) {
+          keys.push(Key(id));
+          orderedUsernames.push(username);
+        }
+      }
+
+      if (keys.length === 0) return {};
+
+      const result: Record<string, UserInfo> = {};
+      const chunkSize = 100;
+
+      for (let i = 0; i < keys.length; i += chunkSize) {
+        const chunkKeys = keys.slice(i, i + chunkSize);
+        const chunkUsernames = orderedUsernames.slice(i, i + chunkSize);
+        const chunkValues = await redis.mGet(chunkKeys);
+
+        chunkValues.forEach((val, idx) => {
+          const username = chunkUsernames[idx];
+          if (val && username) {
+            try {
+              const info = Info.parse(JSON.parse(val));
+              result[username] = info;
+            } catch {
+              // ignore
+            }
+          }
+        });
+      }
+      return result;
+    }
+  );
+
   export const persistCacheForUsername = fn(zodRedditUsername, async (username) => {
     const info = await getByUsername(username);
     await persistUserCacheById(info.id);
@@ -158,7 +196,6 @@ export namespace User {
     const cached = await redis.get(Key(context.userId));
     if (cached) {
       const info = Info.parse(JSON.parse(cached));
-      await redis.hSet(IdToUsernameKey(), { [context.userId]: info.username });
       await redis.hSet(UsernameToIdKey(), { [info.username]: context.userId });
       return info;
     }
@@ -174,7 +211,6 @@ export namespace User {
     });
 
     await cacheUserInfo(info);
-    await redis.hSet(IdToUsernameKey(), { [info.id]: info.username });
     await redis.hSet(UsernameToIdKey(), { [info.username]: info.id });
     return info;
   });

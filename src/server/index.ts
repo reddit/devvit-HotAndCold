@@ -899,6 +899,26 @@ app.post('/internal/menu/joined-count', async (_req, res): Promise<void> => {
   }
 });
 
+// [ops] Drop IdToUsernameKey (immediate action)
+app.post('/internal/menu/admin/drop-id-to-username-key', async (_req, res): Promise<void> => {
+  try {
+    await redis.del('user:idToUsername');
+    res.status(200).json({
+      showToast: {
+        text: 'Dropped user:idToUsername key',
+        appearance: 'success',
+      },
+    });
+  } catch (err: any) {
+    res.status(500).json({
+      showToast: {
+        text: err?.message || 'Failed to drop key',
+        appearance: 'neutral',
+      },
+    });
+  }
+});
+
 // [stats] Players count (form launcher)
 app.post('/internal/menu/stats/players-count', async (_req, res): Promise<void> => {
   try {
