@@ -2243,6 +2243,8 @@ app.post('/internal/menu/word-config/migrate-compression', async (_req, res): Pr
         const key = WordConfigKey(normalizedWord);
         const val = await redisCompressed.get(key);
         if (val) {
+          // Explicitly write back to trigger compression logic in redisCompressed.set
+          await redisCompressed.set(key, val);
           summary.migrated++;
         } else {
           summary.missing++;
