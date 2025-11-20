@@ -1765,7 +1765,8 @@ app.post('/internal/menu/notifications/send-single', async (_req, res): Promise<
 
 app.post('/internal/form/notifications/manage', async (req, res): Promise<void> => {
   try {
-    const { action } = (req.body as any) ?? {};
+    const { action: actionArray } = (req.body as any) ?? {};
+    const action = actionArray[0]!;
     if (action === 'process') {
       const { processed, sent } = await Notifications.sendDueGroups({ limit: 200 });
       res.status(200).json({

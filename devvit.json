@@ -31,6 +31,7 @@
     "migrateChallengeProgressForm": "/internal/form/admin/migrate-challenge-progress-compression",
     "migrateUserCacheForm": "/internal/form/admin/migrate-user-cache-compression",
     "migrateUserGuessForm": "/internal/form/admin/migrate-user-guess-compression",
+    "migrateNotificationsForm": "/internal/form/admin/migrate-notifications-compression",
     "statsPlayersForm": "/internal/form/stats/players-count",
     "peekUserGuessForm": "/internal/form/debug/peek-guess"
   },
@@ -217,6 +218,24 @@
         "endpoint": "/internal/menu/admin/migrate-user-cache-compression/toggle"
       },
       {
+        "label": "[ops] Migrate Notifications compression",
+        "forUserType": "moderator",
+        "location": "subreddit",
+        "endpoint": "/internal/menu/admin/migrate-notifications-compression"
+      },
+      {
+        "label": "[ops] Toggle Notifications migration",
+        "forUserType": "moderator",
+        "location": "subreddit",
+        "endpoint": "/internal/menu/admin/migrate-notifications-compression/toggle"
+      },
+      {
+        "label": "[ops] Drop IdToUsernameKey",
+        "forUserType": "moderator",
+        "location": "subreddit",
+        "endpoint": "/internal/menu/admin/drop-id-to-username-key"
+      },
+      {
         "label": "[stats] Players count for challenge",
         "forUserType": "moderator",
         "location": "subreddit",
@@ -277,6 +296,7 @@
       "migrate-user-guess-compression": "/internal/scheduler/migrate-user-guess-compression",
       "migrate-user-cache-compression": "/internal/scheduler/migrate-user-cache-compression",
       "migrate-challenge-progress-compression": "/internal/scheduler/migrate-challenge-progress-compression",
+      "migrate-notifications-compression": "/internal/scheduler/migrate-notifications-compression",
       "posthog-user-prop-sync": {
         "cron": "0 3 * * *",
         "endpoint": "/internal/scheduler/posthog-user-prop-sync",
