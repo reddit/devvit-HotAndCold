@@ -171,6 +171,9 @@ export function createGuessEngine(params: {
     const localHistorySnapshot: GuessHistoryItem[] = history.value.slice();
     try {
       const server = await trpc.game.get.query({ challengeNumber });
+      if (!server.challengeUserInfo) {
+        return;
+      }
       const serverWords = server.challengeUserInfo.guesses.map((g: any) => g.word);
       const serverHistory: GuessHistoryItem[] = server.challengeUserInfo.guesses.map((g: any) => {
         const s = Number(g.similarity);

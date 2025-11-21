@@ -6,6 +6,7 @@ import { requireChallengeNumber } from '../requireChallengeNumber';
 import { Header } from './header';
 import { page, initNavigation } from './state/navigation';
 import { WinPage } from './WinPage';
+import { WinPageLoggedOut } from './WinPageLoggedOut';
 import { Progress } from './Progress';
 import { PlayPage } from './PlayPage';
 import { HowToPlayModal } from './howToPlayModal';
@@ -13,6 +14,7 @@ import { ExperimentsModal } from './ExperimentsModal';
 import { ArchiveModal } from './archiveModal';
 import { ErrorBoundary } from '../shared/error';
 import { initPosthog } from './useInitPosthog';
+import { isLoggedOut } from '../shared/user';
 import posthog from 'posthog-js';
 import { GUESS_SAMPLE_RATE } from '../config';
 import type { GuessEngine } from '../core/guessEngine';
@@ -34,7 +36,15 @@ function AppContent({
     <div className="h-[100dvh] min-h-[100dvh] w-full overflow-hidden">
       <div className="mx-auto flex max-w-2xl flex-col px-4 md:px-6 py-6 h-full min-h-0 overflow-hidden">
         <Header engine={engine} isAdmin={isAdmin} />
-        {page.value === 'win' ? <WinPage /> : <PlayPage engine={engine} />}
+        {page.value === 'win' ? (
+          isLoggedOut() ? (
+            <WinPageLoggedOut engine={engine} />
+          ) : (
+            <WinPage />
+          )
+        ) : (
+          <PlayPage engine={engine} />
+        )}
         <div className="relative mx-auto w-full max-w-xl">
           <Progress challengeNumber={Number(challengeNumber)} engine={engine} />
         </div>

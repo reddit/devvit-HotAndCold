@@ -23,6 +23,7 @@ import { openExperiments } from './state/experiments';
 import { openArchive } from './state/archive';
 import { getBrowserIanaTimeZone } from '../../shared/timezones';
 import { showToast } from '@devvit/web/client';
+import { isLoggedOut } from '../shared/user';
 
 const SpeechBubbleTail = ({ className }: { className?: string }) => (
   <svg
@@ -143,41 +144,39 @@ export function Header({ engine, isAdmin }: { engine?: GuessEngine; isAdmin: boo
           >
             How to Play
           </IconButton>
-          <IconButton
-            type="button"
-            onClick={async () => {
-              posthog.capture('Game Page Notification Icon Toggled', {
-                newState: isUserOptedIntoReminders ? 'off' : 'on',
-              });
-              await toggleReminderShared();
-            }}
-            icon={isUserOptedIntoReminders ? <BellIcon /> : <BellOffIcon />}
-            aria-label={
-              isUserOptedIntoReminders ? 'Unsubscribe from reminders' : 'Subscribe to reminders'
-            }
-          >
-            Notifications
-          </IconButton>
-          <IconButton
-            type="button"
-            onClick={() => {
-              posthog.capture('Game Page Archive Opened');
-              openArchive();
-            }}
-            icon={<MoreIcon />}
-            aria-label="Play previous challenges"
-          >
-            Archive
-          </IconButton>
+          {!isLoggedOut() && (
+            <>
+              <IconButton
+                type="button"
+                onClick={async () => {
+                  posthog.capture('Game Page Notification Icon Toggled', {
+                    newState: isUserOptedIntoReminders ? 'off' : 'on',
+                  });
+                  await toggleReminderShared();
+                }}
+                icon={isUserOptedIntoReminders ? <BellIcon /> : <BellOffIcon />}
+                aria-label={
+                  isUserOptedIntoReminders ? 'Unsubscribe from reminders' : 'Subscribe to reminders'
+                }
+              >
+                Notifications
+              </IconButton>
+              <IconButton
+                type="button"
+                onClick={() => {
+                  posthog.capture('Game Page Archive Opened');
+                  openArchive();
+                }}
+                icon={<MoreIcon />}
+                aria-label="Play previous challenges"
+              >
+                Archive
+              </IconButton>
+            </>
+          )}
           <HelpMenu
             items={[
               { name: 'Toggle Size', action: () => toggleLayout() },
-              {
-                name: isUserOptedIntoReminders ? 'Unsubscribe' : 'Subscribe',
-                action: async () => {
-                  await toggleReminderShared();
-                },
-              },
               {
                 name: `Sort by ${sortType === 'TIMESTAMP' ? 'Similarity' : 'Time'}`,
                 disabled: !isActivelyPlaying,
@@ -195,7 +194,9 @@ export function Header({ engine, isAdmin }: { engine?: GuessEngine; isAdmin: boo
                 disabled: !isActivelyPlaying,
                 action: async () => {
                   try {
-                    await trpc.guess.giveUp.mutate({ challengeNumber });
+                    if (!isLoggedOut()) {
+                      await trpc.guess.giveUp.mutate({ challengeNumber });
+                    }
                     navigate('win');
                   } catch (e) {
                     console.error('Failed to give up', e);

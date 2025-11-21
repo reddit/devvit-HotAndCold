@@ -465,6 +465,36 @@ const appRouter = router({
       }),
   },
   game: {
+    reveal: publicProcedure
+      .input(
+        z.object({
+          challengeNumber: z.number(),
+        })
+      )
+      .query(async ({ input }) => {
+        const challengeNumber = input.challengeNumber;
+
+        // If logged out, allow revealing (no leaderboard stakes)
+        if (!context.userId) {
+          const challenge = await Challenge.getChallenge({ challengeNumber });
+          return { secretWord: challenge.secretWord };
+        }
+
+        // If logged in, only allow revealing if the game is over for them
+        const current = await User.getCurrent();
+        const info = await UserGuess.getChallengeUserInfo({
+          username: current.username,
+          challengeNumber,
+        });
+
+        if (info.solvedAtMs || info.gaveUpAtMs) {
+          const challenge = await Challenge.getChallenge({ challengeNumber });
+          return { secretWord: challenge.secretWord };
+        }
+
+        // Otherwise deny to prevent trivial API-based cheating while actively playing
+        throw new Error('Cannot reveal secret word while playing');
+      }),
     get: publicProcedure
       .input(
         z.object({
@@ -473,11 +503,17 @@ const appRouter = router({
       )
       .query(async ({ input }) => {
         const challengeNumber = input.challengeNumber;
-        const current = await User.getCurrent();
-        const username = current.username;
+        let username: string | null = null;
+        try {
+          const current = await User.getCurrent();
+          username = current.username;
+        } catch {
+          // Logged out or user not found
+        }
+
         const [challengeInfo, challengeUserInfo] = await Promise.all([
           Challenge.getChallenge({ challengeNumber }),
-          UserGuess.getChallengeUserInfo({ username, challengeNumber }),
+          username ? UserGuess.getChallengeUserInfo({ username, challengeNumber }) : null,
         ]);
         return {
           challengeNumber,
