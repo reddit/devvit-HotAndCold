@@ -26,8 +26,11 @@ export const beforeSend =
     }
 
     if (
-      filterExceptionEvent(sampledEvent, (event) =>
-        event.properties.$exception_values.some((x) => x.toLowerCase().includes('abort'))
+      filterExceptionEvent(
+        sampledEvent,
+        (event) =>
+          event.properties.$exception_values?.some((x) => x.toLowerCase().includes('abort')) ??
+          false
       )
     ) {
       return null;
@@ -50,7 +53,7 @@ export const beforeSend =
       return null;
     }
 
-    // console.log('Sending event:', rawEvent);
+    console.log('Sending event:', rawEvent);
 
     return event;
   };
@@ -310,7 +313,7 @@ type ExceptionEventProperties = {
   /** ["TRPCClientError","TypeError"] */
   $exception_types: string[];
   /** ["Failed to fetch"] */
-  $exception_values: string[];
+  $exception_values?: string[];
   /** ["../../src/devvit.v1.ts"] */
   $exception_sources: string[];
   /** ["<anonymous>"] */
@@ -343,5 +346,6 @@ function filterExceptionEvent(
   event: ExceptionEvent,
   predicate: (event: ExceptionEvent) => boolean
 ) {
+  console.log(JSON.stringify(event, null, 2));
   return event.event === '$exception' && predicate(event);
 }
