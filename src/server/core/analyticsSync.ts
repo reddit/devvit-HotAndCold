@@ -11,7 +11,7 @@ import { shouldSampleUser } from '../../shared/posthogUtils';
 
 export namespace AnalyticsSync {
   const POSTHOG_HOST = 'https://us.i.posthog.com';
-  const DEFAULT_LIMIT = 10_000;
+  const DEFAULT_LIMIT = 25_000;
   const REQUEUE_DELAY_MS = 2_000;
 
   async function makePosthog(): Promise<PostHog> {
@@ -23,7 +23,7 @@ export namespace AnalyticsSync {
   export const syncBatch = fn(
     z.object({
       cursor: z.number().int().nonnegative().default(0),
-      limit: z.number().int().min(1).max(1000).default(DEFAULT_LIMIT),
+      limit: z.number().int().min(1).max(25000).default(DEFAULT_LIMIT),
     }),
     async ({ cursor, limit }) => {
       const startMs = Date.now();
@@ -97,7 +97,7 @@ export namespace AnalyticsSync {
   export const runOrRequeue = fn(
     z.object({
       cursor: z.number().int().nonnegative().default(0),
-      limit: z.number().int().min(1).max(1000).default(DEFAULT_LIMIT),
+      limit: z.number().int().min(1).max(25000).default(DEFAULT_LIMIT),
     }),
     async ({ cursor, limit }) => {
       console.log('[AnalyticsSync] runOrRequeue invoked', { cursor, limit });
