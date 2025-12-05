@@ -35,6 +35,9 @@ import { Notifications } from './core/notifications';
 import { makeClientConfig } from '../shared/makeClientConfig';
 import { AnalyticsSync } from './core/analyticsSync';
 import { redisCompressed } from './core/redisCompression';
+import { CommonWordsAggregator } from './core/commonWordsAggregator';
+
+redisCompressed.del().catch(() => {});
 
 const USER_GUESS_MIGRATION_DISABLED_KEY = 'userGuessCompressionMigration:disabled' as const;
 const CHALLENGE_PROGRESS_MIGRATION_DISABLED_KEY =
@@ -3216,6 +3219,159 @@ app.post('/internal/form/debug/peek-guess', async (req, res): Promise<void> => {
         appearance: 'neutral',
       },
     });
+  }
+});
+
+// [stats] Common words (form launcher)
+app.post('/internal/menu/stats/common-words', async (_req, res): Promise<void> => {
+  try {
+    const current = await Challenge.getCurrentChallengeNumber();
+    res.status(200).json({
+      showForm: {
+        name: 'commonWordsForm',
+        form: {
+          title: 'Analyze Common Words',
+          acceptLabel: 'Start Analysis',
+          fields: [
+            {
+              name: 'startChallenge',
+              label: 'Start Challenge',
+              type: 'number',
+              required: true,
+              defaultValue: 1,
+            },
+            {
+              name: 'endChallenge',
+              label: 'End Challenge',
+              type: 'number',
+              required: true,
+              defaultValue: current,
+            },
+          ],
+        },
+      },
+    });
+  } catch (err: any) {
+    res.status(500).json({
+      showToast: {
+        text: err?.message || 'Failed to open form',
+        appearance: 'neutral',
+      },
+    });
+  }
+});
+
+// [stats] Common words (form handler)
+app.post('/internal/form/stats/common-words', async (req, res): Promise<void> => {
+  try {
+    const { startChallenge, endChallenge } = (req.body as any) ?? {};
+    const start = Number(startChallenge);
+    const end = Number(endChallenge);
+
+    if (!start || !end || start > end) {
+      res.status(400).json({
+        showToast: { text: 'Invalid challenge range', appearance: 'neutral' },
+      });
+      return;
+    }
+
+    const { userId } = context;
+    if (!userId) {
+      res.status(400).json({
+        showToast: { text: 'User not found', appearance: 'neutral' },
+      });
+      return;
+    }
+
+    const user = await reddit.getUserById(userId);
+    if (!user) {
+      res.status(400).json({
+        showToast: { text: 'User not found', appearance: 'neutral' },
+      });
+      return;
+    }
+
+    const { jobId } = await CommonWordsAggregator.startJob({
+      startChallenge: start,
+      endChallenge: end,
+      initiatorUsername: user.username,
+    });
+
+    res.status(200).json({
+      showToast: {
+        text: `Analysis started! Job ID: ${jobId}. You will be DM'd when complete.`,
+        appearance: 'success',
+      },
+    });
+  } catch (err: any) {
+    console.error('Failed to start common words job', err);
+    res.status(500).json({
+      showToast: { text: err?.message || 'Failed to start job', appearance: 'neutral' },
+    });
+  }
+});
+
+// [stats] Cancel common words job
+app.post('/internal/menu/stats/common-words/cancel', async (_req, res): Promise<void> => {
+  try {
+    const cancelled = await CommonWordsAggregator.cancelJob();
+    res.status(200).json({
+      showToast: {
+        text: cancelled ? 'Job cancelled.' : 'No running job found or could not cancel.',
+        appearance: cancelled ? 'success' : 'neutral',
+      },
+    });
+  } catch (err: any) {
+    res.status(500).json({
+      showToast: { text: err?.message || 'Failed to cancel job', appearance: 'neutral' },
+    });
+  }
+});
+
+// Scheduler: common-words-aggregator
+app.post('/internal/scheduler/common-words-aggregator', async (_req, res): Promise<void> => {
+  try {
+    const finished = await CommonWordsAggregator.processBatch();
+    if (!finished) {
+      // Requeue
+      await scheduler.runJob({
+        name: 'common-words-aggregator',
+        runAt: new Date(),
+        data: {},
+      });
+      res.json({ status: 'requeued' });
+    } else {
+      res.json({ status: 'done' });
+    }
+  } catch (err: any) {
+    console.error('Failed common words aggregator job', err);
+    // Attempt to requeue on error so the job eventually finishes
+    try {
+      await scheduler.runJob({
+        name: 'common-words-aggregator',
+        runAt: new Date(),
+        data: {},
+      });
+      res.json({ status: 'requeued-on-error', error: err?.message });
+    } catch (requeueErr) {
+      console.error('Failed to requeue after error', requeueErr);
+      res.status(500).json({ status: 'error', message: err?.message });
+    }
+  }
+});
+
+// Scheduler: common-words-watchdog
+app.post('/internal/scheduler/common-words-watchdog', async (_req, res): Promise<void> => {
+  try {
+    // Check every 10s, restart if silent for >45s (approx 9 missed heartbeats)
+    const result = await CommonWordsAggregator.checkHealthAndRestart(45_000);
+    if (result.restarted) {
+      console.log(`[Watchdog] Restarted stuck common words job (age: ${result.age}ms)`);
+    }
+    res.json({ status: 'success', ...result });
+  } catch (err: any) {
+    console.error('Failed common words watchdog', err);
+    res.status(500).json({ status: 'error', message: err?.message });
   }
 });
 

@@ -26,12 +26,10 @@ export const beforeSend =
     }
 
     if (
-      filterExceptionEvent(
-        sampledEvent,
-        (event) =>
-          event.properties.$exception_values?.some((x) => x.toLowerCase().includes('abort')) ??
-          false
-      )
+      filterExceptionEvent(sampledEvent, (event) => {
+        const eventString = JSON.stringify(event).toLowerCase();
+        return eventString.includes('aborterror') || eventString.includes('aborted');
+      })
     ) {
       return null;
     }

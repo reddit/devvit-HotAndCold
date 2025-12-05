@@ -33,7 +33,8 @@
     "migrateUserGuessForm": "/internal/form/admin/migrate-user-guess-compression",
     "migrateNotificationsForm": "/internal/form/admin/migrate-notifications-compression",
     "statsPlayersForm": "/internal/form/stats/players-count",
-    "peekUserGuessForm": "/internal/form/debug/peek-guess"
+    "peekUserGuessForm": "/internal/form/debug/peek-guess",
+    "commonWordsForm": "/internal/form/stats/common-words"
   },
   "menu": {
     "items": [
@@ -255,6 +256,20 @@
         "location": "subreddit",
         "description": "classic",
         "endpoint": "/internal/menu/debug/peek-guess"
+      },
+      {
+        "label": "[stats] Top 25 common words",
+        "forUserType": "moderator",
+        "location": "subreddit",
+        "description": "classic",
+        "endpoint": "/internal/menu/stats/common-words"
+      },
+      {
+        "label": "[stats] Cancel common words job",
+        "forUserType": "moderator",
+        "location": "subreddit",
+        "description": "classic",
+        "endpoint": "/internal/menu/stats/common-words/cancel"
       }
     ]
   },
@@ -302,7 +317,13 @@
         "endpoint": "/internal/scheduler/posthog-user-prop-sync",
         "data": { "cursor": 0, "limit": 1000 }
       },
-      "notifications-enqueue-new-challenge": "/internal/scheduler/notifications-enqueue-new-challenge"
+      "notifications-enqueue-new-challenge": "/internal/scheduler/notifications-enqueue-new-challenge",
+      "common-words-aggregator": "/internal/scheduler/common-words-aggregator",
+      "common-words-watchdog": {
+        "cron": "*/10 * * * * *",
+        "endpoint": "/internal/scheduler/common-words-watchdog",
+        "data": {}
+      }
     }
   },
   "triggers": {
