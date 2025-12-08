@@ -51,8 +51,6 @@ export const beforeSend =
       return null;
     }
 
-    console.log('Sending event:', rawEvent);
-
     return event;
   };
 
