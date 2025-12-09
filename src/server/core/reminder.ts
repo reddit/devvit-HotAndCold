@@ -3,7 +3,7 @@ import { fn } from '../../shared/fn';
 import { redis } from '@devvit/web/server';
 import { zodRedditUsername } from '../utils';
 import { User } from './user';
-// import { notifications } from '@devvit/notifications';
+import { notifications } from '@devvit/notifications';
 
 export namespace Reminders {
   // Original to make it super explicit since we might let people play the archive on any postId
@@ -183,7 +183,7 @@ export namespace Reminders {
       username: zodRedditUsername,
     }),
     async ({ username }) => {
-      // await notifications.optInCurrentUser();
+      await notifications.optInCurrentUser();
       await redis.zAdd(getRemindersKey(), {
         member: username,
         score: Date.now(),
@@ -207,7 +207,7 @@ export namespace Reminders {
       username: zodRedditUsername,
     }),
     async ({ username }) => {
-      // await notifications.optOutCurrentUser();
+      await notifications.optOutCurrentUser();
       await redis.zRem(getRemindersKey(), [username]);
       await User.reapplyCacheExpiryForUsername(username);
     }
