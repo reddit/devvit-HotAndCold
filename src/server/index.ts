@@ -551,6 +551,31 @@ const appRouter = router({
         return neighbors;
       }),
   },
+  notifications: {
+    testPush: publicProcedure.mutation(async () => {
+      const isAdmin = await Admin.isAdmin();
+      if (!isAdmin) {
+        throw new Error('Unauthorized');
+      }
+
+      const current = await User.getCurrent();
+      const challengeNumber = await Challenge.getCurrentChallengeNumber();
+      const postId = await Challenge.getPostIdForChallenge({ challengeNumber });
+
+      if (!postId) {
+        throw new Error('Could not find challenge post to use for notification');
+      }
+
+      const result = await Notifications.sendSingleNow({
+        username: current.username,
+        postId,
+        title: 'Test Notification',
+        body: 'This is a test notification from the admin menu.',
+      });
+
+      return result;
+    }),
+  },
   // Returns whether the current user is an admin. Caches result in Redis.
 });
 

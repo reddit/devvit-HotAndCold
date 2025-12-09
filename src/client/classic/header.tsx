@@ -235,6 +235,28 @@ export function Header({ engine, isAdmin }: { engine?: GuessEngine; isAdmin: boo
                         openExperiments();
                       },
                     },
+                    {
+                      name: 'Test Push Notification',
+                      action: async () => {
+                        try {
+                          const res = await trpc.notifications.testPush.mutate();
+                          if (res.ok) {
+                            showToast({ text: 'Notification sent!', appearance: 'success' });
+                          } else {
+                            showToast({
+                              text: `Failed: ${res.reason}`,
+                              appearance: 'neutral',
+                            });
+                          }
+                        } catch (e: any) {
+                          console.error('Failed to send test push', e);
+                          showToast({
+                            text: e?.message || 'Failed to send notification',
+                            appearance: 'neutral',
+                          });
+                        }
+                      },
+                    },
                   ] as const)
                 : ([] as const)),
             ]}
