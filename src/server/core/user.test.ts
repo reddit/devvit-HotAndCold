@@ -1,4 +1,5 @@
-import { it, expect, resetRedis } from '../test/devvitTest';
+import { test } from '../test';
+import { expect } from 'vitest';
 import { vi } from 'vitest';
 import { redis, reddit, context } from '@devvit/web/server';
 import { Context, runWithContext } from '@devvit/server';
@@ -11,9 +12,7 @@ const makeRedditUser = (id: string, username: string, snoo?: string) => ({
   getSnoovatarUrl: async () => snoo,
 });
 
-it('getById returns cached user and updates mapping caches', async () => {
-  await resetRedis();
-
+test('getById returns cached user and updates mapping caches', async () => {
   const id = 't2_alice';
   const cached = { id, username: 'alice', snoovatar: 'https://snoo/a.png' };
   await redis.set(User.Key(id), JSON.stringify(cached));
@@ -31,9 +30,7 @@ it('getById returns cached user and updates mapping caches', async () => {
   }
 });
 
-it('getById fetches from reddit on cache miss and caches the result', async () => {
-  await resetRedis();
-
+test('getById fetches from reddit on cache miss and caches the result', async () => {
   const id = 't2_bob';
   const spy = vi
     .spyOn(reddit, 'getUserById')
@@ -56,8 +53,7 @@ it('getById fetches from reddit on cache miss and caches the result', async () =
   }
 });
 
-it('getById throws when reddit returns null', async () => {
-  await resetRedis();
+test('getById throws when reddit returns null', async () => {
   const id = 't2_missing';
   const spy = vi.spyOn(reddit, 'getUserById').mockResolvedValue(null as any);
   try {
@@ -67,9 +63,7 @@ it('getById throws when reddit returns null', async () => {
   }
 });
 
-it('getByUsername returns from cache via mapping and updates id->username', async () => {
-  await resetRedis();
-
+test('getByUsername returns from cache via mapping and updates id->username', async () => {
   const id = 't2_carol';
   const username = 'carol';
   const cached = { id, username };
@@ -87,9 +81,7 @@ it('getByUsername returns from cache via mapping and updates id->username', asyn
   }
 });
 
-it('getByUsername falls back to reddit when mapping exists but user cache missing', async () => {
-  await resetRedis();
-
+test('getByUsername falls back to reddit when mapping exists but user cache missing', async () => {
   const id = 't2_dana';
   const username = 'dana';
   await redis.hSet(User.UsernameToIdKey(), { [username]: id });
@@ -114,9 +106,7 @@ it('getByUsername falls back to reddit when mapping exists but user cache missin
   }
 });
 
-it('getByUsername fetches from reddit and caches when mapping is missing', async () => {
-  await resetRedis();
-
+test('getByUsername fetches from reddit and caches when mapping is missing', async () => {
   const id = 't2_erin';
   const username = 'erin';
   const spy = vi
@@ -139,17 +129,13 @@ it('getByUsername fetches from reddit and caches when mapping is missing', async
   }
 });
 
-it('lookupIdByUsername returns id from cache mapping', async () => {
-  await resetRedis();
-
+test('lookupIdByUsername returns id from cache mapping', async () => {
   await redis.hSet(User.UsernameToIdKey(), { frank: 't2_frank' });
   const id = await User.lookupIdByUsername('frank');
   expect(id).toBe('t2_frank');
 });
 
-it('lookupIdByUsername resolves via reddit and populates caches on miss', async () => {
-  await resetRedis();
-
+test('lookupIdByUsername resolves via reddit and populates caches on miss', async () => {
   const spy = vi
     .spyOn(reddit, 'getUserByUsername')
     .mockResolvedValue(makeRedditUser('t2_grace', 'grace') as any);
@@ -165,8 +151,7 @@ it('lookupIdByUsername resolves via reddit and populates caches on miss', async 
   }
 });
 
-it('lookupIdByUsername returns null when reddit lookup fails', async () => {
-  await resetRedis();
+test('lookupIdByUsername returns null when reddit lookup fails', async () => {
   const spy = vi.spyOn(reddit, 'getUserByUsername').mockResolvedValue(null as any);
   try {
     const id = await User.lookupIdByUsername('harry');
@@ -176,9 +161,7 @@ it('lookupIdByUsername returns null when reddit lookup fails', async () => {
   }
 });
 
-it('getCurrent returns cached current user and updates mapping caches', async () => {
-  await resetRedis();
-
+test('getCurrent returns cached current user and updates mapping caches', async () => {
   const id = String(context.userId);
   const cached = { id, username: 'ivy' };
   await redis.set(User.Key(id), JSON.stringify(cached));
@@ -196,9 +179,7 @@ it('getCurrent returns cached current user and updates mapping caches', async ()
   }
 });
 
-it('getCurrent fetches from reddit on cache miss and caches the result', async () => {
-  await resetRedis();
-
+test('getCurrent fetches from reddit on cache miss and caches the result', async () => {
   const id = String(context.userId);
   const spy = vi
     .spyOn(reddit, 'getCurrentUser')
@@ -219,8 +200,7 @@ it('getCurrent fetches from reddit on cache miss and caches the result', async (
   }
 });
 
-it('applies a 15-day expiry to cached user data', async () => {
-  await resetRedis();
+test('applies a 15-day expiry to cached user data', async () => {
   const id = 't2_ttl_user';
   const spy = vi
     .spyOn(reddit, 'getUserById')
@@ -236,9 +216,7 @@ it('applies a 15-day expiry to cached user data', async () => {
   expect(ttlRemaining).toBeLessThanOrEqual(User.CacheTtlSeconds + 1);
 });
 
-it('getCurrent throws when no user is in context', async () => {
-  await resetRedis();
-
+test('getCurrent throws when no user is in context', async () => {
   const headers = {
     [Header.Subreddit]: 't5_testsub',
     [Header.SubredditName]: 'testsub',
@@ -253,8 +231,7 @@ it('getCurrent throws when no user is in context', async () => {
   });
 });
 
-it('getByUsername throws when reddit returns null', async () => {
-  await resetRedis();
+test('getByUsername throws when reddit returns null', async () => {
   const spy = vi.spyOn(reddit, 'getUserByUsername').mockResolvedValue(null as any);
   try {
     await expect(User.getByUsername('zoe')).rejects.toThrow(/User not found/);
@@ -263,8 +240,7 @@ it('getByUsername throws when reddit returns null', async () => {
   }
 });
 
-it('getCurrent throws when reddit returns null on cache miss', async () => {
-  await resetRedis();
+test('getCurrent throws when reddit returns null on cache miss', async () => {
   const spy = vi.spyOn(reddit, 'getCurrentUser').mockResolvedValue(null as any);
   try {
     await expect(User.getCurrent(undefined)).rejects.toThrow(/User not found/);

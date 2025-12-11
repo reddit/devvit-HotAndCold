@@ -1,13 +1,12 @@
 import { expect, vi } from 'vitest';
-import { it, resetRedis } from './devvitTest';
+import { test } from '../test';
 import { WordQueue } from '../core/wordQueue';
 
 function makeChallenge(word: string): WordQueue.Challenge {
   return { word };
 }
 
-it('WordQueue: FIFO append and shift preserves order', async () => {
-  await resetRedis();
+test('WordQueue: FIFO append and shift preserves order', async () => {
   await WordQueue.clear();
   const c1 = makeChallenge('one');
   const c2 = makeChallenge('three');
@@ -37,8 +36,7 @@ it('WordQueue: FIFO append and shift preserves order', async () => {
   expect(await WordQueue.size()).toBe(0);
 });
 
-it('WordQueue: prepend puts item at the front', async () => {
-  await resetRedis();
+test('WordQueue: prepend puts item at the front', async () => {
   await WordQueue.clear();
   const c1 = makeChallenge('ten');
   const c2 = makeChallenge('twelve');
@@ -58,8 +56,7 @@ it('WordQueue: prepend puts item at the front', async () => {
   expect(s3?.word).toBe('twelve');
 });
 
-it('WordQueue: overwrite replaces the entire queue with validated problems', async () => {
-  await resetRedis();
+test('WordQueue: overwrite replaces the entire queue with validated problems', async () => {
   await WordQueue.clear();
   const c1 = makeChallenge('twenty');
   const c2 = makeChallenge('twenty-two');
@@ -75,8 +72,7 @@ it('WordQueue: overwrite replaces the entire queue with validated problems', asy
   expect(all.map((c) => c.word)).toEqual(['twenty-four', 'twenty-two', 'twenty']);
 });
 
-it('WordQueue: clear empties the queue', async () => {
-  await resetRedis();
+test('WordQueue: clear empties the queue', async () => {
   await WordQueue.clear();
   await WordQueue.append({ challenge: makeChallenge('thirty') });
   await WordQueue.append({ challenge: makeChallenge('thirty-two') });
@@ -86,8 +82,7 @@ it('WordQueue: clear empties the queue', async () => {
   expect(await WordQueue.shift()).toBeNull();
 });
 
-it('WordQueue: validation rejects invalid problems on append/prepend/overwrite', async () => {
-  await resetRedis();
+test('WordQueue: validation rejects invalid problems on append/prepend/overwrite', async () => {
   await WordQueue.clear();
   const invalidMissingWord: any = {}; // missing required 'word'
   const invalidWrongType: any = { word: 123 }; // wrong type for 'word'

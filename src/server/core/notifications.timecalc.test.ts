@@ -1,6 +1,15 @@
-import { it, expect } from '../test/devvitTest';
+import { vi, expect } from 'vitest';
+
+vi.mock('@devvit/pushnotif', () => ({
+  pushnotif: {
+    enqueue: vi.fn(),
+    optInCurrentUser: vi.fn(),
+    optOutCurrentUser: vi.fn(),
+  },
+}));
+
+import { test } from '../test';
 import { Notifications } from './notifications';
-import { vi } from 'vitest';
 
 const { nextLocalSendTimeUtcMsIana, utcOffsetLabelAt } = Notifications.__test__;
 
@@ -63,7 +72,7 @@ function assertSameOrNextLocalDay(
   }
 }
 
-it('same day vs next day behavior in America/New_York', () => {
+test('same day vs next day behavior in America/New_York', () => {
   vi.useFakeTimers();
   try {
     // 2025-01-01T12:00Z = 07:00 local (EST)
@@ -112,7 +121,7 @@ it('same day vs next day behavior in America/New_York', () => {
   }
 });
 
-it('handles half-hour and quarter-hour offsets', () => {
+test('handles half-hour and quarter-hour offsets', () => {
   vi.useFakeTimers();
   try {
     const base = Date.parse('2025-01-01T12:00:00.000Z');
@@ -156,7 +165,7 @@ it('handles half-hour and quarter-hour offsets', () => {
   }
 });
 
-it('respects DST spring forward and fall back in America/New_York', () => {
+test('respects DST spring forward and fall back in America/New_York', () => {
   vi.useFakeTimers();
   try {
     const zone = 'America/New_York';
@@ -189,7 +198,7 @@ it('respects DST spring forward and fall back in America/New_York', () => {
   }
 });
 
-it('rolls over at month/year boundaries correctly', () => {
+test('rolls over at month/year boundaries correctly', () => {
   vi.useFakeTimers();
   try {
     // Pacific/Kiritimati is UTC+14, very far ahead
@@ -212,7 +221,7 @@ it('rolls over at month/year boundaries correctly', () => {
   }
 });
 
-it('offset label is computed at due time', () => {
+test('offset label is computed at due time', () => {
   vi.useFakeTimers();
   try {
     const zone = 'America/New_York';

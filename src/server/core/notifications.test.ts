@@ -1,11 +1,20 @@
-import { it, expect, resetRedis } from '../test/devvitTest';
+import { vi, expect } from 'vitest';
+
+vi.mock('@devvit/pushnotif', () => ({
+  pushnotif: {
+    enqueue: vi.fn(),
+    optInCurrentUser: vi.fn(),
+    optOutCurrentUser: vi.fn(),
+  },
+}));
+
+import { test } from '../test';
 import { Notifications } from './notifications';
 import { Reminders } from './reminder';
 import { Timezones } from './timezones';
 import { redis, scheduler, reddit } from '@devvit/web/server';
 import { pushnotif } from '@devvit/pushnotif';
 import type { BulkPushNotifQueueOptions, BulkPushNotifQueueResponse } from '@devvit/pushnotif';
-import { vi } from 'vitest';
 
 // Mock notifications to avoid internal failures in tests
 vi.spyOn(pushnotif, 'optInCurrentUser').mockResolvedValue();
@@ -15,9 +24,7 @@ const PAYLOADS_KEY = 'notifications:groups:payloads';
 const PENDING_KEY = 'notifications:groups:pending';
 const PROGRESS_KEY = 'notifications:groups:progress';
 
-it('groups recipients by timezone and schedules per-zone jobs', async () => {
-  await resetRedis();
-
+test('groups recipients by timezone and schedules per-zone jobs', async () => {
   // Fixed time: 2025-01-01T12:00:00.000Z
   vi.useFakeTimers();
   vi.setSystemTime(new Date('2025-01-01T12:00:00.000Z'));
@@ -82,8 +89,7 @@ it('groups recipients by timezone and schedules per-zone jobs', async () => {
   }
 });
 
-it('sendGroupNow sends bulk push and clears the group', async () => {
-  await resetRedis();
+test('sendGroupNow sends bulk push and clears the group', async () => {
   vi.useFakeTimers();
   vi.setSystemTime(new Date('2025-01-01T12:00:00.000Z'));
 
@@ -142,8 +148,7 @@ it('sendGroupNow sends bulk push and clears the group', async () => {
   }
 });
 
-it('sendDueGroups processes only due groups', async () => {
-  await resetRedis();
+test('sendDueGroups processes only due groups', async () => {
   vi.useFakeTimers();
   vi.setSystemTime(new Date('2025-01-01T12:00:00.000Z'));
 
@@ -198,8 +203,7 @@ it('sendDueGroups processes only due groups', async () => {
   }
 });
 
-it('pendingStats and clearAllPending reflect queue state', async () => {
-  await resetRedis();
+test('pendingStats and clearAllPending reflect queue state', async () => {
   vi.useFakeTimers();
   vi.setSystemTime(new Date('2025-01-01T12:00:00.000Z'));
 
@@ -233,8 +237,7 @@ it('pendingStats and clearAllPending reflect queue state', async () => {
   expect(after.total).toBe(0);
 });
 
-it('resumes from progress on retry and avoids duplicate sends', async () => {
-  await resetRedis();
+test('resumes from progress on retry and avoids duplicate sends', async () => {
   vi.useFakeTimers();
   vi.setSystemTime(new Date('2025-01-01T12:00:00.000Z'));
 
@@ -311,8 +314,7 @@ it('resumes from progress on retry and avoids duplicate sends', async () => {
   vi.useRealTimers();
 });
 
-it('does not double-send when sendGroupNow is invoked concurrently', async () => {
-  await resetRedis();
+test('does not double-send when sendGroupNow is invoked concurrently', async () => {
   vi.useFakeTimers();
   vi.setSystemTime(new Date('2025-01-01T12:00:00.000Z'));
 
@@ -370,8 +372,7 @@ it('does not double-send when sendGroupNow is invoked concurrently', async () =>
   }
 });
 
-it('schedules delivery at correct local times for IANA timezones', async () => {
-  await resetRedis();
+test('schedules delivery at correct local times for IANA timezones', async () => {
   vi.useFakeTimers();
   // Fixed base: 2025-01-01T12:00:00Z
   vi.setSystemTime(new Date('2025-01-01T12:00:00.000Z'));
@@ -428,8 +429,7 @@ it('schedules delivery at correct local times for IANA timezones', async () => {
   }
 });
 
-it('removes users from reminders if they have muted notifications', async () => {
-  await resetRedis();
+test('removes users from reminders if they have muted notifications', async () => {
   vi.useFakeTimers();
   vi.setSystemTime(new Date('2025-01-01T12:00:00.000Z'));
 

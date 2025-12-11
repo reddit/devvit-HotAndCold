@@ -1,9 +1,9 @@
-import { it, expect, resetRedis } from '../test/devvitTest';
-import { vi } from 'vitest';
+import { expect, vi } from 'vitest';
 import { reddit, settings, scheduler } from '@devvit/web/server';
 import { Challenge } from './challenge';
 import { WordQueue } from './wordQueue';
 import * as api from './api';
+import { test } from '../test';
 
 type PostLookup = Record<string, any>;
 
@@ -38,8 +38,7 @@ const registerPostStub = ({
   return lookup[postId];
 };
 
-it('creates exactly one challenge within a 24 hour window', async () => {
-  await resetRedis();
+test('creates exactly one challenge within a 24 hour window', async () => {
   vi.useFakeTimers();
   vi.setSystemTime(new Date('2025-01-01T01:00:00.000Z'));
 
@@ -90,8 +89,7 @@ it('creates exactly one challenge within a 24 hour window', async () => {
   }
 });
 
-it('is safe under concurrent invocations (one creates, others skip)', async () => {
-  await resetRedis();
+test('is safe under concurrent invocations (one creates, others skip)', async () => {
   const getWordSpy = vi.spyOn(api, 'getWordConfigCached').mockResolvedValue({} as any);
   const shiftSpy = vi.spyOn(WordQueue, 'shift').mockResolvedValue({ word: 'bravo' } as any);
   const subredditSpy = vi
@@ -126,8 +124,7 @@ it('is safe under concurrent invocations (one creates, others skip)', async () =
   }
 });
 
-it('creates a new challenge on the next UTC day with incremented number', async () => {
-  await resetRedis();
+test('creates a new challenge on the next UTC day with incremented number', async () => {
   vi.useFakeTimers();
   vi.setSystemTime(new Date('2025-01-01T02:00:00.000Z'));
 
@@ -181,8 +178,7 @@ it('creates a new challenge on the next UTC day with incremented number', async 
   }
 });
 
-it('makeNewChallenge uses defaults and returns existing challenge when called twice in one day', async () => {
-  await resetRedis();
+test('makeNewChallenge uses defaults and returns existing challenge when called twice in one day', async () => {
   vi.useFakeTimers();
   vi.setSystemTime(new Date('2025-01-11T05:00:00.000Z'));
 
@@ -223,8 +219,7 @@ it('makeNewChallenge uses defaults and returns existing challenge when called tw
   }
 });
 
-it('allows manual override via ignoreDailyWindow', async () => {
-  await resetRedis();
+test('allows manual override via ignoreDailyWindow', async () => {
   vi.useFakeTimers();
   vi.setSystemTime(new Date('2025-01-13T05:00:00.000Z'));
 

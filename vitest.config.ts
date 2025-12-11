@@ -4,7 +4,7 @@ export default defineConfig({
   test: {
     projects: ['src/*'],
     reporters: ['dot'],
-    setupFiles: ['src/server/test/setupTests.ts'],
+    setupFiles: [],
     coverage: {
       enabled: true,
       provider: 'v8',

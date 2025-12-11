@@ -1,5 +1,5 @@
 import { expect, vi } from 'vitest';
-import { it, resetRedis } from './devvitTest';
+import { test } from '../test';
 import { Reminders } from '../core/reminder';
 import { User } from '../core/user';
 import { redis, reddit } from '@devvit/web/server';
@@ -37,16 +37,14 @@ const makeCleanupRunResult = (
   ...overrides,
 });
 
-it('setReminderForUsername adds a user', async () => {
-  await resetRedis();
+test('setReminderForUsername adds a user', async () => {
   await seedUserCache(testUser1);
   await Reminders.setReminderForUsername({ username: testUser1 });
   const total = await Reminders.totalReminders();
   expect(total).toBe(1);
 });
 
-it('isUserOptedIntoReminders returns true if opted in, false otherwise', async () => {
-  await resetRedis();
+test('isUserOptedIntoReminders returns true if opted in, false otherwise', async () => {
   await seedUserCache(testUser1);
   await Reminders.setReminderForUsername({ username: testUser1 });
   const isIn = await Reminders.isUserOptedIntoReminders({ username: testUser1 });
@@ -55,8 +53,7 @@ it('isUserOptedIntoReminders returns true if opted in, false otherwise', async (
   expect(isIn2).toBe(false);
 });
 
-it('removeReminderForUsername removes a user', async () => {
-  await resetRedis();
+test('removeReminderForUsername removes a user', async () => {
   await seedUserCache(testUser1);
   await Reminders.setReminderForUsername({ username: testUser1 });
   await Reminders.removeReminderForUsername({ username: testUser1 });
@@ -66,8 +63,7 @@ it('removeReminderForUsername removes a user', async () => {
   expect(isIn).toBe(false);
 });
 
-it('getAllUsersOptedIntoReminders returns all users who opted in (order by score)', async () => {
-  await resetRedis();
+test('getAllUsersOptedIntoReminders returns all users who opted in (order by score)', async () => {
   await seedUserCache(testUser1);
   await seedUserCache(testUser2);
   await seedUserCache(testUser3);
@@ -87,8 +83,7 @@ it('getAllUsersOptedIntoReminders returns all users who opted in (order by score
   );
 });
 
-it('totalReminders returns correct count', async () => {
-  await resetRedis();
+test('totalReminders returns correct count', async () => {
   await seedUserCache(testUser1);
   await seedUserCache(testUser2);
   expect(await Reminders.totalReminders()).toBe(0);
@@ -98,8 +93,7 @@ it('totalReminders returns correct count', async () => {
   expect(await Reminders.totalReminders()).toBe(2);
 });
 
-it('toggleReminderForUsername toggles opt-in state', async () => {
-  await resetRedis();
+test('toggleReminderForUsername toggles opt-in state', async () => {
   await seedUserCache(testUser1);
   let result = await Reminders.toggleReminderForUsername({ username: testUser1 });
   expect(result).toEqual({ newValue: true });
@@ -109,15 +103,13 @@ it('toggleReminderForUsername toggles opt-in state', async () => {
   expect(await Reminders.isUserOptedIntoReminders({ username: testUser1 })).toBe(false);
 });
 
-it('rejects invalid usernames (e.g., with u/ prefix)', async () => {
-  await resetRedis();
+test('rejects invalid usernames (e.g., with u/ prefix)', async () => {
   expect(() => Reminders.setReminderForUsername({ username: 'u/invalid' })).toThrowError(
     /Username must not start with the u\/ prefix/
   );
 });
 
-it('reminder opt-in removes user cache expiry and opt-out reapplies it', async () => {
-  await resetRedis();
+test('reminder opt-in removes user cache expiry and opt-out reapplies it', async () => {
   const username = testUser1;
   const id = 't2_' + username;
   const spy = vi
@@ -143,8 +135,7 @@ it('reminder opt-in removes user cache expiry and opt-out reapplies it', async (
   expect(ttlRemaining).toBeLessThanOrEqual(User.CacheTtlSeconds + 1);
 });
 
-it('clearCacheForNonReminderUsers removes caches for users without reminders', async () => {
-  await resetRedis();
+test('clearCacheForNonReminderUsers removes caches for users without reminders', async () => {
   await redis.hSet(User.UsernameToIdKey(), {
     alice: 't2_alice',
     bob: 't2_bob',
@@ -169,8 +160,7 @@ it('clearCacheForNonReminderUsers removes caches for users without reminders', a
   );
 });
 
-it('cleanup cancel flag can be toggled via redis key', async () => {
-  await resetRedis();
+test('cleanup cancel flag can be toggled via redis key', async () => {
   expect(await Reminders.isCleanupJobCancelled()).toBe(false);
   await Reminders.setCleanupJobCancelled(true);
   expect(await Reminders.isCleanupJobCancelled()).toBe(true);
@@ -178,8 +168,7 @@ it('cleanup cancel flag can be toggled via redis key', async () => {
   expect(await Reminders.isCleanupJobCancelled()).toBe(false);
 });
 
-it('recordCleanupRun aggregates stats across runs', async () => {
-  await resetRedis();
+test('recordCleanupRun aggregates stats across runs', async () => {
   const first = await Reminders.recordCleanupRun(
     makeCleanupRunResult({
       cleared: 2,

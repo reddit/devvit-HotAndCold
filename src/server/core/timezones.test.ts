@@ -1,5 +1,5 @@
 import { expect } from 'vitest';
-import { it } from '../test/devvitTest';
+import { test } from '../test';
 import { Timezones } from './timezones';
 import { redis } from '@devvit/web/server';
 
@@ -9,20 +9,20 @@ const user3 = 'carol';
 const zoneA = 'America/New_York';
 const zoneB = 'Asia/Kolkata';
 
-it('setUserTimezone saves IANA and getUserTimezone returns it', async () => {
+test('setUserTimezone saves IANA and getUserTimezone returns it', async () => {
   await Timezones.setUserTimezone({ username: user1, timezone: zoneA });
   const tz = await Timezones.getUserTimezone({ username: user1 });
   expect(tz).toBe(zoneA);
 });
 
-it('idempotent setUserTimezone overwrites to the same value without error', async () => {
+test('idempotent setUserTimezone overwrites to the same value without error', async () => {
   await Timezones.setUserTimezone({ username: user1, timezone: zoneA });
   await Timezones.setUserTimezone({ username: user1, timezone: zoneA });
   const tz = await Timezones.getUserTimezone({ username: user1 });
   expect(tz).toBe(zoneA);
 });
 
-it('moving a user updates IANA mapping', async () => {
+test('moving a user updates IANA mapping', async () => {
   await Timezones.setUserTimezone({ username: user2, timezone: zoneA });
   let tz = await Timezones.getUserTimezone({ username: user2 });
   expect(tz).toBe(zoneA);
@@ -31,14 +31,14 @@ it('moving a user updates IANA mapping', async () => {
   expect(tz).toBe(zoneB);
 });
 
-it('clearUserTimezone removes IANA mapping', async () => {
+test('clearUserTimezone removes IANA mapping', async () => {
   await Timezones.setUserTimezone({ username: user3, timezone: zoneA });
   await Timezones.clearUserTimezone({ username: user3 });
   const tz = await Timezones.getUserTimezone({ username: user3 });
   expect(tz).toBeNull();
 });
 
-it('migrates known offsets to canonical IANA zones and skips unknowns', async () => {
+test('migrates known offsets to canonical IANA zones and skips unknowns', async () => {
   // Seed legacy hash: tz:userToZone
   await redis.hSet(Timezones.UserToZoneKey(), {
     alice: 'UTC-05:00', // -> America/New_York

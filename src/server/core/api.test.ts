@@ -1,14 +1,11 @@
 import { expect, vi } from 'vitest';
-import { it, resetRedis, conn } from './devvitTest';
 import { Challenge } from '../core/challenge';
 import { buildHintCsvForChallenge, buildLetterCsvForChallenge } from '../core/api';
-
 import * as API from '../core/api';
+import { redis } from '@devvit/web/server';
+import { test } from '../test';
 
-it('buildLetterCsvForChallenge filters by letter and computes 1-based ranks', async ({
-  prefix,
-}) => {
-  await resetRedis();
+test('buildLetterCsvForChallenge filters by letter and computes 1-based ranks', async () => {
   // Seed a challenge with a secret word
   await Challenge.setChallenge({
     challengeNumber: 1,
@@ -35,7 +32,7 @@ it('buildLetterCsvForChallenge filters by letter and computes 1-based ranks', as
       { word: 'ample', similarity: 0.6, is_hint: true },
     ],
   };
-  await conn.set(`${prefix}:word_config2:apple`, JSON.stringify(appleConfig));
+  await redis.set(`word_config2:apple`, JSON.stringify(appleConfig));
 
   // Mock getWordConfigCached by priming its Redis cache key with a known payload
   // Importing the key function indirectly is cumbersome; instead, call once via builder
@@ -54,8 +51,7 @@ it('buildLetterCsvForChallenge filters by letter and computes 1-based ranks', as
   expect(linesEmpty.length).toBe(1);
 });
 
-it('buildHintCsvForChallenge returns header + up to 500 rows, ranked 1..N', async ({ prefix }) => {
-  await resetRedis();
+test('buildHintCsvForChallenge returns header + up to 500 rows, ranked 1..N', async () => {
   await Challenge.setChallenge({
     challengeNumber: 2,
     config: {
@@ -82,7 +78,7 @@ it('buildHintCsvForChallenge returns header + up to 500 rows, ranked 1..N', asyn
       { word: 'smoothie', similarity: 0.3, is_hint: true },
     ],
   };
-  await conn.set(`${prefix}:word_config2:banana`, JSON.stringify(bananaConfig));
+  await redis.set(`word_config2:banana`, JSON.stringify(bananaConfig));
 
   const csv = await buildHintCsvForChallenge({ challengeSecretWord: 'banana', max: 10 });
   const lines = csv.split(/\r?\n/).filter(Boolean);

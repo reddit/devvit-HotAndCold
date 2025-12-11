@@ -1,14 +1,12 @@
 import { expect } from 'vitest';
-import { it, resetRedis, shutdown } from './devvitTest';
 import { ChallengeProgress } from '../core/challengeProgress';
+import { test } from '../test';
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 const challengeNumber = 1;
 
-it('stores start + progress and returns neighbors with avatars', async () => {
-  await resetRedis();
-
+test('stores start + progress and returns neighbors with avatars', async () => {
   await ChallengeProgress.markPlayerStarted({
     challengeNumber,
     username: 'alice',
@@ -49,9 +47,7 @@ it('stores start + progress and returns neighbors with avatars', async () => {
   expect(byName['carol'].progress).toBe(80);
 });
 
-it('buckets by start-time rank: users in 0..99 are separate from 100..199', async () => {
-  await resetRedis();
-
+test('buckets by start-time rank: users in 0..99 are separate from 100..199', async () => {
   const start = Date.now();
   // Create 105 users, 0..104
   for (let i = 0; i < 105; i++) {
@@ -80,9 +76,7 @@ it('buckets by start-time rank: users in 0..99 are separate from 100..199', asyn
   expect(names[0]).toBe('u0');
 });
 
-it('hydrated bucket cache holds for ~5s, then refreshes to show updated progress', async () => {
-  await resetRedis();
-
+test('hydrated bucket cache holds for ~5s, then refreshes to show updated progress', async () => {
   const t0 = Date.now();
   await ChallengeProgress.markPlayerStarted({
     challengeNumber,
@@ -129,9 +123,4 @@ it('hydrated bucket cache holds for ~5s, then refreshes to show updated progress
   });
   const thirdY = third.find((p) => p.username === 'y');
   expect(thirdY?.progress).toBe(70);
-});
-
-// Ensure Redis shuts down after test suite completes (when run directly)
-it('shutdown redis (noop test)', async () => {
-  await shutdown();
 });

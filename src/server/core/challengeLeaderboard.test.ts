@@ -1,12 +1,10 @@
 import { expect } from 'vitest';
-import { it, resetRedis, shutdown } from './devvitTest';
+import { test } from '../test';
 import { ChallengeLeaderboard } from '../core/challengeLeaderboard';
 
 const challengeNumber = 42;
 
-it('adds entries and returns score leaderboard in DESC (best to worst)', async () => {
-  await resetRedis();
-
+test('adds entries and returns score leaderboard in DESC (best to worst)', async () => {
   await ChallengeLeaderboard.addEntry({
     challengeNumber,
     username: 'alice',
@@ -38,9 +36,7 @@ it('adds entries and returns score leaderboard in DESC (best to worst)', async (
   expect(top.map((m) => m.score)).toEqual([25, 15, 10]);
 });
 
-it('returns fastest leaderboard with lower times first when sort is DESC (best to worst)', async () => {
-  await resetRedis();
-
+test('returns fastest leaderboard with lower times first when sort is DESC (best to worst)', async () => {
   await ChallengeLeaderboard.addEntry({
     challengeNumber,
     username: 'alice',
@@ -81,9 +77,7 @@ it('returns fastest leaderboard with lower times first when sort is DESC (best t
   expect(fastestAsc.map((m) => m.member)).toEqual(['bob', 'alice', 'carol']);
 });
 
-it('returns 0-based best rank for score and fastest', async () => {
-  await resetRedis();
-
+test('returns 0-based best rank for score and fastest', async () => {
   await ChallengeLeaderboard.addEntry({
     challengeNumber,
     username: 'alice',
@@ -123,8 +117,7 @@ it('returns 0-based best rank for score and fastest', async () => {
   expect(carol).toEqual({ score: 1, timeToSolve: 1 });
 });
 
-it('throws when reading leaderboard that has no entries', async () => {
-  await resetRedis();
+test('throws when reading leaderboard that has no entries', async () => {
   await expect(
     ChallengeLeaderboard.getLeaderboardByScore({ challengeNumber, start: 0, stop: 0, sort: 'DESC' })
   ).rejects.toThrow('No leaderboard found');
@@ -137,9 +130,4 @@ it('throws when reading leaderboard that has no entries', async () => {
       sort: 'DESC',
     })
   ).rejects.toThrow('No leaderboard found');
-});
-
-// Ensure Redis shuts down after test suite completes (when run directly)
-it('shutdown redis (noop test)', async () => {
-  await shutdown();
 });

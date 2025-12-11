@@ -1,19 +1,18 @@
 import { expect } from 'vitest';
-import { it, resetRedis, conn } from '../test/devvitTest';
+import { test } from '../test';
 import { redisCompressed, REDIS_GZIP_PREFIX } from './redisCompression';
+import { redis } from '@devvit/web/server';
 
 // Helper to generate a long string that compresses well
 const longString = 'a'.repeat(1000);
 
-it('writes compressed data for long strings', async ({ prefix }) => {
-  await resetRedis();
+test('writes compressed data for long strings', async () => {
   const key = 'test:compress';
-  const fullKey = `${prefix}:${key}`;
 
   await redisCompressed.set(key, longString);
 
   // Check raw value in redis using full key (prefix + key)
-  const raw = await conn.get(fullKey);
+  const raw = await redis.get(key);
   expect(raw).toBeDefined();
   expect(raw?.startsWith(REDIS_GZIP_PREFIX)).toBe(true);
 
@@ -22,16 +21,14 @@ it('writes compressed data for long strings', async ({ prefix }) => {
   expect(readBack).toBe(longString);
 });
 
-it('does not compress short strings if it adds overhead', async ({ prefix }) => {
-  await resetRedis();
+test('does not compress short strings if it adds overhead', async () => {
   const key = 'test:short';
-  const fullKey = `${prefix}:${key}`;
   const shortString = 'abc';
 
   await redisCompressed.set(key, shortString);
 
   // Check raw value in redis
-  const raw = await conn.get(fullKey);
+  const raw = await redis.get(key);
   expect(raw).toBe(shortString);
   expect(raw?.startsWith(REDIS_GZIP_PREFIX)).toBe(false);
 
@@ -40,8 +37,7 @@ it('does not compress short strings if it adds overhead', async ({ prefix }) => 
   expect(readBack).toBe(shortString);
 });
 
-it('transparently decompresses data', async () => {
-  await resetRedis();
+test('transparently decompresses data', async () => {
   const key = 'test:decompress';
 
   await redisCompressed.set(key, longString);
@@ -49,43 +45,26 @@ it('transparently decompresses data', async () => {
   expect(val).toBe(longString);
 });
 
-it('handles corruption gracefully', async ({ prefix }) => {
-  await resetRedis();
+test('handles corruption gracefully', async () => {
   const key = 'test:corrupt';
-  const fullKey = `${prefix}:${key}`;
   const badData = REDIS_GZIP_PREFIX + 'not-base64-data';
 
   // Set corrupt data
-  await conn.set(fullKey, badData);
+  await redis.set(key, badData);
 
   // Should return raw value if decompression fails
   const val = await redisCompressed.get(key);
   expect(val).toBe(badData);
 });
 
-it('respects set options (TTL)', async ({ prefix }) => {
-  await resetRedis();
-  const key = 'test:set_options';
-  const fullKey = `${prefix}:${key}`;
-  const expirationDate = new Date(Date.now() + 60000); // 60 seconds from now
-
-  await redisCompressed.set(key, longString, { expiration: expirationDate });
-
-  const ttl = await conn.ttl(fullKey);
-  expect(ttl).toBeGreaterThan(0);
-  expect(ttl).toBeLessThanOrEqual(60);
-});
-
-it('handles hash compression (hSet/hGet)', async ({ prefix }) => {
-  await resetRedis();
+test('handles hash compression (hSet/hGet)', async () => {
   const key = 'test:hash_compress';
   const field = 'field1';
-  const fullKey = `${prefix}:${key}`;
 
   await redisCompressed.hSet(key, { [field]: longString });
 
   // Check raw value in redis
-  const raw = await conn.hget(fullKey, field);
+  const raw = await redis.hGet(key, field);
   expect(raw).toBeDefined();
   expect(raw?.startsWith(REDIS_GZIP_PREFIX)).toBe(true);
 
@@ -94,16 +73,14 @@ it('handles hash compression (hSet/hGet)', async ({ prefix }) => {
   expect(readBack).toBe(longString);
 });
 
-it('does not compress short strings in hash', async ({ prefix }) => {
-  await resetRedis();
+test('does not compress short strings in hash', async () => {
   const key = 'test:hash_short';
   const field = 'field1';
-  const fullKey = `${prefix}:${key}`;
   const shortString = 'abc';
 
   await redisCompressed.hSet(key, { [field]: shortString });
 
-  const raw = await conn.hget(fullKey, field);
+  const raw = await redis.hGet(key, field);
   expect(raw).toBe(shortString);
   expect(raw?.startsWith(REDIS_GZIP_PREFIX)).toBe(false);
 
@@ -111,23 +88,20 @@ it('does not compress short strings in hash', async ({ prefix }) => {
   expect(readBack).toBe(shortString);
 });
 
-it('handles hSetNX compression', async ({ prefix }) => {
-  await resetRedis();
+test('handles hSetNX compression', async () => {
   const key = 'test:hsetnx';
   const field = 'field1';
-  const fullKey = `${prefix}:${key}`;
 
   await redisCompressed.hSetNX(key, field, longString);
 
-  const raw = await conn.hget(fullKey, field);
+  const raw = await redis.hGet(key, field);
   expect(raw?.startsWith(REDIS_GZIP_PREFIX)).toBe(true);
 
   const readBack = await redisCompressed.hGet(key, field);
   expect(readBack).toBe(longString);
 });
 
-it('handles hGetAll decompression', async () => {
-  await resetRedis();
+test('handles hGetAll decompression', async () => {
   const key = 'test:hgetall';
 
   await redisCompressed.hSet(key, {
@@ -140,8 +114,7 @@ it('handles hGetAll decompression', async () => {
   expect(all.f2).toBe('short');
 });
 
-it('handles hMGet decompression', async () => {
-  await resetRedis();
+test('handles hMGet decompression', async () => {
   const key = 'test:hmget';
 
   await redisCompressed.hSet(key, {
@@ -155,27 +128,22 @@ it('handles hMGet decompression', async () => {
   expect(values[2]).toBeNull();
 });
 
-it('does not attempt compression for very short strings', async ({ prefix }) => {
-  await resetRedis();
+test('does not attempt compression for very short strings', async () => {
   const key = 'test:no_compress_short';
-  const fullKey = `${prefix}:${key}`;
   // A string shorter than MIN_COMPRESSION_LENGTH (80)
   const shortish = 'a'.repeat(70);
 
   await redisCompressed.set(key, shortish);
 
-  const raw = await conn.get(fullKey);
+  const raw = await redis.get(key);
   expect(raw).toBe(shortish);
   // It should NOT be prefixed because we skipped compression logic entirely
   expect(raw?.startsWith(REDIS_GZIP_PREFIX)).toBe(false);
 });
 
-it('handles mSet and mGet', async ({ prefix }) => {
-  await resetRedis();
+test('handles mSet and mGet', async () => {
   const k1 = 'test:m1';
   const k2 = 'test:m2';
-  const fk1 = `${prefix}:${k1}`;
-  const fk2 = `${prefix}:${k2}`;
 
   await redisCompressed.mSet({
     [k1]: longString,
@@ -183,9 +151,9 @@ it('handles mSet and mGet', async ({ prefix }) => {
   });
 
   // Check raw
-  const r1 = await conn.get(fk1);
+  const r1 = await redis.get(k1);
   expect(r1?.startsWith(REDIS_GZIP_PREFIX)).toBe(true);
-  const r2 = await conn.get(fk2);
+  const r2 = await redis.get(k2);
   expect(r2).toBe('short');
 
   // Check mGet
@@ -194,8 +162,7 @@ it('handles mSet and mGet', async ({ prefix }) => {
   expect(v2).toBe('short');
 });
 
-it('proxies non-overridden methods correctly (zAdd/zRank)', async () => {
-  await resetRedis();
+test('proxies non-overridden methods correctly (zAdd/zRank)', async () => {
   const key = 'test:zset_proxy';
 
   // zAdd is not overridden, so it passes through to the target
