@@ -21,6 +21,7 @@ export const initPosthog = ({ mode }: { mode: 'classic' | 'horde' }) => {
     capture_exceptions: true,
     disable_surveys: true,
     autocapture: false,
+    advanced_disable_flags: true,
     disable_session_recording: true,
     enable_heatmaps: false,
     capture_heatmaps: false,

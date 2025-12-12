@@ -342,6 +342,5 @@ function filterExceptionEvent(
   event: ExceptionEvent,
   predicate: (event: ExceptionEvent) => boolean
 ) {
-  console.log(JSON.stringify(event, null, 2));
   return event.event === '$exception' && predicate(event);
 }
