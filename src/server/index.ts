@@ -551,6 +551,31 @@ const appRouter = router({
         return neighbors;
       }),
   },
+  notifications: {
+    testPush: publicProcedure.mutation(async () => {
+      const isAdmin = await Admin.isAdmin();
+      if (!isAdmin) {
+        throw new Error('Unauthorized');
+      }
+
+      const current = await User.getCurrent();
+      const challengeNumber = await Challenge.getCurrentChallengeNumber();
+      const postId = await Challenge.getPostIdForChallenge({ challengeNumber });
+
+      if (!postId) {
+        throw new Error('Could not find challenge post to use for notification');
+      }
+
+      const result = await Notifications.sendSingleNow({
+        username: current.username,
+        postId,
+        title: 'Test Notification',
+        body: 'This is a test notification from the admin menu.',
+      });
+
+      return result;
+    }),
+  },
   // Returns whether the current user is an admin. Caches result in Redis.
 });
 
@@ -1785,6 +1810,28 @@ app.post(
 
 // [notifications] Send single (form launcher)
 app.post('/internal/menu/notifications/send-single', async (_req, res): Promise<void> => {
+  let defaultUsername = '';
+  let defaultPostId = '';
+
+  try {
+    if (context.userId) {
+      const user = await User.getCurrent();
+      defaultUsername = user.username;
+    }
+  } catch (e) {
+    console.error('Failed to get current user for form default', e);
+  }
+
+  try {
+    const challengeNumber = await Challenge.getCurrentChallengeNumber();
+    if (challengeNumber > 0) {
+      const pid = await Challenge.getPostIdForChallenge({ challengeNumber });
+      if (pid) defaultPostId = pid;
+    }
+  } catch (e) {
+    console.error('Failed to get current challenge for form default', e);
+  }
+
   res.status(200).json({
     showForm: {
       name: 'notificationsSendSingleForm',
@@ -1792,10 +1839,34 @@ app.post('/internal/menu/notifications/send-single', async (_req, res): Promise<
         title: 'Send notification to user',
         acceptLabel: 'Send',
         fields: [
-          { name: 'username', label: 'Username (case-sensitive)', type: 'string', required: true },
-          { name: 'postId', label: 'Post ID (t3_...)', type: 'string', required: true },
-          { name: 'title', label: 'Title', type: 'string', required: true },
-          { name: 'body', label: 'Body', type: 'paragraph', required: true },
+          {
+            name: 'username',
+            label: 'Username (case-sensitive)',
+            type: 'string',
+            required: true,
+            defaultValue: defaultUsername,
+          },
+          {
+            name: 'postId',
+            label: 'Post ID (t3_...)',
+            type: 'string',
+            required: true,
+            defaultValue: defaultPostId,
+          },
+          {
+            name: 'title',
+            label: 'Title',
+            type: 'string',
+            required: true,
+            defaultValue: 'hello',
+          },
+          {
+            name: 'body',
+            label: 'Body',
+            type: 'paragraph',
+            required: true,
+            defaultValue: 'world',
+          },
         ],
       },
     },

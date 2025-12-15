@@ -1,13 +1,4 @@
 import { vi, expect } from 'vitest';
-
-vi.mock('@devvit/pushnotif', () => ({
-  pushnotif: {
-    enqueue: vi.fn(),
-    optInCurrentUser: vi.fn(),
-    optOutCurrentUser: vi.fn(),
-  },
-}));
-
 import { test } from '../test';
 import { Notifications } from './notifications';
 

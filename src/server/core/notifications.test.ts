@@ -1,24 +1,14 @@
 import { vi, expect } from 'vitest';
-
-vi.mock('@devvit/pushnotif', () => ({
-  pushnotif: {
-    enqueue: vi.fn(),
-    optInCurrentUser: vi.fn(),
-    optOutCurrentUser: vi.fn(),
-  },
-}));
-
 import { test } from '../test';
 import { Notifications } from './notifications';
 import { Reminders } from './reminder';
 import { Timezones } from './timezones';
 import { redis, scheduler, reddit } from '@devvit/web/server';
-import { pushnotif } from '@devvit/pushnotif';
-import type { BulkPushNotifQueueOptions, BulkPushNotifQueueResponse } from '@devvit/pushnotif';
+import { notifications, type EnqueueOptions, type EnqueueResponse } from '@devvit/notifications';
 
 // Mock notifications to avoid internal failures in tests
-vi.spyOn(pushnotif, 'optInCurrentUser').mockResolvedValue();
-vi.spyOn(pushnotif, 'optOutCurrentUser').mockResolvedValue();
+vi.spyOn(notifications, 'optInCurrentUser').mockResolvedValue();
+vi.spyOn(notifications, 'optOutCurrentUser').mockResolvedValue();
 
 const PAYLOADS_KEY = 'notifications:groups:payloads';
 const PENDING_KEY = 'notifications:groups:pending';
@@ -102,15 +92,13 @@ test('sendGroupNow sends bulk push and clears the group', async () => {
         getSnoovatarUrl: async () => 'https://example.com/snoo.png',
       }) as any
   );
-  const bulkCalls: BulkPushNotifQueueOptions[] = [];
+  const bulkCalls: EnqueueOptions[] = [];
   const bulkSpy = vi
-    .spyOn(pushnotif, 'enqueue')
-    .mockImplementation(
-      async (opts: BulkPushNotifQueueOptions): Promise<BulkPushNotifQueueResponse> => {
-        bulkCalls.push(opts);
-        return { successCount: opts.recipients.length, failureCount: 0, errors: [] };
-      }
-    );
+    .spyOn(notifications, 'enqueue')
+    .mockImplementation(async (opts: EnqueueOptions): Promise<EnqueueResponse> => {
+      bulkCalls.push(opts);
+      return { ok: true };
+    });
 
   try {
     await Reminders.setReminderForUsername({ username: 'alice' });
@@ -163,8 +151,8 @@ test('sendDueGroups processes only due groups', async () => {
   );
   let bulkCount = 0;
   const bulkSpy = vi
-    .spyOn(pushnotif, 'enqueue')
-    .mockImplementation(async (): Promise<BulkPushNotifQueueResponse> => {
+    .spyOn(notifications, 'enqueue')
+    .mockImplementation(async (): Promise<EnqueueResponse> => {
       bulkCount++;
       return { successCount: 1, failureCount: 0, errors: [] };
     });
@@ -273,8 +261,8 @@ test('resumes from progress on retry and avoids duplicate sends', async () => {
   // First attempt: succeed first batch (1000) then fail on second batch
   let call = 0;
   const bulkSpy = vi
-    .spyOn(pushnotif, 'enqueue')
-    .mockImplementation(async (opts: BulkPushNotifQueueOptions) => {
+    .spyOn(notifications, 'enqueue')
+    .mockImplementation(async (opts: EnqueueOptions) => {
       call++;
       if (call === 2) {
         throw new Error('simulated failure');
@@ -295,7 +283,7 @@ test('resumes from progress on retry and avoids duplicate sends', async () => {
   expect(Number(progress)).toBeGreaterThanOrEqual(1000);
 
   // Second attempt should resume from progress and complete without re-sending the first part
-  bulkSpy.mockImplementation(async (opts: BulkPushNotifQueueOptions) => {
+  bulkSpy.mockImplementation(async (opts: EnqueueOptions) => {
     return { successCount: opts.recipients.length, failureCount: 0, errors: [] };
   });
   const result = await Notifications.sendGroupNow({ groupId: gid });
@@ -328,10 +316,10 @@ test('does not double-send when sendGroupNow is invoked concurrently', async () 
       }) as any
   );
 
-  const bulkCalls: BulkPushNotifQueueOptions[] = [];
+  const bulkCalls: EnqueueOptions[] = [];
   const bulkSpy = vi
-    .spyOn(pushnotif, 'enqueue')
-    .mockImplementation(async (opts: BulkPushNotifQueueOptions) => {
+    .spyOn(notifications, 'enqueue')
+    .mockImplementation(async (opts: EnqueueOptions) => {
       bulkCalls.push(opts);
       return { successCount: opts.recipients.length, failureCount: 0, errors: [] };
     });
@@ -444,8 +432,8 @@ test('removes users from reminders if they have muted notifications', async () =
   );
 
   const bulkSpy = vi
-    .spyOn(pushnotif, 'enqueue')
-    .mockImplementation(async (opts: BulkPushNotifQueueOptions) => {
+    .spyOn(notifications, 'enqueue')
+    .mockImplementation(async (opts: EnqueueOptions) => {
       // Mock a partial failure where one user has muted notifications
       return {
         successCount: opts.recipients.length - 1,

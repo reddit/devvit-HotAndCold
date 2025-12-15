@@ -2,8 +2,8 @@ import { z } from 'zod';
 import { fn } from '../../shared/fn';
 import { redis, scheduler } from '@devvit/web/server';
 import { Reminders } from './reminder';
-import { pushnotif } from '@devvit/pushnotif';
-import type { EnqueueOptions } from '@devvit/pushnotif';
+import { notifications } from '@devvit/notifications';
+import type { EnqueueOptions } from '@devvit/notifications';
 import { User } from './user';
 import { Timezones } from './timezones';
 
@@ -538,7 +538,7 @@ export namespace Notifications {
           body,
           recipients: batchRecipients,
         };
-        const resp = await pushnotif.enqueue(bulk);
+        const resp = await notifications.enqueue(bulk);
 
         console.log('[Notifications] sendGroupNow enqueued batch', {
           i,
@@ -706,7 +706,7 @@ export namespace Notifications {
             data: { username },
           },
         ];
-        const resp = await pushnotif.enqueue({ title, body, recipients });
+        const resp = await notifications.enqueue({ title, body, recipients });
         console.log('[Notifications] sendSingleNow completed', {
           username,
           postId,

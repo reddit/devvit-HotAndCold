@@ -54,7 +54,7 @@
     "@devvit/shared-types": "0.12.6-next-2025-12-11-20-33-44-e7e230965.0",
     "@devvit/test": "0.12.6-next-2025-12-11-20-33-44-e7e230965.0",
     "@devvit/web": "0.12.6-next-2025-12-11-20-33-44-e7e230965.0",
-    "@devvit/pushnotif": "0.12.6-next-2025-12-11-20-33-44-e7e230965.0",
+    "@devvit/notifications": "0.12.6-next-2025-12-11-20-33-44-e7e230965.0",
     "@google/genai": "1.16.0",
     "@preact/signals": "^1.2.2",
     "@trpc/client": "11.4.4",
