@@ -522,6 +522,7 @@ export namespace Notifications {
       dueAtMs: payload.dueAtMs,
       runAtIso: new Date().toISOString(),
     });
+
     const mappedRecipientsAll = payload.recipients.map((r) => ({
       userId: r.userId as `t2_${string}`,
       link: payload.params.postId as `t3_${string}`,
@@ -574,7 +575,17 @@ export namespace Notifications {
                 { usernames: usernamesToRemove }
               );
               await Promise.all(
-                usernamesToRemove.map((u) => Reminders.removeReminderForUsername({ username: u }))
+                usernamesToRemove.map(async (u) => {
+                  try {
+                    await Reminders.removeReminderForUsername({ username: u });
+                  } catch (error) {
+                    // don't rethrow here because it messes up all of sendGroupNow
+                    console.error('[Notifications] error removing reminder', {
+                      username: u,
+                      error,
+                    });
+                  }
+                })
               );
             }
           }

@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { fn } from '../../shared/fn';
-import { redis } from '@devvit/web/server';
+import { context, redis } from '@devvit/web/server';
 import { zodRedditUsername } from '../utils';
 import { User } from './user';
 import { notifications } from '@devvit/notifications';
@@ -207,7 +207,9 @@ export namespace Reminders {
       username: zodRedditUsername,
     }),
     async ({ username }) => {
-      await notifications.optOutCurrentUser();
+      if (context.userId) {
+        await notifications.optOutCurrentUser();
+      }
       await redis.zRem(getRemindersKey(), [username]);
       await User.reapplyCacheExpiryForUsername(username);
     }
