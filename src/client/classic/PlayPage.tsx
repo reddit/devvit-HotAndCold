@@ -7,7 +7,7 @@ import { formatOrdinal } from '../../shared/ordinal';
 import { formatCompactNumber } from '../../shared/formatCompactNumber';
 import { context } from '@devvit/web/client';
 import { openHowToPlay } from './state/howToPlay';
-import posthog from 'posthog-js';
+import { posthog } from '../posthog';
 import { trpc } from '../trpc';
 import { getBrowserIanaTimeZone } from '../../shared/timezones';
 import { setReminderOptIn, userSettings } from './state/userSettings';

@@ -6,7 +6,7 @@ import { GradientBorder } from '../shared/gradientBorder';
 import { cn } from '../utils/cn';
 import { trpc } from '../trpc';
 import { Modal } from '../shared/modal';
-import posthog from 'posthog-js';
+import { posthog } from '../posthog';
 // import { context } from '@devvit/web/client';
 import { requireChallengeNumber } from '../requireChallengeNumber';
 import { getPrettyDuration } from '../../shared/prettyDuration';

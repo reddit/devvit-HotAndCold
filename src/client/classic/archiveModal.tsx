@@ -17,7 +17,7 @@ import {
 import { requireChallengeNumber } from '../requireChallengeNumber';
 import { cn } from '../utils/cn';
 import { formatCompactNumber } from '../../shared/formatCompactNumber';
-import posthog from 'posthog-js';
+import { posthog } from '../posthog';
 import { navigateTo } from '@devvit/web/client';
 
 const STATUS_LABEL: Record<ArchiveChallengeStatus, string> = {

@@ -15,7 +15,7 @@ import { ArchiveModal } from './archiveModal';
 import { ErrorBoundary } from '../shared/error';
 import { initPosthog } from './useInitPosthog';
 import { isLoggedOut } from '../shared/user';
-import posthog from 'posthog-js';
+import { posthog } from '../posthog';
 import { GUESS_SAMPLE_RATE } from '../config';
 import type { GuessEngine } from '../core/guessEngine';
 import { remountKey } from './state/experiments';

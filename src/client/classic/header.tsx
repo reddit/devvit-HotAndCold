@@ -18,7 +18,7 @@ import { userSettings, toggleLayout, toggleSortType, setReminderOptIn } from './
 import { trpc } from '../trpc';
 import { navigate } from './state/navigation';
 import { resetGuessCache } from '../core/guess';
-import posthog from 'posthog-js';
+import { posthog } from '../posthog';
 import { openExperiments } from './state/experiments';
 import { openArchive } from './state/archive';
 import { getBrowserIanaTimeZone } from '../../shared/timezones';

@@ -68,7 +68,7 @@ const isValidWord = (word: string): boolean => /^[a-zA-Z][a-zA-Z'-]*$/.test(word
 // Placeholder: wire to tRPC once server exposes a mutation
 import { trpc } from '../trpc';
 import { markSolvedForCurrentChallenge } from '../classic/state/navigation';
-import posthog from 'posthog-js';
+import { posthog } from '../posthog';
 // import { rankToProgress } from '../../shared/progress';
 
 const submitBatchToServer = async (

@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'preact/hooks';
 import { IconButton } from './button';
 import { HamburgerIcon } from './icons';
-import posthog from 'posthog-js';
+import { posthog } from '../posthog';
 import { page } from '../classic/state/navigation';
 
 export const HelpMenu = ({

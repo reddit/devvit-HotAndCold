@@ -1,6 +1,6 @@
 import { Component } from 'preact';
 import { GradientBorder } from './gradientBorder';
-import posthog from 'posthog-js';
+import { posthog } from '../posthog';
 import { Logo } from './logo';
 
 const isIOS = (ua: string): boolean => /iPhone|iPad|iPod/i.test(ua || '');

@@ -1,10 +1,9 @@
-import posthog from 'posthog-js';
-
 import { CONFIG, IS_PROD } from '../config';
 import { beforeSend } from '../../shared/posthogUtils';
 import { context } from '@devvit/web/client';
 import { hash } from '../../shared/hash';
 import { experiments } from '../../shared/experiments/experiments';
+import { posthog } from '../posthog';
 
 let initialized = false;
 

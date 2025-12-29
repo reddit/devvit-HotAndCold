@@ -1,7 +1,7 @@
 import { createTRPCClient, httpBatchStreamLink } from '@trpc/client';
 import type { AppRouter } from '../server/index';
 import { transformer } from '../shared/transformer';
-import posthog from 'posthog-js';
+import { posthog } from './posthog';
 import { sanitizeUrlLikeString } from '../shared/sanitize';
 
 const nativeFetch: typeof fetch | undefined =
