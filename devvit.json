@@ -26,7 +26,6 @@
     "postCreateForm": "/internal/form/post-create",
     "notificationsManageForm": "/internal/form/notifications/manage",
     "notificationsSendSingleForm": "/internal/form/notifications/send-single",
-    "nukeUsersForm": "/internal/form/admin/nuke-users",
     "cleanupCacheForm": "/internal/form/admin/cleanup-cache",
     "migrateChallengeProgressForm": "/internal/form/admin/migrate-challenge-progress-compression",
     "migrateUserCacheForm": "/internal/form/admin/migrate-user-cache-compression",
@@ -134,13 +133,6 @@
         "endpoint": "/internal/menu/analytics/sync-user-props"
       },
       {
-        "label": "[ops] Warm user cache",
-        "forUserType": "moderator",
-        "location": "subreddit",
-        "description": "classic",
-        "endpoint": "/internal/menu/users/warm-cache"
-      },
-      {
         "label": "[ops] Migrate word config gzip",
         "forUserType": "moderator",
         "location": "subreddit",
@@ -169,18 +161,11 @@
         "endpoint": "/internal/menu/timezones/migrate-to-iana"
       },
       {
-        "label": "[ops] Nuke reminders/timezones",
+        "label": "[ops] Delete legacy reminders keys",
         "forUserType": "moderator",
         "location": "subreddit",
         "description": "classic",
-        "endpoint": "/internal/menu/admin/nuke-users"
-      },
-      {
-        "label": "[ops] Migrate Reminders to T2",
-        "forUserType": "moderator",
-        "location": "subreddit",
-        "description": "classic",
-        "endpoint": "/internal/menu/admin/migrate-reminders-t2"
+        "endpoint": "/internal/menu/admin/delete-old-reminders-keys"
       },
       {
         "label": "[ops] Migrate UserGuess compression",
@@ -306,7 +291,6 @@
         "data": {}
       },
       "notifications-send-group": "/internal/scheduler/notifications-send-group",
-      "users-warm-cache": "/internal/scheduler/users-warm-cache",
       "users-clean-reminderless-cache": "/internal/scheduler/users-clean-reminderless-cache",
       "migrate-user-guess-compression": "/internal/scheduler/migrate-user-guess-compression",
       "migrate-user-cache-compression": "/internal/scheduler/migrate-user-cache-compression",

@@ -1533,96 +1533,6 @@ app.post(
   }
 );
 
-// Scheduler: users-warm-cache — process a batch and requeue until done
-app.post('/internal/scheduler/users-warm-cache', async (req, res): Promise<void> => {
-  const startedAt = Date.now();
-  try {
-    const body = (req.body as any) ?? {};
-    const data = body?.data ?? {};
-    const cursor = Number.parseInt(String(data?.cursor ?? '0'), 10) || 0;
-    const processedSoFar = Number.parseInt(String(data?.processed ?? '0'), 10) || 0;
-    const batchSize = Number.parseInt(String(data?.batchSize ?? '200'), 10) || 200;
-    console.log('[WarmCache] batch start', { cursor, processedSoFar, batchSize });
-
-    // Scan a chunk of reminder users
-    const scanStart = Date.now();
-    const { nextCursor, members, done } = await Reminders.scanUsers({ cursor, limit: batchSize });
-    console.log('[WarmCache] scan complete', {
-      scanned: members.length,
-      nextCursor,
-      done,
-      elapsedMs: Date.now() - scanStart,
-    });
-
-    // Process one batch (<= batchSize) and then daisy-chain
-    const tBatchStart = Date.now();
-    let ok = 0;
-    let fail = 0;
-    for (const username of members) {
-      try {
-        await User.getByUsername(username);
-        ok++;
-      } catch {
-        fail++;
-      }
-    }
-    const processedInThisHandler = members.length;
-    console.log('[WarmCache] processed batch', {
-      size: processedInThisHandler,
-      ok,
-      fail,
-      elapsedMs: Date.now() - tBatchStart,
-      totalProcessed: processedSoFar + processedInThisHandler,
-    });
-
-    const newProcessedTotal = processedSoFar + processedInThisHandler;
-    const totalElapsed = Date.now() - startedAt;
-    console.log('[WarmCache] batch end', {
-      processedInThisHandler,
-      newProcessedTotal,
-      nextCursor,
-      done,
-      elapsedMs: totalElapsed,
-    });
-
-    // Daisy-chain next batch if not done and there is more to scan
-    if (!done) {
-      await scheduler.runJob({
-        name: 'users-warm-cache',
-        runAt: new Date(),
-        data: { cursor: nextCursor, processed: newProcessedTotal, batchSize },
-      });
-      res.json({ status: 'success', requeued: true, nextCursor, processed: newProcessedTotal });
-      return;
-    }
-
-    res.json({ status: 'success', requeued: false, processed: newProcessedTotal });
-  } catch (error: any) {
-    console.error('[WarmCache] batch error', {
-      message: error?.message,
-      name: error?.name,
-      stack: error?.stack,
-    });
-    // Attempt to requeue with same cursor to continue despite transient failure
-    try {
-      const body = (req.body as any) ?? {};
-      const data = body?.data ?? {};
-      const cursor = Number.parseInt(String(data?.cursor ?? '0'), 10) || 0;
-      const processed = Number.parseInt(String(data?.processed ?? '0'), 10) || 0;
-      const batchSize = Number.parseInt(String(data?.batchSize ?? '200'), 10) || 200;
-      await scheduler.runJob({
-        name: 'users-warm-cache',
-        runAt: new Date(),
-        data: { cursor, processed, batchSize },
-      });
-      console.log('[WarmCache] requeued after error', { cursor, processed, batchSize });
-    } catch (e) {
-      console.error('[WarmCache] failed to requeue after error', e);
-    }
-    res.status(500).json({ status: 'error', message: 'Failed during user cache warming' });
-  }
-});
-
 // Notifications management menu
 app.post('/internal/menu/notifications/manage', async (_req, res): Promise<void> => {
   res.status(200).json({
@@ -1642,27 +1552,6 @@ app.post('/internal/menu/notifications/manage', async (_req, res): Promise<void>
               { label: 'Clear queue', value: 'clear' },
             ],
             defaultValue: 'stats',
-          },
-        ],
-      },
-    },
-  });
-});
-
-// [ops] Nuke reminders/timezones (form launcher)
-app.post('/internal/menu/admin/nuke-users', async (_req, res): Promise<void> => {
-  res.status(200).json({
-    showForm: {
-      name: 'nukeUsersForm',
-      form: {
-        title: 'Nuke reminders and timezones',
-        acceptLabel: 'NUKE ALL',
-        fields: [
-          {
-            name: 'confirm',
-            label: 'This is super dangerous and should be used in development only',
-            type: 'boolean',
-            defaultValue: false,
           },
         ],
       },
@@ -2000,36 +1889,6 @@ app.post('/internal/form/notifications/send-single', async (req, res): Promise<v
   }
 });
 
-// [ops] Nuke reminders/timezones (form handler)
-app.post('/internal/form/admin/nuke-users', async (req, res): Promise<void> => {
-  try {
-    const { confirm } = (req.body as any) ?? {};
-    if (!confirm) {
-      res.status(200).json({
-        showToast: { text: 'Canceled nuke', appearance: 'neutral' },
-      });
-      return;
-    }
-
-    console.log('[AdminNuke] Starting nuke of reminders and timezones');
-    // Remove everyone from the two keys: reminders (ZSET) and timezones (HASH)
-    await Promise.all([
-      redis.del(Reminders.getRemindersKey()),
-      redis.del(Timezones.UserToIanaKey()),
-    ]);
-    console.log('[AdminNuke] Nuke complete');
-
-    res.status(200).json({
-      showToast: { text: 'Nuke completed immediately', appearance: 'success' },
-    });
-  } catch (err: any) {
-    console.error('Failed to nuke users', err);
-    res.status(500).json({
-      showToast: { text: err?.message || 'Failed to nuke users', appearance: 'neutral' },
-    });
-  }
-});
-
 app.post('/internal/form/admin/cleanup-cache', async (req, res): Promise<void> => {
   try {
     const body = (req.body as any) ?? {};
@@ -2291,26 +2150,6 @@ app.post('/internal/menu/analytics/sync-user-props', async (_req, res): Promise<
   }
 });
 
-// Ops menu: Warm user cache by iterating reminders in batches
-app.post('/internal/menu/users/warm-cache', async (_req, res): Promise<void> => {
-  try {
-    console.log('[Menu] Starting users-warm-cache job chain');
-    await scheduler.runJob({
-      name: 'users-warm-cache',
-      runAt: new Date(),
-      data: { cursor: 0, processed: 0, batchSize: 200 },
-    });
-    res.status(200).json({
-      showToast: { text: 'Started user cache warming', appearance: 'success' },
-    });
-  } catch (err: any) {
-    console.error('Failed to start users-warm-cache', err);
-    res.status(500).json({
-      showToast: { text: err?.message || 'Failed to start warming', appearance: 'neutral' },
-    });
-  }
-});
-
 app.post('/internal/scheduler/users-clean-reminderless-cache', async (req, res): Promise<void> => {
   try {
     const body = (req.body as any) ?? {};
@@ -2469,21 +2308,18 @@ app.post('/internal/menu/timezones/migrate-to-iana', async (_req, res): Promise<
 // Error tracking should be last among middleware to catch downstream errors
 app.use(usePosthogErrorTracking);
 
-// [ops] Migrate Reminders to T2 (immediate action)
-app.post('/internal/menu/admin/migrate-reminders-t2', async (_req, res): Promise<void> => {
+// [ops] Delete legacy reminders keys (immediate action)
+app.post('/internal/menu/admin/delete-old-reminders-keys', async (_req, res): Promise<void> => {
   try {
-    const { totalProcessed, totalAdded } = await Reminders.migrateRemindersToT2();
+    await Reminders.deleteOldReminderKeys();
     res.status(200).json({
-      showToast: {
-        text: `Migration complete: Processed ${totalProcessed}, Added ${totalAdded}`,
-        appearance: 'success',
-      },
+      showToast: { text: 'Deleted legacy reminders keys', appearance: 'success' },
     });
   } catch (err: any) {
-    console.error('Failed to migrate reminders to t2', err);
+    console.error('Failed to delete legacy reminders keys', err);
     res.status(500).json({
       showToast: {
-        text: err?.message || 'Failed to migrate reminders to t2',
+        text: err?.message || 'Failed to delete legacy reminders keys',
         appearance: 'neutral',
       },
     });

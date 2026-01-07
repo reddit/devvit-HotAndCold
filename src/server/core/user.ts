@@ -175,6 +175,43 @@ export namespace User {
     }
   );
 
+  /**
+   * Bulk read user info from cache by user IDs (t2_*). This is cache-only and will not call Reddit.
+   * Returns a map of userId -> UserInfo for entries present + parseable in cache.
+   */
+  export const getManyInfoByIds = async (ids: readonly string[]) => {
+    if (ids.length === 0) return {};
+
+    const result: Record<string, UserInfo> = {};
+    const chunkSize = 500;
+
+    for (let i = 0; i < ids.length; i += chunkSize) {
+      const chunkIds = ids.slice(i, i + chunkSize);
+      const keys = chunkIds.map((id) => Key(id));
+      const values = await redis.mGet(keys);
+
+      const usernameToId: Record<string, string> = {};
+      for (let j = 0; j < values.length; j++) {
+        const raw = values[j];
+        const id = chunkIds[j];
+        if (!raw || !id) continue;
+        try {
+          const info = Info.parse(JSON.parse(raw));
+          result[id] = info;
+          usernameToId[info.username] = info.id;
+        } catch {
+          // ignore parse failures
+        }
+      }
+
+      if (Object.keys(usernameToId).length > 0) {
+        await redis.hSet(UsernameToIdKey(), usernameToId);
+      }
+    }
+
+    return result;
+  };
+
   export const persistCacheForUsername = fn(zodRedditUsername, async (username) => {
     const info = await getByUsername(username);
     await persistUserCacheById(info.id);

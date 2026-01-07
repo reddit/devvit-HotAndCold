@@ -4,87 +4,24 @@ import { context, redis } from '@devvit/web/server';
 import { zodRedditUsername } from '../utils';
 import { User } from './user';
 import { notifications } from '@devvit/notifications';
+import { T2 } from '@devvit/shared-types/tid.js';
 
 export namespace Reminders {
-  // Original to make it super explicit since we might let people play the archive on any postId
-  export const getRemindersKey = () => `reminders` as const;
-  export const getRemindersT2Key = () => `reminders_t2` as const;
+  const LEGACY_REMINDERS_KEY = 'reminders' as const;
+  const LEGACY_REMINDERS_T2_KEY = 'reminders_t2' as const;
 
-  export const migrateRemindersToT2 = fn(z.void(), async () => {
-    const remindersT2Key = getRemindersT2Key();
-    const remindersKey = getRemindersKey();
-
-    console.log('[MigrateRemindersT2] Starting migration. Deleting existing target key.');
-    await redis.del(remindersT2Key);
-
-    let cursor = 0;
-    const limit = 1000;
-    let totalProcessed = 0;
-    let totalAdded = 0;
-
-    do {
-      const { cursor: nextCursor, members } = await redis.zScan(
-        remindersKey,
-        cursor,
-        undefined,
-        limit
-      );
-      cursor = nextCursor ?? 0;
-
-      if (members.length === 0) continue;
-
-      const usernames = members.map((m) => m.member);
-      const idMap = await User.lookupIdsByUsernames({ usernames });
-
-      // Fallback: Try to resolve any missing IDs individually (concurrently)
-      const missingUsernames = usernames.filter((u) => !idMap[u]);
-      if (missingUsernames.length > 0) {
-        console.log(
-          `[MigrateRemindersT2] Resolving ${missingUsernames.length} missing IDs from Reddit API...`
-        );
-        await Promise.all(
-          missingUsernames.map(async (u) => {
-            try {
-              const id = await User.lookupIdByUsername(u);
-              if (id) {
-                idMap[u] = id;
-              } else {
-                console.error(`[MigrateRemindersT2] Failed to find ID for user: ${u}`);
-              }
-            } catch (e) {
-              console.error(`[MigrateRemindersT2] Error resolving user ${u}:`, e);
-            }
-          })
-        );
-      }
-
-      const toAdd: { member: string; score: number }[] = [];
-
-      for (const username of usernames) {
-        const id = idMap[username];
-        if (id) {
-          toAdd.push({ member: id, score: Date.now() });
-        }
-      }
-
-      if (toAdd.length > 0) {
-        await redis.zAdd(remindersT2Key, ...toAdd);
-        totalAdded += toAdd.length;
-      }
-
-      totalProcessed += members.length;
-
-      if (totalProcessed > 0 && totalProcessed % 1000 === 0) {
-        console.log(
-          `[MigrateRemindersT2] Processed ${totalProcessed} users, added ${totalAdded} to t2 reminders.`
-        );
-      }
-    } while (cursor !== 0);
-
-    console.log(
-      `[MigrateRemindersT2] Migration complete. Processed ${totalProcessed}, added ${totalAdded}.`
-    );
-    return { totalProcessed, totalAdded };
+  /**
+   * Deletes legacy Redis keys that were previously used by this service to track reminder opt-ins.
+   * Opt-in state is now managed externally by `@devvit/notifications`.
+   */
+  export const deleteOldReminderKeys = fn(z.void(), async () => {
+    const startMs = Date.now();
+    await redis.del(LEGACY_REMINDERS_KEY);
+    await redis.del(LEGACY_REMINDERS_T2_KEY);
+    console.log('[Reminders] deleteOldReminderKeys completed', {
+      elapsedMs: Date.now() - startMs,
+    });
+    return { ok: true } as const;
   });
 
   const CLEANUP_CANCEL_KEY = 'userCacheCleanup:cancel' as const;
@@ -184,21 +121,20 @@ export namespace Reminders {
     }),
     async ({ username }) => {
       await notifications.optInCurrentUser();
-      await redis.zAdd(getRemindersKey(), {
-        member: username,
-        score: Date.now(),
-      });
       await User.persistCacheForUsername(username);
     }
   );
+
+  const isT2Id = (id: string): id is `t2_${string}` => id.startsWith('t2_');
 
   export const isUserOptedIntoReminders = fn(
     z.object({
       username: zodRedditUsername,
     }),
     async ({ username }) => {
-      const score = await redis.zScore(getRemindersKey(), username);
-      return score !== null && score !== undefined;
+      const userId = await User.lookupIdByUsername(username);
+      if (!userId || !isT2Id(userId)) return false;
+      return await notifications.isOptedIn(userId);
     }
   );
 
@@ -207,56 +143,115 @@ export namespace Reminders {
       username: zodRedditUsername,
     }),
     async ({ username }) => {
+      // Only the current user can opt themselves out. In background jobs there is no `context.userId`.
+      // When `context.userId` is present (e.g. request context), ensure it matches the requested username
+      // to avoid opting out an unrelated user.
       if (context.userId) {
-        await notifications.optOutCurrentUser();
+        const requestedId = await User.lookupIdByUsername(username);
+        if (requestedId === context.userId) {
+          await notifications.optOutCurrentUser();
+        }
       }
-      await redis.zRem(getRemindersKey(), [username]);
       await User.reapplyCacheExpiryForUsername(username);
     }
   );
 
   export const getAllUsersOptedIntoReminders = fn(z.void(), async () => {
-    const all: Array<{ member: string; score: number }> = [];
-    let cursor = 0;
-    const limit = 1000;
+    type OptedInUser = { username: string; userId: `t2_${string}`; score: number };
+    const all: OptedInUser[] = [];
+    const baseScore = Date.now();
+    let i = 0;
 
-    do {
-      const { cursor: nextCursor, members } = await redis.zScan(
-        getRemindersKey(),
-        cursor,
-        undefined,
-        limit
-      );
-      for (const m of members) {
-        all.push({ member: m.member, score: m.score });
+    // For large cohorts (~100k), avoid sequential `await User.getById()` by:
+    // - paging opted-in ids via `listOptedInUsers` (limit=1000)
+    // - bulk-reading cached user info via `User.getManyInfoByIds`
+    // - hydrating cache misses with limited concurrency `User.getById`
+    const pageSize = 1000;
+    const hydrateConcurrency = 25;
+
+    async function parallelLimit<T, R>(
+      items: readonly T[],
+      limit: number,
+      mapper: (item: T) => Promise<R>
+    ): Promise<R[]> {
+      const results: R[] = new Array(items.length);
+      let next = 0;
+      async function worker(): Promise<void> {
+        while (true) {
+          const idx = next++;
+          if (idx >= items.length) return;
+          results[idx] = await mapper(items[idx]!);
+        }
       }
-      cursor = nextCursor ?? 0;
-    } while (cursor !== 0);
+      const workers = Array.from({ length: Math.min(limit, items.length) }, worker);
+      await Promise.all(workers);
+      return results;
+    }
 
-    all.sort((a, b) => a.score - b.score);
+    // Page through opted-in users (ordered earliest -> latest).
+    let after: string | undefined = undefined;
+    let page = await notifications.listOptedInUsers({ limit: pageSize, after });
+    do {
+      const userIds = page.userIds.filter(isT2Id);
+
+      const nameById = new Map<T2, string>();
+      const missingIds: T2[] = [];
+      if (userIds.length > 0) {
+        const cachedInfoById = await User.getManyInfoByIds(userIds);
+        for (const id of userIds) {
+          const info = cachedInfoById[id];
+          if (!info) {
+            missingIds.push(id);
+            continue;
+          }
+          nameById.set(id, info.username);
+        }
+
+        if (missingIds.length > 0) {
+          const hydrated = await parallelLimit(missingIds, hydrateConcurrency, async (id) => {
+            try {
+              const info = await User.getById(id);
+              return { id, username: info.username };
+            } catch {
+              return null;
+            }
+          });
+          for (const item of hydrated) {
+            if (!item) continue;
+            nameById.set(item.id, item.username);
+          }
+        }
+
+        // Preserve opt-in order from `notifications.listOptedInUsers`.
+        for (const id of userIds) {
+          const username = nameById.get(id);
+          if (!username) continue;
+          all.push({ username, userId: id, score: baseScore + i });
+          i++;
+        }
+      }
+
+      after = page.next;
+      if (after) {
+        page = await notifications.listOptedInUsers({ limit: pageSize, after });
+      }
+    } while (after);
+
     return all;
   });
 
-  // Batched scan by rank for large reconciliations
-  export const scanUsers = fn(
-    z.object({
-      cursor: z.number().int().min(0).default(0),
-      limit: z.number().int().min(1).max(1000).default(500),
-    }),
-    async ({ cursor, limit }) => {
-      const { cursor: nextCursor, members } = await redis.zScan(
-        getRemindersKey(),
-        Math.max(0, cursor),
-        undefined,
-        Math.max(1, limit)
-      );
-      const list = members.map((m) => m.member);
-      return { members: list, nextCursor, done: nextCursor === 0 } as const;
-    }
-  );
-
   export const totalReminders = fn(z.void(), async () => {
-    return await redis.zCard(getRemindersKey());
+    let total = 0;
+    let after: string | undefined = undefined;
+    let page = await notifications.listOptedInUsers({ limit: 1000, after });
+    do {
+      total += page.userIds.length;
+      after = page.next;
+      if (after) {
+        page = await notifications.listOptedInUsers({ limit: 1000, after });
+      }
+    } while (after);
+    return total;
   });
 
   export const toggleReminderForUsername = fn(
@@ -286,7 +281,6 @@ export namespace Reminders {
       const startedAt = Date.now();
       const logEvery = 500;
       const entriesPerJobLimit = 25_000;
-      const remindersKey = getRemindersKey();
       let cursor = Math.max(0, startAt);
       const maxIterations = Math.max(1, totalIterations);
       let cleared = 0;
@@ -341,8 +335,7 @@ export namespace Reminders {
           .map(({ field: username, value: id }) => {
             if (!username || !id) return null;
             return (async () => {
-              const score = await redis.zScore(remindersKey, username);
-              if (score !== null && score !== undefined) {
+              if (isT2Id(id) && (await notifications.isOptedIn(id))) {
                 return { examinedDelta: 1, clearedDelta: 0, bytesDelta: 0 };
               }
 

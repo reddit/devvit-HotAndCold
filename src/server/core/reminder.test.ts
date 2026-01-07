@@ -3,13 +3,10 @@ import { test } from '../test';
 import { Reminders } from '../core/reminder';
 import { User } from '../core/user';
 import { redis, reddit } from '@devvit/web/server';
-import { notifications } from '@devvit/notifications';
+import { Empty } from '@devvit/protos/types/google/protobuf/empty.js';
+import type { Metadata } from '@devvit/protos';
+import { Header } from '@devvit/shared-types/Header.js';
 
-// Mock notifications to avoid internal failures in tests
-vi.spyOn(notifications, 'optInCurrentUser').mockResolvedValue();
-vi.spyOn(notifications, 'optOutCurrentUser').mockResolvedValue();
-
-const testUser1 = 'alice';
 const testUser2 = 'bob';
 const testUser3 = 'carol';
 const makeRedditUser = (id: string, username: string) => ({
@@ -17,12 +14,15 @@ const makeRedditUser = (id: string, username: string) => ({
   username,
   getSnoovatarUrl: async () => undefined,
 });
-const seedUserCache = async (username: string) => {
-  const id = `t2_${username}`;
+const seedUserCache = async (username: string, userId?: string) => {
+  const id = userId ?? `t2_${username}`;
   const cached = { id, username };
   await redis.hSet(User.UsernameToIdKey(), { [username]: id });
   await redis.set(User.Key(id), JSON.stringify(cached));
 };
+const metadataForUserId = (userId: string): Metadata => ({
+  [Header.User]: { values: [userId] },
+});
 const makeCleanupRunResult = (
   overrides: Partial<Reminders.CleanupRunResult> = {}
 ): Reminders.CleanupRunResult => ({
@@ -37,70 +37,89 @@ const makeCleanupRunResult = (
   ...overrides,
 });
 
-test('setReminderForUsername adds a user', async () => {
-  await seedUserCache(testUser1);
-  await Reminders.setReminderForUsername({ username: testUser1 });
-  const total = await Reminders.totalReminders();
-  expect(total).toBe(1);
+test('setReminderForUsername opts the current user in', async ({ username, userId }) => {
+  await seedUserCache(username, userId);
+  await Reminders.setReminderForUsername({ username });
+  expect(await Reminders.totalReminders()).toBe(1);
 });
 
-test('isUserOptedIntoReminders returns true if opted in, false otherwise', async () => {
-  await seedUserCache(testUser1);
-  await Reminders.setReminderForUsername({ username: testUser1 });
-  const isIn = await Reminders.isUserOptedIntoReminders({ username: testUser1 });
+test('isUserOptedIntoReminders returns true if opted in, false otherwise', async ({
+  username,
+  userId,
+}) => {
+  await seedUserCache(username, userId);
+  await seedUserCache(testUser2);
+  await Reminders.setReminderForUsername({ username });
+  const isIn = await Reminders.isUserOptedIntoReminders({ username });
   expect(isIn).toBe(true);
   const isIn2 = await Reminders.isUserOptedIntoReminders({ username: testUser2 });
   expect(isIn2).toBe(false);
 });
 
-test('removeReminderForUsername removes a user', async () => {
-  await seedUserCache(testUser1);
-  await Reminders.setReminderForUsername({ username: testUser1 });
-  await Reminders.removeReminderForUsername({ username: testUser1 });
-  const total = await Reminders.totalReminders();
-  expect(total).toBe(0);
-  const isIn = await Reminders.isUserOptedIntoReminders({ username: testUser1 });
+test('removeReminderForUsername opts the current user out', async ({ username, userId }) => {
+  await seedUserCache(username, userId);
+  await Reminders.setReminderForUsername({ username });
+  await Reminders.removeReminderForUsername({ username });
+  expect(await Reminders.totalReminders()).toBe(0);
+  const isIn = await Reminders.isUserOptedIntoReminders({ username });
   expect(isIn).toBe(false);
 });
 
-test('getAllUsersOptedIntoReminders returns all users who opted in (order by score)', async () => {
-  await seedUserCache(testUser1);
+test('getAllUsersOptedIntoReminders returns all users who opted in (order by opt-in time)', async ({
+  mocks,
+}) => {
+  await seedUserCache('alice');
   await seedUserCache(testUser2);
   await seedUserCache(testUser3);
-  await Reminders.setReminderForUsername({ username: testUser1 });
-  await new Promise((r) => setTimeout(r, 2));
-  await Reminders.setReminderForUsername({ username: testUser2 });
-  await new Promise((r) => setTimeout(r, 2));
-  await Reminders.setReminderForUsername({ username: testUser3 });
+
+  await mocks.notifications.plugin.OptInCurrentUser(
+    Empty.create(),
+    metadataForUserId('t2_alice')
+  );
+  await mocks.notifications.plugin.OptInCurrentUser(Empty.create(), metadataForUserId('t2_bob'));
+  await mocks.notifications.plugin.OptInCurrentUser(
+    Empty.create(),
+    metadataForUserId('t2_carol')
+  );
+
   const users = await Reminders.getAllUsersOptedIntoReminders();
   expect(Array.isArray(users)).toBe(true);
   expect(users.length).toBe(3);
   expect(users).toEqual(
-    [testUser1, testUser2, testUser3].map((x) => ({
-      member: x,
+    ['alice', testUser2, testUser3].map((x) => ({
+      username: x,
+      userId: `t2_${x}`,
       score: expect.any(Number),
     }))
   );
 });
 
-test('totalReminders returns correct count', async () => {
-  await seedUserCache(testUser1);
+test('totalReminders returns correct count', async ({ mocks }) => {
+  await seedUserCache('alice');
   await seedUserCache(testUser2);
   expect(await Reminders.totalReminders()).toBe(0);
-  await Reminders.setReminderForUsername({ username: testUser1 });
+
+  await mocks.notifications.plugin.OptInCurrentUser(
+    Empty.create(),
+    metadataForUserId('t2_alice')
+  );
   expect(await Reminders.totalReminders()).toBe(1);
-  await Reminders.setReminderForUsername({ username: testUser2 });
+
+  await mocks.notifications.plugin.OptInCurrentUser(Empty.create(), metadataForUserId('t2_bob'));
   expect(await Reminders.totalReminders()).toBe(2);
 });
 
-test('toggleReminderForUsername toggles opt-in state', async () => {
-  await seedUserCache(testUser1);
-  let result = await Reminders.toggleReminderForUsername({ username: testUser1 });
+test('toggleReminderForUsername toggles opt-in state for the current user', async ({
+  username,
+  userId,
+}) => {
+  await seedUserCache(username, userId);
+  let result = await Reminders.toggleReminderForUsername({ username });
   expect(result).toEqual({ newValue: true });
-  expect(await Reminders.isUserOptedIntoReminders({ username: testUser1 })).toBe(true);
-  result = await Reminders.toggleReminderForUsername({ username: testUser1 });
+  expect(await Reminders.isUserOptedIntoReminders({ username })).toBe(true);
+  result = await Reminders.toggleReminderForUsername({ username });
   expect(result).toEqual({ newValue: false });
-  expect(await Reminders.isUserOptedIntoReminders({ username: testUser1 })).toBe(false);
+  expect(await Reminders.isUserOptedIntoReminders({ username })).toBe(false);
 });
 
 test('rejects invalid usernames (e.g., with u/ prefix)', async () => {
@@ -110,7 +129,7 @@ test('rejects invalid usernames (e.g., with u/ prefix)', async () => {
 });
 
 test('reminder opt-in removes user cache expiry and opt-out reapplies it', async () => {
-  const username = testUser1;
+  const username = 'alice';
   const id = 't2_' + username;
   const spy = vi
     .spyOn(reddit, 'getUserByUsername')
@@ -135,17 +154,18 @@ test('reminder opt-in removes user cache expiry and opt-out reapplies it', async
   expect(ttlRemaining).toBeLessThanOrEqual(User.CacheTtlSeconds + 1);
 });
 
-test('clearCacheForNonReminderUsers removes caches for users without reminders', async () => {
+test('clearCacheForNonReminderUsers removes caches for users without reminders', async ({
+  mocks,
+}) => {
   await redis.hSet(User.UsernameToIdKey(), {
     alice: 't2_alice',
     bob: 't2_bob',
   });
   await redis.set(User.Key('t2_alice'), JSON.stringify({ id: 't2_alice', username: 'alice' }));
   await redis.set(User.Key('t2_bob'), JSON.stringify({ id: 't2_bob', username: 'bob' }));
-  await redis.zAdd(Reminders.getRemindersKey(), {
-    member: 'bob',
-    score: Date.now(),
-  });
+
+  // Keep bob's cache by marking bob as opted-in via the notifications mock.
+  await mocks.notifications.plugin.OptInCurrentUser(Empty.create(), metadataForUserId('t2_bob'));
 
   const result = await Reminders.clearCacheForNonReminderUsers({
     startAt: 0,

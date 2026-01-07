@@ -138,28 +138,6 @@ export namespace Notifications {
     return `UTC${sign}${hh}:${mm}`;
   }
 
-  // Concurrency utility for fast Redis-bound workflows
-  async function parallelLimit<T, R>(
-    items: readonly T[],
-    limit: number,
-    mapper: (item: T, index: number) => Promise<R>
-  ): Promise<R[]> {
-    const results: R[] = new Array(items.length);
-    let next = 0;
-    async function worker(): Promise<void> {
-      for (;;) {
-        const i = next++;
-        if (i >= items.length) break;
-        const item = items[i];
-        if (item === undefined) continue;
-        results[i] = await mapper(item as T, i);
-      }
-    }
-    const workers = Array.from({ length: Math.min(limit, items.length) }, worker);
-    await Promise.all(workers);
-    return results;
-  }
-
   export const enqueueNewChallengeByTimezone = fn(
     z.object({
       challengeNumber: z.number().int().gt(0),
@@ -188,8 +166,8 @@ export namespace Notifications {
         elapsedTotalMs: Date.now() - startMs,
       });
       const tFetchRecipientsStart = Date.now();
-      const recipients = await Reminders.getAllUsersOptedIntoReminders();
-      const usernames = recipients.map((r) => r.member);
+      const optedIn = await Reminders.getAllUsersOptedIntoReminders();
+      const usernames = optedIn.map((r) => r.username);
       console.log('[Notifications] reminder recipients fetched', {
         usernames: usernames.length,
         elapsedMs: Date.now() - tFetchRecipientsStart,
@@ -197,243 +175,118 @@ export namespace Notifications {
       });
 
       const totals = {
-        totalRecipients: usernames.length,
-        resolvedIds: 0,
-        missingIds: 0,
-        cachedId: 0,
-        apiLookupId: 0,
-        apiLookupFailures: 0,
+        totalRecipients: optedIn.length,
         timezoneHits: 0,
         timezoneMissing: 0,
         defaultedTimezone: 0,
       };
+
       const tMapStart = Date.now();
-      console.log('[Notifications] starting bulk lookups', {
+      console.log('[Notifications] starting timezone lookups', {
         count: usernames.length,
         timestamp: tMapStart,
         elapsedTotalMs: Date.now() - startMs,
       });
 
-      const [idMap, tzMap] = await Promise.all([
-        User.lookupIdsByUsernames({ usernames }),
-        Timezones.getUserTimezones({ usernames }),
-      ]);
+      const tzMap = await Timezones.getUserTimezones({ usernames });
 
-      const resolvedUsernames: string[] = [];
-      const missingIdUsernames: string[] = [];
+      const zoneToRecipients = new Map<string, Recipient[]>();
+      for (const { username, userId } of optedIn) {
+        const iana = tzMap[username] ?? null;
+        if (iana) totals.timezoneHits++;
+        else {
+          totals.timezoneMissing++;
+          totals.defaultedTimezone++;
+        }
 
-      for (const u of usernames) {
-        if (idMap[u]) resolvedUsernames.push(u);
-        else missingIdUsernames.push(u);
+        const zone = iana ?? 'America/New_York';
+        const arr = zoneToRecipients.get(zone) ?? [];
+        arr.push({ userId, link: postId, data: { username } });
+        zoneToRecipients.set(zone, arr);
       }
 
-      console.log('[Notifications] bulk lookups complete', {
-        resolved: resolvedUsernames.length,
-        missing: missingIdUsernames.length,
+      // Coalesce by offset-at-due-time
+      const buckets = new Map<
+        string,
+        { label: string; dueAtMs: number; recipients: Recipient[] }
+      >();
+      for (const [iana, recips] of zoneToRecipients.entries()) {
+        if (recips.length === 0) continue;
+        const dueAtMs = nextLocalSendTimeUtcMsIana({
+          baseUtcMs: createdAtMs,
+          timeZone: iana,
+          hourLocal: localSendHour,
+          minuteLocal: localSendMinute,
+        });
+        const label = utcOffsetLabelAt(iana, dueAtMs);
+        const key = `${label}|${dueAtMs}`;
+        const bucket = buckets.get(key);
+        if (bucket) bucket.recipients.push(...recips);
+        else buckets.set(key, { label, dueAtMs, recipients: recips.slice() });
+      }
+
+      console.log('[Notifications] buckets created', {
+        count: buckets.size,
         elapsedMs: Date.now() - tMapStart,
         elapsedTotalMs: Date.now() - startMs,
       });
 
-      // Helper to process a batch of users with known IDs and Timezones
-      async function processBatch(
-        batchUsernames: string[],
-        ids: Record<string, string | null>,
-        timezones: Record<string, string | null>
-      ) {
-        const tBatchStart = Date.now();
-        console.log('[Notifications] processBatch start', {
-          size: batchUsernames.length,
-          elapsedTotalMs: Date.now() - startMs,
-        });
+      const scheduled = await Promise.all(
+        Array.from(buckets.values()).map(async ({ label, dueAtMs, recipients }) => {
+          assertValidZoneString(label);
+          const groupId = generateGroupId(label);
 
-        const zoneToRecipients = new Map<string, Recipient[]>();
-        for (const username of batchUsernames) {
-          const userId = ids[username];
-          if (!userId) continue;
-
-          // Update totals
-          if (missingIdUsernames.includes(username)) {
-            // Hydrated path
-            totals.apiLookupId++;
+          if (dryRun) {
+            console.log('[Notifications] group prepared (dry-run)', {
+              groupId,
+              zone: label,
+              size: recipients.length,
+              dueAtIso: new Date(dueAtMs).toISOString(),
+              elapsedTotalMs: Date.now() - startMs,
+            });
           } else {
-            // Cached path
-            totals.cachedId++;
+            const payload: GroupPayload = {
+              type: 'NEW_CHALLENGE',
+              params: { challengeNumber, postId, postUrl },
+              recipients,
+              dueAtMs,
+            };
+            const tStoreStart = Date.now();
+            await redis.hSet(GroupPayloadsKey(), { [groupId]: JSON.stringify(payload) });
+            const tHsetMs = Date.now() - tStoreStart;
+            const tZaddStart = Date.now();
+            await redis.zAdd(GroupPendingKey(), { member: groupId, score: dueAtMs });
+            const tZaddMs = Date.now() - tZaddStart;
+            const tSchedStart = Date.now();
+            await scheduler.runJob({
+              name: 'notifications-send-group',
+              runAt: new Date(dueAtMs),
+              data: { groupId },
+            });
+            const tSchedMs = Date.now() - tSchedStart;
+            console.log('[Notifications] scheduled group', {
+              groupId,
+              zone: label,
+              size: recipients.length,
+              dueAtMs,
+              runAtIso: new Date(dueAtMs).toISOString(),
+              timingsMs: { hset: tHsetMs, zadd: tZaddMs, schedule: tSchedMs },
+              elapsedTotalMs: Date.now() - startMs,
+            });
           }
-          totals.resolvedIds++;
 
-          const iana = timezones[username] ?? null;
-          if (iana) totals.timezoneHits++;
-          else {
-            totals.timezoneMissing++;
-            totals.defaultedTimezone++;
-          }
+          return { groupId, zone: label, dueAtMs, size: recipients.length };
+        })
+      );
 
-          const zone = iana ?? 'America/New_York';
-          const arr = zoneToRecipients.get(zone) ?? [];
-          arr.push({ userId, link: postId, data: { username } });
-          zoneToRecipients.set(zone, arr);
-        }
-
-        // Coalesce by offset-at-due-time
-        const buckets = new Map<
-          string,
-          { label: string; dueAtMs: number; recipients: Recipient[] }
-        >();
-        for (const [iana, recipients] of zoneToRecipients.entries()) {
-          if (recipients.length === 0) continue;
-          const dueAtMs = nextLocalSendTimeUtcMsIana({
-            baseUtcMs: createdAtMs,
-            timeZone: iana,
-            hourLocal: localSendHour,
-            minuteLocal: localSendMinute,
-          });
-          const label = utcOffsetLabelAt(iana, dueAtMs);
-          const key = `${label}|${dueAtMs}`;
-          const bucket = buckets.get(key);
-          if (bucket) bucket.recipients.push(...recipients);
-          else buckets.set(key, { label, dueAtMs, recipients: recipients.slice() });
-        }
-
-        // Schedule groups
-        console.log('[Notifications] buckets created', {
-          count: buckets.size,
-          elapsedMs: Date.now() - tBatchStart,
-          elapsedTotalMs: Date.now() - startMs,
-        });
-
-        return await Promise.all(
-          Array.from(buckets.values()).map(async ({ label, dueAtMs, recipients }) => {
-            assertValidZoneString(label);
-            const groupId = generateGroupId(label);
-            const dueAtIso = new Date(dueAtMs).toISOString();
-
-            if (dryRun) {
-              console.log('[Notifications] group prepared (dry-run)', {
-                groupId,
-                zone: label,
-                size: recipients.length,
-                dueAtIso,
-                elapsedTotalMs: Date.now() - startMs,
-              });
-            } else {
-              const payload: GroupPayload = {
-                type: 'NEW_CHALLENGE',
-                params: { challengeNumber, postId, postUrl },
-                recipients,
-                dueAtMs,
-              };
-              const tStoreStart = Date.now();
-              await redis.hSet(GroupPayloadsKey(), { [groupId]: JSON.stringify(payload) });
-              const tHsetMs = Date.now() - tStoreStart;
-              const tZaddStart = Date.now();
-              await redis.zAdd(GroupPendingKey(), { member: groupId, score: dueAtMs });
-              const tZaddMs = Date.now() - tZaddStart;
-              const tSchedStart = Date.now();
-              await scheduler.runJob({
-                name: 'notifications-send-group',
-                runAt: new Date(dueAtMs),
-                data: { groupId },
-              });
-              const tSchedMs = Date.now() - tSchedStart;
-              console.log('[Notifications] scheduled group', {
-                groupId,
-                zone: label,
-                size: recipients.length,
-                dueAtMs,
-                runAtIso: new Date(dueAtMs).toISOString(),
-                timingsMs: { hset: tHsetMs, zadd: tZaddMs, schedule: tSchedMs },
-                elapsedTotalMs: Date.now() - startMs,
-              });
-            }
-            return { groupId, zone: label, dueAtMs, size: recipients.length };
-          })
-        );
-      }
-
-      const scheduled: Array<{ groupId: string; zone: string; dueAtMs: number; size: number }> = [];
-
-      // Phase 1: Process fully cached users (FAST)
-      const tResolvedStart = Date.now();
-      if (resolvedUsernames.length > 0) {
-        console.log('[Notifications] processing cached users', {
-          count: resolvedUsernames.length,
-          elapsedTotalMs: Date.now() - startMs,
-        });
-        const fastGroups = await processBatch(resolvedUsernames, idMap, tzMap);
-        scheduled.push(...fastGroups);
-      }
-      console.log('[Notifications] finished processing cached users', {
-        count: resolvedUsernames.length,
-        elapsedMs: Date.now() - tResolvedStart,
-        elapsedTotalMs: Date.now() - startMs,
-      });
-
-      // Phase 2: Hydrate missing IDs (SLOW / Best Effort)
-      const tMissingStart = Date.now();
-      const hydratedIds: Record<string, string | null> = {};
-      if (missingIdUsernames.length > 0) {
-        console.log('[Notifications] hydrating missing IDs', {
-          count: missingIdUsernames.length,
-          elapsedTotalMs: Date.now() - startMs,
-        });
-        try {
-          const hydratedResults = await parallelLimit(missingIdUsernames, 50, async (username) => {
-            const id = await User.lookupIdByUsername(username);
-            return { username, id };
-          });
-          for (const { username, id } of hydratedResults) {
-            if (id) hydratedIds[username] = id;
-          }
-        } catch (e) {
-          console.error('[Notifications] error hydrating IDs', {
-            error: e,
-            elapsedTotalMs: Date.now() - startMs,
-          });
-          // Don't fail the whole job if hydration fails, we already scheduled the fast ones
-        }
-
-        const hydratedUsernames = Object.keys(hydratedIds);
-        if (hydratedUsernames.length > 0) {
-          // Use same tzMap as before (we already fetched timezones for everyone)
-          const slowGroups = await processBatch(hydratedUsernames, hydratedIds, tzMap);
-          scheduled.push(...slowGroups);
-        }
-      }
-      console.log('[Notifications] finished processing missing IDs', {
-        count: missingIdUsernames.length,
-        elapsedMs: Date.now() - tMissingStart,
-        elapsedTotalMs: Date.now() - startMs,
-      });
-
-      totals.missingIds = usernames.length - totals.resolvedIds;
-      totals.apiLookupFailures = missingIdUsernames.length - Object.keys(hydratedIds).length;
-
-      // Log grouping distribution summary
-      const groupingSummary: Array<{ zone: string; size: number }> = [];
-      // We need to re-aggregate across all buckets or just aggregate from the maps
-      // Since we process in batches, we can't just iterate a single map.
-      // Let's reconstruct a global view of zones for logging.
-      const globalZoneCounts = new Map<string, number>();
-
-      // Actually, we have tzMap populated for everyone.
-      // And we have the final list of resolved IDs (from idMap + hydratedIds).
-      // We can just iterate that to build the summary.
-      for (const u of usernames) {
-        const hasId = idMap[u] || hydratedIds[u];
-        if (hasId) {
-          const z = tzMap[u] ?? 'America/New_York';
-          globalZoneCounts.set(z, (globalZoneCounts.get(z) ?? 0) + 1);
-        }
-      }
-
-      for (const [z, count] of globalZoneCounts.entries()) {
-        groupingSummary.push({ zone: z, size: count });
-      }
-      groupingSummary.sort((a, b) => b.size - a.size);
+      // Log grouping distribution summary (by IANA zone)
+      const groupingSummary = Array.from(zoneToRecipients.entries())
+        .map(([zone, recips]) => ({ zone, size: recips.length }))
+        .sort((a, b) => b.size - a.size);
       const topZones = groupingSummary.slice(0, Math.min(20, groupingSummary.length));
 
       console.log('[Notifications] timezone grouping summary', {
-        uniqueZones: globalZoneCounts.size,
+        uniqueZones: zoneToRecipients.size,
         topZones,
         totals,
         mapElapsedMs: Date.now() - tMapStart,
@@ -549,46 +402,14 @@ export namespace Notifications {
         });
 
         if (resp && Array.isArray(resp.errors) && resp.errors.length > 0) {
-          const mutedErrors = resp.errors.filter(
-            (e) => e.message === 'user has muted notifications for this subreddit'
-          );
-
-          if (mutedErrors.length > 0) {
-            const userMap = new Map<string, string>();
-            for (const r of batchRecipients) {
-              if (r.data?.username && typeof r.data.username === 'string') {
-                userMap.set(r.userId, r.data.username);
-              }
-            }
-
-            const usernamesToRemove: string[] = [];
-            for (const err of mutedErrors) {
-              const username = userMap.get(err.userId as string);
-              if (username) {
-                usernamesToRemove.push(username);
-              }
-            }
-
-            if (usernamesToRemove.length > 0) {
-              console.log(
-                `[Notifications] Removing ${usernamesToRemove.length} users who muted notifications`,
-                { usernames: usernamesToRemove }
-              );
-              await Promise.all(
-                usernamesToRemove.map(async (u) => {
-                  try {
-                    await Reminders.removeReminderForUsername({ username: u });
-                  } catch (error) {
-                    // don't rethrow here because it messes up all of sendGroupNow
-                    console.error('[Notifications] error removing reminder', {
-                      username: u,
-                      error,
-                    });
-                  }
-                })
-              );
-            }
-          }
+          // Opt-in state is managed externally by @devvit/notifications.
+          // We only log enqueue errors for observability.
+          console.warn('[Notifications] enqueue batch returned errors', {
+            groupId,
+            i,
+            errorCount: resp.errors.length,
+            errors: JSON.stringify(resp.errors),
+          });
         }
 
         nextIndex += batchRecipients.length;

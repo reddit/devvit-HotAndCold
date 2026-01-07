@@ -4,17 +4,27 @@ import { Notifications } from './notifications';
 import { Reminders } from './reminder';
 import { Timezones } from './timezones';
 import { redis, scheduler, reddit } from '@devvit/web/server';
+import { Empty } from '@devvit/protos/types/google/protobuf/empty.js';
+import type { Metadata } from '@devvit/protos';
+import { Header } from '@devvit/shared-types/Header.js';
+import { User } from './user';
 import { notifications, type EnqueueOptions, type EnqueueResponse } from '@devvit/notifications';
 
-// Mock notifications to avoid internal failures in tests
-vi.spyOn(notifications, 'optInCurrentUser').mockResolvedValue();
-vi.spyOn(notifications, 'optOutCurrentUser').mockResolvedValue();
+const seedUserCache = async (username: string) => {
+  const id = `t2_${username}`;
+  const cached = { id, username };
+  await redis.hSet(User.UsernameToIdKey(), { [username]: id });
+  await redis.set(User.Key(id), JSON.stringify(cached));
+};
+const metadataForUserId = (userId: string): Metadata => ({
+  [Header.User]: { values: [userId] },
+});
 
 const PAYLOADS_KEY = 'notifications:groups:payloads';
 const PENDING_KEY = 'notifications:groups:pending';
 const PROGRESS_KEY = 'notifications:groups:progress';
 
-test('groups recipients by timezone and schedules per-zone jobs', async () => {
+test('groups recipients by timezone and schedules per-zone jobs', async ({ mocks }) => {
   // Fixed time: 2025-01-01T12:00:00.000Z
   vi.useFakeTimers();
   vi.setSystemTime(new Date('2025-01-01T12:00:00.000Z'));
@@ -25,20 +35,16 @@ test('groups recipients by timezone and schedules per-zone jobs', async () => {
     scheduled.push(job);
     return `job-${scheduled.length}`;
   });
-  const getUserSpy = vi.spyOn(reddit, 'getUserByUsername').mockImplementation(
-    async (username: string) =>
-      ({
-        id: `t2_${username}`,
-        username,
-        getSnoovatarUrl: async () => 'https://example.com/snoo.png',
-      }) as any
-  );
 
   try {
     // Opt-in three users and set timezones (two in Eastern, one in IST)
-    await Reminders.setReminderForUsername({ username: 'alice' });
-    await Reminders.setReminderForUsername({ username: 'bob' });
-    await Reminders.setReminderForUsername({ username: 'carol' });
+    for (const u of ['alice', 'bob', 'carol']) {
+      await seedUserCache(u);
+      await mocks.notifications.plugin.OptInCurrentUser(
+        Empty.create(),
+        metadataForUserId(`t2_${u}`)
+      );
+    }
 
     await Timezones.setTimezone({ username: 'alice', iana: 'America/New_York' });
     await Timezones.setTimezone({ username: 'bob', iana: 'Asia/Kolkata' });
@@ -74,24 +80,15 @@ test('groups recipients by timezone and schedules per-zone jobs', async () => {
     expect(sizes).toEqual([1, 2]);
   } finally {
     runJobSpy.mockRestore();
-    getUserSpy.mockRestore();
     vi.useRealTimers();
   }
 });
 
-test('sendGroupNow sends bulk push and clears the group', async () => {
+test('sendGroupNow sends bulk push and clears the group', async ({ mocks }) => {
   vi.useFakeTimers();
   vi.setSystemTime(new Date('2025-01-01T12:00:00.000Z'));
 
   const runJobSpy = vi.spyOn(scheduler, 'runJob').mockResolvedValue('job');
-  const getUserSpy = vi.spyOn(reddit, 'getUserByUsername').mockImplementation(
-    async (username: string) =>
-      ({
-        id: `t2_${username}`,
-        username,
-        getSnoovatarUrl: async () => 'https://example.com/snoo.png',
-      }) as any
-  );
   const bulkCalls: EnqueueOptions[] = [];
   const bulkSpy = vi
     .spyOn(notifications, 'enqueue')
@@ -101,7 +98,11 @@ test('sendGroupNow sends bulk push and clears the group', async () => {
     });
 
   try {
-    await Reminders.setReminderForUsername({ username: 'alice' });
+    await seedUserCache('alice');
+    await mocks.notifications.plugin.OptInCurrentUser(
+      Empty.create(),
+      metadataForUserId('t2_alice')
+    );
     await Timezones.setTimezone({ username: 'alice', iana: 'America/New_York' });
 
     await Notifications.enqueueNewChallengeByTimezone({
@@ -130,25 +131,16 @@ test('sendGroupNow sends bulk push and clears the group', async () => {
     expect(after.total).toBe(0);
   } finally {
     runJobSpy.mockRestore();
-    getUserSpy.mockRestore();
     bulkSpy.mockRestore();
     vi.useRealTimers();
   }
 });
 
-test('sendDueGroups processes only due groups', async () => {
+test('sendDueGroups processes only due groups', async ({ mocks }) => {
   vi.useFakeTimers();
   vi.setSystemTime(new Date('2025-01-01T12:00:00.000Z'));
 
   const runJobSpy = vi.spyOn(scheduler, 'runJob').mockResolvedValue('job');
-  const getUserSpy = vi.spyOn(reddit, 'getUserByUsername').mockImplementation(
-    async (username: string) =>
-      ({
-        id: `t2_${username}`,
-        username,
-        getSnoovatarUrl: async () => 'https://example.com/snoo.png',
-      }) as any
-  );
   let bulkCount = 0;
   const bulkSpy = vi
     .spyOn(notifications, 'enqueue')
@@ -158,8 +150,13 @@ test('sendDueGroups processes only due groups', async () => {
     });
 
   try {
-    await Reminders.setReminderForUsername({ username: 'alice' });
-    await Reminders.setReminderForUsername({ username: 'bob' });
+    for (const u of ['alice', 'bob']) {
+      await seedUserCache(u);
+      await mocks.notifications.plugin.OptInCurrentUser(
+        Empty.create(),
+        metadataForUserId(`t2_${u}`)
+      );
+    }
     await Timezones.setTimezone({ username: 'alice', iana: 'America/New_York' });
     await Timezones.setTimezone({ username: 'bob', iana: 'Asia/Kolkata' });
 
@@ -185,28 +182,21 @@ test('sendDueGroups processes only due groups', async () => {
     expect(after.total).toBe(1);
   } finally {
     runJobSpy.mockRestore();
-    getUserSpy.mockRestore();
     bulkSpy.mockRestore();
     vi.useRealTimers();
   }
 });
 
-test('pendingStats and clearAllPending reflect queue state', async () => {
+test('pendingStats and clearAllPending reflect queue state', async ({ mocks }) => {
   vi.useFakeTimers();
   vi.setSystemTime(new Date('2025-01-01T12:00:00.000Z'));
 
   vi.spyOn(scheduler, 'runJob').mockResolvedValue('job');
-  vi.spyOn(reddit, 'getUserByUsername').mockImplementation(
-    async (username: string) =>
-      ({
-        id: `t2_${username}`,
-        username,
-        getSnoovatarUrl: async () => 'https://example.com/snoo.png',
-      }) as any
-  );
 
-  await Reminders.setReminderForUsername({ username: 'alice' });
-  await Reminders.setReminderForUsername({ username: 'bob' });
+  for (const u of ['alice', 'bob']) {
+    await seedUserCache(u);
+    await mocks.notifications.plugin.OptInCurrentUser(Empty.create(), metadataForUserId(`t2_${u}`));
+  }
   await Timezones.setTimezone({ username: 'alice', iana: 'America/New_York' });
   await Timezones.setTimezone({ username: 'bob', iana: 'Asia/Kolkata' });
 
@@ -225,25 +215,18 @@ test('pendingStats and clearAllPending reflect queue state', async () => {
   expect(after.total).toBe(0);
 });
 
-test('resumes from progress on retry and avoids duplicate sends', async () => {
+test('resumes from progress on retry and avoids duplicate sends', async ({ mocks }) => {
   vi.useFakeTimers();
   vi.setSystemTime(new Date('2025-01-01T12:00:00.000Z'));
 
   const runJobSpy = vi.spyOn(scheduler, 'runJob').mockResolvedValue('job');
-  vi.spyOn(reddit, 'getUserByUsername').mockImplementation(
-    async (username: string) =>
-      ({
-        id: `t2_${username}`,
-        username,
-        getSnoovatarUrl: async () => 'https://example.com/snoo.png',
-      }) as any
-  );
 
   // Prepare >1000 recipients (ensures at least two batches with maxBatchSize=1000)
   const total = 1100;
   for (let i = 0; i < total; i++) {
     const u = `user_${i}`;
-    await Reminders.setReminderForUsername({ username: u });
+    await seedUserCache(u);
+    await mocks.notifications.plugin.OptInCurrentUser(Empty.create(), metadataForUserId(`t2_${u}`));
     await Timezones.setTimezone({ username: u, iana: 'America/New_York' });
   }
 
@@ -302,19 +285,11 @@ test('resumes from progress on retry and avoids duplicate sends', async () => {
   vi.useRealTimers();
 });
 
-test('does not double-send when sendGroupNow is invoked concurrently', async () => {
+test('does not double-send when sendGroupNow is invoked concurrently', async ({ mocks }) => {
   vi.useFakeTimers();
   vi.setSystemTime(new Date('2025-01-01T12:00:00.000Z'));
 
   const runJobSpy = vi.spyOn(scheduler, 'runJob').mockResolvedValue('job');
-  const getUserSpy = vi.spyOn(reddit, 'getUserByUsername').mockImplementation(
-    async (username: string) =>
-      ({
-        id: `t2_${username}`,
-        username,
-        getSnoovatarUrl: async () => 'https://example.com/snoo.png',
-      }) as any
-  );
 
   const bulkCalls: EnqueueOptions[] = [];
   const bulkSpy = vi
@@ -325,7 +300,8 @@ test('does not double-send when sendGroupNow is invoked concurrently', async () 
     });
 
   try {
-    await Reminders.setReminderForUsername({ username: 'dana' });
+    await seedUserCache('dana');
+    await mocks.notifications.plugin.OptInCurrentUser(Empty.create(), metadataForUserId('t2_dana'));
     await Timezones.setTimezone({ username: 'dana', iana: 'America/New_York' });
 
     await Notifications.enqueueNewChallengeByTimezone({
@@ -354,31 +330,24 @@ test('does not double-send when sendGroupNow is invoked concurrently', async () 
     expect(raw == null || raw === '').toBe(true);
   } finally {
     runJobSpy.mockRestore();
-    getUserSpy.mockRestore();
     bulkSpy.mockRestore();
     vi.useRealTimers();
   }
 });
 
-test('schedules delivery at correct local times for IANA timezones', async () => {
+test('schedules delivery at correct local times for IANA timezones', async ({ mocks }) => {
   vi.useFakeTimers();
   // Fixed base: 2025-01-01T12:00:00Z
   vi.setSystemTime(new Date('2025-01-01T12:00:00.000Z'));
 
   vi.spyOn(scheduler, 'runJob').mockResolvedValue('job');
-  vi.spyOn(reddit, 'getUserByUsername').mockImplementation(
-    async (username: string) =>
-      ({
-        id: `t2_${username}`,
-        username,
-        getSnoovatarUrl: async () => 'https://example.com/snoo.png',
-      }) as any
-  );
 
   try {
-    await Reminders.setReminderForUsername({ username: 'est' });
+    await seedUserCache('est');
+    await mocks.notifications.plugin.OptInCurrentUser(Empty.create(), metadataForUserId('t2_est'));
     await Timezones.setTimezone({ username: 'est', iana: 'America/New_York' });
-    await Reminders.setReminderForUsername({ username: 'ist' });
+    await seedUserCache('ist');
+    await mocks.notifications.plugin.OptInCurrentUser(Empty.create(), metadataForUserId('t2_ist'));
     await Timezones.setTimezone({ username: 'ist', iana: 'Asia/Kolkata' });
 
     const res = await Notifications.enqueueNewChallengeByTimezone({
@@ -417,19 +386,11 @@ test('schedules delivery at correct local times for IANA timezones', async () =>
   }
 });
 
-test('removes users from reminders if they have muted notifications', async () => {
+test('does not crash if some recipients have muted notifications', async ({ mocks }) => {
   vi.useFakeTimers();
   vi.setSystemTime(new Date('2025-01-01T12:00:00.000Z'));
 
   const runJobSpy = vi.spyOn(scheduler, 'runJob').mockResolvedValue('job');
-  const getUserSpy = vi.spyOn(reddit, 'getUserByUsername').mockImplementation(
-    async (username: string) =>
-      ({
-        id: `t2_${username}`,
-        username,
-        getSnoovatarUrl: async () => 'https://example.com/snoo.png',
-      }) as any
-  );
 
   const bulkSpy = vi
     .spyOn(notifications, 'enqueue')
@@ -448,9 +409,17 @@ test('removes users from reminders if they have muted notifications', async () =
     });
 
   try {
-    await Reminders.setReminderForUsername({ username: 'validuser' });
+    await seedUserCache('validuser');
+    await mocks.notifications.plugin.OptInCurrentUser(
+      Empty.create(),
+      metadataForUserId('t2_validuser')
+    );
     await Timezones.setTimezone({ username: 'validuser', iana: 'America/New_York' });
-    await Reminders.setReminderForUsername({ username: 'muteduser' });
+    await seedUserCache('muteduser');
+    await mocks.notifications.plugin.OptInCurrentUser(
+      Empty.create(),
+      metadataForUserId('t2_muteduser')
+    );
     await Timezones.setTimezone({ username: 'muteduser', iana: 'America/New_York' });
 
     // Enqueue
@@ -473,10 +442,9 @@ test('removes users from reminders if they have muted notifications', async () =
     expect(validStillOptedIn).toBe(true);
 
     const mutedStillOptedIn = await Reminders.isUserOptedIntoReminders({ username: 'muteduser' });
-    expect(mutedStillOptedIn).toBe(false);
+    expect(mutedStillOptedIn).toBe(true);
   } finally {
     runJobSpy.mockRestore();
-    getUserSpy.mockRestore();
     bulkSpy.mockRestore();
     vi.useRealTimers();
   }
