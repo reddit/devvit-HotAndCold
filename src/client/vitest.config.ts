@@ -8,5 +8,6 @@ export default defineConfig({
       headless: true,
       instances: [{ browser: "chromium" }],
     },
+    setupFiles: ['./test-setup.ts'],
   },
 });
