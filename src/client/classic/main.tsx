@@ -13,15 +13,14 @@ import { HowToPlayModal } from './howToPlayModal';
 import { ExperimentsModal } from './ExperimentsModal';
 import { ArchiveModal } from './archiveModal';
 import { ErrorBoundary } from '../shared/error';
-import { initPosthog } from './useInitPosthog';
 import { isLoggedOut } from '../shared/user';
-import { posthog } from '../posthog';
+import { posthog, configurePosthog } from '../posthog';
 import { GUESS_SAMPLE_RATE } from '../config';
 import type { GuessEngine } from '../core/guessEngine';
 import { remountKey } from './state/experiments';
 import { trpc } from '../trpc';
 
-initPosthog({ mode: 'classic' });
+configurePosthog({ mode: 'classic' });
 
 function AppContent({
   engine,

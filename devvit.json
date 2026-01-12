@@ -296,11 +296,6 @@
       "migrate-user-cache-compression": "/internal/scheduler/migrate-user-cache-compression",
       "migrate-challenge-progress-compression": "/internal/scheduler/migrate-challenge-progress-compression",
       "migrate-notifications-compression": "/internal/scheduler/migrate-notifications-compression",
-      "posthog-user-prop-sync": {
-        "cron": "0 3 * * *",
-        "endpoint": "/internal/scheduler/posthog-user-prop-sync",
-        "data": { "cursor": 0, "limit": 1000 }
-      },
       "notifications-enqueue-new-challenge": "/internal/scheduler/notifications-enqueue-new-challenge",
       "common-words-aggregator": "/internal/scheduler/common-words-aggregator",
       "common-words-watchdog": {

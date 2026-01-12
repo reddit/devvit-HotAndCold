@@ -28,12 +28,10 @@ import { FormattingFlag } from '@devvit/shared-types/richtext/types.js';
 import { omit } from '../shared/omit';
 import { Flairs } from './core/flairs';
 import { Admin } from './core/admin';
-import makeAnalyticsRouter from './analytics';
-import { usePosthog, usePosthogErrorTracking } from './posthog';
+import { makeAnalyticsRouter } from '@devvit/analytics/server/posthog';
 import { Timezones } from './core/timezones';
 import { Notifications } from './core/notifications';
 import { makeClientConfig } from '../shared/makeClientConfig';
-import { AnalyticsSync } from './core/analyticsSync';
 import { redisCompressed } from './core/redisCompression';
 import { CommonWordsAggregator } from './core/commonWordsAggregator';
 
@@ -593,9 +591,6 @@ app.use('/api', (...args) => {
 });
 
 app.use(express.json());
-
-// Attach PostHog to res.locals and error tracking middleware
-app.use(usePosthog);
 
 // Needs to be before /api/challenges/:challengeNumber/:letter.csv!!
 app.get('/api/challenges/:challengeNumber/_hint.csv', async (req, res): Promise<void> => {
@@ -1465,23 +1460,6 @@ app.post('/internal/scheduler/notifications-backup-sweep', async (_req, res): Pr
   }
 });
 
-// Daily analytics reconciliation: sync reminders and joined_subreddit to PostHog
-app.post('/internal/scheduler/posthog-user-prop-sync', async (req, res): Promise<void> => {
-  try {
-    const body = (req.body as any) ?? {};
-    const data = body?.data ?? {};
-    const cursor = Number.parseInt(String(data?.cursor ?? '0'), 10) || 0;
-    const limit = Number.parseInt(String(data?.limit ?? '25_000'), 10) || 25_000;
-    console.log('[Scheduler] posthog-user-prop-sync invoked', { cursor, limit });
-    const result = await AnalyticsSync.runOrRequeue({ cursor, limit });
-    console.log('[Scheduler] posthog-user-prop-sync completed', { result });
-    res.json({ status: 'success', next: result });
-  } catch (error) {
-    console.error('Error running PostHog user property sync:', error);
-    res.status(400).json({ status: 'error', message: 'Failed to sync PostHog properties' });
-  }
-});
-
 // One-off job target for scheduled timezone groups
 app.post('/internal/scheduler/notifications-send-group', async (req, res): Promise<void> => {
   try {
@@ -2304,9 +2282,6 @@ app.post('/internal/menu/timezones/migrate-to-iana', async (_req, res): Promise<
     });
   }
 });
-
-// Error tracking should be last among middleware to catch downstream errors
-app.use(usePosthogErrorTracking);
 
 // [ops] Delete legacy reminders keys (immediate action)
 app.post('/internal/menu/admin/delete-old-reminders-keys', async (_req, res): Promise<void> => {
