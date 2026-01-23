@@ -787,6 +787,20 @@ app.post('/internal/form/queue/add', async (req, res): Promise<void> => {
     // Enqueue only validated successes; skip duplicates already in queue
     const existingQueue = await WordQueue.peekAll();
     const existingSet = new Set(existingQueue.map((c) => c.word.toLowerCase()));
+    const usedWordsSet = new Set<string>();
+    const usedWords: string[] = [];
+    const seenUsed = new Set<string>();
+    const currentChallengeNumber = await Challenge.getCurrentChallengeNumber();
+    for (let challengeNumber = currentChallengeNumber; challengeNumber >= 1; challengeNumber--) {
+      try {
+        const challenge = await Challenge.getChallenge({ challengeNumber });
+        const rawWord = challenge.secretWord?.trim();
+        if (!rawWord) continue;
+        usedWordsSet.add(rawWord.toLowerCase());
+      } catch (error) {
+        // Ignore missing or invalid challenges.
+      }
+    }
     const seenIncoming = new Set<string>();
     const duplicates: string[] = [];
     const toEnqueue = successes
@@ -799,6 +813,13 @@ app.post('/internal/form/queue/add', async (req, res): Promise<void> => {
         }
         if (seenIncoming.has(lower)) {
           duplicates.push(w);
+          return false;
+        }
+        if (usedWordsSet.has(lower)) {
+          if (!seenUsed.has(lower)) {
+            usedWords.push(w);
+            seenUsed.add(lower);
+          }
           return false;
         }
         seenIncoming.add(lower);
@@ -823,9 +844,11 @@ app.post('/internal/form/queue/add', async (req, res): Promise<void> => {
     const successCount = toEnqueue.length;
     const failureWords = failures.map((f) => f.word).join(', ');
     const duplicateWords = duplicates.join(', ');
+    const usedWordsText = usedWords.join(', ');
     const issues: string[] = [];
     if (failures.length > 0) issues.push(`Failed: ${failureWords}`);
     if (duplicates.length > 0) issues.push(`Skipped duplicates: ${duplicateWords}`);
+    if (usedWords.length > 0) issues.push(`Skipped used words: ${usedWordsText}`);
     const base = `Added ${successCount} item(s) to the queue`;
     const text = issues.length === 0 ? base : `${base}. ${issues.join('. ')}`;
 
@@ -1098,12 +1121,47 @@ app.post('/internal/menu/dm', async (_req, res): Promise<void> => {
     const items = await WordQueue.peekAll();
     const subject = 'Hot & Cold challenge queue contents';
     const body = items.length === 0 ? 'Queue is empty.' : JSON.stringify(items, null, 2);
+    const maxLength = 9500;
+    const chunks: string[] = [];
+    const lines = body.split('\n');
+    let current = '';
 
-    await reddit.sendPrivateMessage({
-      to: me.username,
-      subject,
-      text: body,
-    });
+    for (const line of lines) {
+      const candidate = current.length === 0 ? line : `${current}\n${line}`;
+      if (candidate.length <= maxLength) {
+        current = candidate;
+        continue;
+      }
+
+      if (current.length > 0) {
+        chunks.push(current);
+        current = '';
+      }
+
+      if (line.length > maxLength) {
+        for (let i = 0; i < line.length; i += maxLength) {
+          chunks.push(line.slice(i, i + maxLength));
+        }
+      } else {
+        current = line;
+      }
+    }
+
+    if (current.length > 0) {
+      chunks.push(current);
+    }
+
+    const totalParts = Math.max(1, chunks.length);
+    for (let i = 0; i < totalParts; i++) {
+      const part = chunks[i] ?? '';
+      const partLabel = totalParts > 1 ? ` (${i + 1}/${totalParts})` : '';
+      const prefix = totalParts > 1 ? `Part ${i + 1}/${totalParts}\n\n` : '';
+      await reddit.sendPrivateMessage({
+        to: me.username,
+        subject: `${subject}${partLabel}`,
+        text: `${prefix}${part}`,
+      });
+    }
 
     res.status(200).json({
       showToast: 'Sent challenge queue via DM',
