@@ -93,6 +93,12 @@
         "endpoint": "/internal/menu/reminders-count"
       },
       {
+        "label": "[stats] Reminders by timezone",
+        "forUserType": "moderator",
+        "location": "subreddit",
+        "endpoint": "/internal/menu/reminders-by-timezone"
+      },
+      {
         "label": "[stats] Joined subreddit",
         "forUserType": "moderator",
         "location": "subreddit",
@@ -344,6 +350,6 @@
     }
   },
   "dev": {
-    "subreddit": "hotandcold2_app_dev"
+    "subreddit": "HotAndColdDev"
   }
 }

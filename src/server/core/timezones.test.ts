@@ -38,6 +38,17 @@ test('clearUserTimezone removes IANA mapping', async () => {
   expect(tz).toBeNull();
 });
 
+test('getUserTimezones drops invalid stored zones', async () => {
+  await redis.hSet(Timezones.UserToIanaKey(), {
+    alice: 'Etc/Unknown',
+    bob: 'America/New_York',
+  });
+
+  const tzMap = await Timezones.getUserTimezones({ usernames: ['alice', 'bob'] });
+  expect(tzMap.alice).toBeNull();
+  expect(tzMap.bob).toBe('America/New_York');
+});
+
 test('migrates known offsets to canonical IANA zones and skips unknowns', async () => {
   // Seed legacy hash: tz:userToZone
   await redis.hSet(Timezones.UserToZoneKey(), {

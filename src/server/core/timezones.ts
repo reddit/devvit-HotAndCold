@@ -8,6 +8,9 @@ export namespace Timezones {
   export const UserToZoneKey = () => `tz:userToZone` as const;
   export const UserToIanaKey = () => `tzv2:userToIana` as const;
 
+  const DEFAULT_IANA = 'America/New_York';
+  const IANA_ALIAS = new Map([['UTC', 'Etc/UTC']]);
+
   // Basic offset-label -> canonical IANA guess. Imperfect by design, covers major regions.
   const OFFSET_TO_IANA: Record<string, string> = {
     // North America
@@ -45,14 +48,45 @@ export namespace Timezones {
     return OFFSET_TO_IANA[key] ?? null;
   }
 
+  function isValidIanaZone(zone: string): boolean {
+    try {
+      new Intl.DateTimeFormat('en-US', { timeZone: zone }).format();
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  function normalizeTimezoneInput(value: string): string | null {
+    const trimmed = value.trim();
+    if (!trimmed) return null;
+    const alias = IANA_ALIAS.get(trimmed);
+    if (alias) return alias;
+    if (trimmed.includes('/')) {
+      return isValidIanaZone(trimmed) ? trimmed : null;
+    }
+    if (/^UTC[+-]\d{2}:\d{2}$/.test(trimmed)) {
+      return mapOffsetLabelToIana(trimmed);
+    }
+    return null;
+  }
+
+  function coerceTimezoneForStorage(value: string): string {
+    return normalizeTimezoneInput(value) ?? DEFAULT_IANA;
+  }
+
+  function sanitizeStoredTimezone(value: string | null | undefined): string | null {
+    if (!value) return null;
+    return normalizeTimezoneInput(value);
+  }
+
   // All non-migration APIs are IANA-only
 
   /** set IANA for user (IANA required) */
   export const setUserTimezone = fn(
     z.object({ username: zodRedditUsername, timezone: z.string().trim().min(1) }),
     async ({ username, timezone }) => {
-      const raw = timezone.trim();
-      const iana = raw.includes('/') ? raw : 'America/New_York';
+      const iana = coerceTimezoneForStorage(timezone);
       await redis.hSet(UserToIanaKey(), { [username]: iana });
     }
   );
@@ -61,8 +95,7 @@ export namespace Timezones {
   export const setTimezone = fn(
     z.object({ username: zodRedditUsername, iana: z.string().trim().min(1) }),
     async ({ username, iana }) => {
-      const tz = iana.trim();
-      const final = tz.includes('/') ? tz : 'America/New_York';
+      const final = coerceTimezoneForStorage(iana);
       await redis.hSet(UserToIanaKey(), { [username]: final });
     }
   );
@@ -72,7 +105,7 @@ export namespace Timezones {
     z.object({ username: zodRedditUsername }),
     async ({ username }) => {
       const iana = await redis.hGet(UserToIanaKey(), username);
-      return iana ?? null;
+      return sanitizeStoredTimezone(iana);
     }
   );
 
@@ -88,7 +121,7 @@ export namespace Timezones {
         const chunk = usernames.slice(i, i + chunkSize);
         const ianas = await redis.hMGet(UserToIanaKey(), chunk);
         chunk.forEach((u, idx) => {
-          result[u] = ianas[idx] ?? null;
+          result[u] = sanitizeStoredTimezone(ianas[idx] ?? null);
         });
       }
       return result;

@@ -58,6 +58,32 @@ function formatDurationLong(ms: number): string {
   return parts.join(' ');
 }
 
+function formatUtcOffset(minutes: number): string {
+  const sign = minutes >= 0 ? '+' : '-';
+  const absMinutes = Math.abs(minutes);
+  const hours = Math.floor(absMinutes / 60);
+  const mins = absMinutes % 60;
+  return `UTC${sign}${String(hours).padStart(2, '0')}:${String(mins).padStart(2, '0')}`;
+}
+
+function getTimezoneOffsetLabel(timeZone: string, baseDate: Date): string {
+  try {
+    const local = new Date(baseDate.toLocaleString('en-US', { timeZone }));
+    const utc = new Date(baseDate.toLocaleString('en-US', { timeZone: 'UTC' }));
+    const offsetMinutes = Math.round((local.getTime() - utc.getTime()) / 60000);
+    return formatUtcOffset(offsetMinutes);
+  } catch {
+    return 'UTC+00:00';
+  }
+}
+
+function getReadableTimeZoneName(timeZone: string): string {
+  if (timeZone === 'Etc/UTC' || timeZone === 'UTC') return 'UTC';
+  const parts = timeZone.split('/');
+  const last = parts[parts.length - 1] || timeZone;
+  return last.replace(/_/g, ' ');
+}
+
 async function computeCommentSuffix({
   username,
   challengeNumber,
@@ -958,6 +984,168 @@ app.post('/internal/menu/reminders-count', async (_req, res): Promise<void> => {
     res.status(500).json({
       showToast: {
         text: err?.message || 'Failed to get reminders count',
+        appearance: 'neutral',
+      },
+    });
+  }
+});
+
+// [stats] Reminder opt-ins grouped by timezone (DM)
+app.post('/internal/menu/reminders-by-timezone', async (_req, res): Promise<void> => {
+  const logPrefix = '[RemindersByTimezone]';
+  const startedAt = Date.now();
+  try {
+    console.log(`${logPrefix} start`);
+    const { userId } = context;
+    if (!userId) {
+      res.status(400).json({
+        showToast: 'userId is required',
+      });
+      return;
+    }
+
+    const me = await reddit.getUserById(userId);
+    if (!me) {
+      res.status(400).json({
+        showToast: 'Could not resolve current user',
+      });
+      return;
+    }
+
+    console.log(`${logPrefix} fetching opted-in users`);
+    const optedIn = await Reminders.getAllUsersOptedIntoReminders();
+    console.log(`${logPrefix} opted-in users fetched`, {
+      count: optedIn.length,
+      durationMs: Date.now() - startedAt,
+    });
+    const usernames = optedIn.map((entry) => entry.username);
+    console.log(`${logPrefix} fetching timezones`, { count: usernames.length });
+    const tzLookupStart = Date.now();
+    const tzMap = await Timezones.getUserTimezones({ usernames });
+    console.log(`${logPrefix} timezones fetched`, { durationMs: Date.now() - tzLookupStart });
+    const numberFormat = new Intl.NumberFormat('en-US');
+    const now = new Date();
+
+    const counts = new Map<string, number>();
+    const missingKey = '__missing__';
+    let missing = 0;
+    for (const { username } of optedIn) {
+      const zone = tzMap[username];
+      if (!zone) {
+        missing++;
+        counts.set(missingKey, (counts.get(missingKey) ?? 0) + 1);
+        continue;
+      }
+      counts.set(zone, (counts.get(zone) ?? 0) + 1);
+    }
+
+    const rows = Array.from(counts.entries()).map(([zone, count]) => {
+      if (zone === missingKey) {
+        return {
+          label: 'Unknown',
+          offset: 'no timezone',
+          count,
+          zone,
+        };
+      }
+      return {
+        label: getReadableTimeZoneName(zone),
+        offset: getTimezoneOffsetLabel(zone, now),
+        count,
+        zone,
+      };
+    });
+
+    rows.sort((a, b) => {
+      if (b.count !== a.count) return b.count - a.count;
+      return a.label.localeCompare(b.label);
+    });
+    console.log(`${logPrefix} grouped reminders`, {
+      uniqueTimezones: rows.filter((row) => row.zone !== missingKey).length,
+      missing,
+    });
+
+    const lines: string[] = [];
+    lines.push('Reminder opt-ins by timezone');
+    lines.push('');
+    lines.push(`Total opted-in users: ${numberFormat.format(optedIn.length)}`);
+    lines.push(`With timezone: ${numberFormat.format(optedIn.length - missing)}`);
+    lines.push(`Missing timezone: ${numberFormat.format(missing)}`);
+    lines.push('');
+    lines.push('Timezones (sorted by size):');
+    for (const row of rows) {
+      lines.push(`- ${row.label} (${row.offset}): ${numberFormat.format(row.count)}`);
+    }
+    console.log(`${logPrefix} prepared output`, {
+      lines: lines.length,
+      elapsedMs: Date.now() - startedAt,
+    });
+
+    const subject = 'Hot & Cold reminders by timezone';
+    const maxLength = 9500;
+    const chunks: string[] = [];
+    let current = '';
+    for (const line of lines) {
+      const candidate = current.length === 0 ? line : `${current}\n${line}`;
+      if (candidate.length <= maxLength) {
+        current = candidate;
+        continue;
+      }
+      if (current.length > 0) {
+        chunks.push(current);
+        current = '';
+      }
+      if (line.length > maxLength) {
+        for (let i = 0; i < line.length; i += maxLength) {
+          chunks.push(line.slice(i, i + maxLength));
+        }
+      } else {
+        current = line;
+      }
+    }
+    if (current.length > 0) {
+      chunks.push(current);
+    }
+
+    const totalParts = Math.max(1, chunks.length);
+    console.log(`${logPrefix} sending DM`, { totalParts });
+    for (let i = 0; i < totalParts; i++) {
+      const part = chunks[i] ?? '';
+      const partLabel = totalParts > 1 ? ` (${i + 1}/${totalParts})` : '';
+      const prefix = totalParts > 1 ? `Part ${i + 1}/${totalParts}\n\n` : '';
+      try {
+        await reddit.sendPrivateMessage({
+          to: me.username,
+          subject: `${subject}${partLabel}`,
+          text: `${prefix}${part}`,
+        });
+        console.log(`${logPrefix} sent DM part`, { part: i + 1, length: part.length });
+      } catch (err) {
+        console.error(`${logPrefix} failed to send DM part`, {
+          part: i + 1,
+          error: err instanceof Error ? err.message : err,
+        });
+        console.log(`${logPrefix} output preview`, lines.slice(0, 20).join('\n'));
+        res.status(200).json({
+          showToast: {
+            text: 'Failed to send DM. Check logs for [RemindersByTimezone].',
+            appearance: 'neutral',
+          },
+        });
+        return;
+      }
+    }
+
+    console.log(`${logPrefix} done`, { elapsedMs: Date.now() - startedAt });
+    res.status(200).json({
+      showToast: { text: 'Sent reminder timezone stats via DM', appearance: 'success' },
+    });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Failed to get reminders by timezone';
+    console.error(`${logPrefix} error`, err);
+    res.status(500).json({
+      showToast: {
+        text: message,
         appearance: 'neutral',
       },
     });
