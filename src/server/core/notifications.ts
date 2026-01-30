@@ -189,6 +189,11 @@ export namespace Notifications {
       });
 
       const tzMap = await Timezones.getUserTimezones({ usernames });
+      console.log('[Notifications] timezone lookups completed', {
+        count: Object.keys(tzMap).length,
+        elapsedMs: Date.now() - tMapStart,
+        elapsedTotalMs: Date.now() - startMs,
+      });
 
       const zoneToRecipients = new Map<string, Recipient[]>();
       for (const { username, userId } of optedIn) {

@@ -116,14 +116,57 @@ export namespace Timezones {
       if (usernames.length === 0) return {};
       const chunkSize = 5000;
       const result: Record<string, string | null> = {};
+      const sanitizedByValue = new Map<string, string | null>();
+      const startMs = Date.now();
+      const totalChunks = Math.ceil(usernames.length / chunkSize);
+      console.log('[Timezones] getUserTimezones start', {
+        usernames: usernames.length,
+        chunkSize,
+        totalChunks,
+      });
 
+      const sanitizeCached = (value: string | null | undefined): string | null => {
+        if (!value) return null;
+        if (sanitizedByValue.has(value)) {
+          return sanitizedByValue.get(value) ?? null;
+        }
+        const sanitized = sanitizeStoredTimezone(value);
+        sanitizedByValue.set(value, sanitized);
+        return sanitized;
+      };
+
+      let processed = 0;
       for (let i = 0; i < usernames.length; i += chunkSize) {
         const chunk = usernames.slice(i, i + chunkSize);
+        const chunkIndex = Math.floor(i / chunkSize) + 1;
+        const tChunkStart = Date.now();
         const ianas = await redis.hMGet(UserToIanaKey(), chunk);
+        const hgetMs = Date.now() - tChunkStart;
+        processed += chunk.length;
+        if (
+          chunkIndex === 1 ||
+          chunkIndex === totalChunks ||
+          chunkIndex % 5 === 0 ||
+          hgetMs > 2000
+        ) {
+          console.log('[Timezones] getUserTimezones progress', {
+            chunkIndex,
+            totalChunks,
+            chunkSize: chunk.length,
+            processed,
+            hgetMs,
+            elapsedMs: Date.now() - startMs,
+          });
+        }
         chunk.forEach((u, idx) => {
-          result[u] = sanitizeStoredTimezone(ianas[idx] ?? null);
+          result[u] = sanitizeCached(ianas[idx] ?? null);
         });
       }
+      console.log('[Timezones] getUserTimezones completed', {
+        usernames: usernames.length,
+        uniqueZones: sanitizedByValue.size,
+        elapsedMs: Date.now() - startMs,
+      });
       return result;
     }
   );
