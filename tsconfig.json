@@ -5,6 +5,7 @@
     { "path": "./src/client" },
     { "path": "./src/shared" },
     { "path": "./tools" },
-    { "path": "./src/server" }
+    { "path": "./src/server" },
+    { "path": "./tools/tsconfig.vite.json" }
   ]
 }

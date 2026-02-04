@@ -15,7 +15,7 @@
     "tsBuildInfoFile": "../../dist/tsconfig.tsbuildinfo"
   },
   // https://github.com/Microsoft/TypeScript/issues/25636
-  "include": ["**/*", "**/*.json", "../../package.json", "../../vite.config.ts"],
+  "include": ["**/*", "**/*.json", "../../package.json"],
   "exclude": ["**/*.test.ts"],
   "references": [{ "path": "../shared" }]
 }
