@@ -349,6 +349,10 @@
       }
     }
   },
+  "scripts": {
+    "dev": "vite build --watch",
+    "build": "vite build"
+  },
   "dev": {
     "subreddit": "HotAndColdDev"
   }
