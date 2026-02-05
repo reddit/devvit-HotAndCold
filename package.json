@@ -13,7 +13,7 @@
     "login": "devvit login",
     "launch": "npm run build && devvit publish",
     "prettier": "prettier-package-json --write ./package.json && prettier --write .",
-    "deploy": "npm run type-check && npm run test && npm run build && devvit upload",
+    "deploy": "npm run type-check && npm run test && devvit upload",
     "type-check": "tsc --build",
     "scripts:make-db": "node ./tools/make-db.ts",
     "scripts:find-word": "node ./tools/find-word.ts",
