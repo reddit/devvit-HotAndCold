@@ -33,7 +33,9 @@
     "migrateNotificationsForm": "/internal/form/admin/migrate-notifications-compression",
     "statsPlayersForm": "/internal/form/stats/players-count",
     "peekUserGuessForm": "/internal/form/debug/peek-guess",
-    "commonWordsForm": "/internal/form/stats/common-words"
+    "commonWordsForm": "/internal/form/stats/common-words",
+    "sqlWriteUserForm": "/internal/form/sql/write-user",
+    "sqlReadUsersForm": "/internal/form/sql/read-users"
   },
   "menu": {
     "items": [
@@ -261,6 +263,18 @@
         "location": "subreddit",
         "description": "classic",
         "endpoint": "/internal/menu/stats/common-words/cancel"
+      },
+      {
+        "label": "[sql] Write user",
+        "forUserType": "moderator",
+        "location": "subreddit",
+        "endpoint": "/internal/menu/sql/write-user"
+      },
+      {
+        "label": "[sql] Read all users",
+        "forUserType": "moderator",
+        "location": "subreddit",
+        "endpoint": "/internal/menu/sql/read-users"
       }
     ]
   },
@@ -323,7 +337,8 @@
         "us.i.posthog.com",
         "us-assets.i.posthog.com",
         "api.openai.com",
-        "jbbhyxtpholdwrxencjx.supabase.co"
+        "jbbhyxtpholdwrxencjx.supabase.co",
+        "api.c-4.us-east-1.aws.neon.tech"
       ],
       "enable": true
     }
@@ -337,6 +352,11 @@
       },
       "OPEN_AI_API_KEY": {
         "label": "OpenAI API Key",
+        "isSecret": true,
+        "type": "string"
+      },
+      "NEON_PG_DB_CONNECTION_STRING": {
+        "label": "Neon Postgres Connection String",
         "isSecret": true,
         "type": "string"
       }

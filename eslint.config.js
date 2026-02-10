@@ -2,6 +2,14 @@ import { defineConfig } from 'eslint/config';
 import globals from 'globals';
 import js from '@eslint/js';
 import tseslint from 'typescript-eslint';
+import drizzle from 'eslint-plugin-drizzle';
+import { enforceInstallationId } from './tools/eslint-rules/enforce-installation-id.js';
+
+const localDrizzle = {
+  rules: {
+    'enforce-installation-id': enforceInstallationId,
+  },
+};
 
 export default defineConfig([
   tseslint.configs.recommended,
@@ -28,6 +36,21 @@ export default defineConfig([
     languageOptions: {
       ecmaVersion: 2023,
       globals: globals.node,
+    },
+    plugins: { drizzle, 'local-drizzle': localDrizzle },
+    rules: {
+      'drizzle/enforce-delete-with-where': [
+        'error',
+        { drizzleObjectName: ['db'] },
+      ],
+      'drizzle/enforce-update-with-where': [
+        'error',
+        { drizzleObjectName: ['db'] },
+      ],
+      'local-drizzle/enforce-installation-id': [
+        'error',
+        { drizzleObjectName: ['db'], columnName: 'installationId' },
+      ],
     },
   },
   {
@@ -66,6 +89,7 @@ export default defineConfig([
       '**/build/**',
       'eslint.config.js',
       '**/vite.config.ts',
+      '**/drizzle.config.ts',
       'devvit.config.ts',
     ],
     languageOptions: {

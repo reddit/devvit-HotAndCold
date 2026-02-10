@@ -34,6 +34,8 @@ import { Notifications } from './core/notifications';
 import { makeClientConfig } from '../shared/makeClientConfig';
 import { redisCompressed } from './core/redisCompression';
 import { CommonWordsAggregator } from './core/commonWordsAggregator';
+import { sql } from './core/drizzle';
+import { usersTable } from './core/user.sql';
 
 redisCompressed.del().catch(() => {});
 
@@ -106,15 +108,8 @@ async function computeCommentSuffix({
 
 const appRouter = router({
   init: publicProcedure.query(async () => {
-    console.log('inside of init');
-
-    const resp = await fetch('https://en.wikipedia.org/wiki/Pauline_Ferrand-Pr%C3%A9vot');
-    const html = await resp.text();
-    console.log(html);
-
     return {
       challengeNumber: await Challenge.getCurrentChallengeNumber(),
-      html,
     };
   }),
   user: {
@@ -610,6 +605,7 @@ const app = express();
 
 // Mount analytics proxy BEFORE any body parsers to avoid mangling raw bodies
 app.use('/api', (...args) => {
+  JSON.stringify(context, null, 2);
   const isProd = context.subredditName === 'HotAndCold';
   return makeAnalyticsRouter({
     posthogKey: makeClientConfig(isProd).POSTHOG_KEY,

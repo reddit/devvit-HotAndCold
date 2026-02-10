@@ -1,5 +1,7 @@
 import { z } from 'zod';
 import { Score } from './core/score';
+import { context } from '@devvit/web/server';
+import { AppError } from '../shared/errors';
 
 export const zodRedditUsername = z
   .string()
@@ -139,3 +141,13 @@ export const ChallengeUserInfoFromRedis = ChallengeUserInfoRedisRaw.transform((r
     ...(scoreParsed ? { score: scoreParsed } : {}),
   });
 });
+
+/** Gets installation id from context or throws. Must be invoked inside of a request. */
+export const getInstallationId = () => {
+  const installationId = context.metadata['devvit-installation']?.['values'][0];
+  if (!installationId)
+    throw new AppError(
+      'Installation ID not found. Are you calling this function from inside of a request context?'
+    );
+  return installationId;
+};

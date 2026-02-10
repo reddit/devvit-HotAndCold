@@ -8,6 +8,7 @@
     "cn",
     "Devvit",
     "hoarde",
+    "neondatabase",
     "playtest",
     "protos",
     "snoovatar",
@@ -30,5 +31,13 @@
     "**/*.code-search": true,
     "**/*.txt": true,
     "**/*.sqlite": true
-  }
+  },
+  "typescript.preferences.autoImportFileExcludePatterns": [
+    "**/node_modules/drizzle-orm/mysql-core/**",
+    "**/node_modules/drizzle-orm/sqlite-core/**",
+    "**/node_modules/drizzle-orm/singlestore-core/**",
+    "**/node_modules/drizzle-orm/gel-core/**",
+    "**/node_modules/drizzle-orm/cockroach-core/**",
+    "**/node_modules/drizzle-orm/mssql-core/**"
+  ]
 }
