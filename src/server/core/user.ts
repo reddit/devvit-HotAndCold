@@ -14,6 +14,11 @@ export namespace User {
   export const MaskedToUsernameKey = () => `user:maskedIdToUsername` as const;
   export const isMaskedId = (id: string) => id.startsWith(MaskedUserIdPrefix);
 
+  /** Zod schema for masked user id (mid_...) – share for inputs and validation. */
+  export const zodMaskedUserId = z
+    .string()
+    .refine((id) => isMaskedId(id), { message: 'Expected masked user id (mid_...)' });
+
   export const Info = z.object({
     id: z.string(),
     username: zodRedditUsername,
@@ -41,14 +46,13 @@ export namespace User {
     return maskedId;
   });
 
-  export const getUsernameFromMaskedId = fn(z.string(), async (maskedId) => {
-    if (!isMaskedId(maskedId)) throw new AppError('Expected masked user id');
+  export const getUsernameFromMaskedId = fn(zodMaskedUserId, async (maskedId) => {
     const username = await redis.hGet(MaskedToUsernameKey(), maskedId);
     if (!username) throw new AppError('Masked user id not found');
     return zodRedditUsername.parse(username);
   });
 
-  export const getUserIdFromMaskedId = fn(z.string(), async (maskedId) => {
+  export const getUserIdFromMaskedId = fn(zodMaskedUserId, async (maskedId) => {
     const username = await getUsernameFromMaskedId(maskedId);
     const mappedId = await redis.hGet(UsernameToIdKey(), username);
     if (mappedId) return mappedId;

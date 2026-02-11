@@ -38,4 +38,23 @@ export namespace LastPlayedAt {
   export const totalLastPlayedUsers = fn(z.void(), async () => {
     return await redis.zCard(getLastPlayedAtKey());
   });
+
+  /**
+   * Usernames whose last play was at or before cutoffMs (score in sorted set).
+   * Use for drain: users not played in the last N hours.
+   */
+  export const getUsernamesNotPlayedSince = fn(
+    z.object({
+      cutoffMs: z.number(),
+      limit: z.number().min(1).max(10_000).optional(),
+    }),
+    async ({ cutoffMs, limit }) => {
+      const data = await redis.zRange(getLastPlayedAtKey(), 0, cutoffMs, {
+        by: 'score',
+      });
+      const usernames = data.map((d) => d.member);
+      const cap = limit ?? 1000;
+      return cap > 0 ? usernames.slice(0, cap) : usernames;
+    }
+  );
 }

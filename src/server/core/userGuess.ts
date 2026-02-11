@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { isEmptyObject } from '../../shared/isEmptyObject';
-import { zodRedditUsername } from '../utils';
+import { getInstallationId, zodRedditUsername } from '../utils';
 import { Challenge } from './challenge';
 import { ChallengeLeaderboard } from './challengeLeaderboard';
 import { Score } from './score';
@@ -10,6 +10,8 @@ import { GameResponseSchema, GuessSchema, ChallengeUserInfoSchema } from '../uti
 import { User } from './user';
 import { ChallengeProgress } from './challengeProgress';
 import { rankToProgress } from '../../shared/progress';
+import { getUserGuessRow } from './userGuess.sql';
+import { isForceReadFromSql, isSqlEnabled } from './sqlFlags';
 
 /**
  * Returns the next hint for a player based on their previous guesses.
@@ -80,6 +82,8 @@ export namespace UserGuess {
 
   /**
    * Read the user‑specific state for a challenge.
+   * Path: Redis (hot cache) → SQL fallback → empty default.
+   * Feature flags: forceReadFromSql skips Redis; sqlEnabled gates SQL fallback.
    */
   export const getChallengeUserInfo = fn(
     z.object({
@@ -87,10 +91,7 @@ export namespace UserGuess {
       challengeNumber: z.number().gt(0),
     }),
     async ({ username, challengeNumber }) => {
-      // Primary lookup (sanitized username)
-      const result = await redis.hGetAll(Key(challengeNumber, username));
-
-      const parseFrom = (raw: Record<string, string>) => {
+      const parseFromRedis = (raw: Record<string, string>) => {
         const startedPlayingAtMs = raw.startedPlayingAtMs
           ? Number.parseInt(raw.startedPlayingAtMs)
           : undefined;
@@ -120,11 +121,51 @@ export namespace UserGuess {
         });
       };
 
-      if (result && !isEmptyObject(result)) {
-        return parseFrom(result);
+      const trySqlThenEmpty = async () => {
+        const maskedUserId = await User.getOrCreateMaskedId(username);
+        const installationIdValue = getInstallationId();
+        const row = await getUserGuessRow({
+          installationIdValue,
+          challengeNumber,
+          userId: maskedUserId,
+        });
+        if (row) {
+          const info = ChallengeUserInfoSchema.parse({
+            username,
+            startedPlayingAtMs: row.startedPlayingAt?.getTime(),
+            gaveUpAtMs: row.gaveUpAt?.getTime(),
+            solvedAtMs: row.solvedAt?.getTime(),
+            guesses: row.guesses,
+            ...(row.score ? { score: row.score } : {}),
+          });
+          const toSet: Record<string, string> = {
+            guesses: JSON.stringify(row.guesses),
+          };
+          if (row.startedPlayingAt) toSet.startedPlayingAtMs = String(row.startedPlayingAt.getTime());
+          if (row.gaveUpAt) toSet.gaveUpAtMs = String(row.gaveUpAt.getTime());
+          if (row.solvedAt) toSet.solvedAtMs = String(row.solvedAt.getTime());
+          if (row.score) toSet.score = JSON.stringify(row.score);
+          await redis.hSet(Key(challengeNumber, username), toSet);
+          return info;
+        }
+        return ChallengeUserInfoSchema.parse({ username, guesses: [] });
+      };
+
+      const forceSql = await isForceReadFromSql();
+      if (forceSql) {
+        return trySqlThenEmpty();
       }
 
-      // No state yet for this user/challenge – return an empty/default shape.
+      const result = await redis.hGetAll(Key(challengeNumber, username));
+      if (result && !isEmptyObject(result)) {
+        return parseFromRedis(result);
+      }
+
+      const sqlEnabled = await isSqlEnabled();
+      if (sqlEnabled) {
+        return trySqlThenEmpty();
+      }
+
       return ChallengeUserInfoSchema.parse({ username, guesses: [] });
     }
   );

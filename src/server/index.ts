@@ -15,6 +15,7 @@ import {
   getWordConfig,
 } from './core/api';
 import { UserGuess } from './core/userGuess';
+import { runDrainJob } from './core/userGuess.drain';
 import { User } from './core/user';
 import { ChallengeProgress } from './core/challengeProgress';
 import { ChallengeLeaderboard } from './core/challengeLeaderboard';
@@ -38,6 +39,15 @@ import { eq } from 'drizzle-orm';
 import { sql } from './core/drizzle';
 import { usersTable } from './core/user.sql';
 import { getInstallationId } from './utils';
+import {
+  USER_GUESS_SQL_ROLLOUT_FLAGS,
+  getDrainBatchSize,
+  isToggleEnabled,
+  parseBooleanToggle,
+  parseDrainBatchSize,
+  setDrainBatchSize,
+  setToggleEnabled,
+} from './core/sqlFlags';
 
 redisCompressed.del().catch(() => {});
 
@@ -3486,6 +3496,17 @@ app.post('/internal/scheduler/common-words-aggregator', async (_req, res): Promi
   }
 });
 
+// Scheduler: user-guess-drain (every 5 min; drains Redis -> SQL for users not played in 3h)
+app.post('/internal/scheduler/user-guess-drain', async (_req, res): Promise<void> => {
+  try {
+    const result = await runDrainJob();
+    res.json({ status: 'ok', ...result });
+  } catch (err: any) {
+    console.error('[user guess drain] job failed', err);
+    res.status(500).json({ status: 'error', message: err?.message });
+  }
+});
+
 // Scheduler: common-words-watchdog
 app.post('/internal/scheduler/common-words-watchdog', async (_req, res): Promise<void> => {
   try {
@@ -3498,6 +3519,89 @@ app.post('/internal/scheduler/common-words-watchdog', async (_req, res): Promise
   } catch (err: any) {
     console.error('Failed common words watchdog', err);
     res.status(500).json({ status: 'error', message: err?.message });
+  }
+});
+
+// [sql] Configure UserGuess SQL flags (form launcher)
+app.post('/internal/menu/sql/user-guess-flags', async (_req, res): Promise<void> => {
+  try {
+    const [toggles, drainBatchSize] = await Promise.all([
+      Promise.all(
+        USER_GUESS_SQL_ROLLOUT_FLAGS.map(async (flag) => ({
+          ...flag,
+          enabled: await isToggleEnabled(flag.key),
+        }))
+      ),
+      getDrainBatchSize(),
+    ]);
+
+    res.status(200).json({
+      showForm: {
+        name: 'sqlUserGuessFlagsForm',
+        form: {
+          title: 'Configure UserGuess SQL flags',
+          acceptLabel: 'Save',
+          fields: [
+            ...toggles.map((toggle) => ({
+              name: toggle.formFieldName,
+              label: `${toggle.label} (currently ${toggle.enabled ? 'ON' : 'OFF'})`,
+              type: 'boolean',
+              defaultValue: toggle.enabled,
+            })),
+            {
+              name: 'drainBatchSize',
+              label: `Drain batch size for scheduler jobs (currently ${drainBatchSize})`,
+              type: 'number',
+              defaultValue: drainBatchSize,
+            },
+          ],
+        },
+      },
+    });
+  } catch (err: any) {
+    console.error('Failed to open UserGuess SQL flags form', err);
+    res.status(500).json({
+      showToast: {
+        text: err?.message || 'Failed to open SQL flags form',
+        appearance: 'neutral',
+      },
+    });
+  }
+});
+
+// [sql] Configure UserGuess SQL flags (form handler)
+app.post('/internal/form/sql/user-guess-flags', async (req, res): Promise<void> => {
+  try {
+    const body = (req.body as any) ?? {};
+    const drainBatchSize = parseDrainBatchSize(body?.drainBatchSize);
+    const nextValues = USER_GUESS_SQL_ROLLOUT_FLAGS.map((flag) => ({
+      ...flag,
+      enabled: parseBooleanToggle(body?.[flag.formFieldName]),
+    }));
+
+    await Promise.all([
+      ...nextValues.map((x) => setToggleEnabled(x.key, x.enabled)),
+      setDrainBatchSize(drainBatchSize),
+    ]);
+
+    const summary = nextValues
+      .map((x) => `${x.formFieldName}=${x.enabled ? 'on' : 'off'}`)
+      .concat([`drainBatchSize=${drainBatchSize}`])
+      .join(', ');
+    res.status(200).json({
+      showToast: {
+        text: `Saved SQL rollout flags: ${summary}`,
+        appearance: 'success',
+      },
+    });
+  } catch (err: any) {
+    console.error('Failed to save UserGuess SQL flags', err);
+    res.status(500).json({
+      showToast: {
+        text: err?.message || 'Failed to save SQL flags',
+        appearance: 'neutral',
+      },
+    });
   }
 });
 

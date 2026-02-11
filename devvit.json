@@ -322,6 +322,11 @@
         "cron": "*/10 * * * * *",
         "endpoint": "/internal/scheduler/common-words-watchdog",
         "data": {}
+      },
+      "user-guess-drain": {
+        "cron": "*/5 * * * *",
+        "endpoint": "/internal/scheduler/user-guess-drain",
+        "data": {}
       }
     }
   },
