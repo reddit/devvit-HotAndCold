@@ -3528,7 +3528,7 @@ app.post('/internal/scheduler/common-words-aggregator', async (_req, res): Promi
   }
 });
 
-// Scheduler: user-guess-drain (every 5 min; ChallengeProgress-indexed rolling drain)
+// Scheduler: user-guess-drain (every 5 min; ChallengeProgress + LastPlayedAt filters)
 app.post('/internal/scheduler/user-guess-drain', async (_req, res): Promise<void> => {
   try {
     const result = await runDrainJob();

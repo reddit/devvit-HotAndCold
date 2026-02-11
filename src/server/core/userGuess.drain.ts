@@ -7,7 +7,7 @@ import { ChallengeProgress } from './challengeProgress';
 import { LastPlayedAt } from './lastPlayedAt';
 import { redisCompressed as redis } from './redisCompression';
 import { Score } from './score';
-import { getDrainBatchSize, isDrainEnabled, isSqlEnabled } from './sqlFlags';
+import { getDrainBatchSize, isDrainDeleteDryRun, isDrainEnabled, isSqlEnabled } from './sqlFlags';
 import { User } from './user';
 import { UserGuess } from './userGuess';
 import { upsertUserGuessRow } from './userGuess.sql';
@@ -22,11 +22,21 @@ const LAST_PLAYED_MAX_ZSCAN_COUNT = 1_000;
 const MAX_RUNTIME_MS = 20_000;
 const MIN_SCAN_BUDGET = 2_000;
 const SCAN_BUDGET_MULTIPLIER = 100;
+const RECENT_PLAY_WINDOW_MS = 3 * 60 * 60 * 1000;
 
 type DrainCandidate = { challengeNumber: number; username: string };
 type DrainCursorState = { challengeNumber: number; scanCursor: number };
 type CleanupCursorState = { scanCursor: number };
+type DrainExecutionOptions = { dryRunDeleteFromRedis: boolean };
 type StopReason = 'batch_complete' | 'runtime_budget' | 'scan_budget' | 'full_cycle' | 'completed';
+type UserGuessRedisHash = Partial<{
+  startedPlayingAtMs: string;
+  gaveUpAtMs: string;
+  solvedAtMs: string;
+  guesses: string;
+  score: string;
+}> &
+  Record<string, string>;
 
 export type DrainJobResult = {
   ok: boolean;
@@ -70,6 +80,47 @@ function formatError(err: unknown): { message: string; stack?: string; cause?: s
   return { message: String(err) };
 }
 
+function parseOptionalInt(value: string | undefined): number | undefined {
+  if (value == null) return undefined;
+  const parsed = Number.parseInt(value, 10);
+  return Number.isFinite(parsed) ? parsed : undefined;
+}
+
+function getLatestGuessTimestampMs(value: string | undefined): number | undefined {
+  if (!value) return undefined;
+  try {
+    const parsed = JSON.parse(value) as unknown;
+    if (!Array.isArray(parsed)) return undefined;
+    let latest: number | undefined;
+    for (const guess of parsed) {
+      const maybeTimestampMs =
+        guess &&
+        typeof guess === 'object' &&
+        'timestampMs' in guess &&
+        typeof (guess as { timestampMs?: unknown }).timestampMs === 'number'
+          ? (guess as { timestampMs: number }).timestampMs
+          : undefined;
+      if (maybeTimestampMs == null || !Number.isFinite(maybeTimestampMs)) continue;
+      latest = latest == null ? maybeTimestampMs : Math.max(latest, maybeTimestampMs);
+    }
+    return latest;
+  } catch {
+    return undefined;
+  }
+}
+
+function isActivelyPlayingRecord(data: UserGuessRedisHash, cutoffMs: number): boolean {
+  const solvedAtMs = parseOptionalInt(data.solvedAtMs);
+  const gaveUpAtMs = parseOptionalInt(data.gaveUpAtMs);
+  if (solvedAtMs != null || gaveUpAtMs != null) return false;
+
+  const startedPlayingAtMs = parseOptionalInt(data.startedPlayingAtMs);
+  if (startedPlayingAtMs != null && startedPlayingAtMs > cutoffMs) return true;
+
+  const latestGuessAtMs = getLatestGuessTimestampMs(data.guesses);
+  return latestGuessAtMs != null && latestGuessAtMs > cutoffMs;
+}
+
 async function loadDrainCursor(currentChallenge: number): Promise<DrainCursorState> {
   const fallback: DrainCursorState = {
     challengeNumber: currentChallenge,
@@ -83,12 +134,16 @@ async function loadDrainCursor(currentChallenge: number): Promise<DrainCursorSta
   try {
     const parsed = z
       .object({
-        challengeNumber: z.number().int(),
+        challengeNumber: z.number().int().optional(),
         scanCursor: z.number().int().min(0),
       })
+      .passthrough()
       .parse(JSON.parse(raw));
     return {
-      challengeNumber: Math.min(currentChallenge, Math.max(1, parsed.challengeNumber)),
+      challengeNumber: Math.min(
+        currentChallenge,
+        Math.max(1, parsed.challengeNumber ?? currentChallenge)
+      ),
       scanCursor: parsed.scanCursor,
     };
   } catch {
@@ -128,7 +183,7 @@ export async function resetLastPlayedCleanupCursor(): Promise<void> {
 /**
  * Drain one Redis user-guess key: read -> write to SQL -> delete from Redis.
  */
-async function drainOneKey(candidate: DrainCandidate): Promise<boolean> {
+async function drainOneKey(candidate: DrainCandidate, options: DrainExecutionOptions): Promise<boolean> {
   const { challengeNumber, username } = candidate;
   const key = UserGuess.Key(challengeNumber, username);
   const raw = await redis.hGetAll(key);
@@ -176,15 +231,19 @@ async function drainOneKey(candidate: DrainCandidate): Promise<boolean> {
     score: scoreParsed,
   });
 
+  if (options.dryRunDeleteFromRedis) return true;
   await redis.del(key);
   return true;
 }
 
-async function drainCandidatesBatch(candidates: DrainCandidate[]): Promise<number> {
+async function drainCandidatesBatch(
+  candidates: DrainCandidate[],
+  options: DrainExecutionOptions
+): Promise<number> {
   let drained = 0;
   for (let i = 0; i < candidates.length; i += CONCURRENT_DRAIN) {
     const batch = candidates.slice(i, i + CONCURRENT_DRAIN);
-    const results = await Promise.allSettled(batch.map((c) => drainOneKey(c)));
+    const results = await Promise.allSettled(batch.map((c) => drainOneKey(c, options)));
     results.forEach((result, j) => {
       const candidate = batch[j];
       if (result.status === 'fulfilled' && result.value) {
@@ -205,8 +264,9 @@ async function findCandidatesFromProgressScan(params: {
   challengeNumber: number;
   members: { member: string; score: number }[];
   remaining: number;
+  cutoffMs: number;
 }): Promise<DrainCandidate[]> {
-  const { challengeNumber, members, remaining } = params;
+  const { challengeNumber, members, remaining, cutoffMs } = params;
   if (remaining <= 0 || members.length === 0) return [];
 
   const checks = await Promise.all(
@@ -214,6 +274,7 @@ async function findCandidatesFromProgressScan(params: {
       const key = UserGuess.Key(challengeNumber, m.member);
       const data = await redis.hGetAll(key);
       if (!data || isEmptyObject(data)) return null;
+      if (isActivelyPlayingRecord(data, cutoffMs)) return null;
       return { challengeNumber, username: m.member } as DrainCandidate;
     })
   );
@@ -228,13 +289,17 @@ async function findCandidatesFromProgressScan(params: {
 }
 
 /**
- * Scheduled drain path: discover candidates only from ChallengeProgress index.
- * This intentionally covers the active TTL window (~8 days).
+ * Scheduled drain path: discover candidates from ChallengeProgress index and
+ * skip users that appear actively in-progress for that challenge key.
  */
 export async function runDrainJob(): Promise<DrainJobResult> {
   const startMs = Date.now();
 
-  const [drainEnabled, sqlEnabled] = await Promise.all([isDrainEnabled(), isSqlEnabled()]);
+  const [drainEnabled, sqlEnabled, dryRunDeleteFromRedis] = await Promise.all([
+    isDrainEnabled(),
+    isSqlEnabled(),
+    isDrainDeleteDryRun(),
+  ]);
 
   if (!drainEnabled) {
     console.log('[user guess drain] skipped: drain disabled');
@@ -272,6 +337,7 @@ export async function runDrainJob(): Promise<DrainJobResult> {
   }
 
   const scanBudget = getScanBudget(batchSize);
+  const cutoffMs = Date.now() - RECENT_PLAY_WINDOW_MS;
   let cursor = await loadDrainCursor(currentChallenge);
   const cursorStart = { ...cursor };
 
@@ -281,6 +347,8 @@ export async function runDrainJob(): Promise<DrainJobResult> {
     cursorStart,
     scanBudget,
     zscanCount: ZSCAN_COUNT,
+    cutoffMs,
+    dryRunDeleteFromRedis,
   });
 
   const drainStart = Date.now();
@@ -317,11 +385,12 @@ export async function runDrainJob(): Promise<DrainJobResult> {
       challengeNumber: cursor.challengeNumber,
       members,
       remaining,
+      cutoffMs,
     });
 
     candidatesFound += candidates.length;
     if (candidates.length > 0) {
-      drained += await drainCandidatesBatch(candidates);
+      drained += await drainCandidatesBatch(candidates, { dryRunDeleteFromRedis });
     }
 
     if (nextScanCursor === 0) {
@@ -376,8 +445,12 @@ export async function runLastPlayedCleanupStep(
   config?: LastPlayedCleanupConfig
 ): Promise<LastPlayedCleanupResult> {
   const startMs = Date.now();
+  const cutoffMs = Date.now() - RECENT_PLAY_WINDOW_MS;
 
-  const sqlEnabled = await isSqlEnabled();
+  const [sqlEnabled, dryRunDeleteFromRedis] = await Promise.all([
+    isSqlEnabled(),
+    isDrainDeleteDryRun(),
+  ]);
   if (!sqlEnabled) {
     return {
       ok: true,
@@ -430,6 +503,7 @@ export async function runLastPlayedCleanupStep(
     cursorStart,
     scanBudget,
     zscanCount,
+    dryRunDeleteFromRedis,
   });
 
   let drained = 0;
@@ -486,6 +560,9 @@ export async function runLastPlayedCleanupStep(
         const data = await redis.hGetAll(key);
         scannedKeys++;
         if (data && !isEmptyObject(data)) {
+          if (isActivelyPlayingRecord(data, cutoffMs)) {
+            continue;
+          }
           candidatesInScan.push({ challengeNumber, username });
           candidatesFound++;
         }
@@ -497,7 +574,7 @@ export async function runLastPlayedCleanupStep(
     const candidatesToDrain = candidatesInScan.slice(0, remaining);
     const deferredCandidates = candidatesInScan.length - candidatesToDrain.length;
     if (candidatesToDrain.length > 0) {
-      drained += await drainCandidatesBatch(candidatesToDrain);
+      drained += await drainCandidatesBatch(candidatesToDrain, { dryRunDeleteFromRedis });
     }
     if (deferredCandidates > 0) {
       fullyProcessedScan = false;

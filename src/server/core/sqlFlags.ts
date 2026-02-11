@@ -5,8 +5,10 @@ export const SQL_ENABLED_KEY = 'userGuessSql:enabled' as const;
 
 export const USER_GUESS_SQL_FORCE_READS_KEY = 'userGuessSql:forceReadFromSql' as const;
 export const USER_GUESS_SQL_DRAIN_ENABLED_KEY = 'userGuessSql:drain:enabled' as const;
+export const USER_GUESS_SQL_DRAIN_DRY_RUN_DELETE_KEY =
+  'userGuessSql:drain:dryRunDeleteFromRedis' as const;
 export const USER_GUESS_SQL_DRAIN_BATCH_SIZE_KEY = 'userGuessSql:drain:batchSize' as const;
-export const USER_GUESS_SQL_DEFAULT_DRAIN_BATCH_SIZE = 500;
+export const USER_GUESS_SQL_DEFAULT_DRAIN_BATCH_SIZE = 1_000;
 export const USER_GUESS_SQL_MIN_DRAIN_BATCH_SIZE = 1;
 export const USER_GUESS_SQL_MAX_DRAIN_BATCH_SIZE = 10_000;
 
@@ -18,13 +20,18 @@ export const USER_GUESS_SQL_ROLLOUT_FLAGS = [
   },
   {
     formFieldName: 'forceReadFromSql',
-    label: 'Force reads from SQL (bypass Redis)',
+    label: 'Force reads from SQL (bypass Redis) FOR DEV ONLY!!',
     key: USER_GUESS_SQL_FORCE_READS_KEY,
   },
   {
     formFieldName: 'drainEnabled',
     label: 'Enable draining (Redis -> SQL -> delete Redis)',
     key: USER_GUESS_SQL_DRAIN_ENABLED_KEY,
+  },
+  {
+    formFieldName: 'drainDryRunDeleteFromRedis',
+    label: 'Dry run: write to SQL but do NOT delete Redis keys',
+    key: USER_GUESS_SQL_DRAIN_DRY_RUN_DELETE_KEY,
   },
 ] as const;
 
@@ -83,3 +90,8 @@ export const isForceReadFromSql = () => isToggleEnabled(USER_GUESS_SQL_FORCE_REA
 
 /** Whether the drain job (Redis -> SQL -> delete Redis) is enabled. */
 export const isDrainEnabled = () => isToggleEnabled(USER_GUESS_SQL_DRAIN_ENABLED_KEY);
+
+/**
+ * When true, drain writes to SQL but keeps Redis keys (safe production dry run).
+ */
+export const isDrainDeleteDryRun = () => isToggleEnabled(USER_GUESS_SQL_DRAIN_DRY_RUN_DELETE_KEY);
