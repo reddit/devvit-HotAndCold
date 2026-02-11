@@ -5,7 +5,6 @@ config({ path: '.env' });
 
 export default defineConfig({
   schema: ['**/*.sql.ts'],
-  out: './migrations',
   dialect: 'postgresql',
   casing: 'snake_case',
   dbCredentials: {

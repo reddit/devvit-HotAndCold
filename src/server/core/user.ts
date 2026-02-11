@@ -4,10 +4,15 @@ import { AppError } from '../../shared/errors';
 import { zodRedditUsername } from '../utils';
 import { context, reddit } from '@devvit/web/server';
 import { redisCompressed as redis } from './redisCompression';
+import { randomUUID } from 'node:crypto';
 
 export namespace User {
   export const Key = (id: string) => `user:${id}` as const;
   export const UsernameToIdKey = () => `user:usernameToId` as const;
+  export const MaskedUserIdPrefix = 'mid_';
+  export const UsernameToMaskedIdKey = () => `user:usernameToMaskedId` as const;
+  export const MaskedToUsernameKey = () => `user:maskedIdToUsername` as const;
+  export const isMaskedId = (id: string) => id.startsWith(MaskedUserIdPrefix);
 
   export const Info = z.object({
     id: z.string(),
@@ -19,6 +24,44 @@ export namespace User {
   export const CacheTtlSeconds = CACHE_TTL_SECONDS;
 
   type UserInfo = z.infer<typeof Info>;
+
+  const createMaskedUserId = () => `${MaskedUserIdPrefix}${randomUUID()}`;
+
+  export const getOrCreateMaskedId = fn(zodRedditUsername, async (username) => {
+    const existing = await redis.hGet(UsernameToMaskedIdKey(), username);
+    if (existing) {
+      if (!isMaskedId(existing)) throw new AppError('Invalid masked user id mapping');
+      await redis.hSet(MaskedToUsernameKey(), { [existing]: username });
+      return existing;
+    }
+
+    const maskedId = createMaskedUserId();
+    await redis.hSet(UsernameToMaskedIdKey(), { [username]: maskedId });
+    await redis.hSet(MaskedToUsernameKey(), { [maskedId]: username });
+    return maskedId;
+  });
+
+  export const getUsernameFromMaskedId = fn(z.string(), async (maskedId) => {
+    if (!isMaskedId(maskedId)) throw new AppError('Expected masked user id');
+    const username = await redis.hGet(MaskedToUsernameKey(), maskedId);
+    if (!username) throw new AppError('Masked user id not found');
+    return zodRedditUsername.parse(username);
+  });
+
+  export const getUserIdFromMaskedId = fn(z.string(), async (maskedId) => {
+    const username = await getUsernameFromMaskedId(maskedId);
+    const mappedId = await redis.hGet(UsernameToIdKey(), username);
+    if (mappedId) return mappedId;
+
+    // If username -> id cache is cold, hydrate it via existing user surface.
+    const info = await getByUsername(username);
+    return info.id;
+  });
+
+  export const getCurrentMaskedId = fn(z.void(), async () => {
+    const current = await getCurrent();
+    return await getOrCreateMaskedId(current.username);
+  });
 
   const cacheUserInfo = async (info: UserInfo) => {
     await redis.set(Key(info.id), JSON.stringify(info));
@@ -49,6 +92,7 @@ export namespace User {
     if (cached) {
       const info = Info.parse(JSON.parse(cached));
       await redis.hSet(UsernameToIdKey(), { [info.username]: id });
+      await getOrCreateMaskedId(info.username);
       return info;
     }
 
@@ -64,6 +108,7 @@ export namespace User {
 
     await cacheUserInfo(info);
     await redis.hSet(UsernameToIdKey(), { [info.username]: id });
+    await getOrCreateMaskedId(info.username);
     return info;
   });
 
@@ -94,6 +139,7 @@ export namespace User {
 
     await cacheUserInfo(info);
     await redis.hSet(UsernameToIdKey(), { [info.username]: info.id });
+    await getOrCreateMaskedId(info.username);
     return info;
   });
 
@@ -234,6 +280,7 @@ export namespace User {
     if (cached) {
       const info = Info.parse(JSON.parse(cached));
       await redis.hSet(UsernameToIdKey(), { [info.username]: context.userId });
+      await getOrCreateMaskedId(info.username);
       return info;
     }
 
@@ -249,6 +296,7 @@ export namespace User {
 
     await cacheUserInfo(info);
     await redis.hSet(UsernameToIdKey(), { [info.username]: info.id });
+    await getOrCreateMaskedId(info.username);
     return info;
   });
 }

@@ -34,8 +34,8 @@
     "statsPlayersForm": "/internal/form/stats/players-count",
     "peekUserGuessForm": "/internal/form/debug/peek-guess",
     "commonWordsForm": "/internal/form/stats/common-words",
-    "sqlWriteUserForm": "/internal/form/sql/write-user",
-    "sqlReadUsersForm": "/internal/form/sql/read-users"
+    "sqlUserGuessFlagsForm": "/internal/form/sql/user-guess-flags",
+    "sqlWriteUserForm": "/internal/form/sql/write-user"
   },
   "menu": {
     "items": [
@@ -265,16 +265,16 @@
         "endpoint": "/internal/menu/stats/common-words/cancel"
       },
       {
+        "label": "[sql] Configure UserGuess SQL flags",
+        "forUserType": "moderator",
+        "location": "subreddit",
+        "endpoint": "/internal/menu/sql/user-guess-flags"
+      },
+      {
         "label": "[sql] Write user",
         "forUserType": "moderator",
         "location": "subreddit",
         "endpoint": "/internal/menu/sql/write-user"
-      },
-      {
-        "label": "[sql] Read all users",
-        "forUserType": "moderator",
-        "location": "subreddit",
-        "endpoint": "/internal/menu/sql/read-users"
       }
     ]
   },

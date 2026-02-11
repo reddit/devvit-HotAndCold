@@ -34,8 +34,10 @@ import { Notifications } from './core/notifications';
 import { makeClientConfig } from '../shared/makeClientConfig';
 import { redisCompressed } from './core/redisCompression';
 import { CommonWordsAggregator } from './core/commonWordsAggregator';
+import { eq } from 'drizzle-orm';
 import { sql } from './core/drizzle';
 import { usersTable } from './core/user.sql';
+import { getInstallationId } from './utils';
 
 redisCompressed.del().catch(() => {});
 
@@ -3496,6 +3498,46 @@ app.post('/internal/scheduler/common-words-watchdog', async (_req, res): Promise
   } catch (err: any) {
     console.error('Failed common words watchdog', err);
     res.status(500).json({ status: 'error', message: err?.message });
+  }
+});
+
+// [sql] User form: write username, then read all back
+app.post('/internal/menu/sql/write-user', async (_req, res): Promise<void> => {
+  res.status(200).json({
+    showForm: {
+      name: 'sqlWriteUserForm',
+      form: {
+        title: 'SQL user',
+        acceptLabel: 'Submit',
+        fields: [{ name: 'username', label: 'Username', type: 'string', required: true }],
+      },
+    },
+  });
+});
+
+app.post('/internal/form/sql/write-user', async (req, res): Promise<void> => {
+  try {
+    const username = String((req.body as { username?: string })?.username ?? '').trim();
+    if (!username) {
+      res.status(400).json({ showToast: { text: 'Username required', appearance: 'neutral' } });
+      return;
+    }
+    const db = await sql();
+    const instId = getInstallationId();
+    const maskedUserId = await User.getOrCreateMaskedId(username);
+    await db.insert(usersTable).values({ id: maskedUserId, name: username });
+    const rows = await db.select().from(usersTable).where(eq(usersTable.installationId, instId));
+    const list = rows.map((r) => r.id).join(', ');
+    res.status(200).json({
+      showToast: {
+        text: `Wrote "${username}". All: ${list || '(none)'}`,
+        appearance: 'success',
+      },
+    });
+  } catch (err: any) {
+    res.status(500).json({
+      showToast: { text: err?.message ?? 'Failed', appearance: 'neutral' },
+    });
   }
 });
 

@@ -1,11 +1,12 @@
-import { index, pgTable, text } from 'drizzle-orm/pg-core';
-import { installationId } from './drizzle.common';
+import * as p from 'drizzle-orm/pg-core';
+import { installationId, maskedUserId } from './drizzle.types';
 
-export const usersTable = pgTable(
+export const usersTable = p.pgTable(
   'users',
   {
-    id: text().primaryKey(),
+    id: maskedUserId().primaryKey(),
+    name: p.text().notNull(),
     installationId,
   },
-  (t) => [index().on(t.installationId)]
+  (t) => [p.index().on(t.installationId)]
 );
