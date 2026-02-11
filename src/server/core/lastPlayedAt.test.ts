@@ -34,6 +34,30 @@ test('getUsersLastPlayedAt returns all users in score order', async () => {
   );
 });
 
+test('scanUsernames paginates by cursor', async () => {
+  await LastPlayedAt.setLastPlayedAtForUsername({ username: testUser1 });
+  await new Promise((r) => setTimeout(r, 2));
+  await LastPlayedAt.setLastPlayedAtForUsername({ username: testUser2 });
+  await new Promise((r) => setTimeout(r, 2));
+  await LastPlayedAt.setLastPlayedAtForUsername({ username: testUser3 });
+
+  const first = await LastPlayedAt.scanUsernames({ cursor: 0, count: 1 });
+  expect(first.members.length).toBeGreaterThan(0);
+
+  const visited = new Set(first.members);
+  let cursor = first.cursor;
+  for (let i = 0; i < 10 && cursor !== 0; i++) {
+    const next = await LastPlayedAt.scanUsernames({ cursor, count: 1 });
+    next.members.forEach((m) => visited.add(m));
+    cursor = next.cursor;
+  }
+
+  expect(visited.has(testUser1)).toBe(true);
+  expect(visited.has(testUser2)).toBe(true);
+  expect(visited.has(testUser3)).toBe(true);
+  expect(cursor).toBe(0);
+});
+
 test('totalLastPlayedUsers returns correct count', async () => {
   expect(await LastPlayedAt.totalLastPlayedUsers()).toBe(0);
   await LastPlayedAt.setLastPlayedAtForUsername({ username: testUser1 });

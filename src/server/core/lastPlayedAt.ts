@@ -39,6 +39,20 @@ export namespace LastPlayedAt {
     return await redis.zCard(getLastPlayedAtKey());
   });
 
+  export const scanUsernames = fn(
+    z.object({
+      cursor: z.number().int().min(0),
+      count: z.number().int().min(1).max(10_000).optional(),
+    }),
+    async ({ cursor, count }) => {
+      const result = await redis.zScan(getLastPlayedAtKey(), cursor, undefined, count ?? 200);
+      return {
+        cursor: result.cursor,
+        members: result.members.map((m) => m.member),
+      };
+    }
+  );
+
   /**
    * Usernames whose last play was at or before cutoffMs (score in sorted set).
    * Use for drain: users not played in the last N hours.
@@ -53,8 +67,8 @@ export namespace LastPlayedAt {
         by: 'score',
       });
       const usernames = data.map((d) => d.member);
-      const cap = limit ?? 1000;
-      return cap > 0 ? usernames.slice(0, cap) : usernames;
+      if (limit == null) return usernames;
+      return usernames.slice(0, limit);
     }
   );
 }

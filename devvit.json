@@ -35,7 +35,8 @@
     "peekUserGuessForm": "/internal/form/debug/peek-guess",
     "commonWordsForm": "/internal/form/stats/common-words",
     "sqlUserGuessFlagsForm": "/internal/form/sql/user-guess-flags",
-    "sqlWriteUserForm": "/internal/form/sql/write-user"
+    "sqlWriteUserForm": "/internal/form/sql/write-user",
+    "sqlUserGuessLastPlayedCleanupForm": "/internal/form/sql/user-guess-last-played-cleanup"
   },
   "menu": {
     "items": [
@@ -275,6 +276,12 @@
         "forUserType": "moderator",
         "location": "subreddit",
         "endpoint": "/internal/menu/sql/write-user"
+      },
+      {
+        "label": "[sql] Start UserGuess full cleanup",
+        "forUserType": "moderator",
+        "location": "subreddit",
+        "endpoint": "/internal/menu/sql/user-guess-last-played-cleanup"
       }
     ]
   },
@@ -327,7 +334,8 @@
         "cron": "*/5 * * * *",
         "endpoint": "/internal/scheduler/user-guess-drain",
         "data": {}
-      }
+      },
+      "user-guess-last-played-cleanup": "/internal/scheduler/user-guess-last-played-cleanup"
     }
   },
   "triggers": {

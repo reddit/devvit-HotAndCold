@@ -1,20 +1,23 @@
 import { redis } from '@devvit/web/server';
-import { vi } from 'vitest';
-import { expect } from 'vitest';
+import { expect, vi } from 'vitest';
 import { test } from '../test';
-import { runDrainJob } from './userGuess.drain';
+import {
+  resetLastPlayedCleanupCursor,
+  runDrainJob,
+  runLastPlayedCleanupStep,
+} from './userGuess.drain';
 import * as sqlFlags from './sqlFlags';
 import * as userGuessSql from './userGuess.sql';
 import { Challenge } from './challenge';
+import { ChallengeProgress } from './challengeProgress';
 import { LastPlayedAt } from './lastPlayedAt';
 import { UserGuess } from './userGuess';
 import { redisCompressed } from './redisCompression';
 import * as utils from '../utils';
 
-const STALE_USERNAME = 'drain_test_stale_user';
-const THREE_HOURS_MS = 3 * 60 * 60 * 1000;
+const DRAIN_CURSOR_KEY = 'userGuessSql:drain:cursor';
 
-test('runDrainJob skips when drain or SQL disabled', async () => {
+test('scheduled drain skips when drain flag disabled', async () => {
   vi.spyOn(sqlFlags, 'isDrainEnabled').mockResolvedValue(false);
   vi.spyOn(sqlFlags, 'isSqlEnabled').mockResolvedValue(true);
 
@@ -26,83 +29,60 @@ test('runDrainJob skips when drain or SQL disabled', async () => {
   vi.restoreAllMocks();
 });
 
-test('runDrainJob finds no candidates when no stale user data in Redis', async () => {
-  vi.spyOn(sqlFlags, 'isDrainEnabled').mockResolvedValue(true);
-  vi.spyOn(sqlFlags, 'isSqlEnabled').mockResolvedValue(true);
-  vi.spyOn(sqlFlags, 'getDrainBatchSize').mockResolvedValue(50);
-
-  const result = await runDrainJob();
-
-  expect(result.ok).toBe(true);
-  expect(result.candidatesFound).toBe(0);
-  expect(result.drained).toBe(0);
-  expect(result.skippedReason).toBeUndefined();
-  vi.restoreAllMocks();
-});
-
-test('runDrainJob collects candidate from Redis when user has not played in 3h', async () => {
+test('scheduled drain drains from ChallengeProgress index (independent of last_played_at recency)', async () => {
   const challengeNumber = 1;
-  const key = UserGuess.Key(challengeNumber, STALE_USERNAME);
-  const guessesPayload = JSON.stringify([
-    { word: 'test', timestampMs: 1_700_000_000_000, similarity: 0.5, rank: 1, isHint: false },
-  ]);
-  const startedPlayingAtMs = String(1_700_000_000_000);
+  const username = 'drain_sched_user';
+  const key = UserGuess.Key(challengeNumber, username);
 
   await redis.set(Challenge.CurrentChallengeNumberKey(), String(challengeNumber));
   await redis.zAdd(LastPlayedAt.getLastPlayedAtKey(), {
-    member: STALE_USERNAME,
-    score: Date.now() - THREE_HOURS_MS - 60_000,
+    member: username,
+    score: Date.now() - 60_000, // recent, should still drain in scheduled path
+  });
+  await redis.zAdd(ChallengeProgress.StartKey(challengeNumber), {
+    member: username,
+    score: 1,
   });
   await redisCompressed.hSet(key, {
-    guesses: guessesPayload,
-    startedPlayingAtMs,
+    guesses: JSON.stringify([
+      { word: 'test', timestampMs: 1_700_000_000_000, similarity: 0.5, rank: 1, isHint: false },
+    ]),
   });
 
   vi.spyOn(sqlFlags, 'isDrainEnabled').mockResolvedValue(true);
   vi.spyOn(sqlFlags, 'isSqlEnabled').mockResolvedValue(true);
   vi.spyOn(sqlFlags, 'getDrainBatchSize').mockResolvedValue(10);
-
-  const upsertSpy = vi.spyOn(userGuessSql, 'upsertUserGuessRow').mockResolvedValue(undefined);
   vi.spyOn(utils, 'getInstallationId').mockReturnValue('test-installation-id');
+  const upsertSpy = vi.spyOn(userGuessSql, 'upsertUserGuessRow').mockResolvedValue(undefined);
 
   const result = await runDrainJob();
 
+  expect(result.ok).toBe(true);
   expect(result.candidatesFound).toBe(1);
   expect(result.drained).toBe(1);
-  expect(result.ok).toBe(true);
-
   expect(upsertSpy).toHaveBeenCalledTimes(1);
-  const [upsertArg] = upsertSpy.mock.calls[0];
-  expect(upsertArg.challengeNumber).toBe(challengeNumber);
-  expect(upsertArg.guesses).toHaveLength(1);
-  expect(upsertArg.guesses[0].word).toBe('test');
-  expect(upsertArg.startedPlayingAt).toEqual(new Date(1_700_000_000_000));
-  expect(upsertArg.userId).toMatch(/^mid_/);
 
   const keyAfter = await redisCompressed.hGetAll(key);
   expect(keyAfter == null || Object.keys(keyAfter).length === 0).toBe(true);
 
   vi.restoreAllMocks();
   await redis.del(key);
-  await redis.zRem(LastPlayedAt.getLastPlayedAtKey(), [STALE_USERNAME]);
+  await redis.zRem(LastPlayedAt.getLastPlayedAtKey(), [username]);
+  await redis.zRem(ChallengeProgress.StartKey(challengeNumber), [username]);
+  await redis.del(DRAIN_CURSOR_KEY);
 });
 
-test('runDrainJob does not collect user who played recently', async () => {
-  const recentUsername = 'drain_test_recent_user';
+test('scheduled drain does not discover key if user missing from ChallengeProgress', async () => {
   const challengeNumber = 1;
-  const key = UserGuess.Key(challengeNumber, recentUsername);
+  const username = 'drain_sched_missing_progress';
+  const key = UserGuess.Key(challengeNumber, username);
 
   await redis.set(Challenge.CurrentChallengeNumberKey(), String(challengeNumber));
-  await redis.zAdd(LastPlayedAt.getLastPlayedAtKey(), {
-    member: recentUsername,
-    score: Date.now() - 60_000,
-  });
   await redisCompressed.hSet(key, { guesses: '[]' });
 
   vi.spyOn(sqlFlags, 'isDrainEnabled').mockResolvedValue(true);
   vi.spyOn(sqlFlags, 'isSqlEnabled').mockResolvedValue(true);
   vi.spyOn(sqlFlags, 'getDrainBatchSize').mockResolvedValue(10);
-
   const upsertSpy = vi.spyOn(userGuessSql, 'upsertUserGuessRow').mockResolvedValue(undefined);
 
   const result = await runDrainJob();
@@ -111,7 +91,83 @@ test('runDrainJob does not collect user who played recently', async () => {
   expect(result.drained).toBe(0);
   expect(upsertSpy).not.toHaveBeenCalled();
 
+  const keyAfter = await redisCompressed.hGetAll(key);
+  expect(keyAfter && Object.keys(keyAfter).length > 0).toBe(true);
+
   vi.restoreAllMocks();
   await redis.del(key);
-  await redis.zRem(LastPlayedAt.getLastPlayedAtKey(), [recentUsername]);
+  await redis.del(DRAIN_CURSOR_KEY);
+});
+
+test('last-played cleanup drains users even if not in ChallengeProgress', async () => {
+  const challengeNumber = 1;
+  const username = 'drain_cleanup_user';
+  const key = UserGuess.Key(challengeNumber, username);
+
+  await redis.set(Challenge.CurrentChallengeNumberKey(), String(challengeNumber));
+  await redis.zAdd(LastPlayedAt.getLastPlayedAtKey(), {
+    member: username,
+    score: Date.now() - 60_000,
+  });
+  await redisCompressed.hSet(key, { guesses: '[]' });
+
+  vi.spyOn(sqlFlags, 'isSqlEnabled').mockResolvedValue(true);
+  vi.spyOn(sqlFlags, 'getDrainBatchSize').mockResolvedValue(10);
+  vi.spyOn(utils, 'getInstallationId').mockReturnValue('test-installation-id');
+  const upsertSpy = vi.spyOn(userGuessSql, 'upsertUserGuessRow').mockResolvedValue(undefined);
+
+  const result = await runLastPlayedCleanupStep();
+
+  expect(result.ok).toBe(true);
+  expect(result.done).toBe(true);
+  expect(result.candidatesFound).toBe(1);
+  expect(result.drained).toBe(1);
+  expect(upsertSpy).toHaveBeenCalledTimes(1);
+
+  const keyAfter = await redisCompressed.hGetAll(key);
+  expect(keyAfter == null || Object.keys(keyAfter).length === 0).toBe(true);
+
+  vi.restoreAllMocks();
+  await redis.del(key);
+  await redis.zRem(LastPlayedAt.getLastPlayedAtKey(), [username]);
+  await resetLastPlayedCleanupCursor();
+});
+
+test('last-played cleanup cursor daisy-chains across runs with batch size 1', async () => {
+  const challengeNumber = 2;
+  const username = 'drain_cleanup_cursor_user';
+  const key1 = UserGuess.Key(1, username);
+  const key2 = UserGuess.Key(2, username);
+
+  await redis.set(Challenge.CurrentChallengeNumberKey(), String(challengeNumber));
+  await redis.zAdd(LastPlayedAt.getLastPlayedAtKey(), {
+    member: username,
+    score: Date.now() - 60_000,
+  });
+  await redisCompressed.hSet(key1, { guesses: '[]' });
+  await redisCompressed.hSet(key2, { guesses: '[]' });
+
+  vi.spyOn(sqlFlags, 'isSqlEnabled').mockResolvedValue(true);
+  vi.spyOn(sqlFlags, 'getDrainBatchSize').mockResolvedValue(1);
+  vi.spyOn(utils, 'getInstallationId').mockReturnValue('test-installation-id');
+  vi.spyOn(userGuessSql, 'upsertUserGuessRow').mockResolvedValue(undefined);
+
+  const first = await runLastPlayedCleanupStep();
+  const second = await runLastPlayedCleanupStep();
+
+  expect(first.drained).toBe(1);
+  expect(first.done).toBe(false);
+  expect(second.drained).toBe(1);
+  expect(second.done).toBe(true);
+
+  const after1 = await redisCompressed.hGetAll(key1);
+  const after2 = await redisCompressed.hGetAll(key2);
+  expect(after1 == null || Object.keys(after1).length === 0).toBe(true);
+  expect(after2 == null || Object.keys(after2).length === 0).toBe(true);
+
+  vi.restoreAllMocks();
+  await redis.del(key1);
+  await redis.del(key2);
+  await redis.zRem(LastPlayedAt.getLastPlayedAtKey(), [username]);
+  await resetLastPlayedCleanupCursor();
 });

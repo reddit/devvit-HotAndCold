@@ -15,7 +15,12 @@ import {
   getWordConfig,
 } from './core/api';
 import { UserGuess } from './core/userGuess';
-import { runDrainJob } from './core/userGuess.drain';
+import {
+  type LastPlayedCleanupConfig,
+  resetLastPlayedCleanupCursor,
+  runDrainJob,
+  runLastPlayedCleanupStep,
+} from './core/userGuess.drain';
 import { User } from './core/user';
 import { ChallengeProgress } from './core/challengeProgress';
 import { ChallengeLeaderboard } from './core/challengeLeaderboard';
@@ -55,6 +60,33 @@ const USER_GUESS_MIGRATION_DISABLED_KEY = 'userGuessCompressionMigration:disable
 const CHALLENGE_PROGRESS_MIGRATION_DISABLED_KEY =
   'challengeProgressCompressionMigration:disabled' as const;
 const USER_CACHE_MIGRATION_DISABLED_KEY = 'userCacheCompressionMigration:disabled' as const;
+const USER_GUESS_LAST_PLAYED_CLEANUP_CONFIG_KEY =
+  'userGuessSql:cleanup:lastPlayed:config' as const;
+
+const LastPlayedCleanupConfigSchema = z.object({
+  batchSize: z.coerce.number().int().min(1).max(10_000),
+  zscanCount: z.coerce.number().int().min(1).max(1_000),
+});
+
+async function getLastPlayedCleanupConfig(): Promise<LastPlayedCleanupConfig | null> {
+  const raw = await redis.get(USER_GUESS_LAST_PLAYED_CLEANUP_CONFIG_KEY);
+  if (!raw) return null;
+  try {
+    return LastPlayedCleanupConfigSchema.parse(JSON.parse(raw));
+  } catch (error) {
+    console.error('Invalid stored last-played cleanup config; clearing', error);
+    await redis.del(USER_GUESS_LAST_PLAYED_CLEANUP_CONFIG_KEY);
+    return null;
+  }
+}
+
+async function setLastPlayedCleanupConfig(config: LastPlayedCleanupConfig): Promise<void> {
+  await redis.set(USER_GUESS_LAST_PLAYED_CLEANUP_CONFIG_KEY, JSON.stringify(config));
+}
+
+async function clearLastPlayedCleanupConfig(): Promise<void> {
+  await redis.del(USER_GUESS_LAST_PLAYED_CLEANUP_CONFIG_KEY);
+}
 
 // Formats a duration in milliseconds to a human-readable long form like
 // "2 hours 5 minutes 3 seconds" or "2 minutes 45 seconds" or "5 seconds".
@@ -3496,13 +3528,35 @@ app.post('/internal/scheduler/common-words-aggregator', async (_req, res): Promi
   }
 });
 
-// Scheduler: user-guess-drain (every 5 min; drains Redis -> SQL for users not played in 3h)
+// Scheduler: user-guess-drain (every 5 min; ChallengeProgress-indexed rolling drain)
 app.post('/internal/scheduler/user-guess-drain', async (_req, res): Promise<void> => {
   try {
     const result = await runDrainJob();
     res.json({ status: 'ok', ...result });
   } catch (err: any) {
     console.error('[user guess drain] job failed', err);
+    res.status(500).json({ status: 'error', message: err?.message });
+  }
+});
+
+// Scheduler: user-guess-last-played-cleanup (manual daisy-chain over LastPlayedAt x challenges)
+app.post('/internal/scheduler/user-guess-last-played-cleanup', async (_req, res): Promise<void> => {
+  try {
+    const config = await getLastPlayedCleanupConfig();
+    const result = await runLastPlayedCleanupStep(config ?? undefined);
+    if (!result.done) {
+      await scheduler.runJob({
+        name: 'user-guess-last-played-cleanup',
+        runAt: new Date(),
+        data: {},
+      });
+      res.json({ status: 'requeued', ...result });
+      return;
+    }
+    await clearLastPlayedCleanupConfig();
+    res.json({ status: 'done', ...result });
+  } catch (err: any) {
+    console.error('[user guess drain] cleanup job failed', err);
     res.status(500).json({ status: 'error', message: err?.message });
   }
 });
@@ -3599,6 +3653,85 @@ app.post('/internal/form/sql/user-guess-flags', async (req, res): Promise<void> 
     res.status(500).json({
       showToast: {
         text: err?.message || 'Failed to save SQL flags',
+        appearance: 'neutral',
+      },
+    });
+  }
+});
+
+// [sql] Start manual full cleanup using LastPlayedAt-driven daisy chain (form launcher)
+app.post('/internal/menu/sql/user-guess-last-played-cleanup', async (_req, res): Promise<void> => {
+  try {
+    const [drainBatchSize, existingConfig] = await Promise.all([
+      getDrainBatchSize(),
+      getLastPlayedCleanupConfig(),
+    ]);
+    const defaults = {
+      batchSize: existingConfig?.batchSize ?? drainBatchSize,
+      zscanCount: existingConfig?.zscanCount ?? 100,
+    };
+
+    res.status(200).json({
+      showForm: {
+        name: 'sqlUserGuessLastPlayedCleanupForm',
+        form: {
+          title: 'Start UserGuess LastPlayed cleanup',
+          acceptLabel: 'Start',
+          fields: [
+            {
+              name: 'batchSize',
+              label: `Max rows to drain per run (default ${defaults.batchSize})`,
+              type: 'number',
+              defaultValue: defaults.batchSize,
+            },
+            {
+              name: 'zscanCount',
+              label: `Usernames scanned from last_played_at per run (default ${defaults.zscanCount})`,
+              type: 'number',
+              defaultValue: defaults.zscanCount,
+            },
+          ],
+        },
+      },
+    });
+  } catch (err: any) {
+    console.error('Failed to open UserGuess LastPlayed cleanup form', err);
+    res.status(500).json({
+      showToast: {
+        text: err?.message || 'Failed to open cleanup form',
+        appearance: 'neutral',
+      },
+    });
+  }
+});
+
+// [sql] Start manual full cleanup using LastPlayedAt-driven daisy chain (form handler)
+app.post('/internal/form/sql/user-guess-last-played-cleanup', async (req, res): Promise<void> => {
+  try {
+    const body = (req.body as any) ?? {};
+    const config = LastPlayedCleanupConfigSchema.parse({
+      batchSize: body.batchSize,
+      zscanCount: body.zscanCount,
+    });
+
+    await Promise.all([setLastPlayedCleanupConfig(config), resetLastPlayedCleanupCursor()]);
+    await scheduler.runJob({
+      name: 'user-guess-last-played-cleanup',
+      runAt: new Date(),
+      data: {},
+    });
+
+    res.status(200).json({
+      showToast: {
+        text: `Started cleanup: batchSize=${config.batchSize}, zscanCount=${config.zscanCount}`,
+        appearance: 'success',
+      },
+    });
+  } catch (err: any) {
+    console.error('Failed to start UserGuess LastPlayed cleanup', err);
+    res.status(500).json({
+      showToast: {
+        text: err?.message || 'Failed to start cleanup',
         appearance: 'neutral',
       },
     });
