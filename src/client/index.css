@@ -5,8 +5,6 @@ html,
 body {
   height: 100%;
   overflow: hidden;
-  overscroll-behavior: none;
-  overscroll-behavior-y: none;
   -webkit-overflow-scrolling: auto;
 }
 
@@ -18,11 +16,4 @@ body {
 body::-webkit-scrollbar {
   width: 0;
   height: 0;
-}
-
-/* Prevent scroll chaining/bounce inside iframes on supporting browsers */
-iframe,
-html,
-body {
-  overscroll-behavior: none;
 }
