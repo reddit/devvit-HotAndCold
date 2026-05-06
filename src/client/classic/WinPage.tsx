@@ -170,17 +170,12 @@ const CallToAction = ({
       rank: stats.rank ?? null,
     });
 
-    const lines = [
-      didWin ? `I solved Hot & Cold #${challengeNumber}!` : `I played Hot & Cold #${challengeNumber}.`,
-      stats.rank ? `Rank: #${stats.rank}` : null,
-      typeof stats.score === 'number' ? `Score: ${stats.score}` : null,
-      stats.timeToSolve ? `Time: ${stats.timeToSolve}` : null,
-    ].filter(Boolean);
+    const shareText = didWin ? `I solved Hot & Cold #${challengeNumber} in ${stats.timeToSolve}. Can you beat my time?` : `Can you solve Hot & Cold #${challengeNumber}?`;
 
     try {
       await showShareSheet({
         title: 'Hot & Cold',
-        text: lines.join('\n'),
+        text: shareText,
         data: JSON.stringify({ challengeNumber }),
       });
     } catch (e) {
