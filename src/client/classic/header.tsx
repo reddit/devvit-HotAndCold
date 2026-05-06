@@ -12,7 +12,7 @@ import {
   loadPreviousGuessesFromSession,
   selectNextHint,
 } from '../core/hints';
-import { context } from '@devvit/web/client';
+import { context, showShareSheet, showToast } from '@devvit/web/client';
 import { requireChallengeNumber } from '../requireChallengeNumber';
 import { userSettings, toggleLayout, toggleSortType, setReminderOptIn } from './state/userSettings';
 import { trpc } from '../trpc';
@@ -22,7 +22,6 @@ import { posthog } from '../posthog';
 import { openExperiments } from './state/experiments';
 import { openArchive } from './state/archive';
 import { getBrowserIanaTimeZone } from '../../shared/timezones';
-import { showToast } from '@devvit/web/client';
 import { isLoggedOut } from '../shared/user';
 
 const SpeechBubbleTail = ({ className }: { className?: string }) => (
@@ -223,6 +222,26 @@ export function Header({ engine, isAdmin }: { engine?: GuessEngine; isAdmin: boo
                   // Reload to re-init from server and repopulate state
                   if (typeof window !== 'undefined') {
                     window.location.reload();
+                  }
+                },
+              },
+              {
+                name: 'Share',
+                action: async () => {
+                  posthog.capture('Game Page Share Clicked', {
+                    challengeNumber,
+                  });
+                  try {
+                    await showShareSheet({
+                      title: 'Hot & Cold',
+                      text: `Play Hot & Cold #${challengeNumber} with me.`,
+                      data: JSON.stringify({
+                        challengeNumber,
+                      }),
+                    });
+                  } catch (e) {
+                    console.error('Failed to open share sheet', e);
+                    showToast({ text: 'Share is unavailable right now' });
                   }
                 },
               },

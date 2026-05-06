@@ -12,7 +12,7 @@ import { requireChallengeNumber } from '../requireChallengeNumber';
 import { getPrettyDuration } from '../../shared/prettyDuration';
 import { ScoreBreakdownModal } from './scoreBreakdownModal';
 import { loadHintsForChallenge, type HintWord } from '../core/hints';
-import { context } from '@devvit/web/client';
+import { context, showShareSheet, showToast } from '@devvit/web/client';
 import { getBrowserIanaTimeZone } from '../../shared/timezones';
 import { formatCompactNumber } from '../../shared/formatCompactNumber';
 
@@ -43,6 +43,7 @@ type CallToActionType = 'JOIN_SUBREDDIT' | 'REMIND_ME_TO_PLAY' | 'COMMENT' | nul
 const CallToAction = ({
   didWin,
   challengeNumber,
+  stats,
 }: {
   didWin: boolean;
   challengeNumber: number;
@@ -161,18 +162,53 @@ const CallToAction = ({
         ? 'Remind me to play every day'
         : 'Share your journey in the thread';
 
+  const shareResults = async () => {
+    posthog.capture('Win Page Share Clicked', {
+      challengeNumber,
+      didWin,
+      score: stats.score ?? null,
+      rank: stats.rank ?? null,
+    });
+
+    const shareText = didWin ? `I solved Hot & Cold #${challengeNumber} in ${stats.timeToSolve}. Can you beat my time?` : `Can you solve Hot & Cold #${challengeNumber}?`;
+
+    try {
+      await showShareSheet({
+        title: 'Hot & Cold',
+        text: shareText,
+        data: JSON.stringify({ challengeNumber }),
+      });
+    } catch (e) {
+      console.error('Failed to open share sheet', e);
+      showToast({ text: 'Share is unavailable right now' });
+    }
+  };
+
   return (
     <div className="text-sm">
-      <button
-        type="button"
-        onClick={doAction}
-        disabled={isLoading}
-        className="w-full cursor-pointer rounded-full bg-zinc-100 text-black focus:outline-none focus:ring-2 focus:ring-slate-400 focus:ring-offset-2 focus:ring-offset-slate-50 dark:bg-zinc-800 dark:text-white"
-      >
-        <GradientBorder isHidden={isLoading}>
-          <span className="inline-block px-4 py-3">{isLoading ? 'Working…' : label}</span>
-        </GradientBorder>
-      </button>
+      <div className="flex flex-col items-center">
+        <button
+          type="button"
+          onClick={doAction}
+          disabled={isLoading}
+          className="w-fit cursor-pointer rounded-full bg-zinc-100 text-black focus:outline-none focus:ring-2 focus:ring-slate-400 focus:ring-offset-2 focus:ring-offset-slate-50 dark:bg-zinc-800 dark:text-white"
+        >
+          <GradientBorder isHidden={isLoading}>
+            <span className="inline-flex h-10 items-center justify-center whitespace-nowrap px-8 font-semibold leading-none">
+              {isLoading ? 'Working…' : label}
+            </span>
+          </GradientBorder>
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            void shareResults();
+          }}
+          className="mt-2 w-fit rounded-full bg-zinc-100 px-8 py-2.5 font-semibold leading-none whitespace-nowrap text-black focus:outline-none focus:ring-2 focus:ring-slate-400 focus:ring-offset-2 focus:ring-offset-slate-50 dark:bg-zinc-800 dark:text-white"
+        >
+          Share Results
+        </button>
+      </div>
 
       <Modal isOpen={isCommentOpen} onClose={() => setIsCommentOpen(false)}>
         <div className="w-[90vw] max-w-md rounded-xl border border-gray-200 bg-white p-4 text-black shadow-xl dark:border-gray-700 dark:bg-gray-900 dark:text-white">
