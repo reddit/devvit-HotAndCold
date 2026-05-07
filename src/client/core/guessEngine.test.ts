@@ -317,6 +317,61 @@ describe('guessEngine', () => {
     ]);
   });
 
+  it('reconciles on logged-in init by submitting local guesses missing from server', async () => {
+    window.localStorage.setItem(
+      'guess-history:55',
+      JSON.stringify([
+        { word: 'alpha', similarity: 0.2, rank: 20, timestamp: 1 },
+        { word: 'beta', similarity: 0.3, rank: 10, timestamp: 2 },
+      ])
+    );
+
+    trpcMock.game.get.query
+      .mockResolvedValueOnce({
+        challengeUserInfo: {
+          guesses: [{ word: 'alpha', similarity: 0.2, rank: 20, timestampMs: 1 }],
+        },
+      })
+      .mockResolvedValueOnce({
+        challengeUserInfo: {
+          guesses: [
+            { word: 'alpha', similarity: 0.2, rank: 20, timestampMs: 1 },
+            { word: 'beta', similarity: 0.3, rank: 10, timestampMs: 2 },
+          ],
+        },
+      });
+
+    trpcMock.guess.submitBatch.mutate.mockResolvedValueOnce({ challengeUserInfo: {} });
+
+    const engine = createGuessEngine({ challengeNumber: 55 });
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(trpcMock.guess.submitBatch.mutate).toHaveBeenCalledWith({
+      challengeNumber: 55,
+      guesses: [{ word: 'beta', similarity: 0.3, rank: 10, atMs: 2 }],
+    });
+    expect(trpcMock.game.get.query).toHaveBeenCalledTimes(2);
+    expect(engine.history.value).toEqual([
+      { word: 'alpha', similarity: 0.2, rank: 20, timestamp: 1 },
+      { word: 'beta', similarity: 0.3, rank: 10, timestamp: 2 },
+    ]);
+  });
+
+  it('does not import local guesses on init when logged out', async () => {
+    window.localStorage.setItem(
+      'guess-history:56',
+      JSON.stringify([{ word: 'guest', similarity: 0.6, rank: 6, timestamp: 3 }])
+    );
+    trpcMock.game.get.query.mockResolvedValueOnce({ challengeUserInfo: null });
+
+    const engine = createGuessEngine({ challengeNumber: 56 });
+    await Promise.resolve();
+
+    expect(trpcMock.guess.submitBatch.mutate).not.toHaveBeenCalled();
+    expect(engine.history.value).toEqual([{ word: 'guest', similarity: 0.6, rank: 6, timestamp: 3 }]);
+  });
+
   it('submits guesses to server in the background and uses returned solvedAtMs if provided', async () => {
     const engine = createGuessEngine({ challengeNumber: 30, rateLimitMs: 1 });
     makeGuessMock.mockResolvedValueOnce({ word: 'close', similarity: 0.9, rank: 2 });

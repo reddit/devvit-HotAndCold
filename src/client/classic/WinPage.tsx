@@ -17,8 +17,40 @@ import { getBrowserIanaTimeZone } from '../../shared/timezones';
 import { formatCompactNumber } from '../../shared/formatCompactNumber';
 
 type LeaderboardEntry = { member: string; score: number };
+type LocalWinningGuess = {
+  word: string;
+  similarity: number;
+  rank: number;
+  timestamp: number;
+};
 
 const prettyNumber = (num: number): string => num.toLocaleString('en-US');
+
+const readLocalWinningGuess = (challengeNumber: number): LocalWinningGuess | null => {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = window.localStorage.getItem(`guess-history:${String(challengeNumber)}`);
+    if (!raw) return null;
+    const parsed: unknown = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return null;
+    const winning = parsed
+      .filter((item): item is Record<string, unknown> => !!item && typeof item === 'object')
+      .find((item) => Number(item.similarity) === 1);
+    if (!winning) return null;
+    const word = String(winning.word ?? '').trim().toLowerCase();
+    if (!word) return null;
+    const rank = Number(winning.rank);
+    const timestamp = Number(winning.timestamp);
+    return {
+      word,
+      similarity: 1,
+      rank: Number.isFinite(rank) ? rank : -1,
+      timestamp: Number.isFinite(timestamp) ? timestamp : Date.now(),
+    };
+  } catch {
+    return null;
+  }
+};
 
 const StatCard = ({
   title,
@@ -316,6 +348,47 @@ export function WinPage() {
     })();
   }, [challengeNumber]);
 
+  useEffect(() => {
+    if (!context.userId) return;
+    if (!challengeUserInfo) return;
+    if (challengeUserInfo.solvedAtMs) return;
+
+    const localWinningGuess = readLocalWinningGuess(challengeNumber);
+    if (!localWinningGuess) return;
+
+    let cancelled = false;
+    void (async () => {
+      try {
+        await trpc.guess.submitBatch.mutate({
+          challengeNumber,
+          guesses: [
+            {
+              word: localWinningGuess.word,
+              similarity: localWinningGuess.similarity,
+              rank: localWinningGuess.rank,
+              atMs: localWinningGuess.timestamp,
+            },
+          ],
+        });
+      } catch {
+        // ignore
+      }
+
+      try {
+        const refreshed = await trpc.game.get.query({ challengeNumber });
+        if (cancelled) return;
+        setChallengeInfo(refreshed.challengeInfo);
+        setChallengeUserInfo(refreshed.challengeUserInfo);
+      } catch {
+        // ignore
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [challengeNumber, challengeUserInfo, challengeUserInfo?.solvedAtMs]);
+
   if (!challengeUserInfo || !challengeInfo) {
     // optimistic skeleton
     return (
@@ -326,8 +399,8 @@ export function WinPage() {
     );
   }
 
-  const didWin = !!challengeUserInfo.solvedAtMs;
   const word = challengeUserInfo.guesses?.find((x: any) => x.similarity === 1);
+  const didWin = Boolean(challengeUserInfo.solvedAtMs || word);
 
   const calculatePercentageOutperformed = (rank: number, totalPlayers: number): number => {
     if (rank === 1) return 100;

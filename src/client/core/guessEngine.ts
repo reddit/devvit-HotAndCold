@@ -85,6 +85,10 @@ const submitBatchToServer = async (
   }
 };
 
+const RECONCILE_BATCH_SIZE = 25;
+
+const toWordKey = (word: string): string => String(word ?? '').trim().toLowerCase();
+
 // ---------------------------------------------------------
 // Engine factory
 // ---------------------------------------------------------
@@ -170,25 +174,63 @@ export function createGuessEngine(params: {
   void (async () => {
     const localHistorySnapshot: GuessHistoryItem[] = history.value.slice();
     try {
+      const parseServerHistory = (challengeUserInfo: any): GuessHistoryItem[] =>
+        challengeUserInfo.guesses.map((g: any) => {
+          const s = Number(g.similarity);
+          const r = Number(g.rank);
+          const t = Number(g.timestampMs);
+          return {
+            word: String(g.word ?? ''),
+            similarity: Number.isFinite(s) ? s : 0,
+            rank: Number.isFinite(r) ? r : -1,
+            timestamp: Number.isFinite(t) ? t : Date.now(),
+          };
+        });
+
       const server = await trpc.game.get.query({ challengeNumber });
       if (!server.challengeUserInfo) {
         return;
       }
-      const serverWords = server.challengeUserInfo.guesses.map((g: any) => g.word);
-      const serverHistory: GuessHistoryItem[] = server.challengeUserInfo.guesses.map((g: any) => {
-        const s = Number(g.similarity);
-        const r = Number(g.rank);
-        const t = Number(g.timestampMs);
-        return {
-          word: String(g.word ?? ''),
-          similarity: Number.isFinite(s) ? s : 0,
-          rank: Number.isFinite(r) ? r : -1,
-          timestamp: Number.isFinite(t) ? t : Date.now(),
-        };
-      });
+      let latestChallengeUserInfo = server.challengeUserInfo;
+      let serverHistory: GuessHistoryItem[] = parseServerHistory(latestChallengeUserInfo);
+
+      // Logged-in reconciliation: import local-only guesses into the account on init.
+      if (localHistorySnapshot.length > 0) {
+        const serverWordSet = new Set(serverHistory.map((item) => toWordKey(item.word)));
+        const missingLocalGuesses = localHistorySnapshot
+          .filter((item) => !serverWordSet.has(toWordKey(item.word)))
+          .sort((a, b) => a.timestamp - b.timestamp)
+          .map((item) => ({
+            word: item.word,
+            similarity: item.similarity,
+            rank: Number.isFinite(item.rank) ? item.rank : -1,
+            atMs: Number.isFinite(item.timestamp) ? item.timestamp : Date.now(),
+          }));
+
+        if (missingLocalGuesses.length > 0) {
+          for (let i = 0; i < missingLocalGuesses.length; i += RECONCILE_BATCH_SIZE) {
+            const chunk = missingLocalGuesses.slice(i, i + RECONCILE_BATCH_SIZE);
+            try {
+              await submitBatchToServer(challengeNumber, chunk);
+            } catch {
+              // Ignore per-batch failures; a later fetch reconciles remaining state.
+            }
+          }
+          try {
+            const refreshed = await trpc.game.get.query({ challengeNumber });
+            if (refreshed.challengeUserInfo) {
+              latestChallengeUserInfo = refreshed.challengeUserInfo;
+              serverHistory = parseServerHistory(latestChallengeUserInfo);
+            }
+          } catch {
+            // Ignore refresh failures and continue with best known server snapshot.
+          }
+        }
+      }
+      const serverWords = serverHistory.map((item) => item.word);
 
       // If server indicates solved, mark immediately
-      const serverSolvedAt = server?.challengeUserInfo?.solvedAtMs;
+      const serverSolvedAt = latestChallengeUserInfo?.solvedAtMs;
       if (serverSolvedAt && Number.isFinite(Number(serverSolvedAt))) {
         solvedAtMs.value = Number(serverSolvedAt);
         markSolvedForCurrentChallenge(solvedAtMs.value);

@@ -12,7 +12,7 @@ import {
   loadPreviousGuessesFromSession,
   selectNextHint,
 } from '../core/hints';
-import { context, showShareSheet, showToast } from '@devvit/web/client';
+import { context, showLoginPrompt, showShareSheet, showToast } from '@devvit/web/client';
 import { requireChallengeNumber } from '../requireChallengeNumber';
 import { userSettings, toggleLayout, toggleSortType, setReminderOptIn } from './state/userSettings';
 import { trpc } from '../trpc';
@@ -245,6 +245,17 @@ export function Header({ engine, isAdmin }: { engine?: GuessEngine; isAdmin: boo
                   }
                 },
               },
+              ...(isLoggedOut()
+                ? ([
+                    {
+                      name: 'Log In',
+                      action: () => {
+                        posthog.capture('Game Page Logged Out Login Clicked', { challengeNumber });
+                        showLoginPrompt();
+                      },
+                    },
+                  ] as const)
+                : ([] as const)),
               ...(isAdmin
                 ? ([
                     {

@@ -355,5 +355,6 @@
   },
   "dev": {
     "subreddit": "HotAndColdDev"
-  }
+  },
+  "sourceIgnores": ["tools/english-wordnet-2024.xml"]
 }

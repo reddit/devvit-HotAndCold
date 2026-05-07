@@ -2,7 +2,7 @@ import { useEffect, useState, useMemo } from 'preact/hooks';
 import { trpc } from '../trpc';
 import type { GuessEngine } from '../core/guessEngine';
 import { requireChallengeNumber } from '../requireChallengeNumber';
-import { showShareSheet, showToast } from '@devvit/web/client';
+import { showLoginPrompt, showShareSheet, showToast } from '@devvit/web/client';
 import { posthog } from '../posthog';
 
 export function WinPageLoggedOut({ engine }: { engine: GuessEngine }) {
@@ -67,10 +67,22 @@ export function WinPageLoggedOut({ engine }: { engine: GuessEngine }) {
         <p className="text-xl">
           The word was: <span className="font-bold text-[#dd4c4c]">{secretWord ?? '...'}</span>
         </p>
-        <p className="text-lg text-gray-600 dark:text-gray-300 mt-4">
-          Sign up to see the full leaderboard and save your progress.
+        <p className="text-lg text-gray-600 dark:text-gray-300">
+          Log in to see the full leaderboard and save your progress.
         </p>
       </div>
+      {wonLocally && (
+        <button
+          type="button"
+          onClick={() => {
+            posthog.capture('Win Page Logged Out Login Clicked', { challengeNumber });
+            showLoginPrompt();
+          }}
+          className="rounded-full bg-black px-5 py-3 text-sm font-semibold text-white focus:outline-none focus:ring-2 focus:ring-slate-400 focus:ring-offset-2 focus:ring-offset-slate-50 dark:bg-white dark:text-black"
+        >
+          Log In
+        </button>
+      )}
       <button
         type="button"
         onClick={() => {
