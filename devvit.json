@@ -87,6 +87,13 @@
         "endpoint": "/internal/menu/migrate-secret-words"
       },
       {
+        "label": "[migrate] Export all secret words via DM",
+        "forUserType": "moderator",
+        "location": "subreddit",
+        "description": "classic",
+        "endpoint": "/internal/menu/export-secret-words"
+      },
+      {
         "label": "[stats] Opted into reminders",
         "forUserType": "moderator",
         "location": "subreddit",

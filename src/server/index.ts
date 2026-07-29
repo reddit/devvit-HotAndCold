@@ -1644,6 +1644,94 @@ app.post('/internal/menu/migrate-secret-words', async (_req, res): Promise<void>
     },
   });
 });
+
+// [migrate] Export every historical challenge number and secret word to the
+// invoking moderator. The CSV is intentionally sent only by private message.
+app.post('/internal/menu/export-secret-words', async (_req, res): Promise<void> => {
+  try {
+    const { userId } = context;
+    if (!userId) {
+      res.status(400).json({ showToast: 'userId is required' });
+      return;
+    }
+    const me = await reddit.getUserById(userId);
+    if (!me) {
+      res.status(400).json({ showToast: 'Could not resolve current user' });
+      return;
+    }
+
+    const current = await Challenge.getCurrentChallengeNumber();
+    const rows: Array<{ challengeNumber: number; secretWord: string }> = [];
+    const missing: number[] = [];
+    const batchSize = 25;
+    for (let start = 1; start <= current; start += batchSize) {
+      const numbers = Array.from(
+        { length: Math.min(batchSize, current - start + 1) },
+        (_, index) => start + index
+      );
+      const batch = await Promise.all(
+        numbers.map(async (challengeNumber) => {
+          try {
+            const challenge = await Challenge.getChallenge({ challengeNumber });
+            return { challengeNumber, secretWord: challenge.secretWord };
+          } catch {
+            return null;
+          }
+        })
+      );
+      for (let i = 0; i < batch.length; i++) {
+        const challenge = batch[i];
+        if (challenge) rows.push(challenge);
+        else missing.push(numbers[i]!);
+      }
+    }
+
+    const lines = [
+      'challengeNumber,secretWord',
+      ...rows.map(({ challengeNumber, secretWord }) => `${challengeNumber},${secretWord}`),
+    ];
+    if (missing.length > 0) lines.push(`# Missing challenge numbers: ${missing.join(',')}`);
+
+    const maxLength = 9500;
+    const chunks: string[] = [];
+    let chunk = '';
+    for (const line of lines) {
+      const candidate = chunk ? `${chunk}\n${line}` : line;
+      if (candidate.length <= maxLength) {
+        chunk = candidate;
+      } else {
+        if (chunk) chunks.push(chunk);
+        chunk = line;
+      }
+    }
+    if (chunk) chunks.push(chunk);
+
+    for (let i = 0; i < chunks.length; i++) {
+      const part = chunks.length > 1 ? ` (${i + 1}/${chunks.length})` : '';
+      await reddit.sendPrivateMessage({
+        to: me.username,
+        subject: `Hot & Cold historical secret-word export${part}`,
+        text: chunks[i]!,
+      });
+    }
+
+    res.status(200).json({
+      showToast: {
+        text: `Sent ${rows.length} secret words via DM${missing.length ? `; ${missing.length} missing` : ''}`,
+        appearance: missing.length === 0 ? 'success' : 'neutral',
+      },
+    });
+  } catch (err: any) {
+    console.error('Failed to export historical secret words', err);
+    res.status(500).json({
+      showToast: {
+        text: err?.message || 'Failed to export historical secret words',
+        appearance: 'neutral',
+      },
+    });
+  }
+});
+
 app.post('/internal/scheduler/create-new-challenge', async (_req, res): Promise<void> => {
   try {
     console.log('[Scheduler] create-new-challenge invoked');
