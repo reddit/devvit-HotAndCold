@@ -1,6 +1,6 @@
 // TypeScript config for all web view main thread code.
 {
-  "extends": "../../tools/tsconfig-base.json",
+  "extends": "../../tsconfig.base.json",
   "compilerOptions": {
     // Target the browser.
     "customConditions": ["browser"],

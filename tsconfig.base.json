@@ -26,8 +26,6 @@
 
     // Use ESM.
     "esModuleInterop": true,
-
-    // Allow JSON type-checking and imports.
     "module": "ESNext",
     "moduleResolution": "Bundler",
 

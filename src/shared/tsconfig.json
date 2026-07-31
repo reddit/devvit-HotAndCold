@@ -1,6 +1,6 @@
 // TypeScript config for non-devvit and shared code.
 {
-  "extends": "../../tools/tsconfig-base.json",
+  "extends": "../../tsconfig.base.json",
   "compilerOptions": {
     "lib": ["WebWorker", "ES2023"],
 
