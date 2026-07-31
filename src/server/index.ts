@@ -2443,25 +2443,6 @@ app.post('/internal/scheduler/users-clean-reminderless-cache', async (req, res):
   }
 });
 
-// [migrate] Timezones: offsets -> IANA (immediate action)
-app.post('/internal/menu/timezones/migrate-to-iana', async (_req, res): Promise<void> => {
-  try {
-    console.log('[Menu] Starting timezone migration offsets -> IANA');
-    const { migrated, skipped } = await Timezones.migrateOffsetsToIana({ batchSize: 500 });
-    res.status(200).json({
-      showToast: {
-        text: `Timezone migration complete: migrated ${migrated}, skipped ${skipped}`,
-        appearance: 'success',
-      },
-    });
-  } catch (err: any) {
-    console.error('Failed timezone migration offsets -> IANA', err);
-    res.status(500).json({
-      showToast: { text: err?.message || 'Failed timezone migration', appearance: 'neutral' },
-    });
-  }
-});
-
 // [ops] Delete legacy reminders keys (immediate action)
 app.post('/internal/menu/admin/delete-old-reminders-keys', async (_req, res): Promise<void> => {
   try {

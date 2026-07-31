@@ -153,13 +153,6 @@
         "endpoint": "/internal/menu/admin/toggle-cleanup-cancel"
       },
       {
-        "label": "[migrate] Timezones: Offsets → IANA",
-        "forUserType": "moderator",
-        "location": "subreddit",
-        "description": "classic",
-        "endpoint": "/internal/menu/timezones/migrate-to-iana"
-      },
-      {
         "label": "[ops] Delete legacy reminders keys",
         "forUserType": "moderator",
         "location": "subreddit",
