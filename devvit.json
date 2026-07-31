@@ -27,9 +27,6 @@
     "notificationsManageForm": "/internal/form/notifications/manage",
     "notificationsSendSingleForm": "/internal/form/notifications/send-single",
     "cleanupCacheForm": "/internal/form/admin/cleanup-cache",
-    "migrateChallengeProgressForm": "/internal/form/admin/migrate-challenge-progress-compression",
-    "migrateUserCacheForm": "/internal/form/admin/migrate-user-cache-compression",
-    "migrateNotificationsForm": "/internal/form/admin/migrate-notifications-compression",
     "statsPlayersForm": "/internal/form/stats/players-count",
     "peekUserGuessForm": "/internal/form/debug/peek-guess",
     "commonWordsForm": "/internal/form/stats/common-words"
@@ -159,42 +156,6 @@
         "endpoint": "/internal/menu/admin/delete-old-reminders-keys"
       },
       {
-        "label": "[ops] Migrate ChallengeProgress compression",
-        "forUserType": "moderator",
-        "location": "subreddit",
-        "endpoint": "/internal/menu/admin/migrate-challenge-progress-compression"
-      },
-      {
-        "label": "[ops] Toggle ChallengeProgress migration",
-        "forUserType": "moderator",
-        "location": "subreddit",
-        "endpoint": "/internal/menu/admin/migrate-challenge-progress-compression/toggle"
-      },
-      {
-        "label": "[ops] Migrate User cache compression",
-        "forUserType": "moderator",
-        "location": "subreddit",
-        "endpoint": "/internal/menu/admin/migrate-user-cache-compression"
-      },
-      {
-        "label": "[ops] Toggle User cache migration",
-        "forUserType": "moderator",
-        "location": "subreddit",
-        "endpoint": "/internal/menu/admin/migrate-user-cache-compression/toggle"
-      },
-      {
-        "label": "[ops] Migrate Notifications compression",
-        "forUserType": "moderator",
-        "location": "subreddit",
-        "endpoint": "/internal/menu/admin/migrate-notifications-compression"
-      },
-      {
-        "label": "[ops] Toggle Notifications migration",
-        "forUserType": "moderator",
-        "location": "subreddit",
-        "endpoint": "/internal/menu/admin/migrate-notifications-compression/toggle"
-      },
-      {
         "label": "[ops] Drop IdToUsernameKey",
         "forUserType": "moderator",
         "location": "subreddit",
@@ -271,9 +232,6 @@
       },
       "notifications-send-group": "/internal/scheduler/notifications-send-group",
       "users-clean-reminderless-cache": "/internal/scheduler/users-clean-reminderless-cache",
-      "migrate-user-cache-compression": "/internal/scheduler/migrate-user-cache-compression",
-      "migrate-challenge-progress-compression": "/internal/scheduler/migrate-challenge-progress-compression",
-      "migrate-notifications-compression": "/internal/scheduler/migrate-notifications-compression",
       "notifications-enqueue-new-challenge": "/internal/scheduler/notifications-enqueue-new-challenge",
       "common-words-aggregator": "/internal/scheduler/common-words-aggregator",
       "common-words-watchdog": {
