@@ -1,3 +1,4 @@
+import { WORD_DATA_API_PREFIX } from '../../shared/wordDataVersion';
 import { fetcher } from '../utils/fetcher';
 import { createLocalStorageSignal } from '../utils/localStorageSignal';
 
@@ -16,7 +17,7 @@ export type PreviousGuess = {
 /** Load and parse the `_hint.csv` for a given challenge. */
 export async function loadHintsForChallenge(challengeNumber: number): Promise<HintWord[]> {
   const csv = await fetcher.request<string>(
-    `/api/challenges/${String(challengeNumber)}/_hint.csv`,
+    `${WORD_DATA_API_PREFIX}/challenges/${String(challengeNumber)}/_hint.csv`,
     {
       timeout: 15000,
       maxAttempts: 3,

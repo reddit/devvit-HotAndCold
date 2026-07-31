@@ -1,11 +1,10 @@
 import { z } from 'zod';
 import { fn } from '../../shared/fn';
-import { settings } from '@devvit/web/server';
+import { WORD_DATA_RELEASE } from '../../shared/wordDataVersion';
 import { redisCompressed as redis } from './redisCompression';
+import { getStaticWordConfig, hasStaticWordConfig } from './staticWordData';
 
 export * as API from './api.js';
-
-const API_URL = 'https://jbbhyxtpholdwrxencjx.supabase.co/functions/v1/';
 
 const wordConfigSchema = z
   .object({
@@ -25,6 +24,86 @@ const wordConfigSchema = z
   })
   .strict();
 
+const THIRTY_DAYS_IN_SECONDS = 30 * 24 * 60 * 60;
+export const WordConfigKey = (word: string) => `word_config4:${WORD_DATA_RELEASE}:${word}` as const;
+
+export type WordConfig = z.infer<typeof wordConfigSchema>;
+
+const configMemory = new Map<string, WordConfig>();
+const configPending = new Map<string, Promise<WordConfig>>();
+const MAX_MEMORY_CONFIGS = 4;
+
+class StaticTargetNotFoundError extends Error {}
+
+function rememberConfig(word: string, config: WordConfig): void {
+  configMemory.delete(word);
+  configMemory.set(word, config);
+  while (configMemory.size > MAX_MEMORY_CONFIGS) {
+    const oldest = configMemory.keys().next().value;
+    if (oldest == null) break;
+    configMemory.delete(oldest);
+  }
+}
+
+async function readCachedWordConfig(key: string): Promise<WordConfig | null> {
+  try {
+    const cached = await redis.get(key);
+    return cached ? wordConfigSchema.parse(JSON.parse(cached)) : null;
+  } catch (error) {
+    console.error('[word-data] Redis config read failed', { key, error });
+    return null;
+  }
+}
+
+async function cacheWordConfig(key: string, config: WordConfig): Promise<void> {
+  try {
+    await redis.set(key, JSON.stringify(config));
+    await redis.expire(key, THIRTY_DAYS_IN_SECONDS);
+  } catch (error) {
+    console.error('[word-data] Redis config write failed', { key, error });
+    // The configured source remains available when Redis is unavailable.
+  }
+}
+
+export const getWordConfigCached = fn(
+  z.object({
+    word: z.string().trim().toLowerCase(),
+  }),
+  async ({ word }) => {
+    const memory = configMemory.get(word);
+    if (memory) return memory;
+    const pending = configPending.get(word);
+    if (pending) return pending;
+
+    const key = WordConfigKey(word);
+    const promise = (async () => {
+      const cached = await readCachedWordConfig(key);
+      if (cached) return cached;
+
+      const fresh = await getStaticWordConfig(word);
+      if (!fresh) {
+        console.error('[word-data] static target lookup returned no data', {
+          word,
+          key,
+          release: WORD_DATA_RELEASE,
+        });
+        throw new StaticTargetNotFoundError(`Static target is unavailable: ${word}`);
+      }
+      const parsed = wordConfigSchema.parse(fresh);
+      await cacheWordConfig(key, parsed);
+      return parsed;
+    })();
+    configPending.set(word, promise);
+    try {
+      const config = await promise;
+      rememberConfig(word, config);
+      return config;
+    } finally {
+      configPending.delete(word);
+    }
+  }
+);
+
 const wordSchema = z.object({
   data: z.array(
     z.object({
@@ -34,95 +113,44 @@ const wordSchema = z.object({
   ),
 });
 
-export const getWordConfig = fn(
-  z.object({
-    word: z.string().trim().toLowerCase(),
-  }),
-  async ({ word }) => {
-    const secret = await settings.get<string>('SUPABASE_SECRET');
-
-    if (!secret) {
-      throw new Error('No API key found for word service in Devvit.settings');
-    }
-
-    const response = await fetch(API_URL + 'nearest-words-2', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${String(secret)}`,
-      },
-      body: JSON.stringify({ word }),
-    });
-
-    // Do a quick check in case API is down or changes
-    return wordConfigSchema.parse(await response.json());
-  }
-);
-
 export const getWord = fn(
   z.object({
     word: z.string().trim().toLowerCase(),
   }),
   async ({ word }) => {
-    const secret = await settings.get<string>('SUPABASE_SECRET');
-
-    if (!secret) {
-      throw new Error('No API key found for word service in Devvit.settings');
-    }
-
-    const response = await fetch(API_URL + 'word-2', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${String(secret)}`,
-      },
-      body: JSON.stringify({ word }),
-    });
-
-    // Do a quick check in case API is down or changes
-    return wordSchema.parse(await response.json());
+    const exists = await hasStaticWordConfig(word);
+    return wordSchema.parse({ data: exists ? [{ word, id: 0 }] : [] });
   }
 );
 
-const THIRTY_DAYS_IN_SECONDS = 30 * 24 * 60 * 60;
-export const WordConfigKey = (word: string) => `word_config2:${word}` as const;
+export function renderLetterCsv(
+  challengeSecretWord: string,
+  letter: string,
+  wordConfig: WordConfig
+): string {
+  const header = 'word,similarity,rank';
+  const lower = letter.toLowerCase();
+  const records: { word: string; similarity: number; rank: number }[] = [];
 
-export const getWordConfigCached = fn(
-  z.object({
-    word: z.string().trim().toLowerCase(),
-  }),
-  async ({ word }) => {
-    const key = WordConfigKey(word);
-
-    // Try cache first. On any failure, fall back to fresh fetch.
-    try {
-      const cached = await redis.get(key);
-      if (cached) {
-        try {
-          const parsed = JSON.parse(cached);
-          return wordConfigSchema.parse(parsed);
-        } catch {
-          // ignore parse/validation errors and fetch fresh
-        }
-      }
-    } catch {
-      // ignore redis read errors and fetch fresh
+  for (let index = 0; index < wordConfig.similar_words.length; index++) {
+    const entry = wordConfig.similar_words[index]!;
+    if (entry.word && entry.word[0]?.toLowerCase() === lower) {
+      records.push({ word: entry.word, similarity: entry.similarity, rank: index + 1 });
     }
-
-    console.log('No cache found, fetching fresh...');
-
-    // Fetch fresh and attempt to cache
-    const fresh = await getWordConfig({ word });
-    console.log('Getting word config fresh', key);
-    try {
-      await redis.set(key, JSON.stringify(fresh));
-      await redis.expire(key, THIRTY_DAYS_IN_SECONDS);
-    } catch {
-      // ignore redis write/expire errors
-    }
-    return fresh;
   }
-);
+
+  if (challengeSecretWord[0]?.toLowerCase() === lower) {
+    records.push({ word: challengeSecretWord, similarity: 1, rank: 0 });
+  }
+
+  const sorted = records.sort((left, right) =>
+    left.word.localeCompare(right.word, undefined, { sensitivity: 'base' })
+  );
+  return [
+    header,
+    ...sorted.map((record) => `${record.word},${record.similarity.toFixed(4)},${record.rank}`),
+  ].join('\n');
+}
 
 export const buildLetterCsvForChallenge = fn(
   z.object({
@@ -134,44 +162,7 @@ export const buildLetterCsvForChallenge = fn(
   }),
   async ({ challengeSecretWord, letter }): Promise<string> => {
     const wordConfig = await getWordConfigCached({ word: challengeSecretWord });
-    const header = 'word,similarity,rank';
-    const lower = letter.toLowerCase();
-
-    // Collect records for the requested starting letter
-    const records: { word: string; similarity: number; rank: number }[] = [];
-    for (let i = 0; i < wordConfig.similar_words.length; i++) {
-      const entry = wordConfig.similar_words[i]!;
-      if (entry.word && entry.word[0]?.toLowerCase() === lower) {
-        const rank = i + 1; // 1-based rank from global order
-        records.push({ word: entry.word, similarity: entry.similarity, rank });
-      }
-    }
-
-    // Ensure the secret word itself is present in its corresponding letter CSV
-    if (challengeSecretWord[0]?.toLowerCase() === lower) {
-      records.push({ word: challengeSecretWord, similarity: 1, rank: 0 });
-    }
-
-    // Deduplicate by word, prefer the lowest rank (so secret rank 0 wins)
-    const bestByWord = new Map<string, { word: string; similarity: number; rank: number }>();
-    for (const rec of records) {
-      const existing = bestByWord.get(rec.word);
-      if (!existing || rec.rank < existing.rank) {
-        bestByWord.set(rec.word, rec);
-      }
-    }
-
-    // Sort alphabetically by word to make the secret harder to spot while
-    // preserving the original rank field for consumers that use it
-    const sorted = Array.from(bestByWord.values()).sort((a, b) =>
-      a.word.localeCompare(b.word, undefined, { sensitivity: 'base' })
-    );
-
-    const rows: string[] = [
-      header,
-      ...sorted.map((r) => `${r.word},${r.similarity.toFixed(4)},${r.rank}`),
-    ];
-    return rows.join('\n');
+    return renderLetterCsv(challengeSecretWord, letter, wordConfig);
   }
 );
 

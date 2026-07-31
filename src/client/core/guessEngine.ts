@@ -320,7 +320,7 @@ export function createGuessEngine(params: {
           ok: false,
           code: 'NOT_IN_DICTIONARY',
           word,
-          message: `I don't recognize “${word}”. Try another word.`,
+          message: `“${word}” isn't in our word list. Try another word.`,
         };
         lastResult.value = res;
         return res;
@@ -501,7 +501,7 @@ export function createGuessEngine(params: {
           ok: false,
           code: 'NOT_IN_DICTIONARY',
           word,
-          message: `I don't recognize “${word}”. Try another word.`,
+          message: `“${word}” isn't in our word list. Try another word.`,
         };
         lastResult.value = res;
         return res;

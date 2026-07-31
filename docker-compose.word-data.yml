@@ -1,0 +1,22 @@
+name: hotandcold-word-data
+
+services:
+  pgvector:
+    image: pgvector/pgvector:0.7.4-pg15
+    environment:
+      POSTGRES_DB: hotandcold
+      POSTGRES_PASSWORD: hotandcold-local
+      POSTGRES_USER: hotandcold
+    ports:
+      - "127.0.0.1:${WORD_DATA_DB_PORT:-55432}:5432"
+    volumes:
+      - ./words-final:/data:ro
+      - hotandcold-word-data-pg:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U hotandcold -d hotandcold"]
+      interval: 2s
+      timeout: 5s
+      retries: 60
+
+volumes:
+  hotandcold-word-data-pg:

@@ -236,10 +236,15 @@ export function PlayPage({ engine }: { engine?: GuessEngine }) {
             const res = await engine.submit(word);
             if (res.ok) {
               const historyNow = engine.history.value ?? [];
+              const notVeryCloseMessage =
+                res.rank != null && res.rank < 0
+                  ? `“${res.word}” isn't very close. Keep trying!`
+                  : null;
               const msg =
-                res.rank === 1
+                notVeryCloseMessage ??
+                (res.rank === 1
                   ? 'Scorching guess! One more to crack it.'
-                  : generateOnboarding(historyNow as GuessHistoryItem[]);
+                  : generateOnboarding(historyNow as GuessHistoryItem[]));
               const guessCount = historyNow.length;
               const milestoneMessage =
                 guessCount === 10 ? "Don't forget to upvote for good luck!" : null;
@@ -249,7 +254,11 @@ export function PlayPage({ engine }: { engine?: GuessEngine }) {
                 hasReminders,
               });
               const baseMessage =
-                milestoneMessage ?? msg ?? getPromptMessage(nextPrompt) ?? 'Keep it rolling!';
+                notVeryCloseMessage ??
+                milestoneMessage ??
+                msg ??
+                getPromptMessage(nextPrompt) ??
+                'Keep it rolling!';
               showFeedback(baseMessage, nextPrompt);
             } else {
               showFeedback(res.message, null);

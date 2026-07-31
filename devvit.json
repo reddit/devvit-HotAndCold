@@ -146,13 +146,6 @@
         "endpoint": "/internal/menu/analytics/sync-user-props"
       },
       {
-        "label": "[ops] Migrate word config gzip",
-        "forUserType": "moderator",
-        "location": "subreddit",
-        "description": "classic",
-        "endpoint": "/internal/menu/word-config/migrate-compression"
-      },
-      {
         "label": "[ops] Cleanup user cache",
         "forUserType": "moderator",
         "location": "subreddit",
@@ -330,18 +323,13 @@
         "us.i.posthog.com",
         "us-assets.i.posthog.com",
         "api.openai.com",
-        "jbbhyxtpholdwrxencjx.supabase.co"
+        "raw.githubusercontent.com"
       ],
       "enable": true
     }
   },
   "settings": {
     "global": {
-      "SUPABASE_SECRET": {
-        "label": "Supabase Secret",
-        "isSecret": true,
-        "type": "string"
-      },
       "OPEN_AI_API_KEY": {
         "label": "OpenAI API Key",
         "isSecret": true,

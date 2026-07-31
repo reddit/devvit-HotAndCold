@@ -7,13 +7,7 @@ import { createServer, getServerPort, redis, scheduler } from '@devvit/web/serve
 import { Challenge } from './core/challenge';
 import { SpoilerGuard } from './core/spoilerGuard';
 import { WtfResponder } from './core/wtfResponder';
-import {
-  WordConfigKey,
-  buildHintCsvForChallenge,
-  buildLetterCsvForChallenge,
-  getWord,
-  getWordConfig,
-} from './core/api';
+import { buildHintCsvForChallenge, buildLetterCsvForChallenge, getWord } from './core/api';
 import { UserGuess } from './core/userGuess';
 import { User } from './core/user';
 import { ChallengeProgress } from './core/challengeProgress';
@@ -34,6 +28,7 @@ import { Notifications } from './core/notifications';
 import { makeClientConfig } from '../shared/makeClientConfig';
 import { redisCompressed } from './core/redisCompression';
 import { CommonWordsAggregator } from './core/commonWordsAggregator';
+import { WORD_DATA_API_PREFIX } from '../shared/wordDataVersion';
 
 redisCompressed.del().catch(() => {});
 
@@ -619,61 +614,82 @@ app.use('/api', (...args) => {
 app.use(express.json());
 
 // Needs to be before /api/challenges/:challengeNumber/:letter.csv!!
-app.get('/api/challenges/:challengeNumber/_hint.csv', async (req, res): Promise<void> => {
-  try {
-    const challengeNumber = Number.parseInt(String(req.params.challengeNumber), 10);
-    if (!Number.isFinite(challengeNumber) || challengeNumber <= 0) {
-      res.status(400).send('Invalid challenge number');
-      return;
-    }
+app.get(
+  [
+    '/api/challenges/:challengeNumber/_hint.csv',
+    `${WORD_DATA_API_PREFIX}/challenges/:challengeNumber/_hint.csv`,
+  ],
+  async (req, res): Promise<void> => {
+    try {
+      const challengeNumber = Number.parseInt(String(req.params.challengeNumber), 10);
+      if (!Number.isFinite(challengeNumber) || challengeNumber <= 0) {
+        res.status(400).send('Invalid challenge number');
+        return;
+      }
 
-    const challenge = await Challenge.getChallenge({ challengeNumber });
-    const csv = await buildHintCsvForChallenge({
-      challengeSecretWord: challenge.secretWord,
-      max: 500,
-    });
-    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
-    res.setHeader('Cache-Control', 'public, max-age=31536000, s-maxage=31536000, immutable');
-    res.setHeader('Surrogate-Control', 'max-age=31536000, immutable');
-    res.status(200).send(csv);
-  } catch (err: any) {
-    console.log('err', err.message.substring(0, 500));
-    console.error('Failed to serve hint CSV', err);
-    res.status(500).send('Failed to generate CSV');
+      const challenge = await Challenge.getChallenge({ challengeNumber });
+      const csv = await buildHintCsvForChallenge({
+        challengeSecretWord: challenge.secretWord,
+        max: 500,
+      });
+      res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+      res.setHeader('Cache-Control', 'public, max-age=31536000, s-maxage=31536000, immutable');
+      res.setHeader('Surrogate-Control', 'max-age=31536000, immutable');
+      res.status(200).send(csv);
+    } catch (err: any) {
+      console.error('[word-data] failed to serve hint CSV', {
+        requestPath: req.path,
+        challengeNumber: req.params.challengeNumber,
+        release: WORD_DATA_API_PREFIX,
+        error: err,
+      });
+      res.status(500).send('Failed to generate CSV');
+    }
   }
-});
+);
 
 // Register CSV endpoints BEFORE tRPC so they are not shadowed by the /api adapter
-app.get('/api/challenges/:challengeNumber/:letter.csv', async (req, res): Promise<void> => {
-  try {
-    const challengeNumber = Number.parseInt(String(req.params.challengeNumber), 10);
-    const rawLetter = String(req.params.letter || '')
-      .trim()
-      .toLowerCase();
-    if (!Number.isFinite(challengeNumber) || challengeNumber <= 0) {
-      res.status(400).send('Invalid challenge number');
-      return;
-    }
-    if (!/^[a-z]$/.test(rawLetter)) {
-      res.status(400).send('Invalid letter');
-      return;
-    }
+app.get(
+  [
+    '/api/challenges/:challengeNumber/:letter.csv',
+    `${WORD_DATA_API_PREFIX}/challenges/:challengeNumber/:letter.csv`,
+  ],
+  async (req, res): Promise<void> => {
+    try {
+      const challengeNumber = Number.parseInt(String(req.params.challengeNumber), 10);
+      const rawLetter = String(req.params.letter || '')
+        .trim()
+        .toLowerCase();
+      if (!Number.isFinite(challengeNumber) || challengeNumber <= 0) {
+        res.status(400).send('Invalid challenge number');
+        return;
+      }
+      if (!/^[a-z]$/.test(rawLetter)) {
+        res.status(400).send('Invalid letter');
+        return;
+      }
 
-    const challenge = await Challenge.getChallenge({ challengeNumber });
-    const csv = await buildLetterCsvForChallenge({
-      challengeSecretWord: challenge.secretWord,
-      letter: rawLetter,
-    });
-    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
-    res.setHeader('Cache-Control', 'public, max-age=31536000, s-maxage=31536000, immutable');
-    res.setHeader('Surrogate-Control', 'max-age=31536000, immutable');
-    res.status(200).send(csv);
-  } catch (err: any) {
-    console.log('err', err.message.substring(0, 500));
-    console.error('Failed to serve letter CSV', err);
-    res.status(500).send('Failed to generate CSV');
+      const challenge = await Challenge.getChallenge({ challengeNumber });
+      const csv = await buildLetterCsvForChallenge({
+        challengeSecretWord: challenge.secretWord,
+        letter: rawLetter,
+      });
+      res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+      res.setHeader('Cache-Control', 'public, max-age=31536000, s-maxage=31536000, immutable');
+      res.setHeader('Surrogate-Control', 'max-age=31536000, immutable');
+      res.status(200).send(csv);
+    } catch (err: any) {
+      console.error('[word-data] failed to serve letter CSV', {
+        requestPath: req.path,
+        challengeNumber: req.params.challengeNumber,
+        letter: req.params.letter,
+        release: WORD_DATA_API_PREFIX,
+        error: err,
+      });
+      res.status(500).send('Failed to generate CSV');
+    }
   }
-});
+);
 
 app.use(
   '/api',
@@ -856,14 +872,10 @@ app.post('/internal/form/queue/add', async (req, res): Promise<void> => {
     if (prepend) {
       for (const c of toEnqueue) {
         await WordQueue.prepend({ challenge: c });
-        // This heats up the cache on the Supabase side
-        void getWordConfig({ word: c.word }).catch(() => {});
       }
     } else {
       for (const c of toEnqueue) {
         await WordQueue.append({ challenge: c });
-        // This heats up the cache on the Supabase side
-        void getWordConfig({ word: c.word }).catch(() => {});
       }
     }
 
@@ -2523,77 +2535,6 @@ app.post('/internal/scheduler/users-clean-reminderless-cache', async (req, res):
     res.status(500).json({
       status: 'error',
       message: error?.message || 'Failed to clean reminderless caches',
-    });
-  }
-});
-
-// Ops menu: Migrate all cached word config entries to gzip compression
-app.post('/internal/menu/word-config/migrate-compression', async (_req, res): Promise<void> => {
-  console.log('[Menu] Starting word config gzip migration');
-  try {
-    const currentChallengeNumber = await Challenge.getCurrentChallengeNumber();
-    if (currentChallengeNumber <= 0) {
-      res.status(200).json({
-        showToast: { text: 'No challenges found to migrate', appearance: 'success' },
-      });
-      return;
-    }
-
-    const seenWords = new Set<string>();
-    const summary = {
-      scannedChallenges: 0,
-      uniqueWords: 0,
-      migrated: 0,
-      missing: 0,
-      errors: 0,
-    };
-
-    for (let challengeNumber = currentChallengeNumber; challengeNumber >= 1; challengeNumber--) {
-      try {
-        const challenge = await Challenge.getChallenge({ challengeNumber });
-        summary.scannedChallenges++;
-        const rawWord = challenge.secretWord?.trim();
-        if (!rawWord) continue;
-        const normalizedWord = rawWord.toLowerCase();
-        if (seenWords.has(normalizedWord)) continue;
-        seenWords.add(normalizedWord);
-        summary.uniqueWords++;
-
-        const key = WordConfigKey(normalizedWord);
-        const val = await redisCompressed.get(key);
-        if (val) {
-          // Explicitly write back to trigger compression logic in redisCompressed.set
-          await redisCompressed.set(key, val);
-          summary.migrated++;
-        } else {
-          summary.missing++;
-        }
-      } catch (error: any) {
-        summary.errors++;
-        console.error('[Menu] word-config gzip migration challenge failed', {
-          challengeNumber,
-          message: error?.message,
-        });
-      }
-    }
-
-    console.log('[Menu] word-config gzip migration complete', {
-      ...summary,
-      totalChallenges: currentChallengeNumber,
-    });
-
-    const toastText =
-      summary.uniqueWords === 0
-        ? 'No secret words found to migrate'
-        : `Word config migration complete: scanned/ensured ${summary.migrated}, missing ${summary.missing}`;
-
-    res.status(200).json({
-      showToast: { text: toastText, appearance: 'success' },
-    });
-  } catch (err: any) {
-    console.error('Failed to migrate word config caches', err);
-    res.status(500).json({
-      showToast: { text: err?.message || 'Failed word config migration', appearance: 'neutral' },
     });
   }
 });

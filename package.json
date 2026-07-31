@@ -40,7 +40,7 @@
     "new:make-db-gemini": "dotenv -- node ./tools/new-make-db-gemini.ts",
     "new:generate-word-csv:gemini": "dotenv -- node ./tools/new-generate-word-csv-gemini.ts",
     "new:generate-hints": "dotenv -- node ./tools/new-generate-hints.ts",
-    "new:upload-words": "dotenv -- node ./tools/new-upload-words-to-db.ts"
+    "word-data:generate": "node ./tools/generate-full-word-data.ts"
   },
   "dependencies": {
     "@devvit/analytics": "0.12.12-next-2026-02-03-22-55-04-032301a3c.0",
@@ -62,7 +62,6 @@
     "ioredis": "5.7.0",
     "openai": "5.16.0",
     "p-queue": "8.1.0",
-    "pg": "8.16.3",
     "playwright": "1.55.1",
     "posthog-js": "1.268.4",
     "preact": "^10.25.3",
@@ -87,6 +86,7 @@
     "prettier": "3.5.3",
     "prettier-package-json": "2.8.0",
     "prettier-plugin-tailwindcss": "0.6.11",
+    "pg": "8.16.3",
     "tailwindcss": "4.1.18",
     "typescript": "5.8.2",
     "typescript-eslint": "8.29.0",

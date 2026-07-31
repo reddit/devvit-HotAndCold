@@ -121,8 +121,32 @@ describe('guessEngine', () => {
 
     makeGuessMock.mockResolvedValueOnce(null as any);
     const res = await engine.submit('ghostword');
-    expect(res).toMatchObject({ ok: false, code: 'NOT_IN_DICTIONARY', word: 'ghostword' });
+    expect(res).toEqual({
+      ok: false,
+      code: 'NOT_IN_DICTIONARY',
+      word: 'ghostword',
+      message: `“ghostword” isn't in our word list. Try another word.`,
+    });
     expect(engine.history.value).toHaveLength(0);
+  });
+
+  it('accepts a dictionary word outside the top 2,500 as valid but unranked', async () => {
+    const engine = createGuessEngine({ challengeNumber: 2, rateLimitMs: 1 });
+
+    makeGuessMock.mockResolvedValueOnce({ word: 'distant', similarity: 0, rank: -1 });
+    const res = await engine.submit('distant');
+
+    expect(res).toEqual({
+      ok: true,
+      word: 'distant',
+      similarity: 0,
+      rank: -1,
+    });
+    expect(engine.history.value[0]).toMatchObject({
+      word: 'distant',
+      similarity: 0,
+      rank: -1,
+    });
   });
 
   it('marks solved and calls navigation when a correct guess is made', async () => {

@@ -59,7 +59,6 @@ export async function fetchWithRetry<T = unknown>(
   } = options;
 
   let attempt = 0;
-  // eslint-disable-next-line no-constant-condition
   while (true) {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), timeoutMs);

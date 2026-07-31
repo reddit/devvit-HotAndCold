@@ -1,5 +1,6 @@
 // import { context } from '@devvit/web/client';
 import { requireChallengeNumber } from '../requireChallengeNumber';
+import { WORD_DATA_API_PREFIX } from '../../shared/wordDataVersion';
 import { fetcher } from '../utils/fetcher';
 
 // ---------------------------------------------------------
@@ -34,7 +35,7 @@ export const isLetterLoadedInMemory = (challengeNumber: number, letter: string):
 };
 
 const DB_NAME = 'guess-cache-v1';
-const DB_VERSION = 1;
+const DB_VERSION = 3;
 const STORE_NAME = 'parsed-maps';
 const LEMMA_STORE_NAME = 'lemma-map';
 const CACHE_DAYS = 3; // Keep cache for 3 days
@@ -326,10 +327,13 @@ const hintOrderCache = new Map<number, string[]>();
 export async function getLetterPreloadOrder(challengeNumber: number): Promise<string[]> {
   if (hintOrderCache.has(challengeNumber)) return hintOrderCache.get(challengeNumber)!;
   try {
-    const csv = await fetcher.request<string>(`/api/challenges/${challengeNumber}/_hint.csv`, {
-      timeout: 3000,
-      maxAttempts: 2,
-    });
+    const csv = await fetcher.request<string>(
+      `${WORD_DATA_API_PREFIX}/challenges/${challengeNumber}/_hint.csv`,
+      {
+        timeout: 3000,
+        maxAttempts: 2,
+      }
+    );
     const counts = new Map<string, number>();
     for (const row of csv.split(/\r?\n/)) {
       if (!row || row.startsWith('word,')) continue;
@@ -380,10 +384,13 @@ async function loadLetterMap(
   }
 
   // Fetch and parse
-  const csv = await fetcher.request<string>(`/api/challenges/${challengeNumber}/${letter}.csv`, {
-    timeout: 15000,
-    maxAttempts: 2,
-  });
+  const csv = await fetcher.request<string>(
+    `${WORD_DATA_API_PREFIX}/challenges/${challengeNumber}/${letter}.csv`,
+    {
+      timeout: 15000,
+      maxAttempts: 2,
+    }
+  );
   const map = parseCsvToMap(csv);
   fileCache.set(fileKey, map);
   // Persist asynchronously
