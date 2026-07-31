@@ -67,10 +67,22 @@
         "endpoint": "/internal/menu/post-next"
       },
       {
-        "label": "[ops] Export all secret words via DM",
+        "label": "[notifications] Manage queue",
         "forUserType": "moderator",
         "location": "subreddit",
-        "endpoint": "/internal/menu/export-secret-words"
+        "endpoint": "/internal/menu/notifications/manage"
+      },
+      {
+        "label": "[notifications] Dry run latest",
+        "forUserType": "moderator",
+        "location": "subreddit",
+        "endpoint": "/internal/menu/notifications/dry-run-latest"
+      },
+      {
+        "label": "[notifications] Send single",
+        "forUserType": "moderator",
+        "location": "subreddit",
+        "endpoint": "/internal/menu/notifications/send-single"
       },
       {
         "label": "[stats] Opted into reminders",
@@ -97,24 +109,6 @@
         "endpoint": "/internal/menu/export-last-30-days"
       },
       {
-        "label": "[notifications] Manage queue",
-        "forUserType": "moderator",
-        "location": "subreddit",
-        "endpoint": "/internal/menu/notifications/manage"
-      },
-      {
-        "label": "[notifications] Dry run latest",
-        "forUserType": "moderator",
-        "location": "subreddit",
-        "endpoint": "/internal/menu/notifications/dry-run-latest"
-      },
-      {
-        "label": "[notifications] Send single",
-        "forUserType": "moderator",
-        "location": "subreddit",
-        "endpoint": "/internal/menu/notifications/send-single"
-      },
-      {
         "label": "[stats] Players count for challenge",
         "forUserType": "moderator",
         "location": "subreddit",
@@ -137,6 +131,12 @@
         "forUserType": "moderator",
         "location": "subreddit",
         "endpoint": "/internal/menu/stats/common-words/cancel"
+      },
+      {
+        "label": "[ops] Export all secret words via DM",
+        "forUserType": "moderator",
+        "location": "subreddit",
+        "endpoint": "/internal/menu/export-secret-words"
       }
     ]
   },
