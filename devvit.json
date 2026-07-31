@@ -74,7 +74,7 @@
         "endpoint": "/internal/menu/post-next"
       },
       {
-        "label": "[migrate] Export all secret words via DM",
+        "label": "[ops] Export all secret words via DM",
         "forUserType": "moderator",
         "location": "subreddit",
         "description": "classic",
@@ -125,12 +125,6 @@
         "location": "subreddit",
         "description": "classic",
         "endpoint": "/internal/menu/notifications/send-single"
-      },
-      {
-        "label": "[ops] Sync PostHog user properties",
-        "forUserType": "moderator",
-        "location": "subreddit",
-        "endpoint": "/internal/menu/analytics/sync-user-props"
       },
       {
         "label": "[stats] Players count for challenge",

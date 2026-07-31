@@ -2143,27 +2143,6 @@ app.post('/internal/menu/notifications/dry-run-latest', async (_req, res): Promi
   }
 });
 
-// Ops menu: kick off PostHog user property sync now
-app.post('/internal/menu/analytics/sync-user-props', async (_req, res): Promise<void> => {
-  try {
-    console.log('[Menu] Starting PostHog user properties sync now');
-    await scheduler.runJob({
-      name: 'posthog-user-prop-sync',
-      runAt: new Date(),
-      data: { cursor: 0, limit: 25_000 },
-    });
-    console.log('[Menu] PostHog user properties sync queued');
-    res.status(200).json({
-      showToast: { text: 'Started PostHog user properties sync', appearance: 'success' },
-    });
-  } catch (err: any) {
-    console.error('Failed to start PostHog user property sync', err);
-    res.status(500).json({
-      showToast: { text: err?.message || 'Failed to start sync', appearance: 'neutral' },
-    });
-  }
-});
-
 // [stats] Common words (form launcher)
 app.post('/internal/menu/stats/common-words', async (_req, res): Promise<void> => {
   try {
