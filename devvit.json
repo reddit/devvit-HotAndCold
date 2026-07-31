@@ -28,7 +28,6 @@
     "notificationsSendSingleForm": "/internal/form/notifications/send-single",
     "cleanupCacheForm": "/internal/form/admin/cleanup-cache",
     "statsPlayersForm": "/internal/form/stats/players-count",
-    "peekUserGuessForm": "/internal/form/debug/peek-guess",
     "commonWordsForm": "/internal/form/stats/common-words"
   },
   "menu": {
@@ -174,13 +173,6 @@
         "location": "subreddit",
         "description": "classic",
         "endpoint": "/internal/menu/stats/total-guesses"
-      },
-      {
-        "label": "[debug] Peek user guess (raw/decompressed)",
-        "forUserType": "moderator",
-        "location": "subreddit",
-        "description": "classic",
-        "endpoint": "/internal/menu/debug/peek-guess"
       },
       {
         "label": "[stats] Top 25 common words",
