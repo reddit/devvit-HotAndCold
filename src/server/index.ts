@@ -1173,26 +1173,6 @@ app.post('/internal/menu/joined-count', async (_req, res): Promise<void> => {
   }
 });
 
-// [ops] Drop IdToUsernameKey (immediate action)
-app.post('/internal/menu/admin/drop-id-to-username-key', async (_req, res): Promise<void> => {
-  try {
-    await redis.del('user:idToUsername');
-    res.status(200).json({
-      showToast: {
-        text: 'Dropped user:idToUsername key',
-        appearance: 'success',
-      },
-    });
-  } catch (err: any) {
-    res.status(500).json({
-      showToast: {
-        text: err?.message || 'Failed to drop key',
-        appearance: 'neutral',
-      },
-    });
-  }
-});
-
 // [stats] Players count (form launcher)
 app.post('/internal/menu/stats/players-count', async (_req, res): Promise<void> => {
   try {
@@ -1779,59 +1759,6 @@ app.post('/internal/menu/notifications/manage', async (_req, res): Promise<void>
   });
 });
 
-app.post('/internal/menu/admin/cleanup-cache', async (_req, res): Promise<void> => {
-  res.status(200).json({
-    showForm: {
-      name: 'cleanupCacheForm',
-      form: {
-        title: 'Clear cache for users without reminders',
-        acceptLabel: 'Start cleanup',
-        fields: [
-          {
-            name: 'startAt',
-            label: 'Start cursor (default 0)',
-            type: 'number',
-            defaultValue: 0,
-          },
-          {
-            name: 'totalIterations',
-            label: 'Maximum scan iterations',
-            type: 'number',
-            defaultValue: 1000,
-          },
-          {
-            name: 'count',
-            label: 'Count per hScan (1-1000)',
-            type: 'number',
-            defaultValue: 250,
-          },
-        ],
-      },
-    },
-  });
-});
-
-app.post('/internal/menu/admin/toggle-cleanup-cancel', async (_req, res): Promise<void> => {
-  try {
-    const currentlyCancelled = await Reminders.isCleanupJobCancelled();
-    const nextState = !currentlyCancelled;
-    await Reminders.setCleanupJobCancelled(nextState);
-
-    res.status(200).json({
-      showToast: nextState
-        ? 'Cleanup cancel flag enabled. Future jobs will halt after the current run.'
-        : 'Cleanup cancel flag disabled. Cleanup jobs may resume.',
-    });
-  } catch (err: any) {
-    console.error('Failed to toggle cleanup cancel flag', err);
-    res.status(500).json({
-      showToast: {
-        text: err?.message || 'Failed to toggle cleanup cancel flag',
-      },
-    });
-  }
-});
-
 // [notifications] Send single (form launcher)
 app.post('/internal/menu/notifications/send-single', async (_req, res): Promise<void> => {
   let defaultUsername = '';
@@ -2024,54 +1951,6 @@ app.post('/internal/form/notifications/send-single', async (req, res): Promise<v
   }
 });
 
-app.post('/internal/form/admin/cleanup-cache', async (req, res): Promise<void> => {
-  try {
-    const body = (req.body as any) ?? {};
-    const parsedStart = Number.parseInt(String(body?.startAt ?? '0'), 10) || 0;
-    const parsedIterations = Number.parseInt(String(body?.totalIterations ?? '1000'), 10) || 1000;
-    const parsedCount = Number.parseInt(String(body?.count ?? '250'), 10) || 250;
-
-    if (parsedStart < 0) {
-      res.status(400).json({
-        showToast: { text: 'Start cursor must be >= 0', appearance: 'neutral' },
-      });
-      return;
-    }
-    if (parsedCount < 1 || parsedCount > 1000) {
-      res.status(400).json({
-        showToast: { text: 'Count must be between 1 and 1000', appearance: 'neutral' },
-      });
-      return;
-    }
-    if (parsedIterations < 1 || parsedIterations > 10000) {
-      res.status(400).json({
-        showToast: { text: 'Iterations must be between 1 and 10000', appearance: 'neutral' },
-      });
-      return;
-    }
-
-    await scheduler.runJob({
-      name: 'users-clean-reminderless-cache',
-      runAt: new Date(),
-      data: { startAt: parsedStart, totalIterations: parsedIterations, count: parsedCount },
-    });
-
-    res.status(200).json({
-      showToast: {
-        text: `Queued cache cleanup job (start=${parsedStart}, iterations=${parsedIterations}, count=${parsedCount})`,
-        appearance: 'success',
-      },
-    });
-  } catch (err: any) {
-    console.error('Failed to queue cache cleanup job', err);
-    res.status(500).json({
-      showToast: {
-        text: err?.message || 'Failed to queue cache cleanup job',
-        appearance: 'neutral',
-      },
-    });
-  }
-});
 app.post('/internal/menu/export-last-30-days', async (_req, res): Promise<void> => {
   try {
     const { userId } = context;
@@ -2281,89 +2160,6 @@ app.post('/internal/menu/analytics/sync-user-props', async (_req, res): Promise<
     console.error('Failed to start PostHog user property sync', err);
     res.status(500).json({
       showToast: { text: err?.message || 'Failed to start sync', appearance: 'neutral' },
-    });
-  }
-});
-
-app.post('/internal/scheduler/users-clean-reminderless-cache', async (req, res): Promise<void> => {
-  try {
-    const body = (req.body as any) ?? {};
-    const data = body?.data ?? {};
-    const startAt = Number.parseInt(String(data?.startAt ?? '0'), 10) || 0;
-    const totalIterations = Number.parseInt(String(data?.totalIterations ?? '1000'), 10) || 1000;
-    const count = Number.parseInt(String(data?.count ?? '250'), 10) || 250;
-
-    const cancelFlag = await Reminders.isCleanupJobCancelled();
-    if (cancelFlag) {
-      console.log('[UserCacheCleanup] Cancel flag enabled; skipping job run.');
-      const stats = await Reminders.getCleanupStats();
-      res.json({ status: 'cancelled', reason: 'cancel-flag', stats });
-      return;
-    }
-
-    const previousStats = await Reminders.getCleanupStats();
-    console.log('[UserCacheCleanup] cumulative stats before run', previousStats);
-
-    console.log('[UserCacheCleanup] job start', { startAt, totalIterations, count });
-    const result = await Reminders.clearCacheForNonReminderUsers({
-      startAt,
-      totalIterations,
-      count,
-    });
-    console.log('[UserCacheCleanup] job complete', result);
-
-    const cumulativeStats = await Reminders.recordCleanupRun(result);
-    console.log('[UserCacheCleanup] cumulative stats after run', cumulativeStats);
-
-    if (!result.done && result.lastCursor !== 0) {
-      console.log('[UserCacheCleanup] Requeueing follow-up job', {
-        nextCursor: result.lastCursor,
-        examined: result.examined,
-        iterations: result.iterations,
-      });
-      await scheduler.runJob({
-        name: 'users-clean-reminderless-cache',
-        runAt: new Date(),
-        data: {
-          startAt: result.lastCursor,
-          totalIterations,
-          count,
-        },
-      });
-      res.json({
-        status: 'success',
-        result,
-        stats: cumulativeStats,
-        requeued: true,
-        nextCursor: result.lastCursor,
-      });
-      return;
-    }
-
-    res.json({ status: 'success', result, stats: cumulativeStats, requeued: false });
-  } catch (error: any) {
-    console.error('[UserCacheCleanup] job failed', error);
-    res.status(500).json({
-      status: 'error',
-      message: error?.message || 'Failed to clean reminderless caches',
-    });
-  }
-});
-
-// [ops] Delete legacy reminders keys (immediate action)
-app.post('/internal/menu/admin/delete-old-reminders-keys', async (_req, res): Promise<void> => {
-  try {
-    await Reminders.deleteOldReminderKeys();
-    res.status(200).json({
-      showToast: { text: 'Deleted legacy reminders keys', appearance: 'success' },
-    });
-  } catch (err: any) {
-    console.error('Failed to delete legacy reminders keys', err);
-    res.status(500).json({
-      showToast: {
-        text: err?.message || 'Failed to delete legacy reminders keys',
-        appearance: 'neutral',
-      },
     });
   }
 });

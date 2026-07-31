@@ -26,7 +26,6 @@
     "postCreateForm": "/internal/form/post-create",
     "notificationsManageForm": "/internal/form/notifications/manage",
     "notificationsSendSingleForm": "/internal/form/notifications/send-single",
-    "cleanupCacheForm": "/internal/form/admin/cleanup-cache",
     "statsPlayersForm": "/internal/form/stats/players-count",
     "commonWordsForm": "/internal/form/stats/common-words"
   },
@@ -134,33 +133,6 @@
         "endpoint": "/internal/menu/analytics/sync-user-props"
       },
       {
-        "label": "[ops] Cleanup user cache",
-        "forUserType": "moderator",
-        "location": "subreddit",
-        "description": "classic",
-        "endpoint": "/internal/menu/admin/cleanup-cache"
-      },
-      {
-        "label": "[ops] Toggle cleanup cancel flag",
-        "forUserType": "moderator",
-        "location": "subreddit",
-        "description": "classic",
-        "endpoint": "/internal/menu/admin/toggle-cleanup-cancel"
-      },
-      {
-        "label": "[ops] Delete legacy reminders keys",
-        "forUserType": "moderator",
-        "location": "subreddit",
-        "description": "classic",
-        "endpoint": "/internal/menu/admin/delete-old-reminders-keys"
-      },
-      {
-        "label": "[ops] Drop IdToUsernameKey",
-        "forUserType": "moderator",
-        "location": "subreddit",
-        "endpoint": "/internal/menu/admin/drop-id-to-username-key"
-      },
-      {
         "label": "[stats] Players count for challenge",
         "forUserType": "moderator",
         "location": "subreddit",
@@ -223,7 +195,6 @@
         "data": {}
       },
       "notifications-send-group": "/internal/scheduler/notifications-send-group",
-      "users-clean-reminderless-cache": "/internal/scheduler/users-clean-reminderless-cache",
       "notifications-enqueue-new-challenge": "/internal/scheduler/notifications-enqueue-new-challenge",
       "common-words-aggregator": "/internal/scheduler/common-words-aggregator",
       "common-words-watchdog": {

@@ -23,20 +23,6 @@ const seedUserCache = async (username: string, userId?: string) => {
 const metadataForUserId = (userId: string): Metadata => ({
   [Header.User]: { values: [userId] },
 });
-const makeCleanupRunResult = (
-  overrides: Partial<Reminders.CleanupRunResult> = {}
-): Reminders.CleanupRunResult => ({
-  cleared: 0,
-  examined: 0,
-  iterations: 0,
-  estimatedBytes: 0,
-  estimatedMegabytes: 0,
-  durationMs: 0,
-  lastCursor: 0,
-  done: false,
-  ...overrides,
-});
-
 test('setReminderForUsername opts the current user in', async ({ username, userId }) => {
   await seedUserCache(username, userId);
   await Reminders.setReminderForUsername({ username });
@@ -152,69 +138,4 @@ test('reminder opt-in removes user cache expiry and opt-out reapplies it', async
   const ttlRemaining = expireTime - Math.floor(Date.now() / 1000);
   expect(ttlRemaining).toBeGreaterThanOrEqual(User.CacheTtlSeconds - 30);
   expect(ttlRemaining).toBeLessThanOrEqual(User.CacheTtlSeconds + 1);
-});
-
-test('clearCacheForNonReminderUsers removes caches for users without reminders', async ({
-  mocks,
-}) => {
-  await redis.hSet(User.UsernameToIdKey(), {
-    alice: 't2_alice',
-    bob: 't2_bob',
-  });
-  await redis.set(User.Key('t2_alice'), JSON.stringify({ id: 't2_alice', username: 'alice' }));
-  await redis.set(User.Key('t2_bob'), JSON.stringify({ id: 't2_bob', username: 'bob' }));
-
-  // Keep bob's cache by marking bob as opted-in via the notifications mock.
-  await mocks.notifications.plugin.OptInCurrentUser(Empty.create(), metadataForUserId('t2_bob'));
-
-  const result = await Reminders.clearCacheForNonReminderUsers({
-    startAt: 0,
-    totalIterations: 1,
-    count: 10,
-  });
-
-  expect(result.cleared).toBe(1);
-  expect(await redis.get(User.Key('t2_alice'))).toBeUndefined();
-  expect(await redis.get(User.Key('t2_bob'))).toEqual(
-    JSON.stringify({ id: 't2_bob', username: 'bob' })
-  );
-});
-
-test('cleanup cancel flag can be toggled via redis key', async () => {
-  expect(await Reminders.isCleanupJobCancelled()).toBe(false);
-  await Reminders.setCleanupJobCancelled(true);
-  expect(await Reminders.isCleanupJobCancelled()).toBe(true);
-  await Reminders.setCleanupJobCancelled(false);
-  expect(await Reminders.isCleanupJobCancelled()).toBe(false);
-});
-
-test('recordCleanupRun aggregates stats across runs', async () => {
-  const first = await Reminders.recordCleanupRun(
-    makeCleanupRunResult({
-      cleared: 2,
-      examined: 10,
-      estimatedBytes: 2048,
-      durationMs: 500,
-      lastCursor: 123,
-    })
-  );
-  expect(first.totalCleared).toBe(2);
-  expect(first.totalExamined).toBe(10);
-  expect(first.totalMegabytes).toBeCloseTo(2048 / (1024 * 1024));
-
-  const second = await Reminders.recordCleanupRun(
-    makeCleanupRunResult({
-      cleared: 3,
-      examined: 5,
-      estimatedBytes: 1024,
-      durationMs: 250,
-      lastCursor: 0,
-      done: true,
-    })
-  );
-  expect(second.totalCleared).toBe(5);
-  expect(second.totalExamined).toBe(15);
-  expect(second.totalMegabytes).toBeCloseTo((2048 + 1024) / (1024 * 1024));
-  expect(second.done).toBe(true);
-  expect(second.runs).toBe(2);
 });
