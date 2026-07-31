@@ -170,7 +170,9 @@ const CallToAction = ({
       rank: stats.rank ?? null,
     });
 
-    const shareText = didWin ? `I solved Hot & Cold #${challengeNumber} in ${stats.timeToSolve}. Can you beat my time?` : `Can you solve Hot & Cold #${challengeNumber}?`;
+    const shareText = didWin
+      ? `I solved Hot & Cold #${challengeNumber} in ${stats.timeToSolve}. Can you beat my time?`
+      : `Can you solve Hot & Cold #${challengeNumber}?`;
 
     try {
       await showShareSheet({
@@ -191,10 +193,10 @@ const CallToAction = ({
           type="button"
           onClick={doAction}
           disabled={isLoading}
-          className="w-fit cursor-pointer rounded-full bg-zinc-100 text-black focus:outline-none focus:ring-2 focus:ring-slate-400 focus:ring-offset-2 focus:ring-offset-slate-50 dark:bg-zinc-800 dark:text-white"
+          className="w-fit cursor-pointer rounded-full bg-zinc-100 text-black focus:ring-2 focus:ring-slate-400 focus:ring-offset-2 focus:ring-offset-slate-50 focus:outline-none dark:bg-zinc-800 dark:text-white"
         >
           <GradientBorder isHidden={isLoading}>
-            <span className="inline-flex h-10 items-center justify-center whitespace-nowrap px-8 font-semibold leading-none">
+            <span className="inline-flex h-10 items-center justify-center px-8 leading-none font-semibold whitespace-nowrap">
               {isLoading ? 'Working…' : label}
             </span>
           </GradientBorder>
@@ -204,7 +206,7 @@ const CallToAction = ({
           onClick={() => {
             void shareResults();
           }}
-          className="mt-2 w-fit rounded-full bg-zinc-100 px-8 py-2.5 font-semibold leading-none whitespace-nowrap text-black focus:outline-none focus:ring-2 focus:ring-slate-400 focus:ring-offset-2 focus:ring-offset-slate-50 dark:bg-zinc-800 dark:text-white"
+          className="mt-2 w-fit rounded-full bg-zinc-100 px-8 py-2.5 leading-none font-semibold whitespace-nowrap text-black focus:ring-2 focus:ring-slate-400 focus:ring-offset-2 focus:ring-offset-slate-50 focus:outline-none dark:bg-zinc-800 dark:text-white"
         >
           Share Results
         </button>
@@ -469,7 +471,7 @@ export function WinPage() {
                 </span>
               )}
             </div>
-            <div className="overflow-y-auto rounded-lg border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900 max-h-[50vh]">
+            <div className="max-h-[50vh] overflow-y-auto rounded-lg border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900">
               {isHintsLoading ? (
                 <div className="p-4 text-sm text-gray-500 dark:text-gray-400">Loading…</div>
               ) : !hints || hints.length === 0 ? (
@@ -517,7 +519,7 @@ export function WinPage() {
                 </span>
               ) : null}
             </div>
-            <div className="overflow-y-auto max-h-[50vh] rounded-lg border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900">
+            <div className="max-h-[50vh] overflow-y-auto rounded-lg border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900">
               {!challengeUserInfo.guesses || challengeUserInfo.guesses.length === 0 ? (
                 <div className="p-4 text-sm text-gray-700 dark:text-gray-300">No guesses yet.</div>
               ) : (
@@ -569,7 +571,7 @@ export function WinPage() {
             </div>
 
             {leaderboard?.length ? (
-              <div className="overflow-y-auto max-h-[50vh] rounded-lg border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900">
+              <div className="max-h-[50vh] overflow-y-auto rounded-lg border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900">
                 {leaderboard.map((entry, index) => {
                   const isCurrentUser = entry.member === challengeUserInfo.username;
                   const rank = index + 1;

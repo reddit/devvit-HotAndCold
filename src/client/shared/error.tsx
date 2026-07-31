@@ -53,7 +53,7 @@ export class ErrorBoundary extends Component {
 
               window.location.reload();
             }}
-            className="cursor-pointer rounded-full bg-zinc-100 text-black focus:outline-none focus:ring-2 focus:ring-slate-400 focus:ring-offset-2 focus:ring-offset-slate-50 dark:bg-zinc-800 dark:text-white"
+            className="cursor-pointer rounded-full bg-zinc-100 text-black focus:ring-2 focus:ring-slate-400 focus:ring-offset-2 focus:ring-offset-slate-50 focus:outline-none dark:bg-zinc-800 dark:text-white"
           >
             <GradientBorder>
               <span className="inline-block px-5 py-2.5">Try again</span>

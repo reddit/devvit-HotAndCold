@@ -188,7 +188,7 @@ export function ArchiveModal() {
 
   return (
     <Modal isOpen={archiveOpen.value} onClose={closeArchive}>
-      <div className="w-[min(92vw,600px)] max-w-2xl rounded-2xl bg-white p-6 shadow-2xl dark:bg-zinc-950 dark:text-white md:p-8">
+      <div className="w-[min(92vw,600px)] max-w-2xl rounded-2xl bg-white p-6 shadow-2xl md:p-8 dark:bg-zinc-950 dark:text-white">
         <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <div>
             <h2 className="text-lg font-semibold md:text-xl">Play the archive</h2>
@@ -200,7 +200,7 @@ export function ArchiveModal() {
             type="button"
             onClick={() => toggleArchiveShowUnsolved()}
             className={cn(
-              'self-start rounded-full border px-4 py-2 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-sky-400 dark:focus:ring-sky-600',
+              'self-start rounded-full border px-4 py-2 text-xs font-semibold transition-colors focus:ring-2 focus:ring-sky-400 focus:outline-none dark:focus:ring-sky-600',
               showUnsolvedOnly
                 ? 'border-gray-900 bg-gray-900 text-white hover:bg-gray-800 dark:border-white dark:bg-white dark:text-black dark:hover:bg-zinc-100'
                 : 'border-gray-300 bg-gray-100 text-gray-700 hover:bg-gray-200 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-700'
@@ -264,7 +264,7 @@ export function ArchiveModal() {
                     }}
                     disabled={!entry.postUrl}
                     className={cn(
-                      'rounded-full bg-black px-4 py-2 text-xs font-semibold uppercase tracking-wide text-white hover:bg-black/80 disabled:cursor-not-allowed disabled:bg-zinc-300 disabled:text-zinc-500 dark:bg-white dark:text-black dark:hover:bg-zinc-200 dark:disabled:bg-zinc-700 dark:disabled:text-zinc-400'
+                      'rounded-full bg-black px-4 py-2 text-xs font-semibold tracking-wide text-white uppercase hover:bg-black/80 disabled:cursor-not-allowed disabled:bg-zinc-300 disabled:text-zinc-500 dark:bg-white dark:text-black dark:hover:bg-zinc-200 dark:disabled:bg-zinc-700 dark:disabled:text-zinc-400'
                     )}
                   >
                     {entry.postUrl ? actionLabel : 'Unavailable'}
@@ -298,13 +298,13 @@ export function ArchiveModal() {
           ) : null}
 
           {isLoading ? (
-            <div className="flex items-center justify-center gap-2 py-4 text-xs uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
+            <div className="flex items-center justify-center gap-2 py-4 text-xs tracking-wide text-zinc-500 uppercase dark:text-zinc-400">
               Loading…
             </div>
           ) : null}
 
           {!hasMore && entries.length > 0 && !isLoading ? (
-            <div className="py-4 text-center text-[11px] uppercase tracking-wide text-zinc-400 dark:text-zinc-500">
+            <div className="py-4 text-center text-[11px] tracking-wide text-zinc-400 uppercase dark:text-zinc-500">
               You’ve reached the beginning of the archive.
             </div>
           ) : null}

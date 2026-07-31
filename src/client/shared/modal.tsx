@@ -53,7 +53,7 @@ export const Modal: FunctionalComponent<ModalProps> = ({
   return (
     <div
       ref={modalRef}
-      class="fixed inset-0 z-[15000] flex h-full w-full items-center justify-center outline-none backdrop-blur-2xl transition-opacity duration-200"
+      class="fixed inset-0 z-[15000] flex h-full w-full items-center justify-center backdrop-blur-2xl transition-opacity duration-200 outline-none"
       onClick={(e) => {
         if (clickAnywhereToClose && e.target === e.currentTarget) onClose();
       }}
@@ -67,7 +67,7 @@ export const Modal: FunctionalComponent<ModalProps> = ({
 
       <button
         type="button"
-        class="absolute right-3 top-3"
+        class="absolute top-3 right-3"
         onClick={onClose}
         aria-label="Close modal"
       >

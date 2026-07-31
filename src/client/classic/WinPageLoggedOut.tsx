@@ -67,7 +67,7 @@ export function WinPageLoggedOut({ engine }: { engine: GuessEngine }) {
         <p className="text-xl">
           The word was: <span className="font-bold text-[#dd4c4c]">{secretWord ?? '...'}</span>
         </p>
-        <p className="text-lg text-gray-600 dark:text-gray-300 mt-4">
+        <p className="mt-4 text-lg text-gray-600 dark:text-gray-300">
           Sign up to see the full leaderboard and save your progress.
         </p>
       </div>
@@ -76,7 +76,7 @@ export function WinPageLoggedOut({ engine }: { engine: GuessEngine }) {
         onClick={() => {
           void shareResults();
         }}
-        className="rounded-full bg-zinc-100 px-5 py-3 text-sm font-semibold text-black focus:outline-none focus:ring-2 focus:ring-slate-400 focus:ring-offset-2 focus:ring-offset-slate-50 dark:bg-zinc-800 dark:text-white"
+        className="rounded-full bg-zinc-100 px-5 py-3 text-sm font-semibold text-black focus:ring-2 focus:ring-slate-400 focus:ring-offset-2 focus:ring-offset-slate-50 focus:outline-none dark:bg-zinc-800 dark:text-white"
       >
         Share Results
       </button>

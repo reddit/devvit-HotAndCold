@@ -331,14 +331,14 @@ export function WordInput({
   return (
     <div
       className={cn(
-        'relative mx-auto flex w-full max-w-xl items-center gap-2 overflow-hidden flex-shrink-0',
+        'relative mx-auto flex w-full max-w-xl flex-shrink-0 items-center gap-2 overflow-hidden',
         className
       )}
       {...rest}
     >
       <canvas
         className={cn(
-          'pointer-events-none absolute left-[7.5px] top-[21%] z-[1000] origin-top-left scale-50 transform pr-20 text-base invert filter dark:invert-0',
+          'pointer-events-none absolute top-[21%] left-[7.5px] z-[1000] origin-top-left scale-50 transform pr-20 text-base invert filter dark:invert-0',
           !isAnimating ? 'opacity-0' : 'opacity-100'
         )}
         ref={canvasRef}
@@ -360,7 +360,7 @@ export function WordInput({
         autoComplete="off"
         enterKeyHint="send"
         className={cn(
-          'text-md relative z-50 h-12 w-full rounded-full border-none px-4 text-black transition duration-200 focus:outline-none focus:ring-0 dark:text-white',
+          'text-md relative z-50 h-12 w-full rounded-full border-none px-4 text-black transition duration-200 focus:ring-0 focus:outline-none dark:text-white',
           // Ensure the input surface is visible in both color modes
           'bg-zinc-100 dark:bg-zinc-800',
           isAnimating && 'text-transparent dark:text-transparent',
@@ -372,7 +372,7 @@ export function WordInput({
         isHighContrast={isHighContrast}
         disabled={!(internalValue || (defaultGuessToOn ? getPrefilledWord() : '')) || isLoading}
         type="submit"
-        className="z-50 h-12 flex-shrink-0 flex items-center justify-center"
+        className="z-50 flex h-12 flex-shrink-0 items-center justify-center"
         onMouseDown={(e) => {
           e.preventDefault();
           if (!isLoading) handleSubmit();

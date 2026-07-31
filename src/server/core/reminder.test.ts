@@ -58,15 +58,9 @@ test('getAllUsersOptedIntoReminders returns all users who opted in (order by opt
   await seedUserCache(testUser2);
   await seedUserCache(testUser3);
 
-  await mocks.notifications.plugin.OptInCurrentUser(
-    Empty.create(),
-    metadataForUserId('t2_alice')
-  );
+  await mocks.notifications.plugin.OptInCurrentUser(Empty.create(), metadataForUserId('t2_alice'));
   await mocks.notifications.plugin.OptInCurrentUser(Empty.create(), metadataForUserId('t2_bob'));
-  await mocks.notifications.plugin.OptInCurrentUser(
-    Empty.create(),
-    metadataForUserId('t2_carol')
-  );
+  await mocks.notifications.plugin.OptInCurrentUser(Empty.create(), metadataForUserId('t2_carol'));
 
   const users = await Reminders.getAllUsersOptedIntoReminders();
   expect(Array.isArray(users)).toBe(true);
@@ -85,10 +79,7 @@ test('totalReminders returns correct count', async ({ mocks }) => {
   await seedUserCache(testUser2);
   expect(await Reminders.totalReminders()).toBe(0);
 
-  await mocks.notifications.plugin.OptInCurrentUser(
-    Empty.create(),
-    metadataForUserId('t2_alice')
-  );
+  await mocks.notifications.plugin.OptInCurrentUser(Empty.create(), metadataForUserId('t2_alice'));
   expect(await Reminders.totalReminders()).toBe(1);
 
   await mocks.notifications.plugin.OptInCurrentUser(Empty.create(), metadataForUserId('t2_bob'));

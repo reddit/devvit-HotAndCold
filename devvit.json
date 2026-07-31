@@ -193,7 +193,7 @@
       "domains": [
         "us.i.posthog.com",
         "us-assets.i.posthog.com",
-        "api.openai.com",
+        "generativelanguage.googleapis.com",
         "raw.githubusercontent.com"
       ],
       "enable": true
@@ -201,8 +201,8 @@
   },
   "settings": {
     "global": {
-      "OPEN_AI_API_KEY": {
-        "label": "OpenAI API Key",
+      "GOOGLE_API_KEY": {
+        "label": "Google API Key",
         "isSecret": true,
         "type": "string"
       }

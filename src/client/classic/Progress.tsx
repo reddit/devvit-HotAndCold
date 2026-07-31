@@ -194,7 +194,7 @@ export function ProgressBar({
           }}
         />
         <div
-          className="absolute right-0 top-1/2"
+          className="absolute top-1/2 right-0"
           style={{
             width: '20px',
             height: '20px',
@@ -204,7 +204,7 @@ export function ProgressBar({
           }}
         />
         <div
-          className="absolute left-0 top-1/2 -translate-y-1/2 rounded-full"
+          className="absolute top-1/2 left-0 -translate-y-1/2 rounded-full"
           style={{ width: '18px', height: '18px', backgroundColor: startColor }}
         />
       </div>
@@ -212,7 +212,7 @@ export function ProgressBar({
       {/* Container for players and groups */}
       <div
         ref={containerRef}
-        className="absolute left-0 top-0 h-full w-full"
+        className="absolute top-0 left-0 h-full w-full"
         onClick={() => {
           posthog.capture('Progress Bar Clicked');
         }}
@@ -223,7 +223,7 @@ export function ProgressBar({
           return (
             <div
               key={item.username}
-              className="absolute left-0 top-1/2 flex flex-col items-center"
+              className="absolute top-1/2 left-0 flex flex-col items-center"
               style={{
                 transform: `translateX(${calculatePositionPx(item.progress)}px)`,
                 zIndex: item.isPlayer ? 50 : 40 - index,
@@ -243,7 +243,7 @@ export function ProgressBar({
                 </div>
                 <span
                   className={[
-                    'absolute -bottom-5 left-1/2 mt-1 -translate-x-1/2 whitespace-nowrap text-xs font-medium text-transparent',
+                    'absolute -bottom-5 left-1/2 mt-1 -translate-x-1/2 text-xs font-medium whitespace-nowrap text-transparent',
                     item.isPlayer ? 'font-semibold text-[#7BF24C]' : '',
                   ].join(' ')}
                 >
@@ -258,7 +258,7 @@ export function ProgressBar({
         {processed.groups.map((group, index) => (
           <div
             key={`group-${index}`}
-            className="absolute left-0 top-1/2 flex flex-col items-center"
+            className="absolute top-1/2 left-0 flex flex-col items-center"
             style={{
               transform: `translateX(${calculatePositionPx(group.progress)}px)`,
               zIndex: 30 - index,
@@ -286,7 +286,7 @@ export function ProgressBar({
                   </div>
                 ))}
               </div>
-              <span className="absolute -bottom-11 left-1/2 mt-1 -translate-x-1/2 whitespace-nowrap text-xs font-medium text-[#8BA2AD]">
+              <span className="absolute -bottom-11 left-1/2 mt-1 -translate-x-1/2 text-xs font-medium whitespace-nowrap text-[#8BA2AD]">
                 {`${group.count.toLocaleString()} players`}
               </span>
             </div>

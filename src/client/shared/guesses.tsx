@@ -120,14 +120,14 @@ export function Guesses({
   return (
     <div
       className={cn(
-        'relative z-10 flex w-60 flex-col self-center flex-1 min-h-0',
+        'relative z-10 flex min-h-0 w-60 flex-1 flex-col self-center',
         layout === 'CONDENSED' ? 'text-sm' : 'text-md'
       )}
     >
       {sorted.length > 0 && latestItem && (
         <p
           className={cn(
-            'relative flex w-full justify-between gap-1 rounded px-1 border border-gray-300 bg-gray-100/70 dark:border-gray-500 dark:bg-gray-700/50'
+            'relative flex w-full justify-between gap-1 rounded border border-gray-300 bg-gray-100/70 px-1 dark:border-gray-500 dark:bg-gray-700/50'
           )}
         >
           <span className="truncate font-medium text-gray-900 dark:text-white">
@@ -145,7 +145,7 @@ export function Guesses({
         </p>
       )}
 
-      <div ref={ref} className="flex-1 overflow-hidden min-h-0">
+      <div ref={ref} className="min-h-0 flex-1 overflow-hidden">
         <div ref={listColumnRef} className="flex flex-col gap-1">
           {pageItems.map((g) => (
             <p

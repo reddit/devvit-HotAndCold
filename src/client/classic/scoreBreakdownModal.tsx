@@ -104,7 +104,7 @@ export function ScoreBreakdownModal({ isOpen, onClose, score }: Props) {
           </div>
         </div>
 
-        <p className="mt-6 text-sm italic text-gray-600 dark:text-gray-400">
+        <p className="mt-6 text-sm text-gray-600 italic dark:text-gray-400">
           Maximize your score by solving quickly, using fewer guesses, and avoiding hints!
         </p>
       </div>

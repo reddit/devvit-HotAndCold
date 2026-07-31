@@ -104,7 +104,7 @@ export function Header({ engine, isAdmin }: { engine?: GuessEngine; isAdmin: boo
 
   return (
     <>
-      <div className="flex items-center justify-between mb-4" data-layout={layout}>
+      <div className="mb-4 flex items-center justify-between" data-layout={layout}>
         <div className="flex h-5 flex-1 gap-2 sm:h-10 sm:gap-4">
           {/* Hardcore logo is not migrated; show mascot CTA next to main logo */}
           <div
@@ -124,9 +124,9 @@ export function Header({ engine, isAdmin }: { engine?: GuessEngine; isAdmin: boo
             type="button"
           >
             <HardcoreMascot />
-            <span className="relative -translate-y-1/2 self-center whitespace-nowrap rounded-full border border-gray-500 px-2 text-[10px] italic text-gray-400">
+            <span className="relative -translate-y-1/2 self-center rounded-full border border-gray-500 px-2 text-[10px] whitespace-nowrap text-gray-400 italic">
               {accessStatus === 'inactive' ? 'Pssst...' : 'Thanks for your support!'}
-              <SpeechBubbleTail className="absolute left-2 top-full h-2 w-2 stroke-gray-500 stroke-1" />
+              <SpeechBubbleTail className="absolute top-full left-2 h-2 w-2 stroke-gray-500 stroke-1" />
             </span>
           </button>
         </div>

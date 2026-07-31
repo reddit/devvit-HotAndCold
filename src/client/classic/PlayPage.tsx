@@ -125,7 +125,7 @@ export function PlayPage({ engine }: { engine?: GuessEngine }) {
             <span>{message}</span>
             <button
               type="button"
-              className="self-start text-[10px] font-semibold underline underline-offset-2 cursor-pointer"
+              className="cursor-pointer self-start text-[10px] font-semibold underline underline-offset-2"
               onClick={handleJoinSubreddit}
               disabled={isJoinLoading}
             >
@@ -139,7 +139,7 @@ export function PlayPage({ engine }: { engine?: GuessEngine }) {
           <span>{message}</span>
           <button
             type="button"
-            className="self-start text-[10px] font-semibold underline underline-offset-2 cursor-pointer"
+            className="cursor-pointer self-start text-[10px] font-semibold underline underline-offset-2"
             onClick={handleEnableReminders}
             disabled={isReminderLoading}
           >
@@ -269,7 +269,7 @@ export function PlayPage({ engine }: { engine?: GuessEngine }) {
           className="mt-4"
         />
         {feedback && (
-          <div className="absolute left-0 right-0 bottom-[7px] flex justify-start gap-1 text-[10px] text-gray-600 dark:text-zinc-300">
+          <div className="absolute right-0 bottom-[7px] left-0 flex justify-start gap-1 text-[10px] text-gray-600 dark:text-zinc-300">
             {feedback}
           </div>
         )}
@@ -277,15 +277,15 @@ export function PlayPage({ engine }: { engine?: GuessEngine }) {
       {items?.value?.length ? (
         <Guesses items={items as any} latest={latest} />
       ) : (
-        <div className="flex flex-1 min-h-0 flex-col gap-4 items-center">
-          <p className="text-sm dark:text-gray-400 text-gray-600">
+        <div className="flex min-h-0 flex-1 flex-col items-center gap-4">
+          <p className="text-sm text-gray-600 dark:text-gray-400">
             {totalPlayers > 0
               ? `${solveRatePct}% of ${formatCompactNumber(totalPlayers)} players have succeeded`
               : "You're the first to play!"}
           </p>
           <button
             className={
-              'text-sm rounded-md px-4 py-2 cursor-pointer bg-gray-200 text-black hover:bg-gray-300 dark:bg-gray-700 dark:text-white dark:hover:bg-gray-600'
+              'cursor-pointer rounded-md bg-gray-200 px-4 py-2 text-sm text-black hover:bg-gray-300 dark:bg-gray-700 dark:text-white dark:hover:bg-gray-600'
             }
             onClick={() => {
               posthog.capture('Game Page How to Play Button Below Input Clicked');

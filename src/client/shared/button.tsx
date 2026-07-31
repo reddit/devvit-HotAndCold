@@ -15,7 +15,7 @@ export const PrimaryButton = ({
     <button
       type="button"
       className={cn(
-        'cursor-pointer rounded-full font-[inherit] text-sm font-medium text-black focus:outline-none focus:ring-2 focus:ring-slate-400 focus:ring-offset-2 focus:ring-offset-slate-50 dark:text-white',
+        'cursor-pointer rounded-full font-[inherit] text-sm font-medium text-black focus:ring-2 focus:ring-slate-400 focus:ring-offset-2 focus:ring-offset-slate-50 focus:outline-none dark:text-white',
         // Visible neutral surface in light/dark modes
         'bg-zinc-100 dark:bg-zinc-800',
         className
@@ -58,7 +58,7 @@ export const IconButton = ({
   <button
     type="button"
     className={cn(
-      'flex items-center gap-2 rounded-full bg-gray-50 p-3 text-current md:px-3 md:py-2 dark:bg-black cursor-pointer',
+      'flex cursor-pointer items-center gap-2 rounded-full bg-gray-50 p-3 text-current md:px-3 md:py-2 dark:bg-black',
       className
     )}
     aria-label={ariaLabel}

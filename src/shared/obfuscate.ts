@@ -6,11 +6,11 @@
 
 export function obfuscate(word: string) {
   return word
-    .split("")
+    .split('')
     .map((char) => {
-      if (char.trim() === "") return " ";
+      if (char.trim() === '') return ' ';
       const randomCharCode = Math.floor(Math.random() * 26) + 97; // 97-122 = a-z
       return String.fromCharCode(randomCharCode);
     })
-    .join("");
+    .join('');
 }

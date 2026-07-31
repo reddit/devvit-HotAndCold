@@ -33,7 +33,7 @@ function AppContent({
 }) {
   return (
     <div className="h-[100dvh] min-h-[100dvh] w-full overflow-hidden">
-      <div className="mx-auto flex max-w-2xl flex-col px-4 md:px-6 py-6 h-full min-h-0 overflow-hidden">
+      <div className="mx-auto flex h-full min-h-0 max-w-2xl flex-col overflow-hidden px-4 py-6 md:px-6">
         <Header engine={engine} isAdmin={isAdmin} />
         {page.value === 'win' ? (
           isLoggedOut() ? (
