@@ -5,8 +5,7 @@
     "dir": "dist/client",
     "entrypoints": {
       "default": {
-        "entry": "classic.html",
-        "inline": true
+        "entry": "classic.html"
       }
     }
   },
@@ -33,28 +32,24 @@
     "items": [
       {
         "label": "[queue] Add to queue",
-        "description": "classic",
         "forUserType": "moderator",
         "location": "subreddit",
         "endpoint": "/internal/menu/add"
       },
       {
         "label": "[queue] Clear queue",
-        "description": "classic",
         "forUserType": "moderator",
         "location": "subreddit",
         "endpoint": "/internal/menu/clear"
       },
       {
         "label": "[queue] Get size",
-        "description": "classic",
         "forUserType": "moderator",
         "location": "subreddit",
         "endpoint": "/internal/menu/size"
       },
       {
         "label": "[queue] Peek next 3",
-        "description": "classic",
         "forUserType": "moderator",
         "location": "subreddit",
         "endpoint": "/internal/menu/peek"
@@ -63,21 +58,18 @@
         "label": "[queue] Get contents via DM",
         "forUserType": "moderator",
         "location": "subreddit",
-        "description": "classic",
         "endpoint": "/internal/menu/dm"
       },
       {
         "label": "[queue] Post next",
         "forUserType": "moderator",
         "location": "subreddit",
-        "description": "classic",
         "endpoint": "/internal/menu/post-next"
       },
       {
         "label": "[ops] Export all secret words via DM",
         "forUserType": "moderator",
         "location": "subreddit",
-        "description": "classic",
         "endpoint": "/internal/menu/export-secret-words"
       },
       {
@@ -102,56 +94,48 @@
         "label": "[stats] Export last 30 days",
         "forUserType": "moderator",
         "location": "subreddit",
-        "description": "classic",
         "endpoint": "/internal/menu/export-last-30-days"
       },
       {
         "label": "[notifications] Manage queue",
         "forUserType": "moderator",
         "location": "subreddit",
-        "description": "classic",
         "endpoint": "/internal/menu/notifications/manage"
       },
       {
         "label": "[notifications] Dry run latest",
         "forUserType": "moderator",
         "location": "subreddit",
-        "description": "classic",
         "endpoint": "/internal/menu/notifications/dry-run-latest"
       },
       {
         "label": "[notifications] Send single",
         "forUserType": "moderator",
         "location": "subreddit",
-        "description": "classic",
         "endpoint": "/internal/menu/notifications/send-single"
       },
       {
         "label": "[stats] Players count for challenge",
         "forUserType": "moderator",
         "location": "subreddit",
-        "description": "classic",
         "endpoint": "/internal/menu/stats/players-count"
       },
       {
         "label": "[stats] Total guesses (All Time)",
         "forUserType": "moderator",
         "location": "subreddit",
-        "description": "classic",
         "endpoint": "/internal/menu/stats/total-guesses"
       },
       {
         "label": "[stats] Top 25 common words",
         "forUserType": "moderator",
         "location": "subreddit",
-        "description": "classic",
         "endpoint": "/internal/menu/stats/common-words"
       },
       {
         "label": "[stats] Cancel common words job",
         "forUserType": "moderator",
         "location": "subreddit",
-        "description": "classic",
         "endpoint": "/internal/menu/stats/common-words/cancel"
       }
     ]
