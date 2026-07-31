@@ -29,7 +29,6 @@
     "cleanupCacheForm": "/internal/form/admin/cleanup-cache",
     "migrateChallengeProgressForm": "/internal/form/admin/migrate-challenge-progress-compression",
     "migrateUserCacheForm": "/internal/form/admin/migrate-user-cache-compression",
-    "migrateUserGuessForm": "/internal/form/admin/migrate-user-guess-compression",
     "migrateNotificationsForm": "/internal/form/admin/migrate-notifications-compression",
     "statsPlayersForm": "/internal/form/stats/players-count",
     "peekUserGuessForm": "/internal/form/debug/peek-guess",
@@ -160,18 +159,6 @@
         "endpoint": "/internal/menu/admin/delete-old-reminders-keys"
       },
       {
-        "label": "[ops] Migrate UserGuess compression",
-        "forUserType": "moderator",
-        "location": "subreddit",
-        "endpoint": "/internal/menu/admin/migrate-user-guess-compression"
-      },
-      {
-        "label": "[ops] Toggle UserGuess migration",
-        "forUserType": "moderator",
-        "location": "subreddit",
-        "endpoint": "/internal/menu/admin/migrate-user-guess-compression/toggle"
-      },
-      {
         "label": "[ops] Migrate ChallengeProgress compression",
         "forUserType": "moderator",
         "location": "subreddit",
@@ -284,7 +271,6 @@
       },
       "notifications-send-group": "/internal/scheduler/notifications-send-group",
       "users-clean-reminderless-cache": "/internal/scheduler/users-clean-reminderless-cache",
-      "migrate-user-guess-compression": "/internal/scheduler/migrate-user-guess-compression",
       "migrate-user-cache-compression": "/internal/scheduler/migrate-user-cache-compression",
       "migrate-challenge-progress-compression": "/internal/scheduler/migrate-challenge-progress-compression",
       "migrate-notifications-compression": "/internal/scheduler/migrate-notifications-compression",
