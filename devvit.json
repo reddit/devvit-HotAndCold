@@ -80,13 +80,6 @@
         "endpoint": "/internal/menu/post-next"
       },
       {
-        "label": "[migrate] Backfill secret words 1-25",
-        "forUserType": "moderator",
-        "location": "subreddit",
-        "description": "classic",
-        "endpoint": "/internal/menu/migrate-secret-words"
-      },
-      {
         "label": "[migrate] Export all secret words via DM",
         "forUserType": "moderator",
         "location": "subreddit",
