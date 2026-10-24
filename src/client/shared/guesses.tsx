@@ -80,12 +80,6 @@ export function Guesses({
     );
   }, [latest, sorted]);
 
-  // The latest guess is pinned separately, so show it only once.
-  const previousGuesses = useMemo(
-    () => sorted.filter((guess) => guess.word !== latestItem?.word),
-    [sorted, latestItem]
-  );
-
   const getRankEmoji = (rank?: number | null): string | null => {
     const safeRank = Number.isFinite(rank) ? (rank as number) : -1;
     if (safeRank >= 1 && safeRank <= 250) return '🔥';
@@ -108,11 +102,12 @@ export function Guesses({
     return Math.max(1, Math.floor(dimensions.height / row));
   }, [dimensions.height, measuredRowHeight, FALLBACK_ROW_HEIGHT]);
 
-  const totalPages = Math.max(1, Math.ceil(previousGuesses.length / itemsPerPage));
+  // Keep the latest guess in its sorted position as well as the pinned row.
+  const totalPages = Math.max(1, Math.ceil(sorted.length / itemsPerPage));
   const pageItems = useMemo(() => {
     const start = (currentPage - 1) * itemsPerPage;
-    return previousGuesses.slice(start, start + itemsPerPage);
-  }, [previousGuesses, currentPage, itemsPerPage]);
+    return sorted.slice(start, start + itemsPerPage);
+  }, [sorted, currentPage, itemsPerPage]);
 
   useEffect(() => {
     // Re-measure when content characteristics change
@@ -157,7 +152,7 @@ export function Guesses({
         <div
           ref={listColumnRef}
           role="list"
-          aria-label="Previous guesses"
+          aria-label="Guess history"
           className="flex flex-col gap-1"
         >
           {pageItems.map((g) => (

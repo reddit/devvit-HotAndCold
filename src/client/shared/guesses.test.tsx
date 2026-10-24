@@ -53,27 +53,29 @@ describe('Guesses', () => {
   };
 
   const visibleWords = () =>
-    Array.from(container.querySelectorAll('span'))
+    Array.from(
+      container.querySelectorAll('[aria-label="Latest guess"] span, [role="listitem"] span')
+    )
       .filter((span) => getComputedStyle(span).visibility !== 'hidden')
       .map((span) => span.textContent?.trim())
       .filter((text) => text && !text.startsWith('#'));
 
-  const previousWords = () =>
+  const historyWords = () =>
     Array.from(container.querySelectorAll('[role="listitem"]')).map((row) =>
       row.firstElementChild?.textContent?.trim()
     );
 
-  it('renders each guess once when the latest guess is also the closest', async () => {
+  it('pins the latest guess and also keeps it in the sorted history', async () => {
     await mount(guesses, guesses[2]);
 
-    expect(visibleWords().filter((word) => word === 'box')).toHaveLength(1);
-    expect(visibleWords()).toEqual(['box', 'pizza', 'store']);
+    expect(visibleWords().filter((word) => word === 'box')).toHaveLength(2);
+    expect(visibleWords()).toEqual(['box', 'box', 'pizza']);
     expect(container.querySelector('[aria-label="Latest guess"]')?.textContent).toContain('box');
-    expect(previousWords()).toEqual(['pizza', 'store']);
+    expect(historyWords()).toEqual(['box', 'pizza']);
     expect(guesses).toHaveLength(3);
   });
 
-  it('moves the previous latest guess back into the sorted history after a new guess', async () => {
+  it('keeps the previous latest guess in its sorted position after a new guess', async () => {
     const items = signal([...guesses]);
     await mount(items);
 
@@ -87,11 +89,11 @@ describe('Guesses', () => {
 
     expect(visibleWords().filter((word) => word === 'train')).toHaveLength(1);
     expect(visibleWords().filter((word) => word === 'box')).toHaveLength(1);
-    expect(previousWords()).toEqual(['box', 'pizza']);
+    expect(historyWords()).toEqual(['box', 'pizza']);
     expect(items.value).toHaveLength(4);
   });
 
-  it('paginates only previous guesses and keeps the latest visible on every page', async () => {
+  it('paginates the full history and keeps the latest pinned when its sorted row is off page', async () => {
     await mount([
       ...guesses.slice(0, 2),
       { word: 'train', similarity: 0.05, rank: 40000, timestamp: 3 },
@@ -99,24 +101,31 @@ describe('Guesses', () => {
       { ...guesses[2]!, timestamp: 5 },
     ]);
 
-    expect(previousWords()).toEqual(['pizza', 'store']);
-    expect(container.textContent).toContain('1 / 2');
+    expect(historyWords()).toEqual(['box', 'pizza']);
+    expect(visibleWords().filter((word) => word === 'box')).toHaveLength(2);
+    expect(container.textContent).toContain('1 / 3');
     await act(() => {
       container.querySelector<HTMLButtonElement>('[aria-label="Next page"]')!.click();
     });
-    expect(previousWords()).toEqual(['train', 'apple']);
+    expect(historyWords()).toEqual(['store', 'train']);
     expect(visibleWords().filter((word) => word === 'box')).toHaveLength(1);
-    expect(container.textContent).toContain('2 / 2');
+    expect(container.textContent).toContain('2 / 3');
+    await act(() => {
+      container.querySelector<HTMLButtonElement>('[aria-label="Next page"]')!.click();
+    });
+    expect(historyWords()).toEqual(['apple']);
+    expect(container.querySelector('[aria-label="Latest guess"]')?.textContent).toContain('box');
+    expect(container.textContent).toContain('3 / 3');
     expect(container.querySelector<HTMLButtonElement>('[aria-label="Next page"]')?.disabled).toBe(
       true
     );
   });
 
-  it('shows a single guess without a duplicate history row or pagination', async () => {
+  it('shows a single guess in both the pinned row and history without pagination', async () => {
     await mount([guesses[2]!]);
 
-    expect(visibleWords()).toEqual(['box']);
-    expect(previousWords()).toEqual([]);
+    expect(visibleWords()).toEqual(['box', 'box']);
+    expect(historyWords()).toEqual(['box']);
     expect(container.querySelector('[aria-label="Next page"]')).toBeNull();
   });
 });
