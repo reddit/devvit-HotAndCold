@@ -10,6 +10,7 @@ webroot
 dist
 words
 .env
+*.local.sh
 word-data/*/gemini_3072_embeddings.csv
 __screenshots__
 coverage
