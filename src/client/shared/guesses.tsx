@@ -132,9 +132,6 @@ export function Guesses({
     >
       {sorted.length > 0 && latestItem && (
         <section aria-label="Latest guess" className="mb-1 shrink-0">
-          <p className="mb-1 text-[10px] font-medium text-gray-600 dark:text-gray-300">
-            Latest guess
-          </p>
           <p
             className={cn(
               'relative flex w-full justify-between gap-1 rounded border border-gray-300 bg-gray-100/70 px-1 dark:border-gray-500 dark:bg-gray-700/50'

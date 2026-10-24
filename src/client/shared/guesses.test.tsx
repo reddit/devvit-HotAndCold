@@ -68,9 +68,7 @@ describe('Guesses', () => {
 
     expect(visibleWords().filter((word) => word === 'box')).toHaveLength(1);
     expect(visibleWords()).toEqual(['box', 'pizza', 'store']);
-    expect(container.querySelector('[aria-label="Latest guess"]')?.textContent).toContain(
-      'Latest guess'
-    );
+    expect(container.querySelector('[aria-label="Latest guess"]')?.textContent).toContain('box');
     expect(previousWords()).toEqual(['pizza', 'store']);
     expect(guesses).toHaveLength(3);
   });
