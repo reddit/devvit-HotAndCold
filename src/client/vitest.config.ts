@@ -1,6 +1,9 @@
 import { defineConfig } from 'vitest/config';
 
 export default defineConfig({
+  optimizeDeps: {
+    include: ['preact', 'preact/jsx-dev-runtime', 'preact/test-utils'],
+  },
   test: {
     browser: {
       enabled: true,

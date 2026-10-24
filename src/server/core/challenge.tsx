@@ -18,7 +18,8 @@ export const stringifyValues = <T extends Record<string, any>>(
 const CHALLENGE_PUBLISH_LOCK_KEY = 'challenge:publish:lock';
 const CHALLENGE_PUBLISH_LOCK_TTL_SECONDS = 60;
 
-const DAILY_POST_WINDOW_MS = 23 * 60 * 60 * 1000; // allow 1-hour cushion for cron jitter
+// Keep this aligned with the create-new-challenge cron in devvit.json.
+const DAILY_POST_HOUR_UTC = 12;
 
 type ChallengePostSnapshot = {
   challengeNumber: number;
@@ -80,13 +81,21 @@ const getLatestChallengePostSnapshot = async (): Promise<ChallengePostSnapshot |
   }
 };
 
-const getChallengeWithinWindow = async (
-  windowMs: number
-): Promise<ChallengePostSnapshot | null> => {
+const getChallengeInCurrentDailySlot = async (): Promise<ChallengePostSnapshot | null> => {
   const snapshot = await getLatestChallengePostSnapshot();
   if (!snapshot) return null;
-  const ageMs = Date.now() - snapshot.createdAt.getTime();
-  if (Number.isFinite(ageMs) && ageMs < windowMs) {
+
+  // A late manual recovery belongs to its scheduled day; it must not delay
+  // the next day's cron. Each posting slot starts at the configured UTC hour.
+  const now = new Date();
+  const slotStart = new Date(now);
+  slotStart.setUTCHours(DAILY_POST_HOUR_UTC, 0, 0, 0);
+  if (now.getTime() < slotStart.getTime()) {
+    slotStart.setUTCDate(slotStart.getUTCDate() - 1);
+  }
+
+  const createdAtMs = snapshot.createdAt.getTime();
+  if (Number.isFinite(createdAtMs) && createdAtMs >= slotStart.getTime()) {
     return snapshot;
   }
   return null;
@@ -119,10 +128,6 @@ const createChallengePost = async ({
     post = await reddit.submitCustomPost({
       subredditName: currentSubreddit.name,
       title: `Hot and cold #${newChallengeNumber}`,
-      splash: {
-        appDisplayName: 'Hot and Cold',
-        backgroundUri: 'transparent.png',
-      },
       postData: Challenge.makePostData({
         challengeNumber: newChallengeNumber,
         totalPlayers: 0,
@@ -222,7 +227,7 @@ Enjoy! If you have feedback on how we can improve the game, please let us know!
   }
 };
 
-const ensureChallengeWithinWindow = async ({
+const ensureChallengeForDailySlot = async ({
   enqueueNotifications,
   enforceWindow,
 }: {
@@ -233,7 +238,7 @@ const ensureChallengeWithinWindow = async ({
   | { kind: 'created'; created: ChallengeCreationResult }
 > => {
   if (enforceWindow) {
-    const existing = await getChallengeWithinWindow(DAILY_POST_WINDOW_MS);
+    const existing = await getChallengeInCurrentDailySlot();
     if (existing) {
       return { kind: 'existing', snapshot: existing };
     }
@@ -419,7 +424,7 @@ export namespace Challenge {
       }
 
       try {
-        const outcome = await ensureChallengeWithinWindow({
+        const outcome = await ensureChallengeForDailySlot({
           enqueueNotifications,
           enforceWindow: !ignoreDailyWindow,
         });
@@ -527,7 +532,7 @@ export namespace Challenge {
     }
 
     try {
-      const outcome = await ensureChallengeWithinWindow({
+      const outcome = await ensureChallengeForDailySlot({
         enqueueNotifications: true,
         enforceWindow: true,
       });

@@ -38,9 +38,9 @@ const registerPostStub = ({
   return lookup[postId];
 };
 
-test('creates exactly one challenge within a 24 hour window', async () => {
+test('creates exactly one challenge within a daily posting slot', async () => {
   vi.useFakeTimers();
-  vi.setSystemTime(new Date('2025-01-01T01:00:00.000Z'));
+  vi.setSystemTime(new Date('2025-01-01T12:00:00.000Z'));
 
   const getWordSpy = vi.spyOn(api, 'getWordConfigCached').mockResolvedValue({} as any);
   const shiftSpy = vi.spyOn(WordQueue, 'shift').mockResolvedValue({ word: 'alpha' } as any);
@@ -124,9 +124,9 @@ test('is safe under concurrent invocations (one creates, others skip)', async ()
   }
 });
 
-test('creates a new challenge on the next UTC day with incremented number', async () => {
+test('creates a new challenge at the next scheduled time with incremented number', async () => {
   vi.useFakeTimers();
-  vi.setSystemTime(new Date('2025-01-01T02:00:00.000Z'));
+  vi.setSystemTime(new Date('2025-01-01T12:00:00.000Z'));
 
   vi.spyOn(api, 'getWordConfigCached').mockResolvedValue({} as any);
   const shiftSpy = vi.spyOn(WordQueue, 'shift');
@@ -153,7 +153,7 @@ test('creates a new challenge on the next UTC day with incremented number', asyn
       createdAt: new Date('2025-01-01T12:00:00.000Z'),
     });
 
-    vi.setSystemTime(new Date('2025-01-02T13:00:00.000Z'));
+    vi.setSystemTime(new Date('2025-01-02T12:00:00.000Z'));
     const second = await Challenge.ensureLatestClassicPostOrRetry();
     expect(second.status).toBe('created');
     expect(second.challengeNumber).toBe(2);
@@ -180,7 +180,7 @@ test('creates a new challenge on the next UTC day with incremented number', asyn
 
 test('makeNewChallenge uses defaults and returns existing challenge when called twice in one day', async () => {
   vi.useFakeTimers();
-  vi.setSystemTime(new Date('2025-01-11T05:00:00.000Z'));
+  vi.setSystemTime(new Date('2025-01-11T12:00:00.000Z'));
 
   vi.spyOn(api, 'getWordConfigCached').mockResolvedValue({} as any);
   const shiftSpy = vi.spyOn(WordQueue, 'shift');
@@ -221,7 +221,7 @@ test('makeNewChallenge uses defaults and returns existing challenge when called 
 
 test('allows manual override via ignoreDailyWindow', async () => {
   vi.useFakeTimers();
-  vi.setSystemTime(new Date('2025-01-13T05:00:00.000Z'));
+  vi.setSystemTime(new Date('2025-01-13T12:00:00.000Z'));
 
   vi.spyOn(api, 'getWordConfigCached').mockResolvedValue({} as any);
   const shiftSpy = vi.spyOn(WordQueue, 'shift');
@@ -257,3 +257,118 @@ test('allows manual override via ignoreDailyWindow', async () => {
   expect(schedulerSpy).toHaveBeenCalledTimes(2);
   schedulerSpy.mockRestore();
 });
+
+const dailyPostingCases = [
+  {
+    name: 'posts at noon after a manual post the previous afternoon',
+    previousCreatedAt: '2026-10-23T16:10:29.351Z',
+    now: '2026-10-24T12:00:00.000Z',
+    expectedStatus: 'created',
+  },
+  {
+    name: 'posts at noon after a manual post the previous evening',
+    previousCreatedAt: '2026-10-24T22:32:35.117Z',
+    now: '2026-10-25T12:00:00.000Z',
+    expectedStatus: 'created',
+  },
+  {
+    name: 'posts at noon after a recovery post earlier on the same UTC date',
+    previousCreatedAt: '2026-10-24T00:30:00.000Z',
+    now: '2026-10-24T12:00:00.000Z',
+    expectedStatus: 'created',
+  },
+  {
+    name: 'does not post again before the next noon boundary',
+    previousCreatedAt: '2026-10-23T12:00:00.000Z',
+    now: '2026-10-24T11:59:59.999Z',
+    expectedStatus: 'exists',
+  },
+  {
+    name: 'does not duplicate a post at the exact noon boundary',
+    previousCreatedAt: '2026-10-24T12:00:00.000Z',
+    now: '2026-10-24T12:00:00.000Z',
+    expectedStatus: 'exists',
+  },
+  {
+    name: 'does not duplicate a successful post during a morning retry',
+    previousCreatedAt: '2026-10-24T12:00:00.000Z',
+    now: '2026-10-24T12:30:00.000Z',
+    expectedStatus: 'exists',
+  },
+  {
+    name: 'does not duplicate a manual recovery post within its posting slot',
+    previousCreatedAt: '2026-10-24T16:10:00.000Z',
+    now: '2026-10-24T22:00:00.000Z',
+    expectedStatus: 'exists',
+  },
+] as const;
+
+for (const { name, previousCreatedAt, now, expectedStatus } of dailyPostingCases) {
+  test(name, async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date(now));
+
+    const getWordSpy = vi.spyOn(api, 'getWordConfigCached').mockResolvedValue({} as any);
+    const shiftSpy = vi.spyOn(WordQueue, 'shift').mockResolvedValue({ word: 'anvil' });
+    const subredditSpy = vi
+      .spyOn(reddit, 'getCurrentSubreddit')
+      .mockResolvedValue({ name: 'testsub' } as any);
+    const postSpy = vi
+      .spyOn(reddit, 'submitCustomPost')
+      .mockResolvedValue({ id: 't3_next', url: 'https://example.com/next' } as any);
+    const commentSpy = vi
+      .spyOn(reddit, 'submitComment')
+      .mockResolvedValue({ distinguish: async () => {} } as any);
+    const settingsSpy = vi.spyOn(settings, 'get').mockResolvedValue(undefined as any);
+    const schedulerSpy = vi.spyOn(scheduler, 'runJob').mockResolvedValue({} as any);
+    const { lookup, spy: getPostByIdSpy } = setupPostLookup();
+
+    try {
+      await Challenge.setChallenge({
+        challengeNumber: 443,
+        config: { challengeNumber: '443', secretWord: 'orchard' },
+      });
+      await Challenge.setPostIdForChallenge({ challengeNumber: 443, postId: 't3_previous' });
+      await Challenge.setCurrentChallengeNumber({ number: 443 });
+      registerPostStub({
+        lookup,
+        postId: 't3_previous',
+        postUrl: 'https://example.com/previous',
+        createdAt: new Date(previousCreatedAt),
+      });
+
+      const result = await Challenge.ensureLatestClassicPostOrRetry();
+      expect(result.status).toBe(expectedStatus);
+      expect(result.challengeNumber).toBe(expectedStatus === 'created' ? 444 : 443);
+      const expectedCreations = expectedStatus === 'created' ? 1 : 0;
+      expect(shiftSpy).toHaveBeenCalledTimes(expectedCreations);
+      expect(postSpy).toHaveBeenCalledTimes(expectedCreations);
+      expect(schedulerSpy).toHaveBeenCalledTimes(expectedCreations);
+
+      if (expectedStatus === 'created') {
+        registerPostStub({
+          lookup,
+          postId: 't3_next',
+          postUrl: 'https://example.com/next',
+          createdAt: new Date(now),
+        });
+        const retry = await Challenge.ensureLatestClassicPostOrRetry();
+        expect(retry.status).toBe('exists');
+        expect(retry.challengeNumber).toBe(444);
+        expect(shiftSpy).toHaveBeenCalledTimes(1);
+        expect(postSpy).toHaveBeenCalledTimes(1);
+        expect(schedulerSpy).toHaveBeenCalledTimes(1);
+      }
+    } finally {
+      vi.useRealTimers();
+      getWordSpy.mockRestore();
+      shiftSpy.mockRestore();
+      subredditSpy.mockRestore();
+      postSpy.mockRestore();
+      commentSpy.mockRestore();
+      settingsSpy.mockRestore();
+      schedulerSpy.mockRestore();
+      getPostByIdSpy.mockRestore();
+    }
+  });
+}

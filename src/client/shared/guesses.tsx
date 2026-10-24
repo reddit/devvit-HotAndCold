@@ -80,6 +80,12 @@ export function Guesses({
     );
   }, [latest, sorted]);
 
+  // The latest guess is pinned separately, so show it only once.
+  const previousGuesses = useMemo(
+    () => sorted.filter((guess) => guess.word !== latestItem?.word),
+    [sorted, latestItem]
+  );
+
   const getRankEmoji = (rank?: number | null): string | null => {
     const safeRank = Number.isFinite(rank) ? (rank as number) : -1;
     if (safeRank >= 1 && safeRank <= 250) return '🔥';
@@ -102,11 +108,11 @@ export function Guesses({
     return Math.max(1, Math.floor(dimensions.height / row));
   }, [dimensions.height, measuredRowHeight, FALLBACK_ROW_HEIGHT]);
 
-  const totalPages = Math.max(1, Math.ceil(sorted.length / itemsPerPage));
+  const totalPages = Math.max(1, Math.ceil(previousGuesses.length / itemsPerPage));
   const pageItems = useMemo(() => {
     const start = (currentPage - 1) * itemsPerPage;
-    return sorted.slice(start, start + itemsPerPage);
-  }, [sorted, currentPage, itemsPerPage]);
+    return previousGuesses.slice(start, start + itemsPerPage);
+  }, [previousGuesses, currentPage, itemsPerPage]);
 
   useEffect(() => {
     // Re-measure when content characteristics change
@@ -125,31 +131,42 @@ export function Guesses({
       )}
     >
       {sorted.length > 0 && latestItem && (
-        <p
-          className={cn(
-            'relative flex w-full justify-between gap-1 rounded border border-gray-300 bg-gray-100/70 px-1 dark:border-gray-500 dark:bg-gray-700/50'
-          )}
-        >
-          <span className="truncate font-medium text-gray-900 dark:text-white">
-            {latestItem.word}
-            {getRankEmoji(latestItem.rank) ? ` ${getRankEmoji(latestItem.rank)}` : null}
-          </span>
-          <span
+        <section aria-label="Latest guess" className="mb-1 shrink-0">
+          <p className="mb-1 text-[10px] font-medium text-gray-600 dark:text-gray-300">
+            Latest guess
+          </p>
+          <p
             className={cn(
-              'flex flex-shrink-0 items-center text-right',
-              getProgressClass(latestItem.rank)
+              'relative flex w-full justify-between gap-1 rounded border border-gray-300 bg-gray-100/70 px-1 dark:border-gray-500 dark:bg-gray-700/50'
             )}
           >
-            {latestItem.rank >= 1 ? `#${latestItem.rank}` : '—'}
-          </span>
-        </p>
+            <span className="truncate font-medium text-gray-900 dark:text-white">
+              {latestItem.word}
+              {getRankEmoji(latestItem.rank) ? ` ${getRankEmoji(latestItem.rank)}` : null}
+            </span>
+            <span
+              className={cn(
+                'flex flex-shrink-0 items-center text-right',
+                getProgressClass(latestItem.rank)
+              )}
+            >
+              {latestItem.rank >= 1 ? `#${latestItem.rank}` : '—'}
+            </span>
+          </p>
+        </section>
       )}
 
       <div ref={ref} className="min-h-0 flex-1 overflow-hidden">
-        <div ref={listColumnRef} className="flex flex-col gap-1">
+        <div
+          ref={listColumnRef}
+          role="list"
+          aria-label="Previous guesses"
+          className="flex flex-col gap-1"
+        >
           {pageItems.map((g) => (
             <p
               key={`${g.word}-${g.timestamp}`}
+              role="listitem"
               className="relative flex w-full justify-between gap-1 rounded px-1"
             >
               <span className="truncate text-gray-900 dark:text-gray-50">
@@ -172,6 +189,7 @@ export function Guesses({
       {totalPages > 1 && (
         <div className="flex h-4 items-center justify-center gap-3">
           <button
+            aria-label="Previous page"
             onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
             disabled={currentPage === 1}
             className={cn(
@@ -185,6 +203,7 @@ export function Guesses({
             {currentPage} / {totalPages}
           </span>
           <button
+            aria-label="Next page"
             onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
             disabled={currentPage === totalPages}
             className={cn(
