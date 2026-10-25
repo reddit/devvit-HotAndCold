@@ -5,7 +5,7 @@ import { IconButton } from '../../shared/button';
 import { Modal } from '../../shared/modal';
 import { audioPreferences, gameAudio, soundEnabled, soundSettingsOpen } from './audio';
 import type { Temperature } from './audio';
-import { GuessTemperature } from './temperature';
+import { GuessTemperature, TEMPERATURE_FEEDBACK_MS } from './temperature';
 
 const SpeakerIcon = ({ muted }: { muted: boolean }) => (
   <svg
@@ -90,7 +90,7 @@ export function SoundSettings() {
     setDirection(next);
     setSequence((value) => value + 1);
     clearTimeout(timer.current);
-    timer.current = setTimeout(() => setDirection(null), 1400);
+    timer.current = setTimeout(() => setDirection(null), TEMPERATURE_FEEDBACK_MS);
   };
   return (
     <Modal
@@ -145,7 +145,7 @@ export function SoundSettings() {
         >
           {soundEnabled.value ? 'Mute Sound' : 'Turn On Sound'}
         </button>
-        <div className="rounded-xl bg-gray-50 p-3 dark:bg-gray-800">
+        <div className="relative isolate overflow-hidden rounded-xl bg-gray-50 p-3 dark:bg-gray-800">
           <p className="text-xs font-medium">Preview feedback without making a guess</p>
           <div className="my-2 flex gap-2">
             <button
@@ -161,10 +161,11 @@ export function SoundSettings() {
               Preview Colder
             </button>
           </div>
-          <GuessTemperature direction={direction} sequence={sequence} />
+          <GuessTemperature direction={direction} sequence={sequence} contained />
         </div>
         <p className="text-xs text-gray-500">
-          Animations follow your device’s reduced-motion setting.
+          Gentle animations include a brief background tint and follow your device’s reduced-motion
+          setting.
         </p>
       </div>
     </Modal>

@@ -1,3 +1,37 @@
+.temperature-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background: radial-gradient(
+    ellipse at 50% 20%,
+    rgb(var(--temperature-color) / 0.14),
+    rgb(var(--temperature-color) / 0.06) 60%,
+    transparent
+  );
+  opacity: 0;
+  animation: temperature-fade ease-out both;
+}
+.temperature-backdrop--warmer {
+  --temperature-color: 249 115 22;
+}
+.temperature-backdrop--colder {
+  --temperature-color: 14 165 233;
+}
+.temperature-backdrop--contained {
+  position: absolute;
+}
+@keyframes temperature-fade {
+  0% {
+    opacity: 0;
+  }
+  15% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
 .guess-temperature {
   display: inline-flex;
   align-items: center;
@@ -42,6 +76,10 @@
   }
 }
 @media (prefers-reduced-motion: reduce) {
+  .temperature-backdrop {
+    display: none;
+    animation: none;
+  }
   .guess-temperature[data-motion='true'] svg {
     animation: none;
   }

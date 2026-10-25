@@ -12,7 +12,7 @@ import { trpc } from '../trpc';
 import { getBrowserIanaTimeZone } from '../../shared/timezones';
 import { setReminderOptIn, userSettings } from './state/userSettings';
 import { gameAudio, guessTemperature, type Temperature } from './feedback/audio';
-import { GuessTemperature } from './feedback/temperature';
+import { GuessTemperature, TEMPERATURE_FEEDBACK_MS } from './feedback/temperature';
 
 type PlayPrompt = 'JOIN_SUBREDDIT' | 'REMIND_ME_TO_PLAY';
 type ReactNode = ComponentChildren;
@@ -254,7 +254,10 @@ export function PlayPage({ engine }: { engine?: GuessEngine }) {
                 clearTimeout(temperatureTimer.current);
                 setTemperature(direction);
                 setTemperatureSequence((value) => value + 1);
-                temperatureTimer.current = setTimeout(() => setTemperature(null), 1400);
+                temperatureTimer.current = setTimeout(
+                  () => setTemperature(null),
+                  TEMPERATURE_FEEDBACK_MS
+                );
               }
               const historyNow = engine.history.value ?? [];
               const notVeryCloseMessage =
