@@ -5,7 +5,13 @@ import { BellIcon } from './icons';
 import { userSettings } from './state/userSettings';
 import { refreshReminders, reminderBusy, reminderStatus, updateReminders } from './state/reminders';
 
-export function ReminderButton({ prominent = false }: { prominent?: boolean }) {
+export function ReminderButton({
+  prominent = false,
+  compact = false,
+}: {
+  prominent?: boolean;
+  compact?: boolean;
+}) {
   useEffect(() => {
     void refreshReminders();
   }, []);
@@ -17,7 +23,7 @@ export function ReminderButton({ prominent = false }: { prominent?: boolean }) {
         type="button"
         disabled={reminderBusy.value}
         onClick={() => void updateReminders('enable')}
-        className="inline-flex w-full max-w-sm items-center justify-center gap-2 rounded-full bg-cyan-700 px-4 py-3 text-sm font-semibold text-white disabled:opacity-50"
+        className={`${compact ? 'inline-result-reminder' : ''} inline-flex w-full max-w-sm items-center justify-center gap-2 rounded-full bg-cyan-700 px-4 py-3 text-sm font-semibold text-white disabled:opacity-50`}
       >
         <BellIcon />
         {reminderBusy.value ? 'Turning On…' : 'Remind Me to Play Daily'}

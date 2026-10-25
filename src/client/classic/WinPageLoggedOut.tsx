@@ -6,7 +6,8 @@ import { showShareSheet, showToast } from '@devvit/web/client';
 import { posthog } from '../posthog';
 import { ShareIcon } from './icons';
 import { ScrollPanel } from '../shared/scrollNavigation';
-import { openPopup } from './expanded/launch';
+import { InlineResults, InlineResultButtons } from './inlineResults';
+import { GuessJourney } from './resultsCharts';
 
 export function WinPageLoggedOut({
   engine,
@@ -17,6 +18,8 @@ export function WinPageLoggedOut({
 }) {
   const [secretWord, setSecretWord] = useState<string | null>(null);
   const challengeNumber = requireChallengeNumber();
+  const history = engine.history.value ?? [];
+  const ranked = history.filter((guess) => Number.isFinite(guess.rank) && guess.rank >= 0);
 
   // Determine if they won locally
   const wonLocally = useMemo(() => {
@@ -67,41 +70,59 @@ export function WinPageLoggedOut({
     }
   };
 
-  return (
-    <>
-      {!expanded && (
-        <button
-          type="button"
-          className="mx-auto mb-2 rounded-full border px-3 py-1 text-xs font-semibold"
-          onClick={(event) => openPopup(event, 'results')}
-        >
-          Expand Results
-        </button>
-      )}
-      <ScrollPanel label="Results" scrollable={expanded}>
-        <div className="flex flex-col items-center justify-center gap-6 px-4 py-4 text-center">
-          <div className="flex flex-col gap-2">
-            <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
-              {wonLocally ? 'Congratulations!' : 'Game Over!'}
-            </h1>
-            <p className="text-xl">
-              The word was: <span className="font-bold text-[#dd4c4c]">{secretWord ?? '...'}</span>
-            </p>
-            <p className="mt-4 text-lg text-gray-600 dark:text-gray-300">
-              Sign up to see the full leaderboard and save your progress.
+  if (!expanded)
+    return (
+      <InlineResults
+        didWin={wonLocally}
+        word={secretWord ?? '…'}
+        stats={[
+          { label: 'Guesses', value: history.length },
+          {
+            label: 'Best Rank',
+            value: ranked.length
+              ? `#${Math.max(1, Math.min(...ranked.map((guess) => guess.rank)))}`
+              : '—',
+          },
+        ]}
+        guesses={history}
+        actions={
+          <div className="inline-result-actions-stack">
+            <InlineResultButtons onShare={() => void shareResults()} />
+            <p className="text-center text-[11px] leading-4 text-gray-500 dark:text-gray-400">
+              Sign Up to Save Your Progress
             </p>
           </div>
-          <button
-            type="button"
-            onClick={() => {
-              void shareResults();
-            }}
-            className="inline-flex items-center justify-center gap-2 rounded-full bg-zinc-100 px-5 py-3 text-sm font-semibold text-black focus:ring-2 focus:ring-slate-400 focus:ring-offset-2 focus:ring-offset-slate-50 focus:outline-none dark:bg-zinc-800 dark:text-white"
-          >
-            <ShareIcon /> Share Results
-          </button>
+        }
+      />
+    );
+
+  return (
+    <ScrollPanel label="Results">
+      <div className="flex flex-col items-center justify-center gap-6 px-4 py-4 text-center">
+        <div className="flex flex-col gap-2">
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
+            {wonLocally ? 'Congratulations!' : 'Game Over!'}
+          </h1>
+          <p className="text-xl">
+            The word was: <span className="font-bold text-[#dd4c4c]">{secretWord ?? '...'}</span>
+          </p>
+          <p className="mt-4 text-lg text-gray-600 dark:text-gray-300">
+            Sign up to see the full leaderboard and save your progress.
+          </p>
         </div>
-      </ScrollPanel>
-    </>
+        <div className="w-full">
+          <GuessJourney guesses={history} />
+        </div>
+        <button
+          type="button"
+          onClick={() => {
+            void shareResults();
+          }}
+          className="inline-flex items-center justify-center gap-2 rounded-full bg-zinc-100 px-5 py-3 text-sm font-semibold text-black focus:ring-2 focus:ring-slate-400 focus:ring-offset-2 focus:ring-offset-slate-50 focus:outline-none dark:bg-zinc-800 dark:text-white"
+        >
+          <ShareIcon /> Share Results
+        </button>
+      </div>
+    </ScrollPanel>
   );
 }

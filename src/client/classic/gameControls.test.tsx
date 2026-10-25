@@ -5,6 +5,9 @@ import { beforeEach, afterEach, expect, it, vi } from 'vitest';
 import '../index.css';
 import { Header } from './header';
 import { ResultsActions, WinPage } from './WinPage';
+import { WinPageLoggedOut } from './WinPageLoggedOut';
+import { signal } from '@preact/signals';
+import type { GuessEngine } from '../core/guessEngine';
 import { setReminderOptIn } from './state/userSettings';
 import { reminderBusy, reminderStatus } from './state/reminders';
 import { setActiveTestRun } from '../playtest/run';
@@ -218,7 +221,7 @@ it('keeps long solved-page lists in one scrolling area with native scrolling', a
   expect(container.scrollWidth).toBe(container.clientWidth);
 });
 
-it('opens result tabs in expanded mode instead of trapping scrolling in the inline post', async () => {
+it('opens full results from the compact inline summary without showing inline tabs or lists', async () => {
   mock.hints = vi.fn().mockResolvedValue([]);
   mock.game = {
     get: {
@@ -229,11 +232,146 @@ it('opens result tabs in expanded mode instead of trapping scrolling in the inli
     get: { query: vi.fn().mockResolvedValue({ leaderboardByScore: [], userRank: null }) },
   };
   await mount(<WinPage />);
-  await expect.poll(() => Boolean(button('Guesses'))).toBe(true);
-  await act(() => button('Guesses')!.click());
+  await expect.poll(() => Boolean(button('View Results'))).toBe(true);
+  await act(() => button('View Results')!.click());
   expect(mock.expand).toHaveBeenCalledWith(expect.any(MouseEvent), 'results', { title: 'Results' });
-  expect(localStorage.getItem('results-tab:1')).toBe('3');
-  expect(getComputedStyle(container.querySelector('[aria-label="Results"]')!).overflowY).toBe(
-    'hidden'
+  expect(localStorage.getItem('results-tab:1')).toBe('0');
+  expect(container.querySelector('[role="tablist"]')).toBeNull();
+  expect(
+    getComputedStyle(container.querySelector('[aria-label="Puzzle Results"]')!).overflowY
+  ).toBe('clip');
+  expect(mock.hints).not.toHaveBeenCalled();
+  expect(mock.cta.getCallToAction.query).not.toHaveBeenCalled();
+});
+
+it.each([
+  [320, 360],
+  [320, 440],
+  [390, 520],
+  [620, 512],
+  [768, 600],
+])(
+  'keeps the complete inline win and its actions visible without scrolling at %s × %s',
+  async (width, height) => {
+    await page.viewport(width!, height!);
+    const guesses = Array.from({ length: 99 }, (_, index) => ({
+      word: `guess${index}`,
+      rank: index % 3 ? 1000 - index * 8 : 40000,
+      similarity: 0.5,
+      timestampMs: index + 1000,
+    }));
+    guesses.push({
+      word: 'pneumonoultramicroscopicsilicovolcanoconiosis',
+      rank: 1,
+      similarity: 1,
+      timestampMs: 73000,
+    });
+    mock.hints = vi.fn();
+    mock.game = {
+      get: {
+        query: vi.fn().mockResolvedValue({
+          challengeInfo: { totalPlayers: 100, totalSolves: 25 },
+          challengeUserInfo: {
+            guesses,
+            startedPlayingAtMs: 1000,
+            solvedAtMs: 73000,
+            score: { finalScore: 96 },
+          },
+        }),
+      },
+    };
+    mock.leaderboard = {
+      get: {
+        query: vi.fn().mockResolvedValue({ leaderboardByScore: [], userRank: { score: 12 } }),
+      },
+    };
+    await mount(
+      <div className="mx-auto flex h-[100dvh] min-h-0 max-w-2xl flex-col overflow-hidden px-4 py-6 md:px-6">
+        <Header isModerator />
+        <WinPage />
+      </div>
+    );
+    await expect.poll(() => Boolean(button('Remind Me to Play Daily'))).toBe(true);
+    const summary = container.querySelector<HTMLElement>('[aria-label="Puzzle Results"]')!;
+    const bounds = summary.getBoundingClientRect();
+    expect(summary.scrollHeight).toBeLessThanOrEqual(summary.clientHeight);
+    expect(summary.scrollWidth).toBe(summary.clientWidth);
+    expect(container.scrollWidth).toBe(container.clientWidth);
+    for (const action of Array.from(summary.querySelectorAll<HTMLButtonElement>('button'))) {
+      action.focus();
+      const frame = action.getBoundingClientRect();
+      expect(frame.top).toBeGreaterThanOrEqual(bounds.top);
+      expect(frame.bottom).toBeLessThanOrEqual(bounds.bottom);
+      expect(frame.bottom).toBeLessThanOrEqual(height! - 20);
+      expect(frame.left).toBeGreaterThanOrEqual(bounds.left);
+      expect(frame.right).toBeLessThanOrEqual(bounds.right);
+      expect(summary.scrollTop).toBe(0);
+    }
+    summary.scrollTop = 1000;
+    expect(summary.scrollTop).toBe(0);
+    expect(button('Share Results')?.querySelector('svg')).not.toBeNull();
+    expect(button('View Results')).toBeDefined();
+    expect(mock.hints).not.toHaveBeenCalled();
+    const chart = summary.querySelector<HTMLElement>('.inline-results-chart')!;
+    if (width! >= 620) expect(chart.getBoundingClientRect().height).toBeGreaterThan(0);
+    if (height! === 360) expect(getComputedStyle(chart).display).toBe('none');
+  }
+);
+
+it('does not turn a Give Up reveal into a winning point in the journey chart', async () => {
+  mock.game = {
+    get: {
+      query: vi.fn().mockResolvedValue({
+        challengeInfo: {},
+        challengeUserInfo: {
+          gaveUpAtMs: 3000,
+          startedPlayingAtMs: 1000,
+          guesses: [
+            { word: 'tree', rank: 1000, similarity: 0.1, timestampMs: 1000 },
+            { word: 'pear', rank: 4, similarity: 0.9, timestampMs: 2000 },
+            { word: 'apple', rank: 0, similarity: 1, isHint: true, timestampMs: 3000 },
+          ],
+        },
+      }),
+    },
+  };
+  mock.leaderboard = {
+    get: { query: vi.fn().mockResolvedValue({ leaderboardByScore: [], userRank: null }) },
+  };
+  await mount(
+    <div className="flex h-[400px] flex-col">
+      <WinPage />
+    </div>
   );
+  await expect.poll(() => container.textContent).toContain('Nice Try!');
+  const chart = container.querySelector('svg[aria-label^="Guess journey"]')!;
+  expect(chart.getAttribute('aria-label')).toContain('over 2 guesses. Best rank 4');
+  expect(container.textContent).toContain('apple');
+  expect(button('Remind Me to Play Daily')).toBeUndefined();
+});
+
+it('keeps guest results and their actions inside a short inline post too', async () => {
+  await page.viewport(320, 360);
+  const engine = {
+    history: signal([
+      { word: 'pear', rank: 4, similarity: 0.9, timestamp: 1000 },
+      { word: 'apple', rank: 1, similarity: 1, timestamp: 2000 },
+    ]),
+  } as GuessEngine;
+  await mount(
+    <div className="mx-auto flex h-[100dvh] max-w-2xl flex-col overflow-hidden px-4 py-6">
+      <Header isModerator={false} />
+      <WinPageLoggedOut engine={engine} />
+    </div>
+  );
+  await expect.poll(() => container.textContent).toContain('apple');
+  const summary = container.querySelector<HTMLElement>('[aria-label="Puzzle Results"]')!;
+  expect(summary.scrollHeight).toBeLessThanOrEqual(summary.clientHeight);
+  for (const action of Array.from(summary.querySelectorAll<HTMLButtonElement>('button'))) {
+    action.focus();
+    expect(action.getBoundingClientRect().bottom).toBeLessThanOrEqual(340);
+    expect(summary.scrollTop).toBe(0);
+  }
+  expect(button('Share Results')).toBeDefined();
+  expect(button('View Results')).toBeDefined();
 });

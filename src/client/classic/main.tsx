@@ -41,9 +41,11 @@ function AppContent({
         ) : (
           <PlayPage engine={engine} />
         )}
-        <div className="relative mx-auto w-full max-w-xl">
-          <Progress challengeNumber={Number(challengeNumber)} engine={engine} />
-        </div>
+        {page.value !== 'win' && (
+          <div className="relative mx-auto w-full max-w-xl">
+            <Progress challengeNumber={Number(challengeNumber)} engine={engine} />
+          </div>
+        )}
         <HowToPlayModal />
       </div>
     </div>

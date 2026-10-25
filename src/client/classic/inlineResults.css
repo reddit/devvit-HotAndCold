@@ -1,0 +1,63 @@
+/* Inline posts have no scrolling or programmatic scroll-to-focus surface. */
+.inline-results {
+  container: inline-results / size;
+  overflow: clip;
+}
+
+.inline-results-content {
+  display: flex;
+  height: 100%;
+  min-height: 0;
+  flex-direction: column;
+  justify-content: center;
+  gap: 10px;
+  padding: 4px;
+}
+
+.inline-result-actions-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.inline-result-button {
+  min-height: 40px;
+}
+
+.inline-results-actions .inline-result-reminder {
+  max-width: none;
+  min-height: 40px;
+  padding: 6px 8px;
+  font-size: 12px;
+  line-height: 16px;
+}
+
+@container inline-results (max-height: 290px) {
+  .inline-results-content {
+    gap: 6px;
+    padding: 2px;
+  }
+}
+
+@container inline-results (max-height: 340px) {
+  .inline-results-chart {
+    display: none;
+  }
+}
+
+@container inline-results (max-height: 220px) {
+  .inline-results-content,
+  .inline-result-actions-stack {
+    gap: 4px;
+  }
+
+  .inline-result-button,
+  .inline-results-actions .inline-result-reminder {
+    min-height: 36px;
+  }
+
+  .inline-results-heading > span {
+    font-size: 16px;
+    line-height: 20px;
+  }
+}

@@ -94,9 +94,19 @@ largest client chunk from about 573 kB to 391 kB without raising the warning lim
   not reload the settings view. Data rebuilds on demand. The
   older “Reset Cache and Reload” flow cleared both browser storage areas and
   could lose unsynced history.
-- Results tabs and **Expand Results** open the selected results view in expanded
-  mode. Long lists use normal scrolling there; inline results do not capture
-  page scrolling. The custom Scroll Up / Scroll Down buttons are removed.
+- Inline results show the answer, three compact stats, Share Results, View Results,
+  and the opt-in reminder button. Everything fits within the post; overflow is
+  clipped without creating a programmatically scrollable surface. The player
+  progress footer is only shown during play and stops polling on the results screen.
+- A small static **Your Guess Journey** chart uses the player's existing guess ranks.
+  It hides in short inline layouts and remains available in expanded results.
+  Higher points mean closer ranks, using a log scale. Give Up reveal records are
+  excluded from the journey. The expanded **Global** tab adds a simple community
+  solve-rate bar. Charts do not add data requests, animations, or gesture handlers.
+- **View Results** opens the detailed tabs in expanded mode, where long lists use
+  normal scrolling. Join/comment actions stay there; closest-word and full
+  standings data load when those tabs are selected. The custom Scroll Up /
+  Scroll Down buttons are removed.
 - Expanded mode can replace the game iframe. Unacknowledged guesses are saved
   locally and retried when the game returns, preserving hint flags. Recovery
   first checks server history to avoid resubmitting a word already accepted.

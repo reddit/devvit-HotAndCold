@@ -17,6 +17,8 @@ import { ShareIcon } from './icons';
 import { ReminderButton } from './reminders';
 import { ScrollPanel } from '../shared/scrollNavigation';
 import { userSettings } from './state/userSettings';
+import { InlineResults, InlineResultButtons } from './inlineResults';
+import { GuessJourney, CommunityProgress } from './resultsCharts';
 
 type LeaderboardEntry = { member: string; score: number };
 
@@ -46,7 +48,9 @@ export const ResultsActions = ({
   didWin,
   challengeNumber,
   stats,
+  compact = false,
 }: {
+  compact?: boolean;
   didWin: boolean;
   challengeNumber: number;
   stats: { score?: number | null; rank?: number | null; timeToSolve?: string | null };
@@ -64,7 +68,8 @@ export const ResultsActions = ({
   }, [cta]);
 
   useEffect(() => {
-    // Always fetch the CTA for this challenge so users can comment even before winning
+    if (compact) return;
+    // Secondary actions stay in the expanded results.
     void (async () => {
       try {
         const next = await trpc.cta.getCallToAction.query({ challengeNumber });
@@ -73,7 +78,7 @@ export const ResultsActions = ({
         setCta(null);
       }
     })();
-  }, [challengeNumber, userSettings.value.isUserOptedIntoReminders]);
+  }, [challengeNumber, compact, userSettings.value.isUserOptedIntoReminders]);
 
   const doAction = async (event: MouseEvent) => {
     if (cta === 'COMMENT') {
@@ -130,6 +135,14 @@ export const ResultsActions = ({
       showToast({ text: 'Share is unavailable right now' });
     }
   };
+
+  if (compact)
+    return (
+      <div className="inline-result-actions-stack">
+        <InlineResultButtons onShare={() => void shareResults()} />
+        {didWin && <ReminderButton prominent compact />}
+      </div>
+    );
 
   return (
     <div className="text-sm">
@@ -196,7 +209,11 @@ export function WinPage({ expanded = false }: { expanded?: boolean }) {
     // Load leaderboard lazily when page mounts
     void (async () => {
       try {
-        const res = await trpc.leaderboard.get.query({ challengeNumber, start: 0, stop: 50 });
+        const res = await trpc.leaderboard.get.query({
+          challengeNumber,
+          start: 0,
+          stop: expanded && activeIndex === 4 ? 50 : 0,
+        });
         setLeaderboard(res.leaderboardByScore ?? []);
         const myRank = res.userRank?.score ?? null;
         setUserRank(typeof myRank === 'number' ? myRank : null);
@@ -204,10 +221,11 @@ export function WinPage({ expanded = false }: { expanded?: boolean }) {
         // ignore
       }
     })();
-  }, [challengeNumber]);
+  }, [challengeNumber, expanded && activeIndex === 4]);
 
   useEffect(() => {
-    // Load closest words (hints) once per challenge
+    if (!expanded || activeIndex !== 2 || hints !== null) return;
+    // Load closest words only when their expanded tab is selected.
     void (async () => {
       setIsHintsLoading(true);
       try {
@@ -225,7 +243,7 @@ export function WinPage({ expanded = false }: { expanded?: boolean }) {
         setIsHintsLoading(false);
       }
     })();
-  }, [challengeNumber]);
+  }, [challengeNumber, expanded, activeIndex, hints]);
 
   if (!challengeUserInfo || !challengeInfo) {
     // optimistic skeleton
@@ -239,6 +257,49 @@ export function WinPage({ expanded = false }: { expanded?: boolean }) {
 
   const didWin = !!challengeUserInfo.solvedAtMs;
   const word = challengeUserInfo.guesses?.find((x: any) => x.similarity === 1);
+
+  const journeyGuesses = (challengeUserInfo.guesses ?? []).filter(
+    (guess: any) => didWin || guess.similarity !== 1
+  );
+  const endAt = challengeUserInfo.solvedAtMs ?? challengeUserInfo.gaveUpAtMs;
+  const timeToSolve =
+    Number.isFinite(challengeUserInfo.startedPlayingAtMs) && Number.isFinite(endAt)
+      ? getPrettyDuration(new Date(challengeUserInfo.startedPlayingAtMs), new Date(endAt))
+      : '--';
+
+  if (!expanded)
+    return (
+      <InlineResults
+        didWin={didWin}
+        word={word?.word ?? '—'}
+        stats={[
+          ...(didWin
+            ? [
+                {
+                  label: 'Score',
+                  value: challengeUserInfo.score?.finalScore ?? 0,
+                  onClick: (event: MouseEvent) => openPopup(event, 'score-breakdown'),
+                },
+              ]
+            : [{ label: 'Guesses', value: journeyGuesses.length }]),
+          { label: 'Time', value: timeToSolve.split(' ').slice(0, 2).join(' ') },
+          { label: 'Rank', value: didWin && userRank ? `#${userRank}` : '—' },
+        ]}
+        guesses={journeyGuesses}
+        actions={
+          <ResultsActions
+            compact
+            didWin={didWin}
+            challengeNumber={challengeNumber}
+            stats={{
+              score: challengeUserInfo.score?.finalScore ?? null,
+              rank: userRank,
+              timeToSolve,
+            }}
+          />
+        }
+      />
+    );
 
   const calculatePercentageOutperformed = (rank: number, totalPlayers: number): number => {
     if (rank === 1) return 100;
@@ -274,12 +335,7 @@ export function WinPage({ expanded = false }: { expanded?: boolean }) {
       <div className="mx-auto">
         <Tablist
           activeIndex={activeIndex}
-          onChange={(index, event) => {
-            if (!expanded) {
-              localStorage.setItem(`results-tab:${challengeNumber}`, String(index));
-              openPopup(event, 'results');
-              return;
-            }
+          onChange={(index) => {
             const tabClicked = tabList[index]!.name;
             posthog.capture('Win Page Tab Clicked', {
               index,
@@ -289,21 +345,9 @@ export function WinPage({ expanded = false }: { expanded?: boolean }) {
           }}
           items={tabList}
         />
-        {!expanded && (
-          <button
-            type="button"
-            className="mx-auto mt-1 block rounded-full border border-gray-300 px-3 py-1 text-xs font-semibold dark:border-gray-600"
-            onClick={(event) => {
-              localStorage.setItem(`results-tab:${challengeNumber}`, '0');
-              openPopup(event, 'results');
-            }}
-          >
-            Expand Results
-          </button>
-        )}
       </div>
 
-      <ScrollPanel key={activeIndex} label="Results" scrollable={expanded}>
+      <ScrollPanel key={activeIndex} label="Results">
         <div className="mx-auto w-full max-w-xl px-1 pb-3">
           {activeIndex === 0 && (
             <div className="flex flex-col items-center justify-start gap-4">
@@ -353,6 +397,9 @@ export function WinPage({ expanded = false }: { expanded?: boolean }) {
                 />
                 <StatCard title="Rank" value={didWin ? `#${userRank ?? '--'}` : '--'} />
               </div>
+              <div className="w-full">
+                <GuessJourney guesses={journeyGuesses} />
+              </div>
               <ResultsActions
                 didWin={didWin}
                 challengeNumber={challengeNumber}
@@ -370,16 +417,13 @@ export function WinPage({ expanded = false }: { expanded?: boolean }) {
 
           {activeIndex === 1 && (
             <div className="flex flex-col gap-6">
+              <CommunityProgress players={totalPlayers} solves={totalSolves} />
               <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
                 <StatCard title="Total Players" value={formatCompactNumber(totalPlayers)} />
                 <StatCard title="Total Solves" value={formatCompactNumber(totalSolves)} />
                 <StatCard title="Total Guesses" value={formatCompactNumber(totalGuesses)} />
                 <StatCard title="Total Hints" value={formatCompactNumber(totalHints)} />
                 <StatCard title="Give Ups" value={formatCompactNumber(totalGiveUps)} />
-                <StatCard
-                  title="Solve Rate"
-                  value={`${Math.round(((challengeInfo?.totalSolves ?? 0) / (challengeInfo?.totalPlayers ?? 1)) * 100)}%`}
-                />
                 <StatCard
                   title="Average Guesses"
                   value={formatCompactNumber(averageGuessesRounded)}
