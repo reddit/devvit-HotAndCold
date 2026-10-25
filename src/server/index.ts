@@ -723,7 +723,10 @@ app.use(
         type,
         message: error.message,
         cause: error.cause,
-        input,
+        input:
+          path === 'moderation.queue' || path === 'moderation.revealAnswer'
+            ? '[Reveal acknowledgement omitted]'
+            : input,
         stack: error.stack,
       });
     },

@@ -17,6 +17,7 @@ import {
   WORD_REVEAL_DURATION_MS,
   WORD_REVEAL_PURPOSES,
   WORD_REVEAL_REASON_MIN_LENGTH,
+  WORD_REVEAL_REASON_MAX_LENGTH,
 } from '../../shared/moderation';
 
 // Read-only inspection of @devvit/cache 0.15.0's known namespace. Cleanup below
@@ -48,7 +49,7 @@ const moderatorProcedure = publicProcedure.use(async ({ next }) => {
 const wordsInput = z.object({ words: z.string().min(1).max(5000) });
 const revealInput = z.object({
   purpose: z.enum(WORD_REVEAL_PURPOSES),
-  reason: z.string().trim().min(WORD_REVEAL_REASON_MIN_LENGTH).max(500),
+  reason: z.string().trim().min(WORD_REVEAL_REASON_MIN_LENGTH).max(WORD_REVEAL_REASON_MAX_LENGTH),
   promiseNotToCheat: z.literal(true),
   confirmation: z.literal('REVEAL'),
 });

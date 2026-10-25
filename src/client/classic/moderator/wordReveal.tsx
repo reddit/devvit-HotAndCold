@@ -3,6 +3,7 @@ import {
   WORD_REVEAL_LABELS,
   WORD_REVEAL_PURPOSES,
   WORD_REVEAL_REASON_MIN_LENGTH,
+  WORD_REVEAL_REASON_MAX_LENGTH,
   type WordRevealAcknowledgement,
 } from '../../../shared/moderation';
 
@@ -24,11 +25,13 @@ export function WordRevealGate({
   const heading = useRef<HTMLHeadingElement>(null);
   useEffect(() => heading.current?.focus(), []);
   const allowedPurpose = WORD_REVEAL_PURPOSES.find((value) => value === purpose);
-  const ready =
-    allowedPurpose &&
-    reason.trim().length >= WORD_REVEAL_REASON_MIN_LENGTH &&
-    promise &&
-    confirmation === 'REVEAL';
+  const reasonLength = reason.trim().length;
+  const wordCount = reason.trim().match(/\S+/g)?.length ?? 0;
+  const remainingCharacters = Math.max(0, WORD_REVEAL_REASON_MIN_LENGTH - reasonLength);
+  const reasonValid =
+    reasonLength >= WORD_REVEAL_REASON_MIN_LENGTH && reasonLength <= WORD_REVEAL_REASON_MAX_LENGTH;
+  const canAcknowledge = Boolean(allowedPurpose) && reasonValid;
+  const ready = canAcknowledge && promise && confirmation === 'REVEAL';
   const field =
     'mt-2 w-full rounded-lg border border-amber-300 bg-white p-3 text-sm dark:border-amber-800 dark:bg-gray-900';
 
@@ -38,7 +41,7 @@ export function WordRevealGate({
       className="mt-4 space-y-4 rounded-xl border border-amber-300 bg-amber-50 p-4 dark:border-amber-900 dark:bg-amber-950/30"
       onSubmit={(event) => {
         event.preventDefault();
-        if (!ready || busy) return;
+        if (!allowedPurpose || !ready || busy) return;
         void onConfirm({
           purpose: allowedPurpose,
           reason: reason.trim(),
@@ -62,7 +65,11 @@ export function WordRevealGate({
           required
           disabled={busy}
           value={purpose}
-          onChange={(event) => setPurpose(event.currentTarget.value)}
+          onChange={(event) => {
+            setPurpose(event.currentTarget.value);
+            setPromise(false);
+            setConfirmation('');
+          }}
         >
           <option value="">Choose a Moderation Task</option>
           {WORD_REVEAL_PURPOSES.map((value) => (
@@ -80,35 +87,75 @@ export function WordRevealGate({
           required
           disabled={busy}
           minLength={WORD_REVEAL_REASON_MIN_LENGTH}
-          maxLength={500}
+          maxLength={WORD_REVEAL_REASON_MAX_LENGTH}
+          aria-describedby="word-reveal-reason-help word-reveal-reason-count"
           value={reason}
-          placeholder="Describe the specific moderation task (at least 20 characters)."
-          onInput={(event) => setReason(event.currentTarget.value)}
+          placeholder={`Describe the specific moderation task (at least ${WORD_REVEAL_REASON_MIN_LENGTH} characters).`}
+          onInput={(event) => {
+            const next = event.currentTarget.value;
+            setReason(next);
+            const length = next.trim().length;
+            if (length < WORD_REVEAL_REASON_MIN_LENGTH || length > WORD_REVEAL_REASON_MAX_LENGTH) {
+              setPromise(false);
+              setConfirmation('');
+            }
+          }}
         />
       </label>
-      <label className="flex items-start gap-3 text-sm">
-        <input
-          className="mt-1"
-          type="checkbox"
-          required
-          disabled={busy}
-          checked={promise}
-          onChange={(event) => setPromise(event.currentTarget.checked)}
-        />
-        I need these words for moderation, and I promise not to use or share them to cheat.
-      </label>
-      <label className="block text-sm font-semibold">
-        Type REVEAL to Confirm
-        <input
-          className={field}
-          required
-          disabled={busy}
-          autoComplete="off"
-          spellcheck={false}
-          value={confirmation}
-          onInput={(event) => setConfirmation(event.currentTarget.value)}
-        />
-      </label>
+      <div
+        id="word-reveal-reason-count"
+        className="flex flex-wrap justify-between gap-2 text-xs font-medium"
+      >
+        <span>
+          {reasonLength} / {WORD_REVEAL_REASON_MAX_LENGTH} Characters
+        </span>
+        <span>
+          {wordCount} {wordCount === 1 ? 'Word' : 'Words'}
+        </span>
+      </div>
+      <p id="word-reveal-reason-help" className="text-xs text-gray-600 dark:text-gray-300">
+        Use at least {WORD_REVEAL_REASON_MIN_LENGTH} characters. Leading and trailing spaces do not
+        count. The reason is validated when you confirm, but is not saved as an audit record.
+      </p>
+      <p id="word-reveal-confirmation-help" role="status" className="text-xs font-medium">
+        {canAcknowledge
+          ? 'Reason complete. Confirmations unlocked.'
+          : !allowedPurpose
+            ? 'Choose a moderation purpose and complete the reason to unlock the next steps.'
+            : reasonLength > WORD_REVEAL_REASON_MAX_LENGTH
+              ? `Shorten the reason to ${WORD_REVEAL_REASON_MAX_LENGTH} characters to continue.`
+              : `Add ${remainingCharacters} more ${remainingCharacters === 1 ? 'character' : 'characters'} to unlock the next steps.`}
+      </p>
+      <fieldset
+        disabled={busy || !canAcknowledge}
+        aria-describedby="word-reveal-confirmation-help"
+        className="space-y-4 disabled:opacity-50"
+      >
+        <legend className="sr-only">Confirm You Need These Words</legend>
+        <label className="flex items-start gap-3 text-sm">
+          <input
+            className="mt-1"
+            type="checkbox"
+            required
+            disabled={busy || !canAcknowledge}
+            checked={promise}
+            onChange={(event) => setPromise(event.currentTarget.checked)}
+          />
+          I need these words for moderation, and I promise not to use or share them to cheat.
+        </label>
+        <label className="block text-sm font-semibold">
+          Type REVEAL to Confirm
+          <input
+            className={field}
+            required
+            disabled={busy || !canAcknowledge}
+            autoComplete="off"
+            spellcheck={false}
+            value={confirmation}
+            onInput={(event) => setConfirmation(event.currentTarget.value)}
+          />
+        </label>
+      </fieldset>
       <p className="text-xs text-gray-600 dark:text-gray-300">
         This reveals only{' '}
         {target === 'answer' ? 'the selected answer' : 'this page of up to 50 words'} for 60

@@ -5,6 +5,7 @@ export const WORD_REVEAL_LABELS = {
   publishing_issue: 'Resolve a Publishing Problem',
 };
 export const WORD_REVEAL_REASON_MIN_LENGTH = 20;
+export const WORD_REVEAL_REASON_MAX_LENGTH = 500;
 export const WORD_REVEAL_DURATION_MS = 60_000;
 
 export type WordRevealAcknowledgement = {

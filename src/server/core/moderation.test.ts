@@ -157,6 +157,7 @@ test('reveals require a reason, purpose, pledge, and exact typed confirmation on
       {},
       { ...acknowledgement, reason: 'too short' },
       { ...acknowledgement, reason: ' '.repeat(25) },
+      { ...acknowledgement, reason: 'x'.repeat(501) },
       { ...acknowledgement, purpose: 'curiosity' },
       { ...acknowledgement, promiseNotToCheat: false },
       { ...acknowledgement, confirmation: 'reveal' },
