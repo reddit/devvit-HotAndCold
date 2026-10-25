@@ -16,7 +16,6 @@ import { posthog, configurePosthog } from '../posthog';
 import { GUESS_SAMPLE_RATE } from '../config';
 import type { GuessEngine } from '../core/guessEngine';
 import { trpc } from '../trpc';
-import { TestRunControls } from '../playtest/controls';
 
 configurePosthog({ mode: 'classic' });
 
@@ -32,8 +31,7 @@ function AppContent({
   return (
     <div className="relative isolate h-[100dvh] min-h-[100dvh] w-full overflow-hidden">
       <div className="mx-auto flex h-full min-h-0 max-w-2xl flex-col overflow-hidden px-4 py-6 md:px-6">
-        <TestRunControls isSubmitting={Boolean(engine.isSubmitting.value)} />
-        <Header isModerator={isModerator} />
+        <Header isModerator={isModerator} isSubmitting={Boolean(engine.isSubmitting.value)} />
         {page.value === 'win' ? (
           isLoggedOut() ? (
             <WinPageLoggedOut engine={engine} />

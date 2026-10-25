@@ -11,10 +11,19 @@ import { PlayerSettings, settingsOpen } from './settings';
 import { HelpIcon, ArchiveIcon, ShareIcon, GearIcon, ShieldIcon } from './icons';
 import { openModeratorSettings } from './moderator/launch';
 import { ReminderButton } from './reminders';
+import { TestRunControls } from '../playtest/controls';
+import { getActiveTestRun } from '../playtest/run';
 import './toolbar.css';
 
-export function Header({ isModerator }: { isModerator: boolean }) {
+export function Header({
+  isModerator,
+  isSubmitting = false,
+}: {
+  isModerator: boolean;
+  isSubmitting?: boolean;
+}) {
   const challengeNumber = requireChallengeNumber();
+  const isPlaytest = Boolean(getActiveTestRun());
   const howToPlay = () => {
     posthog.capture('Game Page How to Play Opened');
     openHowToPlay();
@@ -38,20 +47,25 @@ export function Header({ isModerator }: { isModerator: boolean }) {
           <div className="h-10 shrink-0" role="img" aria-label="Hot and Cold">
             <Logo />
           </div>
-          <button
-            type="button"
-            aria-label="Pssst… How to Play"
-            title="Pssst… Need Help?"
-            onClick={howToPlay}
-            className="flex items-center gap-1 rounded-lg focus-visible:outline-2 focus-visible:outline-cyan-500"
-          >
-            <span className="block h-9 w-9 [&>svg]:h-full [&>svg]:w-full" aria-hidden="true">
-              <HardcoreMascot />
-            </span>
-            <span className="rounded-full border border-gray-300 px-2 py-0.5 text-[10px] text-gray-500 italic dark:border-gray-600 dark:text-gray-400">
-              Pssst…
-            </span>
-          </button>
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              aria-label="Pssst… How to Play"
+              title="Pssst… Need Help?"
+              onClick={howToPlay}
+              className="flex items-center gap-1 rounded-lg focus-visible:outline-2 focus-visible:outline-cyan-500"
+            >
+              <span className="block h-9 w-9 [&>svg]:h-full [&>svg]:w-full" aria-hidden="true">
+                <HardcoreMascot />
+              </span>
+              {!isPlaytest && (
+                <span className="w-14 rounded-full border border-gray-300 py-0.5 text-center text-[10px] text-gray-500 italic dark:border-gray-600 dark:text-gray-400">
+                  Pssst…
+                </span>
+              )}
+            </button>
+            <TestRunControls isSubmitting={isSubmitting} />
+          </div>
         </div>
         <nav
           aria-label="Game Toolbar"

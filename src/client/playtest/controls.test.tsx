@@ -3,6 +3,7 @@ import { act } from 'preact/test-utils';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { TestRunControls } from './controls';
 import { setActiveTestRun } from './run';
+import '../index.css';
 
 vi.mock('../trpc', () => ({
   trpc: {
@@ -41,7 +42,12 @@ it('sends the selected state for the active run and handles a failed reset witho
     postUrl: 'https://reddit.com/comments/test',
   });
   await act(() => render(<TestRunControls isSubmitting={false} />, container));
-  expect(container.textContent).toContain('Playtest Only · Test Word: apple');
+  expect(container.textContent).toBe('Playtest');
+  expect(container.querySelector('[role="dialog"]')).toBeNull();
+  const chip = container.querySelector<HTMLButtonElement>('[aria-label="Playtest Controls"]')!;
+  await act(() => chip.click());
+  expect(chip.getAttribute('aria-expanded')).toBe('true');
+  expect(container.textContent).toContain('Test Word: apple');
   for (const [label, state] of [
     ['Reset My Test Run', 'fresh'],
     ['Jump to Solved', 'solved'],
@@ -65,7 +71,16 @@ it('disables state changes while the game is submitting a guess', async () => {
     postUrl: 'https://reddit.com/comments/test',
   });
   await act(() => render(<TestRunControls isSubmitting />, container));
-  const buttons = Array.from(container.querySelectorAll('button'));
+  const chip = container.querySelector<HTMLButtonElement>('[aria-label="Playtest Controls"]')!;
+  expect(chip.disabled).toBe(false);
+  await act(() => chip.click());
+  const buttons = Array.from(container.querySelectorAll<HTMLButtonElement>('section button'));
   expect(buttons).toHaveLength(2);
   expect(buttons.every((button) => button.disabled)).toBe(true);
+  await act(() => {
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+  });
+  expect(container.querySelector('[role="dialog"]')).toBeNull();
+  expect(chip.getAttribute('aria-expanded')).toBe('false');
+  expect(reset).not.toHaveBeenCalled();
 });

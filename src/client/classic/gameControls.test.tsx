@@ -8,6 +8,7 @@ import { ResultsActions, WinPage } from './WinPage';
 import { setReminderOptIn } from './state/userSettings';
 import { reminderBusy, reminderStatus } from './state/reminders';
 import { settingsOpen } from './settings';
+import { setActiveTestRun } from '../playtest/run';
 
 vi.mock('@devvit/web/client', () => ({
   context: { userId: 't2_player', subredditName: 'testsub', postData: { challengeNumber: 1 } },
@@ -29,6 +30,7 @@ vi.mock('../core/hints', async (original) => ({
 let container: HTMLDivElement;
 let mock: any;
 beforeEach(() => {
+  setActiveTestRun(null);
   container = document.createElement('div');
   document.body.append(container);
   settingsOpen.value = false;
@@ -49,6 +51,7 @@ beforeEach(() => {
 });
 afterEach(async () => {
   await act(() => render(null, container));
+  setActiveTestRun(null);
   container.remove();
   delete (globalThis as any).__gameControlsMock;
   await page.viewport(1280, 720);
@@ -102,6 +105,30 @@ it('fits all seven moderator toolbar controls in a narrow view without horizonta
   );
 });
 
+it.each([
+  [320, 440],
+  [620, 512],
+  [768, 600],
+])('keeps the playtest chip at the regular header height at %s × %s', async (width, height) => {
+  await page.viewport(width!, height!);
+  container.style.width = `${width! - 32}px`;
+  await mount(<Header isModerator />);
+  const normal = container.querySelector('header')!.getBoundingClientRect();
+  await act(() => render(null, container));
+  setActiveTestRun({
+    challengeNumber: 1_000_000_001,
+    word: 'apple',
+    postUrl: 'https://reddit.com/comments/test',
+  });
+  await mount(<Header isModerator />);
+  const header = container.querySelector('header')!;
+  expect(header.getBoundingClientRect().height).toBe(normal.height);
+  expect(header.scrollWidth).toBe(header.clientWidth);
+  expect(button('Playtest Controls')).toBeDefined();
+  expect(header.textContent).not.toContain('Test Word');
+  expect(container.querySelector('[role="dialog"]')).toBeNull();
+});
+
 it('offers a prominent reminder after solving, then hides it and updates the toolbar after opt-in', async () => {
   await mount(
     <>
@@ -151,18 +178,16 @@ it('keeps long solved-page lists in one scrolling area with reachable navigation
   mock.hints = vi.fn().mockResolvedValue(words);
   mock.game = {
     get: {
-      query: vi
-        .fn()
-        .mockResolvedValue({
-          challengeInfo: { totalPlayers: 100 },
-          challengeUserInfo: {
-            username: 'player',
-            solvedAtMs: 2000,
-            startedPlayingAtMs: 1000,
-            guesses: [{ word: 'apple', rank: 1, similarity: 1 }],
-            score: null,
-          },
-        }),
+      query: vi.fn().mockResolvedValue({
+        challengeInfo: { totalPlayers: 100 },
+        challengeUserInfo: {
+          username: 'player',
+          solvedAtMs: 2000,
+          startedPlayingAtMs: 1000,
+          guesses: [{ word: 'apple', rank: 1, similarity: 1 }],
+          score: null,
+        },
+      }),
     },
   };
   mock.leaderboard = {

@@ -124,6 +124,9 @@ largest client chunk from about 573 kB to 391 kB without raising the warning lim
 - Each moderator has an independent run on the test post. **Reset My Test Run**
   starts empty, including after a win. **Jump to Solved** starts a new run with a
   real winning guess, score, and result screen. Both reload the same test post.
+- Open the **Playtest** chip beside the mascot for the test word and both run
+  controls. It replaces the small “Pssst…” bubble in test posts and adds no banner
+  or extra header height. Regular posts keep the “Pssst…” bubble.
 - Every transition allocates a fresh run ID before the game boots. Old requests
   or local caches cannot restore a previous run. Other testers are unaffected.
 - Test progress uses `playtest:challenge:*` keys, outside the daily numbering,
