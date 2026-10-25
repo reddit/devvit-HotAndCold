@@ -1,0 +1,62 @@
+.game-toolbar > button {
+  position: relative;
+  background-color: transparent;
+}
+
+.game-toolbar > button:is(:hover, :focus-visible, :active) {
+  background-color: transparent;
+  box-shadow: none;
+}
+
+.game-toolbar > button::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  padding: 2px;
+  border-radius: inherit;
+  background: conic-gradient(
+    from 135deg at 50% 50%,
+    #4ce1f2 0%,
+    #ffbf0b 33%,
+    #de3232 66%,
+    #4ce1f2 100%
+  );
+  /* Cut out the middle so the game shows through even while the ring is visible. */
+  -webkit-mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 150ms;
+  animation: toolbar-border-spin 2s linear infinite paused;
+}
+
+.game-toolbar > button:enabled:is(:focus-visible, :active)::before {
+  opacity: 1;
+  animation-play-state: running;
+}
+
+@media (hover: hover) {
+  .game-toolbar > button:enabled:hover::before {
+    opacity: 1;
+    animation-play-state: running;
+  }
+}
+
+@keyframes toolbar-border-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .game-toolbar > button::before {
+    animation: none;
+    transition: none;
+  }
+}

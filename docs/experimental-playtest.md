@@ -58,6 +58,9 @@ largest client chunk from about 573 kB to 391 kB without raising the warning lim
   How to Play. The toolbar has Help, Daily Reminders, Archive, Share, Sound,
   Settings, and a moderator-only shield. There is no overflow menu or Moderation
   tab in player settings.
+- Toolbar buttons have transparent backgrounds. Hover, keyboard focus, and touch
+  presses show the same animated cold-to-hot border as Guess. Reduced motion
+  keeps the border still; disabled controls do not animate.
 - **Hint** and **Give Up** sit between the input and guess history. Hint unlocks
   after five guesses; Give Up after ten. Give Up requires confirmation and keeps
   existing guesses. These are UI availability thresholds, not API restrictions.

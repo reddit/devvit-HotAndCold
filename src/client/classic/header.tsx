@@ -11,6 +11,7 @@ import { PlayerSettings, settingsOpen } from './settings';
 import { HelpIcon, ArchiveIcon, ShareIcon, GearIcon, ShieldIcon } from './icons';
 import { openModeratorSettings } from './moderator/launch';
 import { ReminderButton } from './reminders';
+import './toolbar.css';
 
 export function Header({ isModerator }: { isModerator: boolean }) {
   const challengeNumber = requireChallengeNumber();
@@ -54,7 +55,7 @@ export function Header({ isModerator }: { isModerator: boolean }) {
         </div>
         <nav
           aria-label="Game Toolbar"
-          className="flex w-full flex-wrap items-center justify-between min-[560px]:w-auto"
+          className="game-toolbar flex w-full flex-wrap items-center justify-between min-[560px]:w-auto"
         >
           <IconButton iconOnly icon={<HelpIcon />} aria-label="How to Play" onClick={howToPlay}>
             How to Play
