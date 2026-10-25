@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'preact/hooks';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'preact/hooks';
 import { context, exitExpandedMode } from '@devvit/web/client';
 import type { inferRouterOutputs } from '@trpc/server';
 import type { AppRouter } from '../../../server';
@@ -9,17 +9,14 @@ import type { WordRevealAcknowledgement } from '../../../shared/moderation';
 import { DEFAULT_TEST_WORD } from '../../../shared/playtest';
 import { RedisSamplePanel } from './redisSample';
 import { formatBytes as bytes } from './format';
-import { ModeratorDashboard, QueueAlertToggle, type ModeratorSection } from './dashboard';
+import {
+  ModeratorNavigation,
+  QueueAlertToggle,
+  SECTION_DESCRIPTIONS,
+  type ModeratorSection,
+} from './navigation';
 
 type Outputs = inferRouterOutputs<AppRouter>['moderation'];
-const tabs: ModeratorSection[] = [
-  'Dashboard',
-  'Latest Puzzle',
-  'Word Queue',
-  'Scheduling',
-  'Reminders',
-  'Redis',
-];
 const button =
   'rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-700 dark:bg-gray-800';
 const primary = `${button} !border-cyan-700 !bg-cyan-700 !text-white`;
@@ -40,7 +37,11 @@ const message = (error: unknown) =>
   error instanceof Error ? error.message : 'Something went wrong. Please try again.';
 
 function ModeratorConsole() {
-  const [tab, setTab] = useState<ModeratorSection>('Dashboard');
+  const [section, setSection] = useState<ModeratorSection>('Latest');
+  const [detailsOpen, setDetailsOpen] = useState(false);
+  const detailsHeadingRef = useRef<HTMLHeadingElement>(null);
+  const selectedNavigationRef = useRef<HTMLButtonElement>(null);
+  const returnFocusToNavigation = useRef(false);
   const mainRef = useRef<HTMLElement>(null);
   const [data, setData] = useState<Outputs['overview'] | null>(null);
   const [queue, setQueue] = useState<Outputs['queue'] | null>(null);
@@ -135,9 +136,23 @@ function ModeratorConsole() {
   };
   const navigate = (section: ModeratorSection) => {
     hideWords();
-    setTab(section);
+    setSection(section);
+    setDetailsOpen(true);
     mainRef.current?.scrollTo({ top: 0 });
   };
+  const backToSettings = () => {
+    hideWords();
+    returnFocusToNavigation.current = true;
+    setDetailsOpen(false);
+    mainRef.current?.scrollTo({ top: 0 });
+  };
+  useLayoutEffect(() => {
+    if (detailsOpen) detailsHeadingRef.current?.focus({ preventScroll: true });
+    else if (returnFocusToNavigation.current) {
+      selectedNavigationRef.current?.focus();
+      returnFocusToNavigation.current = false;
+    }
+  }, [section, detailsOpen]);
   const toggleLowQueueAlerts = () =>
     void run(async () => {
       if (!data) return;
@@ -161,7 +176,7 @@ function ModeratorConsole() {
       ref={mainRef}
       className="h-[100dvh] overflow-y-auto bg-gray-50 text-gray-950 dark:bg-gray-950 dark:text-gray-100"
     >
-      <div className="mx-auto max-w-4xl space-y-5 px-4 py-7 sm:px-8">
+      <div className="@container mx-auto max-w-6xl space-y-5 px-4 py-5 sm:px-6">
         <header className="flex flex-wrap items-start justify-between gap-4">
           <div>
             <div className="mb-2 text-xs font-bold tracking-widest text-cyan-700 uppercase dark:text-cyan-300">
@@ -174,7 +189,7 @@ function ModeratorConsole() {
               </span>
             </h1>
             <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
-              Queue tomorrow’s puzzles, manage publishing, and inspect storage.
+              Choose a section to see details and moderation tools.
             </p>
           </div>
           <div className="flex gap-2">
@@ -209,547 +224,565 @@ function ModeratorConsole() {
           </p>
         ) : (
           <>
-            <nav
-              aria-label="Moderator Settings Sections"
-              className="flex flex-wrap gap-1 rounded-xl bg-gray-200/60 p-1 dark:bg-gray-900"
-            >
-              {tabs.map((name) => (
-                <button
-                  key={name}
-                  className={`grow rounded-lg px-3 py-2 text-sm font-medium ${tab === name ? 'bg-white text-cyan-800 shadow-sm dark:bg-gray-700 dark:text-cyan-200' : 'text-gray-600 dark:text-gray-400'}`}
-                  aria-current={tab === name ? 'page' : undefined}
-                  onClick={() => navigate(name)}
-                >
-                  {name}
-                </button>
-              ))}
-            </nav>
-
-            {tab === 'Dashboard' && (
-              <ModeratorDashboard
+            <div className="grid items-start gap-5 @min-[640px]:grid-cols-[minmax(0,1fr)_13rem] @min-[900px]:grid-cols-[minmax(0,1fr)_16rem]">
+              <ModeratorNavigation
                 data={data}
-                busy={busy}
+                selected={section}
                 onNavigate={navigate}
-                onToggleAlerts={toggleLowQueueAlerts}
+                selectedButtonRef={selectedNavigationRef}
                 date={date}
+                className={`${detailsOpen ? 'hidden @min-[640px]:block' : 'block'} min-w-0 @min-[640px]:col-start-2 @min-[640px]:row-start-1`}
               />
-            )}
-
-            {tab === 'Latest Puzzle' && (
-              <div className="space-y-4">
-                <section className={panel}>
-                  <h2 className="mb-4 font-bold">
-                    Latest Puzzle {data.challenge ? `#${data.challenge.challengeNumber}` : ''}
+              <section
+                id="moderator-details"
+                aria-labelledby="moderator-details-heading"
+                className={`${detailsOpen ? 'block' : 'hidden @min-[640px]:block'} min-w-0 space-y-4 @min-[640px]:col-start-1 @min-[640px]:row-start-1`}
+              >
+                <button
+                  type="button"
+                  aria-label="Back to Settings"
+                  className={`${button} @min-[640px]:hidden`}
+                  onClick={backToSettings}
+                >
+                  ← Back to Settings
+                </button>
+                <div>
+                  <h2
+                    id="moderator-details-heading"
+                    ref={detailsHeadingRef}
+                    tabIndex={-1}
+                    className="text-xl font-bold outline-none"
+                  >
+                    {section}
                   </h2>
-                  {data.challenge ? (
-                    <>
-                      <dl className="grid grid-cols-2 gap-3 text-sm">
-                        {[
-                          ['Players', data.challenge.totalPlayers ?? 0],
-                          ['Solves', data.challenge.totalSolves ?? 0],
-                          ['Guesses', data.challenge.totalGuesses ?? 0],
-                          ['Hints Used', data.challenge.totalHints ?? 0],
-                        ].map(([label, value]) => (
-                          <div key={label}>
-                            <dt className="text-gray-500 dark:text-gray-400">{label}</dt>
-                            <dd className="font-semibold">{value}</dd>
-                          </div>
-                        ))}
-                      </dl>
-                      {answer ? (
-                        <div className="mt-5 rounded-xl border border-amber-300 p-3 dark:border-amber-800">
-                          <p className="text-xs">Visible temporarily for your moderation task.</p>
-                          <p className="mt-2 font-mono text-lg">{answer.word}</p>
-                          <button
-                            className="mt-3 text-sm font-semibold underline"
-                            onClick={hideWords}
-                          >
-                            Hide Answer Now
-                          </button>
+                  <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                    {SECTION_DESCRIPTIONS[section]}
+                  </p>
+                </div>
+
+                {section === 'Latest' && (
+                  <div className="space-y-4">
+                    <section className={panel}>
+                      <h3 className="mb-4 font-bold">
+                        Latest Puzzle {data.challenge ? `#${data.challenge.challengeNumber}` : ''}
+                      </h3>
+                      {data.challenge ? (
+                        <>
+                          <dl className="grid grid-cols-2 gap-3 text-sm">
+                            {[
+                              ['Players', data.challenge.totalPlayers ?? 0],
+                              ['Solves', data.challenge.totalSolves ?? 0],
+                              ['Guesses', data.challenge.totalGuesses ?? 0],
+                              ['Hints Used', data.challenge.totalHints ?? 0],
+                            ].map(([label, value]) => (
+                              <div key={label}>
+                                <dt className="text-gray-500 dark:text-gray-400">{label}</dt>
+                                <dd className="font-semibold">{value}</dd>
+                              </div>
+                            ))}
+                          </dl>
+                          {answer ? (
+                            <div className="mt-5 rounded-xl border border-amber-300 p-3 dark:border-amber-800">
+                              <p className="text-xs">
+                                Visible temporarily for your moderation task.
+                              </p>
+                              <p className="mt-2 font-mono text-lg">{answer.word}</p>
+                              <button
+                                className="mt-3 text-sm font-semibold underline"
+                                onClick={hideWords}
+                              >
+                                Hide Answer Now
+                              </button>
+                            </div>
+                          ) : revealTarget === 'answer' ? (
+                            <WordRevealGate
+                              target="answer"
+                              busy={busy}
+                              onCancel={hideWords}
+                              onConfirm={confirmReveal}
+                            />
+                          ) : (
+                            <div className="mt-5">
+                              <p className="text-sm text-gray-500">The answer is hidden.</p>
+                              <button
+                                className="mt-2 text-sm font-semibold text-cyan-700 underline dark:text-cyan-300"
+                                disabled={busy}
+                                onClick={() => setRevealTarget('answer')}
+                              >
+                                Request Answer Reveal
+                              </button>
+                            </div>
+                          )}
+                          {data.challenge.postUrl && (
+                            <a
+                              className="mt-4 block text-sm underline"
+                              href={data.challenge.postUrl}
+                              title={data.challenge.postUrl}
+                              target="_blank"
+                              rel="noreferrer"
+                            >
+                              Open Game Post ↗
+                            </a>
+                          )}
+                        </>
+                      ) : (
+                        <p className="text-sm text-gray-500">
+                          Add words to the queue, then create the first puzzle.
+                        </p>
+                      )}
+                    </section>
+                  </div>
+                )}
+
+                {section === 'Words' && (
+                  <div className="space-y-4">
+                    <section className={panel}>
+                      <h3 className="font-bold">
+                        Word Queue · {data.queueSize.toLocaleString()}{' '}
+                        {data.queueSize === 1 ? 'Word' : 'Words'}
+                      </h3>
+                      <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
+                        About {data.queueSize.toLocaleString()}{' '}
+                        {data.queueSize === 1 ? 'day' : 'days'} at one puzzle per day. Extra posts
+                        use words faster. Add words below without revealing the existing queue.
+                      </p>
+                      <QueueAlertToggle
+                        enabled={data.lowQueueAlertsEnabled}
+                        busy={busy}
+                        onToggle={toggleLowQueueAlerts}
+                      />
+                    </section>
+                    <section className={panel}>
+                      <h3 className="mb-3 font-bold">Add Upcoming Words</h3>
+                      <label className="mb-2 block text-sm" htmlFor="queue-words">
+                        Words to Add
+                      </label>
+                      <p className="mb-2 text-xs text-gray-500">
+                        Comma-separated or one per line. Up to 200 words.
+                      </p>
+                      <textarea
+                        id="queue-words"
+                        disabled={busy}
+                        rows={4}
+                        className={input}
+                        value={words}
+                        placeholder="Paste words to validate…"
+                        onInput={(event) => {
+                          setWords(event.currentTarget.value);
+                          setPreview(null);
+                        }}
+                      />
+                      <label className="mt-3 flex items-center gap-2 text-sm">
+                        <input
+                          type="checkbox"
+                          checked={prepend}
+                          onChange={(event) => setPrepend(event.currentTarget.checked)}
+                        />
+                        Place at the Front of the Queue
+                      </label>
+                      <div className="mt-4 flex flex-wrap gap-2">
+                        <button
+                          className={button}
+                          disabled={busy || !words.trim()}
+                          onClick={() =>
+                            void run(async () => {
+                              setPreview(await trpc.moderation.previewWords.mutate({ words }));
+                            })
+                          }
+                        >
+                          Preview Words
+                        </button>
+                        <button
+                          className={primary}
+                          disabled={busy || !preview?.some((row) => row.status === 'ready')}
+                          onClick={() =>
+                            void run(async () => {
+                              const result = await trpc.moderation.addWords.mutate({
+                                words,
+                                prepend,
+                              });
+                              setWords('');
+                              setPreview(null);
+                              await refresh();
+                              setNotice(
+                                `Added ${result.added} words. Skipped ${result.skipped} used, queued, duplicate, or invalid entries.`
+                              );
+                            })
+                          }
+                        >
+                          Add Ready Words
+                        </button>
+                      </div>
+                      {preview && (
+                        <div
+                          className="mt-4 flex flex-wrap gap-2"
+                          aria-label="Word Validation Preview"
+                        >
+                          {preview.map((row, index) => (
+                            <span
+                              key={`${row.word}-${index}`}
+                              className={`rounded-lg px-2 py-1 text-xs ${row.status === 'ready' ? 'bg-green-100 text-green-900 dark:bg-green-950 dark:text-green-200' : 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300'}`}
+                            >
+                              {row.word} · {row.status}
+                            </span>
+                          ))}
                         </div>
-                      ) : revealTarget === 'answer' ? (
+                      )}
+                    </section>
+                    <section className={panel}>
+                      <h3 className="mb-3 font-bold">Upcoming Words · {data.queueSize} Total</h3>
+                      {queue ? (
+                        <>
+                          <p className="mb-3 text-xs text-amber-800 dark:text-amber-200">
+                            Visible temporarily for your moderation task. Changing pages hides these
+                            words and requires a new confirmation.
+                          </p>
+                          <ol
+                            start={queuePage * 50 + 1}
+                            className="list-inside list-decimal columns-2 gap-6 space-y-1 text-sm sm:columns-3"
+                          >
+                            {queue.words.map((row) => (
+                              <li key={row.word} className="break-inside-avoid">
+                                {row.word}
+                              </li>
+                            ))}
+                          </ol>
+                          {!queue.words.length && (
+                            <p className="text-sm text-gray-500">No words on this page.</p>
+                          )}
+                          <button className={`${button} mt-4`} onClick={hideWords}>
+                            Hide Words Now
+                          </button>
+                        </>
+                      ) : revealTarget === 'queue' ? (
                         <WordRevealGate
-                          target="answer"
+                          target="queue"
                           busy={busy}
                           onCancel={hideWords}
                           onConfirm={confirmReveal}
                         />
                       ) : (
-                        <div className="mt-5">
-                          <p className="text-sm text-gray-500">The answer is hidden.</p>
+                        <div className="rounded-xl border border-dashed border-gray-300 p-5 dark:border-gray-700">
+                          <p className="text-sm font-semibold">Upcoming words are hidden.</p>
+                          <p className="mt-2 text-sm text-gray-500">
+                            Manage the queue without seeing answers. Revealing a page requires a
+                            moderation reason, a promise not to cheat, and typed confirmation.
+                          </p>
                           <button
-                            className="mt-2 text-sm font-semibold text-cyan-700 underline dark:text-cyan-300"
-                            disabled={busy}
-                            onClick={() => setRevealTarget('answer')}
+                            className={`${button} mt-4`}
+                            disabled={busy || queuePage * 50 >= data.queueSize}
+                            onClick={() => setRevealTarget('queue')}
                           >
-                            Request Answer Reveal
+                            Request Queue Reveal
                           </button>
                         </div>
                       )}
-                      {data.challenge.postUrl && (
-                        <a
-                          className="mt-4 block text-sm underline"
-                          href={data.challenge.postUrl}
-                          title={data.challenge.postUrl}
-                          target="_blank"
-                          rel="noreferrer"
+                      <div className="mt-4 flex items-center gap-3">
+                        <button
+                          className={button}
+                          disabled={busy || queuePage === 0}
+                          onClick={() => changeQueuePage(queuePage - 1)}
                         >
-                          Open Game Post ↗
-                        </a>
-                      )}
-                    </>
-                  ) : (
-                    <p className="text-sm text-gray-500">
-                      Add words to the queue, then create the first puzzle.
-                    </p>
-                  )}
-                </section>
-                <section className={panel}>
-                  <h2 className="mb-2 font-bold">About This Preview</h2>
-                  <p className="text-sm text-gray-600 dark:text-gray-300">
-                    The existing moderator menus remain available. “Experiments” in the game menu is
-                    a separate developer tool. Sound and motion preferences belong to each player
-                    and do not change community settings.
-                  </p>
-                </section>
-              </div>
-            )}
-
-            {tab === 'Word Queue' && (
-              <div className="space-y-4">
-                <section className={panel}>
-                  <h2 className="font-bold">
-                    Word Queue · {data.queueSize.toLocaleString()}{' '}
-                    {data.queueSize === 1 ? 'Word' : 'Words'}
-                  </h2>
-                  <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
-                    About {data.queueSize.toLocaleString()} {data.queueSize === 1 ? 'day' : 'days'}{' '}
-                    at one puzzle per day. Extra posts use words faster. Add words below without
-                    revealing the existing queue.
-                  </p>
-                  <QueueAlertToggle
-                    enabled={data.lowQueueAlertsEnabled}
-                    busy={busy}
-                    onToggle={toggleLowQueueAlerts}
-                  />
-                </section>
-                <section className={panel}>
-                  <h2 className="mb-3 font-bold">Add Upcoming Words</h2>
-                  <label className="mb-2 block text-sm" htmlFor="queue-words">
-                    Words to Add
-                  </label>
-                  <p className="mb-2 text-xs text-gray-500">
-                    Comma-separated or one per line. Up to 200 words.
-                  </p>
-                  <textarea
-                    id="queue-words"
-                    disabled={busy}
-                    rows={4}
-                    className={input}
-                    value={words}
-                    placeholder="Paste words to validate…"
-                    onInput={(event) => {
-                      setWords(event.currentTarget.value);
-                      setPreview(null);
-                    }}
-                  />
-                  <label className="mt-3 flex items-center gap-2 text-sm">
-                    <input
-                      type="checkbox"
-                      checked={prepend}
-                      onChange={(event) => setPrepend(event.currentTarget.checked)}
-                    />
-                    Place at the Front of the Queue
-                  </label>
-                  <div className="mt-4 flex flex-wrap gap-2">
-                    <button
-                      className={button}
-                      disabled={busy || !words.trim()}
-                      onClick={() =>
-                        void run(async () => {
-                          setPreview(await trpc.moderation.previewWords.mutate({ words }));
-                        })
-                      }
-                    >
-                      Preview Words
-                    </button>
-                    <button
-                      className={primary}
-                      disabled={busy || !preview?.some((row) => row.status === 'ready')}
-                      onClick={() =>
-                        void run(async () => {
-                          const result = await trpc.moderation.addWords.mutate({ words, prepend });
-                          setWords('');
-                          setPreview(null);
-                          await refresh();
-                          setNotice(
-                            `Added ${result.added} words. Skipped ${result.skipped} used, queued, duplicate, or invalid entries.`
-                          );
-                        })
-                      }
-                    >
-                      Add Ready Words
-                    </button>
-                  </div>
-                  {preview && (
-                    <div className="mt-4 flex flex-wrap gap-2" aria-label="Word Validation Preview">
-                      {preview.map((row, index) => (
-                        <span
-                          key={`${row.word}-${index}`}
-                          className={`rounded-lg px-2 py-1 text-xs ${row.status === 'ready' ? 'bg-green-100 text-green-900 dark:bg-green-950 dark:text-green-200' : 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300'}`}
+                          Previous
+                        </button>
+                        <span className="text-sm">Page {queuePage + 1}</span>
+                        <button
+                          className={button}
+                          disabled={busy || (queuePage + 1) * 50 >= data.queueSize}
+                          onClick={() => changeQueuePage(queuePage + 1)}
                         >
-                          {row.word} · {row.status}
-                        </span>
-                      ))}
-                    </div>
-                  )}
-                </section>
-                <section className={panel}>
-                  <h2 className="mb-3 font-bold">Upcoming Words · {data.queueSize} Total</h2>
-                  {queue ? (
-                    <>
-                      <p className="mb-3 text-xs text-amber-800 dark:text-amber-200">
-                        Visible temporarily for your moderation task. Changing pages hides these
-                        words and requires a new confirmation.
+                          Next
+                        </button>
+                      </div>
+                    </section>
+                    <details className={panel}>
+                      <summary className="cursor-pointer text-sm font-semibold">
+                        Clear the Word Queue
+                      </summary>
+                      <p className="my-3 text-sm text-gray-500">
+                        Removes all upcoming words. Existing puzzles and player history are
+                        preserved. Type CLEAR to confirm.
                       </p>
-                      <ol
-                        start={queuePage * 50 + 1}
-                        className="list-inside list-decimal columns-2 gap-6 space-y-1 text-sm sm:columns-3"
-                      >
-                        {queue.words.map((row) => (
-                          <li key={row.word} className="break-inside-avoid">
-                            {row.word}
-                          </li>
-                        ))}
-                      </ol>
-                      {!queue.words.length && (
-                        <p className="text-sm text-gray-500">No words on this page.</p>
-                      )}
-                      <button className={`${button} mt-4`} onClick={hideWords}>
-                        Hide Words Now
-                      </button>
-                    </>
-                  ) : revealTarget === 'queue' ? (
-                    <WordRevealGate
-                      target="queue"
-                      busy={busy}
-                      onCancel={hideWords}
-                      onConfirm={confirmReveal}
-                    />
-                  ) : (
-                    <div className="rounded-xl border border-dashed border-gray-300 p-5 dark:border-gray-700">
-                      <p className="text-sm font-semibold">Upcoming words are hidden.</p>
-                      <p className="mt-2 text-sm text-gray-500">
-                        Manage the queue without seeing answers. Revealing a page requires a
-                        moderation reason, a promise not to cheat, and typed confirmation.
-                      </p>
-                      <button
-                        className={`${button} mt-4`}
-                        disabled={busy || queuePage * 50 >= data.queueSize}
-                        onClick={() => setRevealTarget('queue')}
-                      >
-                        Request Queue Reveal
-                      </button>
-                    </div>
-                  )}
-                  <div className="mt-4 flex items-center gap-3">
-                    <button
-                      className={button}
-                      disabled={busy || queuePage === 0}
-                      onClick={() => changeQueuePage(queuePage - 1)}
-                    >
-                      Previous
-                    </button>
-                    <span className="text-sm">Page {queuePage + 1}</span>
-                    <button
-                      className={button}
-                      disabled={busy || (queuePage + 1) * 50 >= data.queueSize}
-                      onClick={() => changeQueuePage(queuePage + 1)}
-                    >
-                      Next
-                    </button>
+                      <div className="flex gap-2">
+                        <input
+                          aria-label="Confirm clearing the queue"
+                          className={input}
+                          value={clearConfirm}
+                          onInput={(event) => setClearConfirm(event.currentTarget.value)}
+                        />
+                        <button
+                          className={button}
+                          disabled={busy || clearConfirm !== 'CLEAR'}
+                          onClick={() =>
+                            void run(async () => {
+                              await trpc.moderation.clearQueue.mutate({ confirm: 'CLEAR' });
+                              setClearConfirm('');
+                              setPreview(null);
+                              setQueuePage(0);
+                              await refresh();
+                              setNotice('Queue cleared.');
+                            })
+                          }
+                        >
+                          Clear Queue
+                        </button>
+                      </div>
+                    </details>
                   </div>
-                </section>
-                <details className={panel}>
-                  <summary className="cursor-pointer text-sm font-semibold">
-                    Clear the Word Queue
-                  </summary>
-                  <p className="my-3 text-sm text-gray-500">
-                    Removes all upcoming words. Existing puzzles and player history are preserved.
-                    Type CLEAR to confirm.
-                  </p>
-                  <div className="flex gap-2">
-                    <input
-                      aria-label="Confirm clearing the queue"
-                      className={input}
-                      value={clearConfirm}
-                      onInput={(event) => setClearConfirm(event.currentTarget.value)}
-                    />
-                    <button
-                      className={button}
-                      disabled={busy || clearConfirm !== 'CLEAR'}
-                      onClick={() =>
-                        void run(async () => {
-                          await trpc.moderation.clearQueue.mutate({ confirm: 'CLEAR' });
-                          setClearConfirm('');
-                          setPreview(null);
-                          setQueuePage(0);
-                          await refresh();
-                          setNotice('Queue cleared.');
-                        })
-                      }
-                    >
-                      Clear Queue
-                    </button>
-                  </div>
-                </details>
-              </div>
-            )}
-
-            {tab === 'Scheduling' && (
-              <div className="space-y-4">
-                <section className={panel}>
-                  <h2 className="mb-3 font-bold">Next Scheduled Post</h2>
-                  <time
-                    className="text-xl font-semibold"
-                    dateTime={new Date(data.nextPostAtMs).toISOString()}
-                  >
-                    {date(data.nextPostAtMs)}
-                  </time>
-                  <p className="mt-3 text-sm text-gray-500 dark:text-gray-400">
-                    Daily at 12:00 UTC, with retries at 12:05, 12:15, and 12:30 UTC. Late manual
-                    recovery won’t delay the following day. Times above use your local time zone.
-                  </p>
-                  <p className="mt-3 text-xs text-gray-500 dark:text-gray-400">
-                    This is the configured schedule; it does not confirm that a scheduler run has
-                    happened.
-                  </p>
-                </section>
-                <section className={panel}>
-                  <h2 className="mb-2 font-bold">Recover Today’s Scheduled Post</h2>
-                  <p className="mb-4 text-sm text-gray-500 dark:text-gray-400">
-                    Use this when automatic posting appears to have stopped. It checks the current
-                    daily slot and creates a puzzle only if one is missing, with normal player
-                    reminders. It will not create a duplicate for a slot that already has a puzzle.
-                  </p>
-                  <button
-                    className={primary}
-                    disabled={busy}
-                    onClick={() =>
-                      void run(async () => {
-                        const result = await trpc.moderation.recoverPost.mutate();
-                        await refresh();
-                        setNotice(
-                          result.status === 'created'
-                            ? `Created puzzle #${result.challengeNumber}.`
-                            : result.status === 'exists'
-                              ? `Puzzle #${result.challengeNumber} already covers this posting slot.`
-                              : `Recovery status: ${result.status}.`
-                        );
-                      })
-                    }
-                  >
-                    Check and Recover
-                  </button>
-                </section>
-                <details className={panel}>
-                  <summary className="cursor-pointer font-bold">Post an Extra Puzzle Now</summary>
-                  <p className="mt-3 text-sm text-gray-500 dark:text-gray-400">
-                    Creates an additional puzzle immediately and consumes the next queued word, even
-                    if today’s puzzle already exists.
-                  </p>
-                  <label className="mt-4 flex items-center gap-2 text-sm">
-                    <input
-                      type="checkbox"
-                      checked={skipNotifications}
-                      onChange={(event) => setSkipNotifications(event.currentTarget.checked)}
-                    />
-                    Skip Reminder Messages
-                  </label>
-                  <label className="mt-3 flex items-center gap-2 text-sm">
-                    <input
-                      type="checkbox"
-                      checked={postConfirm}
-                      onChange={(event) => setPostConfirm(event.currentTarget.checked)}
-                    />
-                    Create an Additional Puzzle Now
-                  </label>
-                  <button
-                    className={`${button} mt-4`}
-                    disabled={busy || !postConfirm || data.queueSize === 0}
-                    onClick={() =>
-                      void run(async () => {
-                        const result = await trpc.moderation.postNext.mutate({
-                          confirm: 'POST',
-                          skipNotifications,
-                        });
-                        setPostConfirm(false);
-                        await refresh();
-                        setNotice(`Created puzzle #${result.challenge}.`);
-                      })
-                    }
-                  >
-                    Post Extra Puzzle Now
-                  </button>
-                </details>
-                {data.playtestAvailable && (
-                  <section className={`${panel} !border-amber-300 dark:!border-amber-900`}>
-                    <h2 className="mb-2 font-bold">Playtest Tools</h2>
-                    <p className="mb-4 text-sm text-gray-500 dark:text-gray-400">
-                      Create a disposable test post with a known word. Each moderator gets their own
-                      run, with Reset My Test Run and Jump to Solved controls. This does not consume
-                      queued words, advance daily puzzle numbers, or send reminders.
-                    </p>
-                    <label htmlFor="test-word" className="mb-2 block text-sm font-semibold">
-                      Test Word
-                    </label>
-                    <input
-                      id="test-word"
-                      className={input}
-                      value={testWord}
-                      disabled={busy}
-                      maxLength={80}
-                      onInput={(event) => {
-                        setTestWord(event.currentTarget.value);
-                        setTestPostUrl('');
-                      }}
-                    />
-                    <button
-                      className={`${button} mt-4`}
-                      disabled={busy || !testWord.trim()}
-                      onClick={() =>
-                        void run(async () => {
-                          const result = await trpc.moderation.createTestPost.mutate({
-                            word: testWord,
-                          });
-                          setTestPostUrl(result.postUrl);
-                          setNotice(
-                            'Test post ready. Open it to play or use the test state controls.'
-                          );
-                        })
-                      }
-                    >
-                      Create Test Post
-                    </button>
-                    {testPostUrl && (
-                      <a
-                        className="mt-4 block text-sm font-semibold underline"
-                        href={testPostUrl}
-                        title={testPostUrl}
-                        target="_blank"
-                        rel="noreferrer"
-                      >
-                        Open Test Post ↗
-                      </a>
-                    )}
-                  </section>
                 )}
-              </div>
-            )}
 
-            {tab === 'Reminders' && (
-              <section className={panel}>
-                <h2 className="mb-2 font-bold">Pending Reminder Groups</h2>
-                <p className="mb-5 text-sm text-gray-500 dark:text-gray-400">
-                  {data.notifications.total} groups pending. Each group may contain multiple
-                  recipients. The existing reminder menus remain available for delivery actions.
-                </p>
-                <ul className="space-y-3">
-                  {data.notifications.next.map((group) => (
-                    <li
-                      key={group.groupId}
-                      className="flex flex-wrap justify-between gap-2 border-b border-gray-100 pb-3 text-sm dark:border-gray-800"
-                    >
-                      <span className="font-mono text-xs break-all">{group.groupId}</span>
-                      <time dateTime={new Date(group.dueAtMs).toISOString()}>
-                        {date(group.dueAtMs)}
+                {section === 'Schedule' && (
+                  <div className="space-y-4">
+                    <section className={panel}>
+                      <h3 className="mb-3 font-bold">Next Scheduled Post</h3>
+                      <time
+                        className="text-xl font-semibold"
+                        dateTime={new Date(data.nextPostAtMs).toISOString()}
+                      >
+                        {date(data.nextPostAtMs)}
                       </time>
-                    </li>
-                  ))}
-                </ul>
-                {!data.notifications.total && <p className="text-sm">No groups are waiting.</p>}
-              </section>
-            )}
-
-            {tab === 'Redis' && (
-              <div className="space-y-4">
-                <section className={panel}>
-                  <h2 className="mb-2 font-bold">Storage Investigation</h2>
-                  <p className="text-sm text-gray-600 dark:text-gray-300">
-                    Inspect five puzzles at a time and up to 20 player records per puzzle. These are
-                    stored payload sizes, not total Redis memory or an estimate for the whole
-                    installation. Older unsolved players may no longer have a discoverable index.
-                  </p>
-                  <p className="mt-3 text-sm text-gray-500">
-                    Word rankings reuse the compact static-file cache instead of adding duplicate
-                    full JSON tables to Redis. New compact caches refresh after three days; existing
-                    caches may keep their earlier expiration until refreshed. Old full tables remain
-                    an outage fallback and can be cleared below. Saved guesses and leaderboard
-                    results keep their current retention.
-                  </p>
-                  <p className="mt-3 text-sm text-gray-500">
-                    Common-words job: {data.job?.status ?? 'idle'}
-                    {data.job ? ` · ${data.job.totalProcessed} records processed` : ''}. Job state
-                    and temporary counts expire after three days, including cancelled jobs.
-                  </p>
-                  <div className="mt-4 flex flex-wrap gap-2">
-                    <button
-                      className={primary}
-                      disabled={busy}
-                      onClick={() =>
-                        void run(async () => {
-                          setSample(await trpc.moderation.redisSample.query({}));
-                          setSampleEnd(undefined);
-                          setSampleVersion((value) => value + 1);
-                        })
-                      }
-                    >
-                      Inspect Latest Puzzles
-                    </button>
-                    {sample?.nextEnd && (
+                      <p className="mt-3 text-sm text-gray-500 dark:text-gray-400">
+                        Daily at 12:00 UTC, with retries at 12:05, 12:15, and 12:30 UTC. Late manual
+                        recovery won’t delay the following day. Times above use your local time
+                        zone.
+                      </p>
+                      <p className="mt-3 text-xs text-gray-500 dark:text-gray-400">
+                        This is the configured schedule; it does not confirm that a scheduler run
+                        has happened.
+                      </p>
+                    </section>
+                    <section className={panel}>
+                      <h3 className="mb-2 font-bold">Recover Today’s Scheduled Post</h3>
+                      <p className="mb-4 text-sm text-gray-500 dark:text-gray-400">
+                        Use this when automatic posting appears to have stopped. It checks the
+                        current daily slot and creates a puzzle only if one is missing, with normal
+                        player reminders. It will not create a duplicate for a slot that already has
+                        a puzzle.
+                      </p>
                       <button
-                        className={button}
+                        className={primary}
                         disabled={busy}
                         onClick={() =>
                           void run(async () => {
-                            const end = sample.nextEnd!;
-                            setSample(
-                              await trpc.moderation.redisSample.query({ endChallenge: end })
+                            const result = await trpc.moderation.recoverPost.mutate();
+                            await refresh();
+                            setNotice(
+                              result.status === 'created'
+                                ? `Created puzzle #${result.challengeNumber}.`
+                                : result.status === 'exists'
+                                  ? `Puzzle #${result.challengeNumber} already covers this posting slot.`
+                                  : `Recovery status: ${result.status}.`
                             );
-                            setSampleEnd(end);
-                            setSampleVersion((value) => value + 1);
                           })
                         }
                       >
-                        Inspect Older Puzzles
+                        Check and Recover
                       </button>
+                    </section>
+                    <details className={panel}>
+                      <summary className="cursor-pointer font-bold">
+                        Post an Extra Puzzle Now
+                      </summary>
+                      <p className="mt-3 text-sm text-gray-500 dark:text-gray-400">
+                        Creates an additional puzzle immediately and consumes the next queued word,
+                        even if today’s puzzle already exists.
+                      </p>
+                      <label className="mt-4 flex items-center gap-2 text-sm">
+                        <input
+                          type="checkbox"
+                          checked={skipNotifications}
+                          onChange={(event) => setSkipNotifications(event.currentTarget.checked)}
+                        />
+                        Skip Reminder Messages
+                      </label>
+                      <label className="mt-3 flex items-center gap-2 text-sm">
+                        <input
+                          type="checkbox"
+                          checked={postConfirm}
+                          onChange={(event) => setPostConfirm(event.currentTarget.checked)}
+                        />
+                        Create an Additional Puzzle Now
+                      </label>
+                      <button
+                        className={`${button} mt-4`}
+                        disabled={busy || !postConfirm || data.queueSize === 0}
+                        onClick={() =>
+                          void run(async () => {
+                            const result = await trpc.moderation.postNext.mutate({
+                              confirm: 'POST',
+                              skipNotifications,
+                            });
+                            setPostConfirm(false);
+                            await refresh();
+                            setNotice(`Created puzzle #${result.challenge}.`);
+                          })
+                        }
+                      >
+                        Post Extra Puzzle Now
+                      </button>
+                    </details>
+                    {data.playtestAvailable && (
+                      <section className={`${panel} !border-amber-300 dark:!border-amber-900`}>
+                        <h3 className="mb-2 font-bold">Playtest Tools</h3>
+                        <p className="mb-4 text-sm text-gray-500 dark:text-gray-400">
+                          Create a disposable test post with a known word. Each moderator gets their
+                          own run, with Reset My Test Run and Jump to Solved controls. This does not
+                          consume queued words, advance daily puzzle numbers, or send reminders.
+                        </p>
+                        <label htmlFor="test-word" className="mb-2 block text-sm font-semibold">
+                          Test Word
+                        </label>
+                        <input
+                          id="test-word"
+                          className={input}
+                          value={testWord}
+                          disabled={busy}
+                          maxLength={80}
+                          onInput={(event) => {
+                            setTestWord(event.currentTarget.value);
+                            setTestPostUrl('');
+                          }}
+                        />
+                        <button
+                          className={`${button} mt-4`}
+                          disabled={busy || !testWord.trim()}
+                          onClick={() =>
+                            void run(async () => {
+                              const result = await trpc.moderation.createTestPost.mutate({
+                                word: testWord,
+                              });
+                              setTestPostUrl(result.postUrl);
+                              setNotice(
+                                'Test post ready. Open it to play or use the test state controls.'
+                              );
+                            })
+                          }
+                        >
+                          Create Test Post
+                        </button>
+                        {testPostUrl && (
+                          <a
+                            className="mt-4 block text-sm font-semibold underline"
+                            href={testPostUrl}
+                            title={testPostUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                          >
+                            Open Test Post ↗
+                          </a>
+                        )}
+                      </section>
                     )}
                   </div>
-                </section>
-                {sample && (
-                  <RedisSamplePanel
-                    key={sampleVersion}
-                    sample={sample}
-                    busy={busy}
-                    onClear={async (challengeNumbers) => {
-                      await run(async () => {
-                        const result = await trpc.moderation.clearWordCaches.mutate({
-                          challengeNumbers,
-                          confirm: 'CLEAR_CACHES',
-                        });
-                        setSample(
-                          await trpc.moderation.redisSample.query({ endChallenge: sampleEnd })
-                        );
-                        setSampleVersion((value) => value + 1);
-                        setNotice(
-                          `Cleared ${result.cleared} full JSON fallback caches (${bytes(result.bytes)}). Game data and compact caches were preserved.`
-                        );
-                      });
-                    }}
-                  />
                 )}
-              </div>
-            )}
+
+                {section === 'Reminders' && (
+                  <section className={panel}>
+                    <h3 className="mb-2 font-bold">Pending Reminder Groups</h3>
+                    <p className="mb-5 text-sm text-gray-500 dark:text-gray-400">
+                      {data.notifications.total} groups pending. Each group may contain multiple
+                      recipients. The existing reminder menus remain available for delivery actions.
+                    </p>
+                    <ul className="space-y-3">
+                      {data.notifications.next.map((group) => (
+                        <li
+                          key={group.groupId}
+                          className="flex flex-wrap justify-between gap-2 border-b border-gray-100 pb-3 text-sm dark:border-gray-800"
+                        >
+                          <span className="font-mono text-xs break-all">{group.groupId}</span>
+                          <time dateTime={new Date(group.dueAtMs).toISOString()}>
+                            {date(group.dueAtMs)}
+                          </time>
+                        </li>
+                      ))}
+                    </ul>
+                    {!data.notifications.total && <p className="text-sm">No groups are waiting.</p>}
+                  </section>
+                )}
+
+                {section === 'Storage' && (
+                  <div className="space-y-4">
+                    <section className={panel}>
+                      <h3 className="mb-2 font-bold">Storage Investigation</h3>
+                      <p className="text-sm text-gray-600 dark:text-gray-300">
+                        Inspect five puzzles at a time and up to 20 player records per puzzle. These
+                        are stored payload sizes, not total Redis memory or an estimate for the
+                        whole installation. Older unsolved players may no longer have a discoverable
+                        index.
+                      </p>
+                      <p className="mt-3 text-sm text-gray-500">
+                        Word rankings reuse the compact static-file cache instead of adding
+                        duplicate full JSON tables to Redis. New compact caches refresh after three
+                        days; existing caches may keep their earlier expiration until refreshed. Old
+                        full tables remain an outage fallback and can be cleared below. Saved
+                        guesses and leaderboard results keep their current retention.
+                      </p>
+                      <p className="mt-3 text-sm text-gray-500">
+                        Common-words job: {data.job?.status ?? 'idle'}
+                        {data.job ? ` · ${data.job.totalProcessed} records processed` : ''}. Job
+                        state and temporary counts expire after three days, including cancelled
+                        jobs.
+                      </p>
+                      <div className="mt-4 flex flex-wrap gap-2">
+                        <button
+                          className={primary}
+                          disabled={busy}
+                          onClick={() =>
+                            void run(async () => {
+                              setSample(await trpc.moderation.redisSample.query({}));
+                              setSampleEnd(undefined);
+                              setSampleVersion((value) => value + 1);
+                            })
+                          }
+                        >
+                          Inspect Latest Puzzles
+                        </button>
+                        {sample?.nextEnd && (
+                          <button
+                            className={button}
+                            disabled={busy}
+                            onClick={() =>
+                              void run(async () => {
+                                const end = sample.nextEnd!;
+                                setSample(
+                                  await trpc.moderation.redisSample.query({ endChallenge: end })
+                                );
+                                setSampleEnd(end);
+                                setSampleVersion((value) => value + 1);
+                              })
+                            }
+                          >
+                            Inspect Older Puzzles
+                          </button>
+                        )}
+                      </div>
+                    </section>
+                    {sample && (
+                      <RedisSamplePanel
+                        key={sampleVersion}
+                        sample={sample}
+                        busy={busy}
+                        onClear={async (challengeNumbers) => {
+                          await run(async () => {
+                            const result = await trpc.moderation.clearWordCaches.mutate({
+                              challengeNumbers,
+                              confirm: 'CLEAR_CACHES',
+                            });
+                            setSample(
+                              await trpc.moderation.redisSample.query({ endChallenge: sampleEnd })
+                            );
+                            setSampleVersion((value) => value + 1);
+                            setNotice(
+                              `Cleared ${result.cleared} full JSON fallback caches (${bytes(result.bytes)}). Game data and compact caches were preserved.`
+                            );
+                          });
+                        }}
+                      />
+                    )}
+                  </div>
+                )}
+              </section>
+            </div>
           </>
         )}
       </div>

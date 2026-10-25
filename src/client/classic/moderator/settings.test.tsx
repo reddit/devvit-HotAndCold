@@ -2,6 +2,7 @@ import { render } from 'preact';
 import { act } from 'preact/test-utils';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ModeratorEntry } from './settings';
+import '../../index.css';
 
 vi.mock('@devvit/web/client', () => ({
   context: { subredditName: 'testsub' },
@@ -72,7 +73,8 @@ describe('moderator settings entry points', () => {
   };
   const button = (text: string) => {
     const element = Array.from(container.querySelectorAll('button')).find(
-      (element) => element.textContent?.trim() === text
+      (element) =>
+        element.getAttribute('aria-label') === text || element.textContent?.trim() === text
     );
     expect(element, `Missing button: ${text}`).toBeDefined();
     return element!;
@@ -82,9 +84,7 @@ describe('moderator settings entry points', () => {
   };
   const loadConsole = async () => {
     await mount(false);
-    await expect
-      .poll(() => container.querySelector('nav')?.textContent ?? '')
-      .toContain('Word Queue');
+    await expect.poll(() => container.querySelector('nav')?.textContent ?? '').toContain('Words');
   };
   const fillRevealForm = async () => {
     const form = container.querySelector<HTMLFormElement>(
@@ -121,47 +121,52 @@ describe('moderator settings entry points', () => {
 
   it('renders the separate expanded entry directly as the console', async () => {
     await loadConsole();
-    expect(container.querySelector('nav')?.textContent).toContain('Redis');
+    expect(container.querySelector('nav')?.textContent).toContain('Storage');
     expect(container.textContent).not.toContain('Open Moderator Settings');
     expect(overview).toHaveBeenCalledTimes(1);
     expect(queue).not.toHaveBeenCalled();
     expect(revealAnswer).not.toHaveBeenCalled();
   });
 
-  it('shows counts and navigable dashboard cards without fetching sensitive words or storage samples', async () => {
+  it('replaces the tabs and cards with ordered navigation summaries and loads actions only in the selected section', async () => {
+    const inspect = vi.fn();
+    (globalThis as any).__moderationClientMock.redisSample = { query: inspect };
     await loadConsole();
-    const dashboard = container.querySelector('[aria-label="Moderator Dashboard"]')!;
+    const nav = container.querySelector('nav')!;
     expect(
-      Array.from(dashboard.querySelectorAll('h2')).map((heading) => heading.textContent)
-    ).toEqual(['Latest Puzzle', 'Word Queue', 'Scheduling', 'Reminders', 'Redis']);
-    expect(dashboard.textContent).toContain('75 Words');
-    expect(dashboard.textContent).toContain('About 75 days');
-    expect(container.querySelector('textarea')).toBeNull();
-    expect(container.textContent).not.toContain('Request Answer Reveal');
-    for (const [action, section] of [
-      ['View Puzzle Details', 'Latest Puzzle'],
-      ['Manage Queue', 'Word Queue'],
-      ['Manage Scheduling', 'Scheduling'],
-      ['View Reminders', 'Reminders'],
-      ['Inspect Redis', 'Redis'],
-    ]) {
-      await click(action!);
-      expect(container.querySelector('[aria-current="page"]')?.textContent).toBe(section);
-      await click('Dashboard');
+      Array.from(nav.querySelectorAll('button')).map((element) =>
+        element.getAttribute('aria-label')
+      )
+    ).toEqual(['Latest', 'Schedule', 'Reminders', 'Words', 'Storage']);
+    expect(nav.textContent).toContain('75 Words · About 75 Days');
+    expect(nav.textContent).toContain('Next Post');
+    expect(nav.textContent).toContain('0 Pending Groups');
+    expect(container.textContent).not.toContain('Dashboard');
+    for (const section of ['Latest', 'Schedule', 'Reminders', 'Words', 'Storage']) {
+      await click(section);
+      expect(container.querySelector('[aria-current="page"]')?.getAttribute('aria-label')).toBe(
+        section
+      );
+      expect(container.querySelector('#moderator-details-heading')?.textContent).toBe(section);
     }
     expect(queue).not.toHaveBeenCalled();
     expect(revealAnswer).not.toHaveBeenCalled();
+    expect(inspect).not.toHaveBeenCalled();
+    expect(overview).toHaveBeenCalledTimes(1);
   });
 
   it('persists the individual low-queue opt-in and leaves it unchanged on failure', async () => {
     await loadConsole();
+    await click('Words');
     const toggle = () => container.querySelector<HTMLButtonElement>('[role="switch"]')!;
     expect(toggle().getAttribute('aria-checked')).toBe('false');
     const mutate = (globalThis as any).__moderationClientMock.setLowQueueAlerts.mutate;
     await act(async () => toggle().click());
     await expect.poll(() => toggle().getAttribute('aria-checked')).toBe('true');
     expect(mutate).toHaveBeenLastCalledWith({ enabled: true });
-    await click('Manage Queue');
+    await click('Schedule');
+    expect(container.querySelector('[role="switch"]')).toBeNull();
+    await click('Words');
     expect(toggle().getAttribute('aria-checked')).toBe('true');
     mutate.mockRejectedValueOnce(new Error('Unable to save preference.'));
     await act(async () => toggle().click());
@@ -173,11 +178,29 @@ describe('moderator settings entry points', () => {
     await expect.poll(() => toggle().getAttribute('aria-checked')).toBe('false');
   });
 
-  it('keeps dashboard cards within a narrow viewport and uses only the main vertical scroller', async () => {
+  it('places navigation on the right and keeps details beside it in a wide view', async () => {
+    container.style.width = '900px';
+    await loadConsole();
+    const nav = container.querySelector('nav')!;
+    const details = container.querySelector<HTMLElement>('#moderator-details')!;
+    await expect.poll(() => getComputedStyle(details).display).toBe('block');
+    expect(nav.getBoundingClientRect().left).toBeGreaterThan(details.getBoundingClientRect().right);
+    expect(getComputedStyle(button('Back to Settings')).display).toBe('none');
+    await click('Words');
+    expect(getComputedStyle(nav).display).toBe('block');
+    expect(getComputedStyle(details).display).toBe('block');
+    expect(document.activeElement).toBe(container.querySelector('#moderator-details-heading'));
+  });
+
+  it('uses list then details on narrow screens, restores focus on Back, and has no nested panel scroller', async () => {
     container.style.width = '320px';
     await loadConsole();
     const main = container.querySelector('main')!;
     main.style.height = '440px';
+    const nav = container.querySelector('nav')!;
+    const details = container.querySelector<HTMLElement>('#moderator-details')!;
+    await expect.poll(() => getComputedStyle(details).display).toBe('none');
+    expect(getComputedStyle(nav).display).toBe('block');
     expect(main.scrollWidth).toBe(main.clientWidth);
     expect(main.scrollHeight).toBeGreaterThan(main.clientHeight);
     expect(
@@ -185,13 +208,39 @@ describe('moderator settings entry points', () => {
         ['auto', 'scroll'].includes(getComputedStyle(element).overflowY)
       )
     ).toHaveLength(0);
-    await click('Manage Scheduling');
+    await click('Schedule');
+    expect(getComputedStyle(nav).display).toBe('none');
+    expect(getComputedStyle(details).display).toBe('block');
+    expect(getComputedStyle(button('Back to Settings')).display).not.toBe('none');
+    expect(document.activeElement).toBe(container.querySelector('#moderator-details-heading'));
     expect(container.textContent).toContain('Next Scheduled Post');
     const extra = Array.from(container.querySelectorAll('details')).find(
       (element) => element.querySelector('summary')?.textContent === 'Post an Extra Puzzle Now'
     );
     expect(extra?.open).toBe(false);
     expect(main.scrollWidth).toBe(main.clientWidth);
+    await click('Back to Settings');
+    expect(getComputedStyle(nav).display).toBe('block');
+    expect(getComputedStyle(details).display).toBe('none');
+    expect(document.activeElement).toBe(button('Schedule'));
+    await click('Words');
+    expect(container.textContent).toContain('Upcoming words are hidden.');
+    await click('Request Queue Reveal');
+    const form = await fillRevealForm();
+    await form.typeConfirmation();
+    await click('Confirm and Reveal Queue Page');
+    await expect.poll(() => container.textContent).toContain('secretqueuedword');
+    await click('Back to Settings');
+    expect(container.textContent).not.toContain('secretqueuedword');
+    await click('Words');
+    expect(container.querySelector('form[aria-label="Confirm Word Reveal"]')).toBeNull();
+    expect(container.textContent).not.toContain('secretqueuedword');
+    expect(queue).toHaveBeenCalledTimes(1);
+    // Resizing with a section selected preserves it and brings the list back beside it.
+    container.style.width = '900px';
+    await expect.poll(() => getComputedStyle(nav).display).toBe('block');
+    expect(getComputedStyle(details).display).toBe('block');
+    expect(container.querySelector('#moderator-details-heading')?.textContent).toBe('Words');
   });
 
   it('does not load the console or private data for non-moderators', async () => {
@@ -204,7 +253,7 @@ describe('moderator settings entry points', () => {
 
   it('keeps queued words unfetched until every confirmation is complete and hides them on page changes', async () => {
     await loadConsole();
-    await click('Word Queue');
+    await click('Words');
     expect(container.textContent).toContain('Upcoming words are hidden.');
     expect(queue).not.toHaveBeenCalled();
     await click('Request Queue Reveal');
@@ -233,7 +282,7 @@ describe('moderator settings entry points', () => {
 
   it('hides a confirmed answer after 60 seconds and when leaving the view', async () => {
     await loadConsole();
-    await click('Latest Puzzle');
+    await click('Latest');
     const reveal = async () => {
       await click('Request Answer Reveal');
       const form = await fillRevealForm();
@@ -255,9 +304,9 @@ describe('moderator settings entry points', () => {
     expect(container.textContent).toContain('Request Answer Reveal');
     vi.useRealTimers();
     await reveal();
-    await click('Word Queue');
+    await click('Words');
     expect(container.textContent).not.toContain('secretanswer');
-    await click('Latest Puzzle');
+    await click('Latest');
     expect(container.textContent).not.toContain('secretanswer');
   });
 
@@ -265,13 +314,13 @@ describe('moderator settings entry points', () => {
     let resolveAnswer!: (result: unknown) => void;
     revealAnswer.mockReturnValue(new Promise((resolve) => (resolveAnswer = resolve)));
     await loadConsole();
-    await click('Latest Puzzle');
+    await click('Latest');
     await click('Request Answer Reveal');
     const form = await fillRevealForm();
     await form.typeConfirmation();
     await click('Confirm and Reveal Answer');
     expect(revealAnswer).toHaveBeenCalledTimes(1);
-    await click('Redis');
+    await click('Storage');
     await act(() =>
       resolveAnswer({
         challengeNumber: 1,
@@ -279,13 +328,13 @@ describe('moderator settings entry points', () => {
         expiresAtMs: Date.now() + 60_000,
       })
     );
-    await click('Latest Puzzle');
+    await click('Latest');
     expect(container.textContent).not.toContain('secretanswer');
   });
 
   it('offers test-post creation only when the server identifies a playtest build', async () => {
     await loadConsole();
-    await click('Scheduling');
+    await click('Schedule');
     expect(container.textContent).not.toContain('Playtest Tools');
     overview.mockResolvedValue({
       challenge: null,
@@ -324,7 +373,7 @@ describe('moderator settings entry points', () => {
       .mockResolvedValueOnce({ rows: [storageRow(5)], nextEnd: null, dictionaryBytes: 100 });
     (globalThis as any).__moderationClientMock.redisSample = { query: sample };
     await loadConsole();
-    await click('Redis');
+    await click('Storage');
     await click('Inspect Latest Puzzles');
     await expect.poll(() => Boolean(checkbox('Select Puzzle #10'))).toBe(true);
     await act(() => {
@@ -361,7 +410,7 @@ describe('moderator settings entry points', () => {
     (globalThis as any).__moderationClientMock.redisSample = { query: sample };
     (globalThis as any).__moderationClientMock.clearWordCaches = { mutate: clear };
     await loadConsole();
-    await click('Redis');
+    await click('Storage');
     await click('Inspect Latest Puzzles');
     await expect.poll(() => Boolean(checkbox('Select Puzzle #1'))).toBe(true);
     await act(() => {

@@ -77,8 +77,8 @@ export namespace LowQueueAlerts {
             (queueSize === 0
               ? 'The next daily puzzle cannot post until more words are added. '
               : `That is about ${queueSize} ${queueSize === 1 ? 'day' : 'days'} at one puzzle per day; extra posts use words faster. `) +
-            `Open **Moderator Settings (Experimental) → Word Queue** in [r/${context.subredditName}](https://www.reddit.com/r/${context.subredditName}/) to add words.\n\n` +
-            'You enabled Notify Low Queue. You can turn it off from the dashboard. Alerts reset after the queue is refilled above seven words.',
+            `Open **Moderator Settings (Experimental) → Words** in [r/${context.subredditName}](https://www.reddit.com/r/${context.subredditName}/) to add words.\n\n` +
+            'You enabled Notify Low Queue. You can turn it off under Words in Moderator Settings. Alerts reset after the queue is refilled above seven words.',
         });
         await redis.hSet(receiptsKey, { [userId]: `${generation}:${band}` });
         sent++;
