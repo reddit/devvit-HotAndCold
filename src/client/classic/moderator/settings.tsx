@@ -12,7 +12,7 @@ type Outputs = inferRouterOutputs<AppRouter>['moderation'];
 type Tab = 'Overview' | 'Word Queue' | 'Publishing' | 'Reminders' | 'Redis';
 const tabs: Tab[] = ['Overview', 'Word Queue', 'Publishing', 'Reminders', 'Redis'];
 const button =
-  'rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-semibold disabled:cursor-wait disabled:opacity-50 dark:border-gray-700 dark:bg-gray-800';
+  'rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-700 dark:bg-gray-800';
 const primary = `${button} !border-cyan-700 !bg-cyan-700 !text-white`;
 const panel =
   'rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-gray-900';
@@ -275,6 +275,7 @@ function ModeratorConsole() {
                         <a
                           className="mt-4 block text-sm underline"
                           href={data.challenge.postUrl}
+                          title={data.challenge.postUrl}
                           target="_blank"
                           rel="noreferrer"
                         >
@@ -533,6 +534,7 @@ function ModeratorConsole() {
                       <a
                         className="mt-4 block text-sm font-semibold underline"
                         href={testPostUrl}
+                        title={testPostUrl}
                         target="_blank"
                         rel="noreferrer"
                       >

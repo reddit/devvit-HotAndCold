@@ -19,6 +19,7 @@ import { cn } from '../utils/cn';
 import { formatCompactNumber } from '../../shared/formatCompactNumber';
 import { posthog } from '../posthog';
 import { navigateTo } from '@devvit/web/client';
+import type { JSX } from 'preact';
 
 const STATUS_LABEL: Record<ArchiveChallengeStatus, string> = {
   playing: 'Playing',
@@ -176,12 +177,21 @@ export function ArchiveModal() {
 
   const currentChallengeNumber = requireChallengeNumber();
 
-  const handleNavigate = async (entry: ArchiveChallengeSummary) => {
+  const handleNavigate = async (
+    event: JSX.TargetedMouseEvent<HTMLAnchorElement>,
+    entry: ArchiveChallengeSummary
+  ) => {
     if (!entry.postUrl) return;
     posthog.capture('Archive Challenge Selected', {
       challengeNumber: entry.challengeNumber,
       status: entry.status,
     });
+    // Keep native open-in-new-tab and copy-link behavior. Ordinary activation
+    // still uses Reddit's navigation bridge when running inside a webview.
+    if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) {
+      return;
+    }
+    event.preventDefault();
     closeArchive();
     await navigateTo(entry.postUrl);
   };
@@ -258,17 +268,27 @@ export function ArchiveModal() {
                       </span>
                     </div>
                   </div>
-                  <SecondaryButton
-                    onClick={() => {
-                      void handleNavigate(entry);
-                    }}
-                    disabled={!entry.postUrl}
-                    className={cn(
-                      'rounded-full bg-black px-4 py-2 text-xs font-semibold tracking-wide text-white uppercase hover:bg-black/80 disabled:cursor-not-allowed disabled:bg-zinc-300 disabled:text-zinc-500 dark:bg-white dark:text-black dark:hover:bg-zinc-200 dark:disabled:bg-zinc-700 dark:disabled:text-zinc-400'
-                    )}
-                  >
-                    {entry.postUrl ? actionLabel : 'Unavailable'}
-                  </SecondaryButton>
+                  {entry.postUrl ? (
+                    <a
+                      href={entry.postUrl}
+                      title={entry.postUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="rounded-full bg-black px-4 py-2 text-center text-xs font-semibold tracking-wide text-white uppercase hover:bg-black/80 focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:outline-none dark:bg-white dark:text-black dark:hover:bg-zinc-200"
+                      onClick={(event) => {
+                        void handleNavigate(event, entry);
+                      }}
+                    >
+                      {actionLabel}
+                    </a>
+                  ) : (
+                    <SecondaryButton
+                      disabled
+                      className="rounded-full bg-zinc-300 px-4 py-2 text-xs font-semibold tracking-wide text-zinc-500 uppercase dark:bg-zinc-700 dark:text-zinc-400"
+                    >
+                      Unavailable
+                    </SecondaryButton>
+                  )}
                 </div>
               </div>
             );

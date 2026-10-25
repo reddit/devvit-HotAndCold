@@ -1,5 +1,28 @@
 @import 'tailwindcss';
 
+@layer base {
+  button:enabled,
+  a[href]:not([aria-disabled='true']),
+  summary,
+  select:enabled,
+  input[type='checkbox']:enabled,
+  input[type='radio']:enabled,
+  input[type='range']:enabled,
+  label:has(input[type='checkbox']:enabled, input[type='radio']:enabled) {
+    cursor: pointer;
+  }
+}
+
+/* Disabled controls must also override explicit utility cursors on buttons. */
+button:disabled,
+input:disabled,
+select:disabled,
+textarea:disabled,
+label:has(input[type='checkbox']:disabled, input[type='radio']:disabled),
+[aria-disabled='true'] {
+  cursor: not-allowed;
+}
+
 /* Ensure the app fully fills the iframe and cannot scroll */
 html,
 body {
