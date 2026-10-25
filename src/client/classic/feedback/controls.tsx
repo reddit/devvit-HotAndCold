@@ -1,10 +1,10 @@
-import { useEffect, useRef, useState } from 'preact/hooks';
+import { useEffect } from 'preact/hooks';
 import { effect } from '@preact/signals';
 import { showToast } from '@devvit/web/client';
 import { IconButton } from '../../shared/button';
 import { audioPreferences, gameAudio, soundEnabled } from './audio';
 import type { Temperature } from './audio';
-import { GuessTemperature, TEMPERATURE_FEEDBACK_MS } from './temperature';
+import { GuessTemperature, useTemperatureFeedback } from './temperature';
 import { SpeakerIcon } from '../icons';
 
 let toggleSequence = 0;
@@ -58,16 +58,10 @@ export function SoundButton() {
 
 export function SoundPreferences() {
   const settings = audioPreferences.value;
-  const [direction, setDirection] = useState<Temperature | null>(null);
-  const [sequence, setSequence] = useState(0);
-  const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
-  useEffect(() => () => clearTimeout(timer.current), []);
+  const { showTemperature, ...temperatureFeedback } = useTemperatureFeedback();
   const preview = (next: Temperature) => {
     gameAudio.cue(next);
-    setDirection(next);
-    setSequence((value) => value + 1);
-    clearTimeout(timer.current);
-    timer.current = setTimeout(() => setDirection(null), TEMPERATURE_FEEDBACK_MS);
+    showTemperature(next);
   };
   return (
     <div className="space-y-3">
@@ -131,11 +125,11 @@ export function SoundPreferences() {
             Preview Colder
           </button>
         </div>
-        <GuessTemperature direction={direction} sequence={sequence} contained />
+        <GuessTemperature {...temperatureFeedback} contained />
       </div>
       <p className="text-xs text-gray-500">
-        Gentle animations include a brief background tint and follow your device’s reduced-motion
-        setting.
+        A subtle tint stays between guesses, with a gentle pulse for each change. Reduced motion
+        keeps the tint still.
       </p>
     </div>
   );

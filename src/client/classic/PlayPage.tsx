@@ -11,8 +11,8 @@ import { posthog } from '../posthog';
 import { trpc } from '../trpc';
 import { getBrowserIanaTimeZone } from '../../shared/timezones';
 import { setReminderOptIn, userSettings } from './state/userSettings';
-import { gameAudio, guessTemperature, type Temperature } from './feedback/audio';
-import { GuessTemperature, TEMPERATURE_FEEDBACK_MS } from './feedback/temperature';
+import { gameAudio, guessTemperature } from './feedback/audio';
+import { GuessTemperature, useTemperatureFeedback } from './feedback/temperature';
 
 type PlayPrompt = 'JOIN_SUBREDDIT' | 'REMIND_ME_TO_PLAY';
 type ReactNode = ComponentChildren;
@@ -64,10 +64,7 @@ const getPromptMessage = (prompt: PlayPrompt | null): string | null => {
 };
 
 export function PlayPage({ engine }: { engine?: GuessEngine }) {
-  const [temperature, setTemperature] = useState<Temperature | null>(null);
-  const [temperatureSequence, setTemperatureSequence] = useState(0);
-  const temperatureTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
-  useEffect(() => () => clearTimeout(temperatureTimer.current), []);
+  const { showTemperature, ...temperatureFeedback } = useTemperatureFeedback();
   const [feedback, setFeedback] = useState<ReactNode | null>(null);
   const [hasJoinedSubreddit, setHasJoinedSubreddit] = useState<boolean | null>(
     context.userId ? null : true
@@ -233,7 +230,7 @@ export function PlayPage({ engine }: { engine?: GuessEngine }) {
         {itemsArray.length > 0 ? `Guesses: ${itemsArray.length}` : 'Can you guess the secret word?'}
       </h1>
 
-      <GuessTemperature direction={temperature} sequence={temperatureSequence} />
+      <GuessTemperature {...temperatureFeedback} />
 
       <div className="relative mx-auto w-full max-w-xl pb-6">
         <WordInput
@@ -251,13 +248,7 @@ export function PlayPage({ engine }: { engine?: GuessEngine }) {
               const direction = guessTemperature(previous?.rank, res.rank);
               if (direction && !before.some((guess) => guess.word === res.word)) {
                 gameAudio.cue(direction);
-                clearTimeout(temperatureTimer.current);
-                setTemperature(direction);
-                setTemperatureSequence((value) => value + 1);
-                temperatureTimer.current = setTimeout(
-                  () => setTemperature(null),
-                  TEMPERATURE_FEEDBACK_MS
-                );
+                showTemperature(direction);
               }
               const historyNow = engine.history.value ?? [];
               const notVeryCloseMessage =

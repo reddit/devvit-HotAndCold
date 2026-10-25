@@ -9,8 +9,8 @@
     rgb(var(--temperature-color) / 0.06) 60%,
     transparent
   );
-  opacity: 0;
-  animation: temperature-fade ease-out both;
+  opacity: 0.45;
+  animation: temperature-settle ease-out both;
 }
 .temperature-backdrop--warmer {
   --temperature-color: 249 115 22;
@@ -21,15 +21,15 @@
 .temperature-backdrop--contained {
   position: absolute;
 }
-@keyframes temperature-fade {
+@keyframes temperature-settle {
   0% {
-    opacity: 0;
+    opacity: 0.45;
   }
   15% {
     opacity: 1;
   }
   100% {
-    opacity: 0;
+    opacity: 0.45;
   }
 }
 .guess-temperature {
@@ -77,7 +77,6 @@
 }
 @media (prefers-reduced-motion: reduce) {
   .temperature-backdrop {
-    display: none;
     animation: none;
   }
   .guess-temperature[data-motion='true'] svg {
