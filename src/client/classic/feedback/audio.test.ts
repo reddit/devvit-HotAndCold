@@ -1,6 +1,8 @@
 import { describe, expect, it, vi } from 'vitest';
 import { createGameAudio, guessTemperature, soundEnabled, type AudioPreferences } from './audio';
 
+vi.mock('@devvit/web/client', () => ({ context: { userId: 't2_audio_test' } }));
+
 const settings: AudioPreferences = { music: true, effects: true, motion: true, volume: 0.25 };
 function setup() {
   const assets = new Map<string, ReturnType<typeof media>>();
@@ -126,7 +128,27 @@ describe('opt-in game audio', () => {
     audio.disable();
     finish();
     expect(await pending).toBe(false);
-    expect(assets.get('/audio/calm-loop.mp3')!.pause).toHaveBeenCalledTimes(2);
+    expect(assets.get('/audio/calm-loop.mp3')!.pause).toHaveBeenCalled();
+    expect(assets.get('/audio/calm-loop.mp3')!.play).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not create media while off-screen or let a pending resume keep playing after scrolling away', async () => {
+    const { audio, create, assets } = setup();
+    audio.setVisible(false);
+    expect(await audio.enable(settings)).toBe(false);
+    expect(create).not.toHaveBeenCalled();
+    audio.setVisible(true);
+    await audio.enable(settings);
+    const music = assets.get('/audio/calm-loop.mp3')!;
+    audio.setVisible(false);
+    let finish: () => void = () => {};
+    music.play.mockImplementationOnce(() => new Promise<void>((resolve) => (finish = resolve)));
+    audio.setVisible(true);
+    audio.setVisible(false);
+    music.pause.mockClear();
+    finish();
+    await Promise.resolve();
+    expect(music.pause).toHaveBeenCalled();
   });
 });
 

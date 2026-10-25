@@ -1,4 +1,4 @@
-import { signal } from '@preact/signals';
+import { context } from '@devvit/web/client';
 import { localStorageSignal } from '../../utils/localStorageSignal';
 
 export type Temperature = 'warmer' | 'colder';
@@ -12,8 +12,11 @@ export const audioPreferences = localStorageSignal<AudioPreferences>({
   key: 'hotandcold:audio:v1',
   initialValue: { music: true, effects: true, motion: true, volume: 0.25 },
 });
-// Deliberately not persisted: each new webview starts silent.
-export const soundEnabled = signal(false);
+export const soundEnabled = localStorageSignal<boolean>({
+  key: `hotandcold:sound:v1:${context.subredditId ?? context.subredditName ?? 'community'}:${context.userId ?? 'guest'}`,
+  initialValue: false,
+  serializer: { read: (raw) => JSON.parse(raw) === true, write: JSON.stringify },
+});
 
 type Media = Pick<
   HTMLAudioElement,
@@ -45,14 +48,21 @@ export function createGameAudio(makeAudio: (url: string) => Media = (url) => new
     volume();
     return music;
   };
+  const playMusic = async () => {
+    const track = ensureMusic();
+    await track.play();
+    // A pending play promise can settle after a scroll-away or mute event.
+    if (!enabled || !visible || !settings.music) track.pause();
+  };
 
   return {
     async enable(preferences: AudioPreferences): Promise<boolean> {
+      if (!visible) return false;
       settings = preferences;
       enabled = true;
       const attempt = ++generation;
       const starts: Promise<void>[] = [];
-      if (settings.music) starts.push(ensureMusic().play());
+      if (settings.music) starts.push(playMusic());
       // Prime these same elements in the user's click gesture for mobile audio.
       for (const direction of ['warmer', 'colder'] as const) {
         const effect = (effects[direction] ??= makeAudio(`/audio/${direction}.wav`));
@@ -96,18 +106,13 @@ export function createGameAudio(makeAudio: (url: string) => Media = (url) => new
         effects.warmer?.pause();
         effects.colder?.pause();
       }
-      if (startMusic)
-        void ensureMusic()
-          .play()
-          .catch(() => {});
+      if (startMusic) void playMusic().catch(() => {});
     },
     setVisible(value: boolean) {
+      if (visible === value) return;
       visible = value;
       if (!value) pauseAll();
-      else if (enabled && settings.music)
-        void ensureMusic()
-          .play()
-          .catch(() => {});
+      else if (enabled && settings.music) void playMusic().catch(() => {});
     },
     cue(direction: Temperature) {
       if (!enabled || !visible || !settings.effects) return;

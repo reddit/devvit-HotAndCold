@@ -32,6 +32,7 @@ import { moderationRouter, openModeratorSettingsPost } from './core/moderation';
 import { Playtest } from './core/playtest';
 import { isTestChallengeNumber } from '../shared/playtest';
 import { LowQueueAlerts } from './core/lowQueueAlerts';
+import { audioSettingsRouter } from './core/audioSettings';
 
 // Formats a duration in milliseconds to a human-readable long form like
 // "2 hours 5 minutes 3 seconds" or "2 minutes 45 seconds" or "5 seconds".
@@ -96,6 +97,7 @@ async function computeCommentSuffix({
 }
 
 const appRouter = router({
+  audioSettings: audioSettingsRouter,
   moderation: moderationRouter,
   init: publicProcedure.query(async () => {
     console.log('inside of init');

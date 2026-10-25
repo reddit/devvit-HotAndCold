@@ -6,7 +6,7 @@ import { SoundPreferences } from './controls';
 import { audioPreferences, soundEnabled } from './audio';
 import { TEMPERATURE_FEEDBACK_MS } from './temperature';
 
-vi.mock('@devvit/web/client', () => ({ showToast: () => {} }));
+vi.mock('@devvit/web/client', () => ({ context: {}, showToast: () => {} }));
 
 let container: HTMLDivElement;
 let originalPreferences: typeof audioPreferences.value;

@@ -85,15 +85,23 @@ largest client chunk from about 573 kB to 391 kB without raising the warning lim
 
 ## Player sound and motion
 
-- The speaker starts off in every new webview. Only an explicit sound toggle
-  creates audio elements or starts loading audio. Music and effects can be
-  controlled independently through **Settings → Sound & Effects**.
+- Sound defaults to muted. The speaker remembers the current Reddit account's
+  choice across posts and app updates, using the `audio:enabled` Redis hash
+  (user ID → `1`; muting removes that field). No default or per-post records are
+  written. Guests keep their choice locally for this browser/app version.
+- Remembered opt-ins wait for a tap or keypress in each new webview before
+  loading/playing audio, as required by Reddit's safe-use-of-sound guidelines.
+  Music and effects can be controlled independently through
+  **Settings → Sound & Effects**.
 - Warmer/colder previews do not submit guesses. Real feedback compares a newly
   accepted guess with the preceding guess. Initial history, invalid/duplicate
   submissions, equal ranks, and unranked guesses do not trigger feedback.
 - Warm/cold badges are brief and use text as well as color. Motion respects both
-  the player's preference and `prefers-reduced-motion`. Hidden/unfocused views
-  pause playback; muting immediately stops music and effects.
+  the player's preference and `prefers-reduced-motion`. Hidden/unfocused or
+  scrolled-away views pause all playback. An iframe intersection observer and
+  document visibility must both allow playback; focusing an off-screen game
+  cannot restart it. Returning resumes music, but never replays an old effect.
+  Muting immediately stops music and effects.
 - Audio is CC0, with no in-game attribution requirement. Sources and conversions
   are recorded in `src/client/public/audio/LICENSE.txt`.
 
