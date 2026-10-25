@@ -73,15 +73,17 @@ const mount = async () => {
   await act(() => render(<GuessActions engine={engine} onHint={mock.onHint} />, container));
 };
 
-it('unlocks Hint at five and Give Up at ten, and blocks both during a submission', async () => {
+it('hides locked help buttons, shows Hint at five and Give Up at ten, and blocks repeat submissions', async () => {
   await mount();
-  expect(button('Hint').disabled).toBe(true);
-  expect(button('Give Up').disabled).toBe(true);
+  expect(button('Hint')).toBeUndefined();
+  expect(button('Give Up')).toBeUndefined();
+  expect(container.querySelector('[aria-label="Puzzle Help"]')).toBeNull();
   await act(() => {
     engine.history.value = guesses(5);
   });
   expect(button('Hint').disabled).toBe(false);
-  expect(button('Give Up').disabled).toBe(true);
+  expect(button('Give Up')).toBeUndefined();
+  expect(container.querySelector('p')).toBeNull();
   await act(() => {
     engine.history.value = guesses(10);
   });

@@ -51,6 +51,7 @@ export function GuessActions({
       setBusy(false);
     }
   };
+  if (!engine || engine.solvedAtMs.value || count < HINT_GUESS_THRESHOLD) return null;
   return (
     <>
       <div
@@ -61,42 +62,25 @@ export function GuessActions({
           iconOnly
           icon={<HintIcon />}
           aria-label="Hint"
-          title={
-            count < HINT_GUESS_THRESHOLD
-              ? `Hint Unlocks After ${HINT_GUESS_THRESHOLD} Guesses`
-              : 'Add a Hint Word · Each Hint Reduces Your Score by 30%'
-          }
-          disabled={blocked || count < HINT_GUESS_THRESHOLD}
+          title="Add a Hint Word · Each Hint Reduces Your Score by 30%"
+          disabled={blocked}
           onClick={() => void requestHint()}
         >
           Hint
         </IconButton>
-        <p className="text-center text-[10px] leading-snug text-gray-500 dark:text-gray-400">
-          {count < HINT_GUESS_THRESHOLD
-            ? `Hint After ${HINT_GUESS_THRESHOLD} Guesses`
-            : 'Hint: −30% Score'}
-          {count < GIVE_UP_GUESS_THRESHOLD && (
-            <>
-              <br />
-              Give Up After {GIVE_UP_GUESS_THRESHOLD} Guesses
-            </>
-          )}
-        </p>
-        <button
-          type="button"
-          className="inline-flex h-10 shrink-0 cursor-pointer items-center justify-center gap-1.5 rounded-full bg-gray-50 px-3 text-xs font-medium transition-colors hover:bg-gray-200 focus-visible:ring-2 focus-visible:ring-cyan-500 focus-visible:outline-none dark:bg-black dark:hover:bg-gray-800"
-          aria-label="Give Up"
-          title={
-            count < GIVE_UP_GUESS_THRESHOLD
-              ? `Give Up Unlocks After ${GIVE_UP_GUESS_THRESHOLD} Guesses`
-              : 'Give Up and Reveal the Answer'
-          }
-          disabled={blocked || count < GIVE_UP_GUESS_THRESHOLD}
-          onClick={(event) => openPopup(event, 'give-up')}
-        >
-          <GiveUpIcon />
-          <span>Give Up</span>
-        </button>
+        {count >= GIVE_UP_GUESS_THRESHOLD && (
+          <button
+            type="button"
+            className="inline-flex h-10 shrink-0 cursor-pointer items-center justify-center gap-1.5 rounded-full bg-gray-50 px-3 text-xs font-medium transition-colors hover:bg-gray-200 focus-visible:ring-2 focus-visible:ring-cyan-500 focus-visible:outline-none dark:bg-black dark:hover:bg-gray-800"
+            aria-label="Give Up"
+            title="Give Up and Reveal the Answer"
+            disabled={blocked}
+            onClick={(event) => openPopup(event, 'give-up')}
+          >
+            <GiveUpIcon />
+            <span>Give Up</span>
+          </button>
+        )}
       </div>
     </>
   );
