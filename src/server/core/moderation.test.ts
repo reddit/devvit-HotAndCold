@@ -6,6 +6,14 @@ import { WordQueue } from './wordQueue';
 import { Challenge } from './challenge';
 import { WordConfigKey } from './api';
 import * as api from './api';
+import { WORD_REVEAL_DURATION_MS } from '../../shared/moderation';
+
+const acknowledgement = {
+  purpose: 'word_issue' as const,
+  reason: 'Investigating a player report about this puzzle.',
+  promiseNotToCheat: true as const,
+  confirmation: 'REVEAL' as const,
+};
 
 function mockRole(moderator: boolean) {
   const user = { id: 't2_testuser', username: 'testuser', isAdmin: true };
@@ -30,7 +38,12 @@ test('moderator APIs deny non-mods even when their Reddit admin flag is true', a
   try {
     expect(await caller.access()).toEqual({ isModerator: false });
     await expect(caller.overview()).rejects.toMatchObject({ code: 'FORBIDDEN' });
-    await expect(caller.queue({ page: 0 })).rejects.toMatchObject({ code: 'FORBIDDEN' });
+    await expect(caller.queue({ page: 0, ...acknowledgement })).rejects.toMatchObject({
+      code: 'FORBIDDEN',
+    });
+    await expect(
+      caller.revealAnswer({ challengeNumber: 1, ...acknowledgement })
+    ).rejects.toMatchObject({ code: 'FORBIDDEN' });
     await expect(caller.addWords({ words: 'banana', prepend: false })).rejects.toMatchObject({
       code: 'FORBIDDEN',
     });
@@ -43,7 +56,7 @@ test('moderator APIs deny non-mods even when their Reddit admin flag is true', a
     ).rejects.toMatchObject({ code: 'FORBIDDEN' });
     await expect(caller.redisSample({})).rejects.toMatchObject({ code: 'FORBIDDEN' });
     await expect(
-      caller.clearWordCaches({ words: ['apple'], confirm: 'CLEAR_CACHES' })
+      caller.clearWordCaches({ challengeNumbers: [1], confirm: 'CLEAR_CACHES' })
     ).rejects.toMatchObject({ code: 'FORBIDDEN' });
     expect(await WordQueue.size()).toBe(1);
   } finally {
@@ -101,12 +114,98 @@ test('cache cleanup is restricted to ranking caches and preserves game data', as
   try {
     const result = await moderationRouter
       .createCaller({})
-      .clearWordCaches({ words: ['apple'], confirm: 'CLEAR_CACHES' });
+      .clearWordCaches({ challengeNumbers: [1], confirm: 'CLEAR_CACHES' });
     expect(result).toEqual({ cleared: 1, bytes: 15 });
     expect(await redis.get(WordConfigKey('apple'))).toBeUndefined();
     expect(await redis.hGet(Challenge.ChallengeKey(1), 'secretWord')).toBe('apple');
     expect(await redis.hGet('challenge:1:user:testuser', 'guesses')).toBe('[{"word":"box"}]');
   } finally {
+    role.restore();
+  }
+});
+
+test('ordinary dashboard and storage responses do not disclose answers or queued words', async () => {
+  const role = mockRole(true);
+  await Challenge.setCurrentChallengeNumber({ number: 1 });
+  await redis.hSet(Challenge.ChallengeKey(1), {
+    challengeNumber: '1',
+    secretWord: 'secretanswer',
+  });
+  await WordQueue.append({ challenge: { word: 'secretqueuedword' } });
+  const caller = moderationRouter.createCaller({});
+  try {
+    const overview = await caller.overview();
+    expect(overview.queueSize).toBe(1);
+    expect(overview.challenge).toMatchObject({ challengeNumber: '1' });
+    expect(overview.challenge).not.toHaveProperty('secretWord');
+    const sample = await caller.redisSample({});
+    expect(sample.rows[0]).toMatchObject({ challengeNumber: 1 });
+    expect(sample.rows[0]).not.toHaveProperty('word');
+    expect(JSON.stringify({ overview, sample })).not.toMatch(/secretanswer|secretqueuedword/);
+  } finally {
+    role.restore();
+  }
+});
+
+test('reveals require a reason, purpose, pledge, and exact typed confirmation on the server', async () => {
+  const role = mockRole(true);
+  await redis.hSet(Challenge.ChallengeKey(1), { challengeNumber: '1', secretWord: 'secretanswer' });
+  await WordQueue.append({ challenge: { word: 'secretqueuedword' } });
+  const caller = moderationRouter.createCaller({});
+  try {
+    for (const invalid of [
+      {},
+      { ...acknowledgement, reason: 'too short' },
+      { ...acknowledgement, reason: ' '.repeat(25) },
+      { ...acknowledgement, purpose: 'curiosity' },
+      { ...acknowledgement, promiseNotToCheat: false },
+      { ...acknowledgement, confirmation: 'reveal' },
+    ]) {
+      await expect(caller.queue({ page: 0, ...invalid } as any)).rejects.toMatchObject({
+        code: 'BAD_REQUEST',
+      });
+      await expect(
+        caller.revealAnswer({ challengeNumber: 1, ...invalid } as any)
+      ).rejects.toMatchObject({ code: 'BAD_REQUEST' });
+    }
+    const now = Date.now();
+    const answer = await caller.revealAnswer({ challengeNumber: 1, ...acknowledgement });
+    expect(answer).toMatchObject({ challengeNumber: 1, word: 'secretanswer' });
+    expect(answer.expiresAtMs).toBeGreaterThanOrEqual(now + WORD_REVEAL_DURATION_MS);
+    const queue = await caller.queue({ page: 0, ...acknowledgement });
+    expect(queue).toMatchObject({ page: 0, words: [{ word: 'secretqueuedword' }] });
+    expect(queue.expiresAtMs).toBeGreaterThanOrEqual(now + WORD_REVEAL_DURATION_MS);
+  } finally {
+    role.restore();
+  }
+});
+
+test('publishing from the new console does not disclose answers in results or errors', async () => {
+  const role = mockRole(true);
+  const create = vi.spyOn(Challenge, 'makeNewChallenge').mockResolvedValue({
+    challenge: 2,
+    word: 'secretanswer',
+    postId: 't3_new',
+    postUrl: 'https://reddit.com/comments/new',
+  });
+  const recover = vi
+    .spyOn(Challenge, 'ensureLatestClassicPostOrRetry')
+    .mockRejectedValue(new Error('Static target unavailable: secretanswer'));
+  const caller = moderationRouter.createCaller({});
+  try {
+    const result = await caller.postNext({ confirm: 'POST', skipNotifications: true });
+    expect(result).toMatchObject({ challenge: 2, postId: 't3_new' });
+    expect(result).not.toHaveProperty('word');
+    create.mockRejectedValue(new Error('Static target unavailable: secretanswer'));
+    for (const action of [
+      () => caller.postNext({ confirm: 'POST', skipNotifications: true }),
+      () => caller.recoverPost(),
+    ]) {
+      await expect(action()).rejects.not.toThrow('secretanswer');
+    }
+  } finally {
+    create.mockRestore();
+    recover.mockRestore();
     role.restore();
   }
 });

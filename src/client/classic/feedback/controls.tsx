@@ -101,7 +101,7 @@ export function SoundSettings() {
     >
       <div className="w-[88vw] max-w-sm space-y-3 rounded-2xl bg-white p-4 shadow-lg dark:bg-gray-900">
         <div>
-          <h2 className="text-lg font-bold">Sound & effects</h2>
+          <h2 className="text-lg font-bold">Sound & Effects</h2>
           <p className="mt-1 text-xs text-gray-500">Starts muted whenever you open the game.</p>
         </div>
         <div className="space-y-2">
@@ -109,9 +109,9 @@ export function SoundSettings() {
             <label key={key} className="flex items-center justify-between gap-4 text-sm">
               {
                 {
-                  music: 'Background music',
-                  effects: 'Hotter / colder sounds',
-                  motion: 'Gentle guess animations',
+                  music: 'Background Music',
+                  effects: 'Hotter / Colder Sounds',
+                  motion: 'Gentle Guess Animations',
                 }[key]
               }
               <input
@@ -143,7 +143,7 @@ export function SoundSettings() {
           className="w-full rounded-full bg-gray-900 px-4 py-2.5 text-sm font-semibold text-white dark:bg-white dark:text-gray-950"
           onClick={toggleSound}
         >
-          {soundEnabled.value ? 'Mute sound' : 'Turn on sound'}
+          {soundEnabled.value ? 'Mute Sound' : 'Turn On Sound'}
         </button>
         <div className="rounded-xl bg-gray-50 p-3 dark:bg-gray-800">
           <p className="text-xs font-medium">Preview feedback without making a guess</p>
@@ -152,13 +152,13 @@ export function SoundSettings() {
               className="flex-1 rounded-lg border border-orange-300 p-2 text-sm"
               onClick={() => preview('warmer')}
             >
-              Preview warmer
+              Preview Warmer
             </button>
             <button
               className="flex-1 rounded-lg border border-cyan-300 p-2 text-sm"
               onClick={() => preview('colder')}
             >
-              Preview colder
+              Preview Colder
             </button>
           </div>
           <GuessTemperature direction={direction} sequence={sequence} />

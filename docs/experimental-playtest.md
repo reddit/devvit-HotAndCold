@@ -10,7 +10,7 @@ largest client chunk from about 573 kB to 391 kB without raising the warning lim
 
 ## Moderator tools
 
-- The subreddit menu's **Moderator settings (Experimental)** item creates or
+- The subreddit menu's **Moderator Settings (Experimental)** item creates or
   reopens one reusable launcher post. Its button opens the separate console in
   expanded mode. A moderator-only cog in existing game posts opens the same console.
 - The existing menus and developer experiment tools remain available.
@@ -20,6 +20,17 @@ largest client chunk from about 573 kB to 391 kB without raising the warning lim
 - Queue previews distinguish ready, already used, already queued, repeated, and
   invalid words. Adds revalidate their input. Bulk append/prepend preserves the
   pasted order even within the same millisecond.
+- Existing answers and queued words are neither displayed nor fetched by default.
+  Revealing one answer or one queue page requires a moderation purpose, a written
+  reason of at least 20 characters, a no-cheating pledge, and typing REVEAL. The
+  server validates this acknowledgement on every reveal request. It is not an
+  audit log or a restriction on the existing legacy moderator tools.
+- Reveals last up to 60 seconds and clear on tab/page changes, refresh, or leaving
+  the view. Pending responses cannot restore words after cancellation. Words typed
+  by the moderator for queue validation remain visible as their own input.
+- Storage inspection and cleanup use challenge numbers without sending answers to
+  the client. Console publishing results and error messages do not expose answers.
+  The legacy menu and form flows are unchanged.
 - Publishing offers idempotent scheduled-slot recovery and an explicit extra-post
   action. Extra posts default to skipping reminders. Queue clearing requires
   typing CLEAR. Reminder delivery operations remain in their existing menus.
@@ -28,7 +39,7 @@ largest client chunk from about 573 kB to 391 kB without raising the warning lim
 
 - The speaker starts off in every new webview. Only an explicit sound toggle
   creates audio elements or starts loading audio. Music and effects can be
-  controlled independently through **Menu → Sound & effects**.
+  controlled independently through **Menu → Sound & Effects**.
 - Warmer/colder previews do not submit guesses. Real feedback compares a newly
   accepted guess with the preceding guess. Initial history, invalid/duplicate
   submissions, equal ranks, and unranked guesses do not trigger feedback.

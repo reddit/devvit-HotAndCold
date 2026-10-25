@@ -18,5 +18,5 @@ export const SettingsIcon = () => (
 );
 
 export function openModeratorSettings(event: MouseEvent) {
-  requestExpandedMode(event, 'moderator-console', { title: 'Moderator settings (Experimental)' });
+  requestExpandedMode(event, 'moderator-console', { title: 'Moderator Settings (Experimental)' });
 }

@@ -11,6 +11,11 @@ import { ChallengeProgress } from './challengeProgress';
 import { UserGuess } from './userGuess';
 import { CommonWordsAggregator } from './commonWordsAggregator';
 import { WORD_DATA_RELEASE } from '../../shared/wordDataVersion';
+import {
+  WORD_REVEAL_DURATION_MS,
+  WORD_REVEAL_PURPOSES,
+  WORD_REVEAL_REASON_MIN_LENGTH,
+} from '../../shared/moderation';
 
 // Read-only inspection of @devvit/cache 0.15.0's known namespace. Cleanup below
 // never deletes these SDK-managed keys, only our legacy full JSON ranking keys.
@@ -39,6 +44,12 @@ const moderatorProcedure = publicProcedure.use(async ({ next }) => {
 });
 
 const wordsInput = z.object({ words: z.string().min(1).max(5000) });
+const revealInput = z.object({
+  purpose: z.enum(WORD_REVEAL_PURPOSES),
+  reason: z.string().trim().min(WORD_REVEAL_REASON_MIN_LENGTH).max(500),
+  promiseNotToCheat: z.literal(true),
+  confirmation: z.literal('REVEAL'),
+});
 const normalize = (word: string) => word.trim().toLowerCase();
 
 async function usedWords(): Promise<Set<string>> {
@@ -108,7 +119,6 @@ export async function sampleRedisStorage(endChallenge?: number) {
       );
       return {
         challengeNumber: number,
-        word: word ?? null,
         cacheBytes,
         compactCacheBytes,
         players,
@@ -134,19 +144,35 @@ export const moderationRouter = router({
       Notifications.pendingStats(),
       CommonWordsAggregator.getJobState(),
     ]);
-    const challenge = number > 0 ? await Challenge.getChallenge({ challengeNumber: number }) : null;
+    const record = number > 0 ? await Challenge.getChallenge({ challengeNumber: number }) : null;
+    // Default dashboard responses must not disclose an answer, even in network tools.
+    const challenge = record ? (({ secretWord: _secretWord, ...safe }) => safe)(record) : null;
     const next = new Date();
     next.setUTCHours(12, 0, 0, 0);
     if (next.getTime() <= Date.now()) next.setUTCDate(next.getUTCDate() + 1);
     return { challenge, queueSize, notifications, job, nextPostAtMs: next.getTime() };
   }),
   queue: moderatorProcedure
-    .input(z.object({ page: z.number().int().min(0).default(0) }))
-    .query(async ({ input }) => {
+    .input(revealInput.extend({ page: z.number().int().min(0) }))
+    .mutation(async ({ input }) => {
       const items = await redis.zRange(WordQueue.Key(), input.page * 50, input.page * 50 + 49, {
         by: 'rank',
       });
-      return items.map((item) => WordQueue.ChallengeSchema.parse(JSON.parse(item.member)));
+      return {
+        page: input.page,
+        words: items.map((item) => WordQueue.ChallengeSchema.parse(JSON.parse(item.member))),
+        expiresAtMs: Date.now() + WORD_REVEAL_DURATION_MS,
+      };
+    }),
+  revealAnswer: moderatorProcedure
+    .input(revealInput.extend({ challengeNumber: z.number().int().min(1) }))
+    .mutation(async ({ input }) => {
+      const challenge = await Challenge.getChallenge({ challengeNumber: input.challengeNumber });
+      return {
+        challengeNumber: input.challengeNumber,
+        word: challenge.secretWord,
+        expiresAtMs: Date.now() + WORD_REVEAL_DURATION_MS,
+      };
     }),
   previewWords: moderatorProcedure
     .input(wordsInput)
@@ -170,35 +196,54 @@ export const moderationRouter = router({
       await WordQueue.clear();
       return { cleared: true };
     }),
-  recoverPost: moderatorProcedure.mutation(() => Challenge.ensureLatestClassicPostOrRetry()),
+  recoverPost: moderatorProcedure.mutation(async () => {
+    try {
+      return await Challenge.ensureLatestClassicPostOrRetry();
+    } catch {
+      // Source failures can include the answer in their message. Keep those
+      // details in the existing server logs, not the protected console.
+      throw new TRPCError({
+        code: 'INTERNAL_SERVER_ERROR',
+        message: 'Unable to recover the scheduled puzzle. Check the publishing logs.',
+      });
+    }
+  }),
   postNext: moderatorProcedure
     .input(z.object({ confirm: z.literal('POST'), skipNotifications: z.boolean() }))
-    .mutation(({ input }) =>
-      Challenge.makeNewChallenge({
-        ignoreDailyWindow: true,
-        enqueueNotifications: !input.skipNotifications,
-      })
-    ),
+    .mutation(async ({ input }) => {
+      try {
+        const result = await Challenge.makeNewChallenge({
+          ignoreDailyWindow: true,
+          enqueueNotifications: !input.skipNotifications,
+        });
+        return { challenge: result.challenge, postId: result.postId, postUrl: result.postUrl };
+      } catch {
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: 'Unable to create the next puzzle. Check the queue and publishing logs.',
+        });
+      }
+    }),
   redisSample: moderatorProcedure
     .input(z.object({ endChallenge: z.number().int().min(1).optional() }))
     .query(({ input }) => sampleRedisStorage(input.endChallenge)),
   clearWordCaches: moderatorProcedure
     .input(
       z.object({
-        words: z
-          .array(
-            z
-              .string()
-              .trim()
-              .toLowerCase()
-              .regex(/^[a-z][a-z'-]*$/)
-          )
-          .max(50),
+        challengeNumbers: z.array(z.number().int().min(1)).max(5),
         confirm: z.literal('CLEAR_CACHES'),
       })
     )
     .mutation(async ({ input }) => {
-      const keys = [...new Set(input.words)].map(WordConfigKey);
+      // Resolve cache keys on the server so storage tools never need to reveal answers.
+      const words = await Promise.all(
+        [...new Set(input.challengeNumbers)].map((number) =>
+          redis.hGet(Challenge.ChallengeKey(number), 'secretWord')
+        )
+      );
+      const keys = [...new Set(words.filter((word): word is string => Boolean(word)))].map(
+        WordConfigKey
+      );
       const sizes = await Promise.all(keys.map((key) => redis.strLen(key)));
       if (keys.length > 0) await redis.del(...keys);
       return {
@@ -222,7 +267,7 @@ export async function openModeratorSettingsPost() {
   }
   const post = await reddit.submitCustomPost({
     subredditName: context.subredditName!,
-    title: 'Hot and Cold moderator settings (Experimental)',
+    title: 'Hot and Cold Moderator Settings (Experimental)',
     entry: 'moderator',
     postData: { kind: 'moderator-settings' },
   });

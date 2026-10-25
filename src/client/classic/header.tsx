@@ -188,7 +188,7 @@ export function Header({
             items={[
               { name: 'Toggle Size', action: () => toggleLayout() },
               {
-                name: 'Sound & effects',
+                name: 'Sound & Effects',
                 action: () => {
                   soundSettingsOpen.value = true;
                 },
@@ -301,8 +301,8 @@ export function Header({
           {isModerator && (
             <IconButton
               icon={<SettingsIcon />}
-              aria-label="Moderator settings (Experimental)"
-              title="Moderator settings (Experimental)"
+              aria-label="Moderator Settings (Experimental)"
+              title="Moderator Settings (Experimental)"
               onClick={openModeratorSettings}
             >
               Settings

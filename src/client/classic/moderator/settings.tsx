@@ -1,13 +1,15 @@
-import { useEffect, useState } from 'preact/hooks';
+import { useCallback, useEffect, useRef, useState } from 'preact/hooks';
 import { context, exitExpandedMode } from '@devvit/web/client';
 import type { inferRouterOutputs } from '@trpc/server';
 import type { AppRouter } from '../../../server';
 import { trpc } from '../../trpc';
 import { SettingsIcon, openModeratorSettings } from './launch';
+import { WordRevealGate } from './wordReveal';
+import type { WordRevealAcknowledgement } from '../../../shared/moderation';
 
 type Outputs = inferRouterOutputs<AppRouter>['moderation'];
-type Tab = 'Overview' | 'Word queue' | 'Publishing' | 'Reminders' | 'Redis';
-const tabs: Tab[] = ['Overview', 'Word queue', 'Publishing', 'Reminders', 'Redis'];
+type Tab = 'Overview' | 'Word Queue' | 'Publishing' | 'Reminders' | 'Redis';
+const tabs: Tab[] = ['Overview', 'Word Queue', 'Publishing', 'Reminders', 'Redis'];
 const button =
   'rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-semibold disabled:cursor-wait disabled:opacity-50 dark:border-gray-700 dark:bg-gray-800';
 const primary = `${button} !border-cyan-700 !bg-cyan-700 !text-white`;
@@ -29,12 +31,14 @@ const message = (error: unknown) =>
 function ModeratorConsole() {
   const [tab, setTab] = useState<Tab>('Overview');
   const [data, setData] = useState<Outputs['overview'] | null>(null);
-  const [queue, setQueue] = useState<Outputs['queue']>([]);
+  const [queue, setQueue] = useState<Outputs['queue'] | null>(null);
   const [queuePage, setQueuePage] = useState(0);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
-  const [reveal, setReveal] = useState(false);
+  const [answer, setAnswer] = useState<Outputs['revealAnswer'] | null>(null);
+  const [revealTarget, setRevealTarget] = useState<'answer' | 'queue' | null>(null);
+  const revealVersion = useRef(0);
   const [words, setWords] = useState('');
   const [prepend, setPrepend] = useState(false);
   const [preview, setPreview] = useState<Outputs['previewWords'] | null>(null);
@@ -45,13 +49,17 @@ function ModeratorConsole() {
   const [sampleEnd, setSampleEnd] = useState<number | undefined>(undefined);
   const [cacheConfirm, setCacheConfirm] = useState(false);
 
+  const hideWords = useCallback(() => {
+    // Invalidate pending requests too: a late response must not reveal words
+    // after switching tabs, hiding the view, or cancelling a reveal.
+    revealVersion.current++;
+    setAnswer(null);
+    setQueue(null);
+    setRevealTarget(null);
+  }, []);
   const refresh = async () => {
-    const [overview, page] = await Promise.all([
-      trpc.moderation.overview.query(),
-      trpc.moderation.queue.query({ page: queuePage }),
-    ]);
-    setData(overview);
-    setQueue(page);
+    hideWords();
+    setData(await trpc.moderation.overview.query());
   };
   const run = async (work: () => Promise<void>) => {
     setBusy(true);
@@ -67,7 +75,54 @@ function ModeratorConsole() {
   };
   useEffect(() => {
     void run(refresh);
-  }, [queuePage]);
+  }, []);
+  useEffect(() => {
+    const hideWhenHidden = () => {
+      if (document.visibilityState !== 'visible') hideWords();
+    };
+    document.addEventListener('visibilitychange', hideWhenHidden);
+    window.addEventListener('blur', hideWords);
+    return () => {
+      document.removeEventListener('visibilitychange', hideWhenHidden);
+      window.removeEventListener('blur', hideWords);
+      revealVersion.current++;
+    };
+  }, [hideWords]);
+  useEffect(() => {
+    const expiresAtMs = answer?.expiresAtMs ?? queue?.expiresAtMs;
+    if (!expiresAtMs) return;
+    const timer = setTimeout(hideWords, Math.max(0, expiresAtMs - Date.now()));
+    return () => clearTimeout(timer);
+  }, [answer, queue, hideWords]);
+  const confirmReveal = async (acknowledgement: WordRevealAcknowledgement) => {
+    const target = revealTarget;
+    const version = ++revealVersion.current;
+    await run(async () => {
+      if (target === 'answer' && data?.challenge) {
+        const result = await trpc.moderation.revealAnswer.mutate({
+          ...acknowledgement,
+          challengeNumber: Number(data.challenge.challengeNumber),
+        });
+        if (version === revealVersion.current && document.visibilityState === 'visible') {
+          setAnswer(result);
+          setRevealTarget(null);
+        }
+      } else if (target === 'queue') {
+        const result = await trpc.moderation.queue.mutate({
+          ...acknowledgement,
+          page: queuePage,
+        });
+        if (version === revealVersion.current && document.visibilityState === 'visible') {
+          setQueue(result);
+          setRevealTarget(null);
+        }
+      }
+    });
+  };
+  const changeQueuePage = (page: number) => {
+    hideWords();
+    setQueuePage(page);
+  };
 
   return (
     <main className="h-[100dvh] overflow-y-auto bg-gray-50 text-gray-950 dark:bg-gray-950 dark:text-gray-100">
@@ -78,7 +133,7 @@ function ModeratorConsole() {
               Hot and Cold · r/{context.subredditName}
             </div>
             <h1 className="text-2xl font-bold">
-              Moderator settings{' '}
+              Moderator Settings{' '}
               <span className="ml-1 inline-block rounded-full bg-amber-100 px-2 py-1 align-middle text-[10px] font-semibold text-amber-900">
                 Experimental
               </span>
@@ -122,19 +177,19 @@ function ModeratorConsole() {
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
               {[
                 [
-                  'Latest puzzle',
+                  'Latest Puzzle',
                   data.challenge ? `#${data.challenge.challengeNumber}` : 'None yet',
                 ],
-                ['Words queued', `${data.queueSize} ${data.queueSize === 1 ? 'day' : 'days'}`],
+                ['Words Queued', `${data.queueSize} ${data.queueSize === 1 ? 'day' : 'days'}`],
                 [
-                  'Next daily post',
+                  'Next Daily Post',
                   new Date(data.nextPostAtMs).toLocaleTimeString([], {
                     hour: 'numeric',
                     minute: '2-digit',
                     timeZoneName: 'short',
                   }),
                 ],
-                ['Reminder groups', String(data.notifications.total)],
+                ['Reminder Groups', String(data.notifications.total)],
               ].map(([label, value]) => (
                 <div
                   className="rounded-xl border border-gray-200 bg-white px-4 py-3 dark:border-gray-800 dark:bg-gray-900"
@@ -146,7 +201,7 @@ function ModeratorConsole() {
               ))}
             </div>
             <nav
-              aria-label="Moderator settings sections"
+              aria-label="Moderator Settings Sections"
               className="flex flex-wrap gap-1 rounded-xl bg-gray-200/60 p-1 dark:bg-gray-900"
             >
               {tabs.map((name) => (
@@ -154,7 +209,10 @@ function ModeratorConsole() {
                   key={name}
                   className={`grow rounded-lg px-3 py-2 text-sm font-medium ${tab === name ? 'bg-white text-cyan-800 shadow-sm dark:bg-gray-700 dark:text-cyan-200' : 'text-gray-600 dark:text-gray-400'}`}
                   aria-current={tab === name ? 'page' : undefined}
-                  onClick={() => setTab(name)}
+                  onClick={() => {
+                    hideWords();
+                    setTab(name);
+                  }}
                 >
                   {name}
                 </button>
@@ -164,7 +222,7 @@ function ModeratorConsole() {
             {tab === 'Overview' && (
               <div className="grid gap-4 sm:grid-cols-2">
                 <section className={panel}>
-                  <h2 className="mb-4 font-bold">Current puzzle</h2>
+                  <h2 className="mb-4 font-bold">Current Puzzle</h2>
                   {data.challenge ? (
                     <>
                       <dl className="grid grid-cols-2 gap-3 text-sm">
@@ -172,7 +230,7 @@ function ModeratorConsole() {
                           ['Players', data.challenge.totalPlayers ?? 0],
                           ['Solves', data.challenge.totalSolves ?? 0],
                           ['Guesses', data.challenge.totalGuesses ?? 0],
-                          ['Hints used', data.challenge.totalHints ?? 0],
+                          ['Hints Used', data.challenge.totalHints ?? 0],
                         ].map(([label, value]) => (
                           <div key={label}>
                             <dt className="text-gray-500 dark:text-gray-400">{label}</dt>
@@ -180,15 +238,35 @@ function ModeratorConsole() {
                           </div>
                         ))}
                       </dl>
-                      <button
-                        className="mt-5 text-sm font-semibold text-cyan-700 underline dark:text-cyan-300"
-                        aria-expanded={reveal}
-                        onClick={() => setReveal(!reveal)}
-                      >
-                        {reveal ? 'Hide answer' : 'Reveal answer'}
-                      </button>
-                      {reveal && (
-                        <p className="mt-2 font-mono text-lg">{data.challenge.secretWord}</p>
+                      {answer ? (
+                        <div className="mt-5 rounded-xl border border-amber-300 p-3 dark:border-amber-800">
+                          <p className="text-xs">Visible temporarily for your moderation task.</p>
+                          <p className="mt-2 font-mono text-lg">{answer.word}</p>
+                          <button
+                            className="mt-3 text-sm font-semibold underline"
+                            onClick={hideWords}
+                          >
+                            Hide Answer Now
+                          </button>
+                        </div>
+                      ) : revealTarget === 'answer' ? (
+                        <WordRevealGate
+                          target="answer"
+                          busy={busy}
+                          onCancel={hideWords}
+                          onConfirm={confirmReveal}
+                        />
+                      ) : (
+                        <div className="mt-5">
+                          <p className="text-sm text-gray-500">The answer is hidden.</p>
+                          <button
+                            className="mt-2 text-sm font-semibold text-cyan-700 underline dark:text-cyan-300"
+                            disabled={busy}
+                            onClick={() => setRevealTarget('answer')}
+                          >
+                            Request Answer Reveal
+                          </button>
+                        </div>
                       )}
                       {data.challenge.postUrl && (
                         <a
@@ -197,7 +275,7 @@ function ModeratorConsole() {
                           target="_blank"
                           rel="noreferrer"
                         >
-                          Open game post ↗
+                          Open Game Post ↗
                         </a>
                       )}
                     </>
@@ -208,7 +286,7 @@ function ModeratorConsole() {
                   )}
                 </section>
                 <section className={panel}>
-                  <h2 className="mb-3 font-bold">Daily publishing</h2>
+                  <h2 className="mb-3 font-bold">Daily Publishing</h2>
                   <p className="text-sm">
                     Next scheduled post: <strong>{date(data.nextPostAtMs)}</strong>
                   </p>
@@ -222,7 +300,7 @@ function ModeratorConsole() {
                   </p>
                 </section>
                 <section className={`${panel} sm:col-span-2`}>
-                  <h2 className="mb-2 font-bold">About this preview</h2>
+                  <h2 className="mb-2 font-bold">About This Preview</h2>
                   <p className="text-sm text-gray-600 dark:text-gray-300">
                     The existing moderator menus remain available. “Experiments” in the game menu is
                     a separate developer tool. Sound and motion preferences belong to each player
@@ -232,20 +310,23 @@ function ModeratorConsole() {
               </div>
             )}
 
-            {tab === 'Word queue' && (
+            {tab === 'Word Queue' && (
               <div className="space-y-4">
                 <section className={panel}>
-                  <h2 className="mb-3 font-bold">Add upcoming words</h2>
+                  <h2 className="mb-3 font-bold">Add Upcoming Words</h2>
                   <label className="mb-2 block text-sm" htmlFor="queue-words">
-                    Comma-separated words, or one per line · up to 200
+                    Words to Add
                   </label>
+                  <p className="mb-2 text-xs text-gray-500">
+                    Comma-separated or one per line. Up to 200 words.
+                  </p>
                   <textarea
                     id="queue-words"
                     disabled={busy}
                     rows={4}
                     className={input}
                     value={words}
-                    placeholder="ocean, mountain, lantern"
+                    placeholder="Paste words to validate…"
                     onInput={(event) => {
                       setWords(event.currentTarget.value);
                       setPreview(null);
@@ -257,7 +338,7 @@ function ModeratorConsole() {
                       checked={prepend}
                       onChange={(event) => setPrepend(event.currentTarget.checked)}
                     />
-                    Place at the front of the queue
+                    Place at the Front of the Queue
                   </label>
                   <div className="mt-4 flex flex-wrap gap-2">
                     <button
@@ -269,7 +350,7 @@ function ModeratorConsole() {
                         })
                       }
                     >
-                      Preview words
+                      Preview Words
                     </button>
                     <button
                       className={primary}
@@ -286,11 +367,11 @@ function ModeratorConsole() {
                         })
                       }
                     >
-                      Add ready words
+                      Add Ready Words
                     </button>
                   </div>
                   {preview && (
-                    <div className="mt-4 flex flex-wrap gap-2" aria-label="Word validation preview">
+                    <div className="mt-4 flex flex-wrap gap-2" aria-label="Word Validation Preview">
                       {preview.map((row, index) => (
                         <span
                           key={`${row.word}-${index}`}
@@ -303,23 +384,58 @@ function ModeratorConsole() {
                   )}
                 </section>
                 <section className={panel}>
-                  <h2 className="mb-3 font-bold">Upcoming words · {data.queueSize} total</h2>
-                  <ol
-                    start={queuePage * 50 + 1}
-                    className="list-inside list-decimal columns-2 gap-6 space-y-1 text-sm sm:columns-3"
-                  >
-                    {queue.map((row) => (
-                      <li key={row.word} className="break-inside-avoid">
-                        {row.word}
-                      </li>
-                    ))}
-                  </ol>
-                  {!queue.length && <p className="text-sm text-gray-500">No words on this page.</p>}
+                  <h2 className="mb-3 font-bold">Upcoming Words · {data.queueSize} Total</h2>
+                  {queue ? (
+                    <>
+                      <p className="mb-3 text-xs text-amber-800 dark:text-amber-200">
+                        Visible temporarily for your moderation task. Changing pages hides these
+                        words and requires a new confirmation.
+                      </p>
+                      <ol
+                        start={queuePage * 50 + 1}
+                        className="list-inside list-decimal columns-2 gap-6 space-y-1 text-sm sm:columns-3"
+                      >
+                        {queue.words.map((row) => (
+                          <li key={row.word} className="break-inside-avoid">
+                            {row.word}
+                          </li>
+                        ))}
+                      </ol>
+                      {!queue.words.length && (
+                        <p className="text-sm text-gray-500">No words on this page.</p>
+                      )}
+                      <button className={`${button} mt-4`} onClick={hideWords}>
+                        Hide Words Now
+                      </button>
+                    </>
+                  ) : revealTarget === 'queue' ? (
+                    <WordRevealGate
+                      target="queue"
+                      busy={busy}
+                      onCancel={hideWords}
+                      onConfirm={confirmReveal}
+                    />
+                  ) : (
+                    <div className="rounded-xl border border-dashed border-gray-300 p-5 dark:border-gray-700">
+                      <p className="text-sm font-semibold">Upcoming words are hidden.</p>
+                      <p className="mt-2 text-sm text-gray-500">
+                        Manage the queue without seeing answers. Revealing a page requires a
+                        moderation reason, a promise not to cheat, and typed confirmation.
+                      </p>
+                      <button
+                        className={`${button} mt-4`}
+                        disabled={busy || queuePage * 50 >= data.queueSize}
+                        onClick={() => setRevealTarget('queue')}
+                      >
+                        Request Queue Reveal
+                      </button>
+                    </div>
+                  )}
                   <div className="mt-4 flex items-center gap-3">
                     <button
                       className={button}
                       disabled={busy || queuePage === 0}
-                      onClick={() => setQueuePage((page) => page - 1)}
+                      onClick={() => changeQueuePage(queuePage - 1)}
                     >
                       Previous
                     </button>
@@ -327,7 +443,7 @@ function ModeratorConsole() {
                     <button
                       className={button}
                       disabled={busy || (queuePage + 1) * 50 >= data.queueSize}
-                      onClick={() => setQueuePage((page) => page + 1)}
+                      onClick={() => changeQueuePage(queuePage + 1)}
                     >
                       Next
                     </button>
@@ -335,7 +451,7 @@ function ModeratorConsole() {
                 </section>
                 <details className={panel}>
                   <summary className="cursor-pointer text-sm font-semibold">
-                    Clear the word queue
+                    Clear the Word Queue
                   </summary>
                   <p className="my-3 text-sm text-gray-500">
                     Removes all upcoming words. Existing puzzles and player history are preserved.
@@ -362,7 +478,7 @@ function ModeratorConsole() {
                         })
                       }
                     >
-                      Clear queue
+                      Clear Queue
                     </button>
                   </div>
                 </details>
@@ -372,7 +488,7 @@ function ModeratorConsole() {
             {tab === 'Publishing' && (
               <div className="space-y-4">
                 <section className={panel}>
-                  <h2 className="mb-2 font-bold">Recover today’s scheduled post</h2>
+                  <h2 className="mb-2 font-bold">Recover Today’s Scheduled Post</h2>
                   <p className="mb-4 text-sm text-gray-500 dark:text-gray-400">
                     Checks the current daily slot and creates a puzzle only if one is missing. Uses
                     the normal reminder behavior.
@@ -394,11 +510,11 @@ function ModeratorConsole() {
                       })
                     }
                   >
-                    Check and recover
+                    Check and Recover
                   </button>
                 </section>
                 <section className={panel}>
-                  <h2 className="mb-2 font-bold">Post the next word now</h2>
+                  <h2 className="mb-2 font-bold">Post the Next Word Now</h2>
                   <p className="text-sm text-gray-500 dark:text-gray-400">
                     Creates an additional puzzle immediately and consumes the next queued word, even
                     if today’s puzzle already exists.
@@ -409,7 +525,7 @@ function ModeratorConsole() {
                       checked={skipNotifications}
                       onChange={(event) => setSkipNotifications(event.currentTarget.checked)}
                     />
-                    Skip reminder messages
+                    Skip Reminder Messages
                   </label>
                   <label className="mt-3 flex items-center gap-2 text-sm">
                     <input
@@ -417,7 +533,7 @@ function ModeratorConsole() {
                       checked={postConfirm}
                       onChange={(event) => setPostConfirm(event.currentTarget.checked)}
                     />
-                    Create an additional puzzle now
+                    Create an Additional Puzzle Now
                   </label>
                   <button
                     className={`${button} mt-4`}
@@ -434,7 +550,7 @@ function ModeratorConsole() {
                       })
                     }
                   >
-                    Post next word
+                    Post Next Word
                   </button>
                 </section>
               </div>
@@ -442,7 +558,7 @@ function ModeratorConsole() {
 
             {tab === 'Reminders' && (
               <section className={panel}>
-                <h2 className="mb-2 font-bold">Pending reminder groups</h2>
+                <h2 className="mb-2 font-bold">Pending Reminder Groups</h2>
                 <p className="mb-5 text-sm text-gray-500 dark:text-gray-400">
                   {data.notifications.total} groups pending. Each group may contain multiple
                   recipients. The existing reminder menus remain available for delivery actions.
@@ -467,7 +583,7 @@ function ModeratorConsole() {
             {tab === 'Redis' && (
               <div className="space-y-4">
                 <section className={panel}>
-                  <h2 className="mb-2 font-bold">Storage investigation</h2>
+                  <h2 className="mb-2 font-bold">Storage Investigation</h2>
                   <p className="text-sm text-gray-600 dark:text-gray-300">
                     Inspect five puzzles at a time and up to 20 player records per puzzle. These are
                     stored payload sizes, not total Redis memory or an estimate for the whole
@@ -497,7 +613,7 @@ function ModeratorConsole() {
                         })
                       }
                     >
-                      Inspect latest puzzles
+                      Inspect Latest Puzzles
                     </button>
                     {sample?.nextEnd && (
                       <button
@@ -514,14 +630,14 @@ function ModeratorConsole() {
                           })
                         }
                       >
-                        Inspect older puzzles
+                        Inspect Older Puzzles
                       </button>
                     )}
                   </div>
                 </section>
                 {sample && (
                   <section className={panel}>
-                    <h2 className="mb-2 font-bold">Measured sample</h2>
+                    <h2 className="mb-2 font-bold">Measured Sample</h2>
                     <p className="mb-4 text-xs text-gray-500">
                       Shared compact dictionary cache: {bytes(sample.dictionaryBytes)}. Values cover
                       known keys for this data release, excluding Redis overhead.
@@ -532,12 +648,12 @@ function ModeratorConsole() {
                           <tr className="border-b border-gray-200 dark:border-gray-700">
                             {[
                               'Puzzle',
-                              'Full JSON cache',
-                              'Compact cache',
-                              'Solvers indexed',
-                              'Progress indexed',
-                              'Players sampled',
-                              'Guess payloads',
+                              'Full JSON Cache',
+                              'Compact Cache',
+                              'Solvers Indexed',
+                              'Progress Indexed',
+                              'Players Sampled',
+                              'Guess Payloads',
                             ].map((label) => (
                               <th className="p-2 font-semibold" key={label}>
                                 {label}
@@ -565,7 +681,7 @@ function ModeratorConsole() {
                     </div>
                     <div className="mt-5 rounded-xl bg-gray-50 p-4 dark:bg-gray-800">
                       <h3 className="text-sm font-semibold">
-                        Clear only these full JSON ranking caches
+                        Clear Only These Full JSON Ranking Caches
                       </h3>
                       <p className="mt-2 text-xs text-gray-500 dark:text-gray-300">
                         {bytes(sample.rows.reduce((sum, row) => sum + row.cacheBytes, 0))} of cached
@@ -578,7 +694,7 @@ function ModeratorConsole() {
                           checked={cacheConfirm}
                           onChange={(event) => setCacheConfirm(event.currentTarget.checked)}
                         />
-                        Clear the sampled full JSON caches
+                        Clear the Sampled Full JSON Caches
                       </label>
                       <button
                         className={`${button} mt-3`}
@@ -587,11 +703,8 @@ function ModeratorConsole() {
                         }
                         onClick={() =>
                           void run(async () => {
-                            const words = sample.rows.flatMap((row) =>
-                              row.word ? [row.word] : []
-                            );
                             const result = await trpc.moderation.clearWordCaches.mutate({
-                              words,
+                              challengeNumbers: sample.rows.map((row) => row.challengeNumber),
                               confirm: 'CLEAR_CACHES',
                             });
                             setSample(
@@ -604,7 +717,7 @@ function ModeratorConsole() {
                           })
                         }
                       >
-                        Clear previewed caches
+                        Clear Previewed Caches
                       </button>
                     </div>
                   </section>
@@ -631,7 +744,7 @@ export function ModeratorEntry({ launcher = false }: { launcher?: boolean }) {
     <div className="flex h-[100dvh] flex-col items-center justify-center gap-4 bg-gray-50 px-6 text-center text-gray-950 dark:bg-gray-950 dark:text-white">
       <SettingsIcon />
       <h1 className="text-xl font-bold">
-        Moderator settings{' '}
+        Moderator Settings{' '}
         <span className="block text-xs font-normal text-gray-500">Experimental · Hot and Cold</span>
       </h1>
       {access === 'loading' ? (
@@ -643,7 +756,7 @@ export function ModeratorEntry({ launcher = false }: { launcher?: boolean }) {
             {context.subredditName}.
           </p>
           <button className={primary} onClick={openModeratorSettings}>
-            Open moderator settings
+            Open Moderator Settings
           </button>
         </>
       ) : (

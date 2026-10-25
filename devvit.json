@@ -39,7 +39,7 @@
   "menu": {
     "items": [
       {
-        "label": "Moderator settings (Experimental)",
+        "label": "Moderator Settings (Experimental)",
         "forUserType": "moderator",
         "location": "subreddit",
         "endpoint": "/internal/menu/moderator-settings"
