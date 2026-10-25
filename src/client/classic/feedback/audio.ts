@@ -14,7 +14,6 @@ export const audioPreferences = localStorageSignal<AudioPreferences>({
 });
 // Deliberately not persisted: each new webview starts silent.
 export const soundEnabled = signal(false);
-export const soundSettingsOpen = signal(false);
 
 type Media = Pick<
   HTMLAudioElement,

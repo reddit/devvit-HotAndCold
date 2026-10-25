@@ -1,5 +1,4 @@
 import { useEffect, useRef } from 'preact/hooks';
-import { Modal } from '../shared/modal';
 import { SecondaryButton } from '../shared/button';
 import { trpc } from '../trpc';
 import type { ArchiveChallengeStatus, ArchiveChallengeSummary } from '../../shared/archive';
@@ -14,17 +13,16 @@ import {
   archiveShowUnsolvedOnly,
   toggleArchiveShowUnsolved,
 } from './state/archive';
-import { requireChallengeNumber } from '../requireChallengeNumber';
 import { cn } from '../utils/cn';
 import { formatCompactNumber } from '../../shared/formatCompactNumber';
 import { posthog } from '../posthog';
-import { navigateTo } from '@devvit/web/client';
+import { context, exitExpandedMode, navigateTo } from '@devvit/web/client';
 import type { JSX } from 'preact';
 
 const STATUS_LABEL: Record<ArchiveChallengeStatus, string> = {
   playing: 'Playing',
   solved: 'Solved',
-  not_played: 'Not played',
+  not_played: 'Not Played',
 };
 
 const STATUS_CLASS: Record<ArchiveChallengeStatus, string> = {
@@ -118,7 +116,7 @@ export function ArchiveModal() {
     if (archiveLoading.value) {
       return;
     }
-    if (archiveInitialized.value && archiveEntries.value.length > 0) {
+    if (archiveInitialized.value) {
       return;
     }
     void fetchPage();
@@ -175,7 +173,7 @@ export function ArchiveModal() {
     archiveLoading.value,
   ]);
 
-  const currentChallengeNumber = requireChallengeNumber();
+  const currentChallengeNumber = Number(context.postData?.challengeNumber ?? 0);
 
   const handleNavigate = async (
     event: JSX.TargetedMouseEvent<HTMLAnchorElement>,
@@ -197,15 +195,29 @@ export function ArchiveModal() {
   };
 
   return (
-    <Modal isOpen={archiveOpen.value} onClose={closeArchive}>
-      <div className="w-[min(92vw,600px)] max-w-2xl rounded-2xl bg-white p-6 shadow-2xl md:p-8 dark:bg-zinc-950 dark:text-white">
-        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+    <main
+      className="h-[100dvh] overflow-hidden bg-gray-50 text-gray-950 dark:bg-gray-950 dark:text-white"
+      aria-labelledby="archive-title"
+    >
+      <div className="mx-auto flex h-full min-h-0 w-full max-w-3xl flex-col p-4 md:p-6">
+        <header className="flex shrink-0 items-start justify-between gap-3">
           <div>
-            <h2 className="text-lg font-semibold md:text-xl">Play the archive</h2>
+            <h1 id="archive-title" className="text-lg font-bold md:text-xl">
+              Play the Archive
+            </h1>
             <p className="text-sm text-zinc-600 dark:text-zinc-400">
               Jump into a previous Hot and Cold challenge.
             </p>
           </div>
+          <button
+            type="button"
+            className="shrink-0 rounded-full border border-gray-300 px-3 py-2 text-sm font-semibold dark:border-gray-600"
+            onClick={(event) => exitExpandedMode(event)}
+          >
+            Close Archive
+          </button>
+        </header>
+        <div className="mt-4 shrink-0">
           <button
             type="button"
             onClick={() => toggleArchiveShowUnsolved()}
@@ -216,13 +228,16 @@ export function ArchiveModal() {
                 : 'border-gray-300 bg-gray-100 text-gray-700 hover:bg-gray-200 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-700'
             )}
           >
-            {showUnsolvedOnly ? 'Show all challenges' : 'Show unsolved'}
+            {showUnsolvedOnly ? 'Show All Challenges' : 'Show Unsolved'}
           </button>
         </div>
 
         <div
           ref={listRef}
-          className="mt-6 flex max-h-[60vh] flex-col gap-3 overflow-y-auto pr-1 text-sm"
+          role="region"
+          aria-label="Archive Challenges"
+          tabIndex={0}
+          className="mt-4 flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto overscroll-contain rounded-xl pr-1 text-sm focus-visible:ring-2 focus-visible:ring-cyan-500 focus-visible:outline-none"
         >
           {displayedEntries.map((entry) => {
             const statusClass = STATUS_CLASS[entry.status];
@@ -235,7 +250,7 @@ export function ArchiveModal() {
               <div
                 key={entry.challengeNumber}
                 className={cn(
-                  'flex flex-col gap-3 rounded-xl bg-white p-4 shadow-sm transition hover:shadow-md dark:bg-zinc-900/70',
+                  'flex shrink-0 flex-col gap-3 rounded-xl bg-white p-4 shadow-sm transition hover:shadow-md dark:bg-zinc-900/70',
                   isCurrent && 'bg-sky-50/90 dark:bg-sky-900/40'
                 )}
               >
@@ -274,7 +289,7 @@ export function ArchiveModal() {
                       title={entry.postUrl}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="rounded-full bg-black px-4 py-2 text-center text-xs font-semibold tracking-wide text-white uppercase hover:bg-black/80 focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:outline-none dark:bg-white dark:text-black dark:hover:bg-zinc-200"
+                      className="rounded-full bg-black px-4 py-2 text-center text-xs font-semibold text-white hover:bg-black/80 focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:outline-none dark:bg-white dark:text-black dark:hover:bg-zinc-200"
                       onClick={(event) => {
                         void handleNavigate(event, entry);
                       }}
@@ -284,7 +299,7 @@ export function ArchiveModal() {
                   ) : (
                     <SecondaryButton
                       disabled
-                      className="rounded-full bg-zinc-300 px-4 py-2 text-xs font-semibold tracking-wide text-zinc-500 uppercase dark:bg-zinc-700 dark:text-zinc-400"
+                      className="rounded-full bg-zinc-300 px-4 py-2 text-xs font-semibold text-zinc-500 dark:bg-zinc-700 dark:text-zinc-400"
                     >
                       Unavailable
                     </SecondaryButton>
@@ -312,7 +327,7 @@ export function ArchiveModal() {
                 }}
                 className="self-start rounded-full bg-rose-600 px-4 py-2 text-xs font-semibold text-white hover:bg-rose-500 dark:bg-rose-500 dark:hover:bg-rose-400"
               >
-                Try again
+                Try Again
               </SecondaryButton>
             </div>
           ) : null}
@@ -332,6 +347,6 @@ export function ArchiveModal() {
           <div ref={sentinelRef} className="h-1 w-full" />
         </div>
       </div>
-    </Modal>
+    </main>
   );
 }

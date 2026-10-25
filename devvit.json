@@ -15,6 +15,9 @@
       "moderator-console": {
         "entry": "moderator-console.html"
       },
+      "archive": {
+        "entry": "archive.html"
+      },
       "playtest": {
         "entry": "playtest.html",
         "inline": true,

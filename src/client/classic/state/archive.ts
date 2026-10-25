@@ -1,4 +1,5 @@
 import { signal } from '@preact/signals';
+import { requestExpandedMode } from '@devvit/web/client';
 import type { ArchiveChallengeSummary } from '../../../shared/archive';
 
 export const archiveOpen = signal<boolean>(false);
@@ -9,8 +10,8 @@ export const archiveLoading = signal<boolean>(false);
 export const archiveError = signal<string | null>(null);
 export const archiveShowUnsolvedOnly = signal<boolean>(false);
 
-export function openArchive(): void {
-  archiveOpen.value = true;
+export function openArchive(event: MouseEvent): void {
+  requestExpandedMode(event, 'archive', { title: 'Play the Archive' });
 }
 
 export function closeArchive(): void {

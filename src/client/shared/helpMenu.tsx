@@ -3,11 +3,23 @@ import { IconButton } from './button';
 import { HamburgerIcon } from './icons';
 import { posthog } from '../posthog';
 import { page } from '../classic/state/navigation';
+import type { JSX } from 'preact';
 
 export const HelpMenu = ({
   items,
+  icon,
+  label = 'Menu',
+  iconOnly = false,
 }: {
-  items: { name: string; action: () => void | Promise<void>; disabled?: boolean }[];
+  items: {
+    name: string;
+    action: () => void | Promise<void>;
+    disabled?: boolean;
+    section?: string;
+  }[];
+  icon?: JSX.Element;
+  label?: string;
+  iconOnly?: boolean;
 }) => {
   const [toggled, setToggled] = useState(false);
   const [focusIndex, setFocusIndex] = useState(0);
@@ -73,10 +85,7 @@ export const HelpMenu = ({
         break;
       }
       case 'Tab': {
-        event.preventDefault();
-        const nextTabIndex = findNextEnabledIndex(focusIndex, 'next');
-        buttonRefs.current[nextTabIndex]?.focus();
-        setFocusIndex(nextTabIndex);
+        setToggled(false);
         break;
       }
       case 'Enter': {
@@ -90,6 +99,7 @@ export const HelpMenu = ({
       case 'Escape': {
         event.preventDefault();
         setToggled(false);
+        menuRef.current?.querySelector<HTMLButtonElement>('button')?.focus();
         break;
       }
     }
@@ -113,47 +123,57 @@ export const HelpMenu = ({
         }}
         aria-expanded={toggled}
         aria-haspopup="true"
-        aria-label="Menu"
+        aria-label={label}
         type="button"
-        icon={<HamburgerIcon />}
+        icon={icon ?? <HamburgerIcon />}
+        iconOnly={iconOnly}
       >
-        Menu
+        {label}
       </IconButton>
 
       {toggled && (
         <div
-          className="absolute top-full right-0 z-[10000] mt-1 w-48 rounded-md border border-gray-200 bg-white py-1 shadow-lg dark:border-gray-800 dark:bg-gray-900"
+          className="absolute top-full right-0 z-[10000] mt-1 max-h-[65dvh] w-56 overflow-y-auto overscroll-contain rounded-xl border border-gray-200 bg-white py-1 shadow-lg dark:border-gray-800 dark:bg-gray-900"
           role="menu"
           aria-orientation="vertical"
-          aria-labelledby="menu-button"
+          aria-label={label}
         >
           {items.map((item, index) => (
-            <button
-              className={`block w-full cursor-pointer px-3 py-2 text-left text-sm transition-colors hover:bg-gray-100 focus:bg-gray-100 focus:outline-none dark:hover:bg-gray-800 dark:focus:bg-gray-800 ${
-                item.disabled
-                  ? 'cursor-not-allowed opacity-50 hover:bg-transparent focus:bg-transparent dark:hover:bg-transparent dark:focus:bg-transparent'
-                  : ''
-              }`}
-              key={item.name}
-              onClick={() => {
-                posthog.capture('Game Page Help Menu Item Clicked', {
-                  item: item.name,
-                  index,
-                  page: page.value,
-                });
-                void handleItemClick(item.action, item.disabled);
-              }}
-              ref={(el) => {
-                buttonRefs.current[index] = el;
-              }}
-              role="menuitem"
-              tabIndex={item.disabled ? -1 : 0}
-              type="button"
-              disabled={item.disabled}
-              aria-disabled={item.disabled}
-            >
-              {item.name}
-            </button>
+            <div key={item.name}>
+              {item.section && (
+                <p
+                  role="presentation"
+                  className="border-t border-gray-200 px-3 pt-3 pb-1 text-xs font-semibold text-gray-500 dark:border-gray-700"
+                >
+                  {item.section}
+                </p>
+              )}
+              <button
+                className={`block w-full cursor-pointer px-3 py-2 text-left text-sm transition-colors hover:bg-gray-100 focus:bg-gray-100 focus:outline-none dark:hover:bg-gray-800 dark:focus:bg-gray-800 ${
+                  item.disabled
+                    ? 'cursor-not-allowed opacity-50 hover:bg-transparent focus:bg-transparent dark:hover:bg-transparent dark:focus:bg-transparent'
+                    : ''
+                }`}
+                onClick={() => {
+                  posthog.capture('Game Page Help Menu Item Clicked', {
+                    item: item.name,
+                    index,
+                    page: page.value,
+                  });
+                  void handleItemClick(item.action, item.disabled);
+                }}
+                ref={(el) => {
+                  buttonRefs.current[index] = el;
+                }}
+                role="menuitem"
+                tabIndex={item.disabled ? -1 : 0}
+                type="button"
+                disabled={item.disabled}
+                aria-disabled={item.disabled}
+              >
+                {item.name}
+              </button>
+            </div>
           ))}
         </div>
       )}

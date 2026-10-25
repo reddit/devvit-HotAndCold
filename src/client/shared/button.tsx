@@ -49,22 +49,27 @@ export const IconButton = ({
   children,
   className,
   icon,
+  iconOnly = false,
   'aria-label': ariaLabel,
   ...rest
 }: ComponentProps<'button'> & {
   icon: JSX.Element;
+  iconOnly?: boolean;
   'aria-label': string; // Require label for accessibility since the text is often hidden.
 }) => (
   <button
     type="button"
     className={cn(
       'flex cursor-pointer items-center gap-2 rounded-full bg-gray-50 p-3 text-current md:px-3 md:py-2 dark:bg-black',
+      iconOnly &&
+        'h-10 w-10 shrink-0 justify-center p-0 transition-colors hover:bg-gray-200 focus-visible:ring-2 focus-visible:ring-cyan-500 focus-visible:outline-none md:p-0 dark:hover:bg-gray-800',
       className
     )}
     aria-label={ariaLabel}
+    title={ariaLabel}
     {...rest}
   >
     {icon}
-    <span className="hidden md:inline">{children}</span>
+    {!iconOnly && <span className="hidden md:inline">{children}</span>}
   </button>
 );

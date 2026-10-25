@@ -6,6 +6,7 @@ interface ModalProps {
   onClose: () => void;
   children: ComponentChildren;
   clickAnywhereToClose?: boolean;
+  labelledBy?: string;
 }
 
 /**
@@ -17,6 +18,7 @@ export const Modal: FunctionalComponent<ModalProps> = ({
   onClose,
   children,
   clickAnywhereToClose = true,
+  labelledBy,
 }) => {
   const modalRef = useRef<HTMLDivElement>(null);
   const previousActiveElement = useRef<HTMLElement | null>(null);
@@ -32,6 +34,28 @@ export const Modal: FunctionalComponent<ModalProps> = ({
 
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') onCloseRef.current?.();
+      if (event.key === 'Tab') {
+        const buttons = Array.from(
+          modalRef.current?.querySelectorAll<HTMLElement>(
+            'button:not(:disabled):not([tabindex="-1"]), a[href], input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex="0"]'
+          ) ?? []
+        ).filter((element) => element.getClientRects().length > 0);
+        const first = buttons[0];
+        const last = buttons.at(-1);
+        if (
+          event.shiftKey &&
+          (document.activeElement === first || document.activeElement === modalRef.current)
+        ) {
+          event.preventDefault();
+          last?.focus();
+        } else if (
+          !event.shiftKey &&
+          (document.activeElement === last || document.activeElement === modalRef.current)
+        ) {
+          event.preventDefault();
+          first?.focus();
+        }
+      }
     };
 
     previousActiveElement.current = document.activeElement as HTMLElement;
@@ -53,21 +77,25 @@ export const Modal: FunctionalComponent<ModalProps> = ({
   return (
     <div
       ref={modalRef}
-      class="fixed inset-0 z-[15000] flex h-full w-full items-center justify-center backdrop-blur-2xl transition-opacity duration-200 outline-none"
+      class="fixed inset-0 z-[15000] flex h-full w-full items-center justify-center bg-black/15 p-6 backdrop-blur-md outline-none"
       onClick={(e) => {
         if (clickAnywhereToClose && e.target === e.currentTarget) onClose();
       }}
       role="dialog"
       aria-modal="true"
+      aria-labelledby={labelledBy}
       tabIndex={-1} // Makes the div focusable
     >
-      <div class="relative" onClick={(e) => e.stopPropagation()}>
+      <div
+        class="relative max-h-[84dvh] min-h-0 max-w-full overflow-y-auto overscroll-contain rounded-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
         {children}
       </div>
 
       <button
         type="button"
-        class="absolute top-3 right-3"
+        class="absolute top-1 right-1 rounded-full bg-white/90 p-1 text-gray-800 shadow-sm focus-visible:ring-2 focus-visible:ring-cyan-500 dark:bg-gray-800 dark:text-white"
         onClick={onClose}
         aria-label="Close modal"
       >

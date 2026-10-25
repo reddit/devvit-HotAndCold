@@ -11,7 +11,6 @@ import { Progress } from './Progress';
 import { PlayPage } from './PlayPage';
 import { HowToPlayModal } from './howToPlayModal';
 import { ExperimentsModal } from './ExperimentsModal';
-import { ArchiveModal } from './archiveModal';
 import { ErrorBoundary } from '../shared/error';
 import { isLoggedOut } from '../shared/user';
 import { posthog, configurePosthog } from '../posthog';
@@ -19,7 +18,6 @@ import { GUESS_SAMPLE_RATE } from '../config';
 import type { GuessEngine } from '../core/guessEngine';
 import { remountKey } from './state/experiments';
 import { trpc } from '../trpc';
-import { SoundSettings } from './feedback/controls';
 import { TestRunControls } from '../playtest/controls';
 
 configurePosthog({ mode: 'classic' });
@@ -54,8 +52,6 @@ function AppContent({
         </div>
         <HowToPlayModal />
         <ExperimentsModal />
-        <ArchiveModal />
-        <SoundSettings />
       </div>
     </div>
   );

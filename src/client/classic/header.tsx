@@ -1,10 +1,7 @@
-import { Logo, HardcoreMascot } from '../shared/logo';
+import { Logo } from '../shared/logo';
 import { HelpMenu } from '../shared/helpMenu';
 import { IconButton } from '../shared/button';
-import { InfoIcon, BellIcon, BellOffIcon, MoreIcon } from '../shared/icons';
-import { cn } from '../utils/cn';
-import { useEffect, useState } from 'preact/hooks';
-// How-to-play modal state via global helpers
+import { useEffect } from 'preact/hooks';
 import { openHowToPlay } from './state/howToPlay';
 import type { GuessEngine } from '../core/guessEngine';
 import {
@@ -14,30 +11,17 @@ import {
 } from '../core/hints';
 import { context, showShareSheet, showToast } from '@devvit/web/client';
 import { requireChallengeNumber } from '../requireChallengeNumber';
-import { userSettings, toggleLayout, toggleSortType, setReminderOptIn } from './state/userSettings';
+import { userSettings, setReminderOptIn } from './state/userSettings';
 import { trpc } from '../trpc';
-import { navigate } from './state/navigation';
-import { resetGuessCache } from '../core/guess';
+import { navigate, page } from './state/navigation';
 import { posthog } from '../posthog';
 import { openExperiments } from './state/experiments';
 import { openArchive } from './state/archive';
 import { getBrowserIanaTimeZone } from '../../shared/timezones';
 import { isLoggedOut } from '../shared/user';
 import { SoundButton } from './feedback/controls';
-import { soundSettingsOpen } from './feedback/audio';
-import { SettingsIcon, openModeratorSettings } from './moderator/launch';
-
-const SpeechBubbleTail = ({ className }: { className?: string }) => (
-  <svg
-    xmlns="http://www.w3.org/2000/svg"
-    fill="none"
-    strokeLinecap="round"
-    viewBox="0 0 6 6"
-    className={className}
-  >
-    <path d="M5 1a4 4 0 0 1-4 4" />
-  </svg>
-);
+import { PlayerSettings, settingsOpen } from './settings';
+import { HelpIcon, ArchiveIcon, ShareIcon, GearIcon, ActionsIcon } from './icons';
 
 export function Header({
   engine,
@@ -48,33 +32,17 @@ export function Header({
   isAdmin: boolean;
   isModerator: boolean;
 }) {
-  // Local UI state for modals (score breakdown placeholder)
-  // Future: show score breakdown when available
-  // const [isScoreOpen, setScoreOpen] = useState(false);
-
-  // Settings via signals
-  const layout = userSettings.value.layout;
-  const sortType = userSettings.value.sortType;
   const isUserOptedIntoReminders = userSettings.value.isUserOptedIntoReminders;
-  const [accessStatus] = useState<'inactive' | 'active'>('inactive');
-
   const challengeNumber = requireChallengeNumber();
-
-  const isActivelyPlaying = true; // Placeholder; wire real state when available
-
-  // Hydrate reminder opt-in state from server on mount
+  const isActivelyPlaying =
+    page.value === 'play' && !engine?.solvedAtMs.value && !engine?.isSubmitting.value;
   useEffect(() => {
     if (!context.userId) return;
-    void (async () => {
-      try {
-        const isIn = await trpc.cta.isOptedIntoReminders.query();
-        setReminderOptIn(isIn);
-      } catch {
-        // ignore
-      }
-    })();
+    void trpc.cta.isOptedIntoReminders
+      .query()
+      .then(setReminderOptIn)
+      .catch(() => {});
   }, []);
-
   async function requestHint() {
     const [hints, previous] = await Promise.all([
       loadHintsForChallenge(challengeNumber),
@@ -113,160 +81,94 @@ export function Header({
     }
   }
 
+  async function shareGame() {
+    posthog.capture('Game Page Share Clicked', { challengeNumber });
+    try {
+      await showShareSheet({
+        title: 'Hot & Cold',
+        text: `Play Hot & Cold #${challengeNumber} with me.`,
+        data: JSON.stringify({ challengeNumber }),
+      });
+    } catch {
+      showToast({ text: 'Share is unavailable right now' });
+    }
+  }
   return (
     <>
-      <div className="mb-4 flex items-center justify-between" data-layout={layout}>
-        <div className="flex h-5 flex-1 gap-2 sm:h-10 sm:gap-4">
-          {/* Hardcore logo is not migrated; show mascot CTA next to main logo */}
-          <div
-            onClick={() => {
-              posthog.capture('Game Page Hardcore Logo Clicked');
-            }}
-          >
-            <Logo />
-          </div>
-          <button
-            className={cn('hidden gap-1 sm:flex', accessStatus === 'inactive' && 'cursor-pointer')}
-            onClick={() => {
-              posthog.capture('Game Page Hardcore Psst Clicked');
-              // Placeholder for unlock hardcore modal
-            }}
-            disabled={accessStatus !== 'inactive'}
-            type="button"
-          >
-            <HardcoreMascot />
-            <span className="relative -translate-y-1/2 self-center rounded-full border border-gray-500 px-2 text-[10px] whitespace-nowrap text-gray-400 italic">
-              {accessStatus === 'inactive' ? 'Pssst...' : 'Thanks for your support!'}
-              <SpeechBubbleTail className="absolute top-full left-2 h-2 w-2 stroke-gray-500 stroke-1" />
-            </span>
-          </button>
+      <header className="mb-4 flex shrink-0 flex-wrap items-center justify-between gap-2">
+        <div className="h-6 shrink-0" role="img" aria-label="Hot and Cold">
+          <Logo />
         </div>
-
-        <div className="flex flex-1 items-center justify-end gap-1">
+        <nav
+          aria-label="Game Toolbar"
+          className="flex w-full items-center justify-between gap-1 min-[420px]:w-auto"
+        >
           <IconButton
-            type="button"
+            iconOnly
+            icon={<HelpIcon />}
+            aria-label="How to Play"
             onClick={() => {
               posthog.capture('Game Page How to Play Opened');
               openHowToPlay();
             }}
-            icon={<InfoIcon />}
-            aria-label="How to Play"
           >
             How to Play
           </IconButton>
           {!isLoggedOut() && (
-            <>
-              <IconButton
-                type="button"
-                onClick={async () => {
-                  posthog.capture('Game Page Notification Icon Toggled', {
-                    newState: isUserOptedIntoReminders ? 'off' : 'on',
-                  });
-                  await toggleReminderShared();
-                }}
-                icon={isUserOptedIntoReminders ? <BellIcon /> : <BellOffIcon />}
-                aria-label={
-                  isUserOptedIntoReminders ? 'Unsubscribe from reminders' : 'Subscribe to reminders'
-                }
-              >
-                Notifications
-              </IconButton>
-              <IconButton
-                type="button"
-                onClick={() => {
-                  posthog.capture('Game Page Archive Opened');
-                  openArchive();
-                }}
-                icon={<MoreIcon />}
-                aria-label="Play previous challenges"
-              >
-                Archive
-              </IconButton>
-            </>
+            <IconButton
+              iconOnly
+              icon={<ArchiveIcon />}
+              aria-label="Play the Archive"
+              onClick={(event) => {
+                posthog.capture('Game Page Archive Opened');
+                openArchive(event);
+              }}
+            >
+              Archive
+            </IconButton>
           )}
+          <IconButton iconOnly icon={<ShareIcon />} aria-label="Share Game" onClick={shareGame}>
+            Share
+          </IconButton>
+          <div
+            className="mx-1 h-5 border-l border-gray-200 dark:border-gray-700"
+            aria-hidden="true"
+          />
+          <SoundButton />
+          <IconButton
+            iconOnly
+            icon={<GearIcon />}
+            aria-label="Settings"
+            onClick={() => {
+              settingsOpen.value = true;
+            }}
+          >
+            Settings
+          </IconButton>
           <HelpMenu
+            iconOnly
+            icon={<ActionsIcon />}
+            label="Game Actions"
             items={[
-              { name: 'Toggle Size', action: () => toggleLayout() },
-              {
-                name: 'Sound & Effects',
-                action: () => {
-                  soundSettingsOpen.value = true;
-                },
-              },
-              {
-                name: `Sort by ${sortType === 'TIMESTAMP' ? 'Similarity' : 'Time'}`,
-                disabled: !isActivelyPlaying,
-                action: () => toggleSortType(),
-              },
-              {
-                name: 'Hint',
-                disabled: !isActivelyPlaying,
-                action: async () => {
-                  await requestHint();
-                },
-              },
+              { name: 'Hint', disabled: !isActivelyPlaying, action: requestHint },
               {
                 name: 'Give Up',
                 disabled: !isActivelyPlaying,
                 action: async () => {
                   try {
-                    if (!isLoggedOut()) {
-                      await trpc.guess.giveUp.mutate({ challengeNumber });
-                    }
+                    if (!isLoggedOut()) await trpc.guess.giveUp.mutate({ challengeNumber });
                     navigate('win');
-                  } catch (e) {
-                    console.error('Failed to give up', e);
-                  }
-                },
-              },
-              {
-                name: 'Reset Cache',
-                action: async () => {
-                  try {
-                    await resetGuessCache();
-                  } catch (_e) {
-                    /* noop */
-                  }
-                  try {
-                    // Clear session and local storage entirely for app keys
-                    if (typeof window !== 'undefined') {
-                      window.sessionStorage.clear();
-                      window.localStorage.clear();
-                    }
-                  } catch (_e) {
-                    /* noop */
-                  }
-                  // Reload to re-init from server and repopulate state
-                  if (typeof window !== 'undefined') {
-                    window.location.reload();
-                  }
-                },
-              },
-              {
-                name: 'Share',
-                action: async () => {
-                  posthog.capture('Game Page Share Clicked', {
-                    challengeNumber,
-                  });
-                  try {
-                    await showShareSheet({
-                      title: 'Hot & Cold',
-                      text: `Play Hot & Cold #${challengeNumber} with me.`,
-                      data: JSON.stringify({
-                        challengeNumber,
-                      }),
-                    });
-                  } catch (e) {
-                    console.error('Failed to open share sheet', e);
-                    showToast({ text: 'Share is unavailable right now' });
+                  } catch {
+                    showToast({ text: 'Could not give up right now. Please try again.' });
                   }
                 },
               },
               ...(isAdmin
-                ? ([
+                ? [
                     {
                       name: 'Experiments',
-                      action: async () => {
+                      section: 'Developer Tools',
+                      action: () => {
                         posthog.capture('Game Page Experiments Opened');
                         openExperiments();
                       },
@@ -276,42 +178,22 @@ export function Header({
                       action: async () => {
                         try {
                           const res = await trpc.notifications.testPush.mutate();
-                          if (res.ok) {
-                            showToast({ text: 'Notification sent!', appearance: 'success' });
-                          } else {
-                            showToast({
-                              text: `Failed: ${res.reason}`,
-                              appearance: 'neutral',
-                            });
-                          }
-                        } catch (e: any) {
-                          console.error('Failed to send test push', e);
                           showToast({
-                            text: e?.message || 'Failed to send notification',
-                            appearance: 'neutral',
+                            text: res.ok ? 'Notification sent!' : `Failed: ${res.reason}`,
+                            appearance: res.ok ? 'success' : 'neutral',
                           });
+                        } catch {
+                          showToast({ text: 'Failed to send notification', appearance: 'neutral' });
                         }
                       },
                     },
-                  ] as const)
-                : ([] as const)),
+                  ]
+                : []),
             ]}
           />
-          <SoundButton />
-          {isModerator && (
-            <IconButton
-              icon={<SettingsIcon />}
-              aria-label="Moderator Settings (Experimental)"
-              title="Moderator Settings (Experimental)"
-              onClick={openModeratorSettings}
-            >
-              Settings
-            </IconButton>
-          )}
-        </div>
-      </div>
-
-      {/* HowToPlayModal is rendered at App level */}
+        </nav>
+      </header>
+      <PlayerSettings isModerator={isModerator} onToggleReminder={toggleReminderShared} />
     </>
   );
 }
