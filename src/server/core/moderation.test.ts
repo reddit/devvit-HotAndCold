@@ -7,6 +7,10 @@ import { Challenge } from './challenge';
 import { WordConfigKey } from './api';
 import * as api from './api';
 import { WORD_REVEAL_DURATION_MS } from '../../shared/moderation';
+import { WORD_DATA_RELEASE } from '../../shared/wordDataVersion';
+import { ChallengeLeaderboard } from './challengeLeaderboard';
+import { ChallengeProgress } from './challengeProgress';
+import { UserGuess } from './userGuess';
 
 const acknowledgement = {
   purpose: 'word_issue' as const,
@@ -109,16 +113,33 @@ test('queue preview normalizes input and skips used, queued, repeated, and inval
 test('cache cleanup is restricted to ranking caches and preserves game data', async () => {
   const role = mockRole(true);
   await redis.set(WordConfigKey('apple'), 'cached-rankings');
+  const protectedValues = {
+    [WordConfigKey('banana')]: 'unselected-ranking-cache',
+    [`__devvit_cache_val__static-word-data:${WORD_DATA_RELEASE}:apple.bin.gz`]: 'compact-rankings',
+    [`__devvit_cache_val__static-word-data:${WORD_DATA_RELEASE}:_dictionary.csv.gz`]:
+      'shared-dictionary',
+  };
+  await Promise.all(Object.entries(protectedValues).map(([key, value]) => redis.set(key, value)));
   await redis.hSet(Challenge.ChallengeKey(1), { secretWord: 'apple' });
-  await redis.hSet('challenge:1:user:testuser', { guesses: '[{"word":"box"}]' });
+  await redis.hSet(Challenge.ChallengeKey(2), { secretWord: 'banana' });
+  await redis.hSet(UserGuess.Key(1, 'testuser'), { guesses: '[{"word":"box"}]' });
+  await redis.zAdd(ChallengeLeaderboard.ScoreKey(1), { member: 'testuser', score: 88 });
+  await redis.zAdd(ChallengeProgress.StartKey(1), { member: 'testuser', score: 1 });
+  await WordQueue.append({ challenge: { word: 'ocean' } });
   try {
     const result = await moderationRouter
       .createCaller({})
-      .clearWordCaches({ challengeNumbers: [1], confirm: 'CLEAR_CACHES' });
+      .clearWordCaches({ challengeNumbers: [1, 1], confirm: 'CLEAR_CACHES' });
     expect(result).toEqual({ cleared: 1, bytes: 15 });
     expect(await redis.get(WordConfigKey('apple'))).toBeUndefined();
     expect(await redis.hGet(Challenge.ChallengeKey(1), 'secretWord')).toBe('apple');
-    expect(await redis.hGet('challenge:1:user:testuser', 'guesses')).toBe('[{"word":"box"}]');
+    expect(await redis.hGet(UserGuess.Key(1, 'testuser'), 'guesses')).toBe('[{"word":"box"}]');
+    for (const [key, value] of Object.entries(protectedValues))
+      expect(await redis.get(key)).toBe(value);
+    expect(await redis.hGet(Challenge.ChallengeKey(2), 'secretWord')).toBe('banana');
+    expect(await redis.zScore(ChallengeLeaderboard.ScoreKey(1), 'testuser')).toBe(88);
+    expect(await redis.zScore(ChallengeProgress.StartKey(1), 'testuser')).toBe(1);
+    expect((await WordQueue.peekAll()).map((row) => row.word)).toEqual(['ocean']);
   } finally {
     role.restore();
   }

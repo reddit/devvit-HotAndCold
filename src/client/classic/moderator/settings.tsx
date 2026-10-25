@@ -7,6 +7,8 @@ import { SettingsIcon, openModeratorSettings } from './launch';
 import { WordRevealGate } from './wordReveal';
 import type { WordRevealAcknowledgement } from '../../../shared/moderation';
 import { DEFAULT_TEST_WORD } from '../../../shared/playtest';
+import { RedisSamplePanel } from './redisSample';
+import { formatBytes as bytes } from './format';
 
 type Outputs = inferRouterOutputs<AppRouter>['moderation'];
 type Tab = 'Overview' | 'Word Queue' | 'Publishing' | 'Reminders' | 'Redis';
@@ -20,12 +22,6 @@ const input =
   'w-full rounded-lg border border-gray-300 bg-transparent p-3 text-sm dark:border-gray-700';
 const date = (ms: number) =>
   new Date(ms).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
-const bytes = (value: number) =>
-  value < 1024
-    ? `${value} B`
-    : value < 1024 * 1024
-      ? `${(value / 1024).toFixed(1)} KB`
-      : `${(value / 1024 / 1024).toFixed(1)} MB`;
 const message = (error: unknown) =>
   error instanceof Error ? error.message : 'Something went wrong. Please try again.';
 
@@ -48,7 +44,7 @@ function ModeratorConsole() {
   const [skipNotifications, setSkipNotifications] = useState(true);
   const [sample, setSample] = useState<Outputs['redisSample'] | null>(null);
   const [sampleEnd, setSampleEnd] = useState<number | undefined>(undefined);
-  const [cacheConfirm, setCacheConfirm] = useState(false);
+  const [sampleVersion, setSampleVersion] = useState(0);
   const [testWord, setTestWord] = useState(DEFAULT_TEST_WORD);
   const [testPostUrl, setTestPostUrl] = useState('');
 
@@ -665,7 +661,7 @@ function ModeratorConsole() {
                         void run(async () => {
                           setSample(await trpc.moderation.redisSample.query({}));
                           setSampleEnd(undefined);
-                          setCacheConfirm(false);
+                          setSampleVersion((value) => value + 1);
                         })
                       }
                     >
@@ -682,7 +678,7 @@ function ModeratorConsole() {
                               await trpc.moderation.redisSample.query({ endChallenge: end })
                             );
                             setSampleEnd(end);
-                            setCacheConfirm(false);
+                            setSampleVersion((value) => value + 1);
                           })
                         }
                       >
@@ -692,91 +688,26 @@ function ModeratorConsole() {
                   </div>
                 </section>
                 {sample && (
-                  <section className={panel}>
-                    <h2 className="mb-2 font-bold">Measured Sample</h2>
-                    <p className="mb-4 text-xs text-gray-500">
-                      Shared compact dictionary cache: {bytes(sample.dictionaryBytes)}. Values cover
-                      known keys for this data release, excluding Redis overhead.
-                    </p>
-                    <div className="overflow-x-auto">
-                      <table className="w-full text-left text-xs">
-                        <thead>
-                          <tr className="border-b border-gray-200 dark:border-gray-700">
-                            {[
-                              'Puzzle',
-                              'Full JSON Cache',
-                              'Compact Cache',
-                              'Solvers Indexed',
-                              'Progress Indexed',
-                              'Players Sampled',
-                              'Guess Payloads',
-                            ].map((label) => (
-                              <th className="p-2 font-semibold" key={label}>
-                                {label}
-                              </th>
-                            ))}
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {sample.rows.map((row) => (
-                            <tr
-                              key={row.challengeNumber}
-                              className="border-b border-gray-100 dark:border-gray-800"
-                            >
-                              <td className="p-2">#{row.challengeNumber}</td>
-                              <td className="p-2">{bytes(row.cacheBytes)}</td>
-                              <td className="p-2">{bytes(row.compactCacheBytes)}</td>
-                              <td className="p-2">{row.players}</td>
-                              <td className="p-2">{row.progressPlayers}</td>
-                              <td className="p-2">{row.sampledPlayers}</td>
-                              <td className="p-2">{bytes(row.sampledGuessBytes)}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                    <div className="mt-5 rounded-xl bg-gray-50 p-4 dark:bg-gray-800">
-                      <h3 className="text-sm font-semibold">
-                        Clear Only These Full JSON Ranking Caches
-                      </h3>
-                      <p className="mt-2 text-xs text-gray-500 dark:text-gray-300">
-                        {bytes(sample.rows.reduce((sum, row) => sum + row.cacheBytes, 0))} of cached
-                        ranking data in this sample. Static files rebuild it on demand. Player
-                        history, queued words, answers, and scores are preserved.
-                      </p>
-                      <label className="mt-3 flex items-center gap-2 text-sm">
-                        <input
-                          type="checkbox"
-                          checked={cacheConfirm}
-                          onChange={(event) => setCacheConfirm(event.currentTarget.checked)}
-                        />
-                        Clear the Sampled Full JSON Caches
-                      </label>
-                      <button
-                        className={`${button} mt-3`}
-                        disabled={
-                          busy || !cacheConfirm || !sample.rows.some((row) => row.cacheBytes > 0)
-                        }
-                        onClick={() =>
-                          void run(async () => {
-                            const result = await trpc.moderation.clearWordCaches.mutate({
-                              challengeNumbers: sample.rows.map((row) => row.challengeNumber),
-                              confirm: 'CLEAR_CACHES',
-                            });
-                            setSample(
-                              await trpc.moderation.redisSample.query({ endChallenge: sampleEnd })
-                            );
-                            setCacheConfirm(false);
-                            setNotice(
-                              `Cleared ${result.cleared} ranking caches (${bytes(result.bytes)}).`
-                            );
-                          })
-                        }
-                      >
-                        Clear Previewed Caches
-                      </button>
-                    </div>
-                  </section>
+                  <RedisSamplePanel
+                    key={sampleVersion}
+                    sample={sample}
+                    busy={busy}
+                    onClear={async (challengeNumbers) => {
+                      await run(async () => {
+                        const result = await trpc.moderation.clearWordCaches.mutate({
+                          challengeNumbers,
+                          confirm: 'CLEAR_CACHES',
+                        });
+                        setSample(
+                          await trpc.moderation.redisSample.query({ endChallenge: sampleEnd })
+                        );
+                        setSampleVersion((value) => value + 1);
+                        setNotice(
+                          `Cleared ${result.cleared} full JSON fallback caches (${bytes(result.bytes)}). Game data and compact caches were preserved.`
+                        );
+                      });
+                    }}
+                  />
                 )}
               </div>
             )}

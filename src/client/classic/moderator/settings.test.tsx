@@ -232,4 +232,81 @@ describe('moderator settings entry points', () => {
       word: 'apple',
     });
   });
+
+  const storageRow = (challengeNumber: number, cacheBytes = 2048) => ({
+    challengeNumber,
+    cacheBytes,
+    compactCacheBytes: 100,
+    players: 0,
+    progressPlayers: 0,
+    sampledPlayers: 0,
+    sampledGuessBytes: 0,
+  });
+  const checkbox = (label: string) =>
+    container.querySelector<HTMLInputElement>(`input[aria-label="${label}"]`)!;
+
+  it('clears selection and acknowledgement when inspecting a different storage sample', async () => {
+    const sample = vi
+      .fn()
+      .mockResolvedValueOnce({ rows: [storageRow(10)], nextEnd: 5, dictionaryBytes: 100 })
+      .mockResolvedValueOnce({ rows: [storageRow(5)], nextEnd: null, dictionaryBytes: 100 });
+    (globalThis as any).__moderationClientMock.redisSample = { query: sample };
+    await loadConsole();
+    await click('Redis');
+    await click('Inspect Latest Puzzles');
+    await expect.poll(() => Boolean(checkbox('Select Puzzle #10'))).toBe(true);
+    await act(() => {
+      checkbox('Select Puzzle #10').click();
+    });
+    const acknowledgement = Array.from(container.querySelectorAll('label'))
+      .find((label) => label.textContent?.includes('I Understand the Selected Outage'))!
+      .querySelector('input')!;
+    await act(() => {
+      acknowledgement.click();
+    });
+    expect(button('Clear Selected Caches').disabled).toBe(false);
+    await click('Inspect Older Puzzles');
+    await expect.poll(() => Boolean(checkbox('Select Puzzle #5'))).toBe(true);
+    expect(checkbox('Select Puzzle #5').checked).toBe(false);
+    expect(button('Clear Selected Caches').disabled).toBe(true);
+    expect(sample).toHaveBeenLastCalledWith({ endChallenge: 5 });
+  });
+
+  it('passes only selected puzzles to cleanup and refreshes the sample afterward', async () => {
+    const sample = vi
+      .fn()
+      .mockResolvedValueOnce({
+        rows: [storageRow(2), storageRow(1)],
+        nextEnd: null,
+        dictionaryBytes: 100,
+      })
+      .mockResolvedValueOnce({
+        rows: [storageRow(2), storageRow(1, 0)],
+        nextEnd: null,
+        dictionaryBytes: 100,
+      });
+    const clear = vi.fn().mockResolvedValue({ cleared: 1, bytes: 2048 });
+    (globalThis as any).__moderationClientMock.redisSample = { query: sample };
+    (globalThis as any).__moderationClientMock.clearWordCaches = { mutate: clear };
+    await loadConsole();
+    await click('Redis');
+    await click('Inspect Latest Puzzles');
+    await expect.poll(() => Boolean(checkbox('Select Puzzle #1'))).toBe(true);
+    await act(() => {
+      checkbox('Select Puzzle #1').click();
+    });
+    const acknowledgement = Array.from(container.querySelectorAll('label'))
+      .find((label) => label.textContent?.includes('I Understand the Selected Outage'))!
+      .querySelector('input')!;
+    await act(() => {
+      acknowledgement.click();
+    });
+    await click('Clear Selected Caches');
+    await expect.poll(() => clear.mock.calls.length).toBe(1);
+    expect(clear).toHaveBeenCalledWith({ challengeNumbers: [1], confirm: 'CLEAR_CACHES' });
+    await expect.poll(() => sample.mock.calls.length).toBe(2);
+    await expect.poll(() => checkbox('Select Puzzle #1').disabled).toBe(true);
+    expect(button('Clear Selected Caches').disabled).toBe(true);
+    expect(container.textContent).toContain('Game data and compact caches were preserved');
+  });
 });

@@ -50,6 +50,19 @@ test('an existing Redis ranking cache remains an outage fallback without refresh
   }
 });
 
+test('an uncached ranking request fails during a static-data outage without a legacy fallback', async () => {
+  const source = vi
+    .spyOn(staticData, 'getStaticWordConfig')
+    .mockRejectedValue(new Error('host unavailable'));
+  try {
+    await expect(getWordConfigCached({ word: 'no-fallback-during-outage-test' })).rejects.toThrow(
+      'host unavailable'
+    );
+  } finally {
+    source.mockRestore();
+  }
+});
+
 test('buildLetterCsvForChallenge serves the full ranked list and secret from static caches', async () => {
   await redis.set(
     WordConfigKey('apple'),
