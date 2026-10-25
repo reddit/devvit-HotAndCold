@@ -61,7 +61,7 @@ it('supports keyboard tabs and applies the explicit guess order and spacing', as
   expect(tab('Gameplay').getAttribute('aria-selected')).toBe('true');
   const choice = (label: string) =>
     Array.from(container.querySelectorAll('button')).find(
-      (button) => button.textContent === label
+      (button) => button.getAttribute('aria-label') === label
     )!;
   await act(() => {
     choice('Roomy').click();
@@ -74,6 +74,39 @@ it('supports keyboard tabs and applies the explicit guess order and spacing', as
   expect(userSettings.value.layout).toBe('EXPANDED');
   expect(userSettings.value.sortType).toBe('TIMESTAMP');
   expect(container.textContent).toContain('Your newest guess stays pinned');
+});
+
+it.each([
+  [320, 440],
+  [390, 520],
+  [768, 600],
+])('fits the gameplay choices and previews without scrolling at %s × %s', async (width, height) => {
+  await page.viewport(width!, height!);
+  await mount();
+  await act(() => {
+    tab('Gameplay').click();
+  });
+  const dialog = container.querySelector<HTMLElement>('[role="dialog"]')!;
+  const scroll = dialog.firstElementChild as HTMLElement;
+  const previews = Array.from(container.querySelectorAll<HTMLElement>('[data-setting-preview]'));
+  expect(previews).toHaveLength(4);
+  expect(scroll.scrollHeight).toBeLessThanOrEqual(scroll.clientHeight + 2);
+  expect(scroll.scrollWidth).toBe(scroll.clientWidth);
+  for (const preview of previews) {
+    const frame = preview.getBoundingClientRect();
+    const rows = preview.firstElementChild!.getBoundingClientRect();
+    expect(rows.top).toBeGreaterThanOrEqual(frame.top);
+    expect(rows.bottom).toBeLessThanOrEqual(frame.bottom);
+    expect(rows.right).toBeLessThanOrEqual(scroll.getBoundingClientRect().right);
+  }
+  const before = scroll.getBoundingClientRect().height;
+  await act(() => {
+    container.querySelector<HTMLButtonElement>('[aria-label="Roomy"]')!.click();
+    container.querySelector<HTMLButtonElement>('[aria-label="Newest First"]')!.click();
+  });
+  expect(scroll.getBoundingClientRect().height).toBe(before);
+  expect(scroll.scrollTop).toBe(0);
+  expect(scroll.scrollHeight).toBeLessThanOrEqual(scroll.clientHeight + 2);
 });
 
 it('keeps long settings reachable in one bounded scrolling surface', async () => {

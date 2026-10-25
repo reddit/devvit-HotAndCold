@@ -69,8 +69,11 @@ largest client chunk from about 573 kB to 391 kB without raising the warning lim
   other calls to action. A larger Daily Reminders button appears only after the
   current opt-in is checked and the user is not subscribed. Enabling it hides
   the button and updates the toolbar bell.
-- Guess Spacing and Guess Order are explicit two-choice toggles. **Clear Word
-  Cache** requires confirmation, clears only downloadable ranking and lemma
+- Guess Spacing and Guess Order are explicit two-choice toggles with small sample
+  lists inside each option. The normal Gameplay panel fits without scrolling
+  down to 320 × 440; opening Troubleshooting can still use the modal's single
+  scroll surface. The previews use sample words and do not submit guesses.
+- **Clear Word Cache** requires confirmation, clears only downloadable ranking and lemma
   stores, and keeps all local/session history, results, and preferences. It does
   not reload, so pending guesses can finish syncing. Data rebuilds on demand. The
   older “Reset Cache and Reload” flow cleared both browser storage areas and
