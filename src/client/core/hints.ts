@@ -5,7 +5,7 @@ import { createLocalStorageSignal } from '../utils/localStorageSignal';
 export type HintWord = {
   word: string;
   similarity: number;
-  rank: number; // 0 is closest to the target
+  rank: number; // 1-based global rank, as supplied by the hint CSV
   isHint: true;
 };
 
@@ -39,54 +39,41 @@ export async function loadHintsForChallenge(challengeNumber: number): Promise<Hi
   return out;
 }
 
-/**
- * Select the next hint using the same "weird" logic used previously on the server.
- * Ported from server/core/userGuess._selectNextHint.
- */
-export function selectNextHint(params: {
+/** Choose an unused, genuinely closer hint using ranks, not CSV array positions. */
+export function selectNextHint({
+  hintWords,
+  previousGuesses,
+}: {
   hintWords: HintWord[];
   previousGuesses: PreviousGuess[];
 }): HintWord | null {
-  const { hintWords, previousGuesses } = params;
-  const words = hintWords.slice(0, 250);
-  const guessed = new Set(previousGuesses.map((g) => g.word));
-
-  const findNextHint = (
-    startIndex: number,
-    endIndex: number,
-    searchForward: boolean
-  ): HintWord | null => {
-    const indices = searchForward
-      ? Array.from({ length: endIndex - startIndex + 1 }, (_, i) => startIndex + i)
-      : Array.from({ length: startIndex + 1 }, (_, i) => startIndex - i);
-    for (const i of indices) {
-      const w = words[i];
-      if (w && !guessed.has(w.word)) return w;
-    }
-    return null;
-  };
-
-  if (previousGuesses.length === 0) {
-    return findNextHint(words.length - 1, 0, false);
-  }
-
-  const validGuesses = previousGuesses.filter((g) => g.rank >= 0);
-  if (validGuesses.length === 0) {
-    return findNextHint(words.length - 1, 0, false);
-  }
-
-  const closestIndex = Math.min(...validGuesses.map((g) => g.rank));
-
-  if (closestIndex === 0) {
-    return findNextHint(1, words.length - 1, true);
-  }
-
-  const targetIndex = Math.floor(closestIndex / 2);
-  const forwardHint = findNextHint(targetIndex, closestIndex, true);
-  if (forwardHint) return forwardHint;
-  const backwardHint = findNextHint(targetIndex - 1, 0, false);
-  if (backwardHint) return backwardHint;
-  return findNextHint(closestIndex + 1, words.length - 1, true);
+  const guessed = new Set(previousGuesses.map((guess) => guess.word.toLowerCase()));
+  const available = hintWords
+    .slice(0, 250)
+    .filter(
+      (hint) =>
+        Number.isFinite(hint.rank) &&
+        hint.rank > 0 &&
+        hint.similarity < 1 &&
+        !guessed.has(hint.word.toLowerCase())
+    );
+  const ranks = previousGuesses
+    .map((guess) => guess.rank)
+    .filter((rank) => Number.isFinite(rank) && rank >= 0);
+  if (!ranks.length)
+    return available.reduce<HintWord | null>(
+      (furthest, hint) => (!furthest || hint.rank > furthest.rank ? hint : furthest),
+      null
+    );
+  const bestRank = Math.min(...ranks);
+  const target = Math.max(1, Math.floor(bestRank / 2));
+  return available
+    .filter((hint) => hint.rank < bestRank)
+    .reduce<HintWord | null>(
+      (best, hint) =>
+        !best || Math.abs(hint.rank - target) < Math.abs(best.rank - target) ? hint : best,
+      null
+    );
 }
 
 /** Convenience: read previously guessed history (ranks) from storage. */

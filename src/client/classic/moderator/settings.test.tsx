@@ -178,6 +178,34 @@ describe('moderator settings entry points', () => {
     await expect.poll(() => toggle().getAttribute('aria-checked')).toBe('false');
   });
 
+  it('keeps Developer Tools below the five main sections and exposes them only with developer access', async () => {
+    await loadConsole();
+    expect(container.querySelector('button[aria-label="Developer Tools"]')).toBeNull();
+    const ordinary = await overview.mock.results[0]!.value;
+    overview.mockResolvedValue({ ...ordinary, developerToolsAvailable: true });
+    await click('Refresh');
+    await expect
+      .poll(() => Boolean(container.querySelector('button[aria-label="Developer Tools"]')))
+      .toBe(true);
+    const labels = Array.from(container.querySelectorAll('nav button')).map((button) =>
+      button.getAttribute('aria-label')
+    );
+    expect(labels).toEqual([
+      'Latest',
+      'Schedule',
+      'Reminders',
+      'Words',
+      'Storage',
+      'Developer Tools',
+    ]);
+    await click('Developer Tools');
+    expect(container.textContent).toContain('Local Experiments');
+    expect(container.textContent).toContain('Send Test Push to Me');
+    expect(container.textContent).not.toContain('Request Answer Reveal');
+    expect(queue).not.toHaveBeenCalled();
+    expect(revealAnswer).not.toHaveBeenCalled();
+  });
+
   it('places navigation on the right and keeps details beside it in a wide view', async () => {
     container.style.width = '900px';
     await loadConsole();

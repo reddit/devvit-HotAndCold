@@ -10,13 +10,11 @@ import { WinPageLoggedOut } from './WinPageLoggedOut';
 import { Progress } from './Progress';
 import { PlayPage } from './PlayPage';
 import { HowToPlayModal } from './howToPlayModal';
-import { ExperimentsModal } from './ExperimentsModal';
 import { ErrorBoundary } from '../shared/error';
 import { isLoggedOut } from '../shared/user';
 import { posthog, configurePosthog } from '../posthog';
 import { GUESS_SAMPLE_RATE } from '../config';
 import type { GuessEngine } from '../core/guessEngine';
-import { remountKey } from './state/experiments';
 import { trpc } from '../trpc';
 import { TestRunControls } from '../playtest/controls';
 
@@ -25,19 +23,17 @@ configurePosthog({ mode: 'classic' });
 function AppContent({
   engine,
   challengeNumber,
-  isAdmin,
   isModerator,
 }: {
   engine: GuessEngine;
   challengeNumber: number;
-  isAdmin: boolean;
   isModerator: boolean;
 }) {
   return (
     <div className="relative isolate h-[100dvh] min-h-[100dvh] w-full overflow-hidden">
       <div className="mx-auto flex h-full min-h-0 max-w-2xl flex-col overflow-hidden px-4 py-6 md:px-6">
         <TestRunControls isSubmitting={Boolean(engine.isSubmitting.value)} />
-        <Header engine={engine} isAdmin={isAdmin} isModerator={isModerator} />
+        <Header isModerator={isModerator} />
         {page.value === 'win' ? (
           isLoggedOut() ? (
             <WinPageLoggedOut engine={engine} />
@@ -51,14 +47,12 @@ function AppContent({
           <Progress challengeNumber={Number(challengeNumber)} engine={engine} />
         </div>
         <HowToPlayModal />
-        <ExperimentsModal />
       </div>
     </div>
   );
 }
 
 export function App() {
-  const [isAdmin, setIsAdmin] = useState(false);
   const [isModerator, setIsModerator] = useState(false);
   useEffect(() => {
     if (!isLoggedOut())
@@ -95,14 +89,12 @@ export function App() {
             is_admin: isAdmin,
           });
         }
-
-        setIsAdmin(isAdmin);
       } catch (error) {
         console.error('Error getting admin status', error);
       }
     };
     void fetchIsAdmin();
-  }, [setIsAdmin]);
+  }, []);
 
   // Capture every 10th guess, based solely on history length changes.
   // Edge cases respected:
@@ -188,10 +180,9 @@ export function App() {
 
   return (
     <AppContent
-      key={remountKey.value}
+      key={challengeNumber}
       engine={engine}
       challengeNumber={challengeNumber}
-      isAdmin={isAdmin}
       isModerator={isModerator}
     />
   );

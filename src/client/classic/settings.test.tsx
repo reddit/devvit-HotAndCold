@@ -14,11 +14,15 @@ vi.mock('@devvit/web/client', () => ({
   showToast: () => {},
   requestExpandedMode: (...args: unknown[]) => (globalThis as any).__settingsExpand(...args),
 }));
+vi.mock('../core/guess', () => ({
+  resetGuessCache: () => (globalThis as any).__settingsCacheReset(),
+}));
 let container: HTMLDivElement;
 beforeEach(() => {
   container = document.createElement('div');
   document.body.append(container);
   settingsOpen.value = true;
+  (globalThis as any).__settingsCacheReset = vi.fn().mockResolvedValue(undefined);
   (globalThis as any).__settingsExpand = vi.fn();
 });
 afterEach(async () => {
@@ -27,40 +31,22 @@ afterEach(async () => {
   howToPlayOpen.value = false;
   container.remove();
   delete (globalThis as any).__settingsExpand;
+  delete (globalThis as any).__settingsCacheReset;
   await page.viewport(1280, 720);
 });
-const mount = async (isModerator = false) => {
-  await act(() =>
-    render(
-      <PlayerSettings isModerator={isModerator} onToggleReminder={async () => {}} />,
-      container
-    )
-  );
+const mount = async () => {
+  await act(() => render(<PlayerSettings />, container));
 };
 const tab = (name: string) =>
   Array.from(container.querySelectorAll<HTMLButtonElement>('[role="tab"]')).find(
     (button) => button.textContent === name
   )!;
 
-it('shows moderation only to moderators and launches the separate expanded console', async () => {
+it('keeps player settings focused on sound and gameplay without reminder or moderator steps', async () => {
   await mount();
   expect(tab('Moderation')).toBeUndefined();
-  await mount(true);
-  await act(() => {
-    tab('Moderation').click();
-  });
-  const launch = Array.from(container.querySelectorAll('button')).find((button) =>
-    button.textContent?.includes('Open Moderator Settings')
-  )!;
-  await act(() => {
-    launch.click();
-  });
-  expect((globalThis as any).__settingsExpand).toHaveBeenCalledWith(
-    expect.any(MouseEvent),
-    'moderator-console',
-    { title: 'Moderator Settings (Experimental)' }
-  );
-  expect(settingsOpen.value).toBe(false);
+  expect(container.textContent).not.toContain('Daily Reminders');
+  expect(container.textContent).not.toContain('Open Moderator Settings');
 });
 
 it('supports keyboard tabs and applies the explicit guess order and spacing', async () => {
@@ -73,13 +59,18 @@ it('supports keyboard tabs and applies the explicit guess order and spacing', as
   });
   expect(document.activeElement).toBe(tab('Gameplay'));
   expect(tab('Gameplay').getAttribute('aria-selected')).toBe('true');
-  const [spacing, order] = Array.from(container.querySelectorAll('select'));
+  const choice = (label: string) =>
+    Array.from(container.querySelectorAll('button')).find(
+      (button) => button.textContent === label
+    )!;
   await act(() => {
-    spacing!.value = 'EXPANDED';
-    spacing!.dispatchEvent(new Event('change', { bubbles: true }));
-    order!.value = 'TIMESTAMP';
-    order!.dispatchEvent(new Event('change', { bubbles: true }));
+    choice('Roomy').click();
+    choice('Newest First').click();
   });
+  expect(choice('Roomy').getAttribute('aria-pressed')).toBe('true');
+  expect(choice('Compact').getAttribute('aria-pressed')).toBe('false');
+  expect(choice('Newest First').getAttribute('aria-pressed')).toBe('true');
+  expect(container.querySelector('select')).toBeNull();
   expect(userSettings.value.layout).toBe('EXPANDED');
   expect(userSettings.value.sortType).toBe('TIMESTAMP');
   expect(container.textContent).toContain('Your newest guess stays pinned');
@@ -87,7 +78,7 @@ it('supports keyboard tabs and applies the explicit guess order and spacing', as
 
 it('keeps long settings reachable in one bounded scrolling surface', async () => {
   await page.viewport(320, 440);
-  await mount(true);
+  await mount();
   const dialog = container.querySelector<HTMLElement>('[role="dialog"]')!;
   const scroll = dialog.firstElementChild as HTMLElement;
   expect(scroll.getBoundingClientRect().top).toBeGreaterThan(20);
@@ -141,3 +132,43 @@ it.each(['Tab', 'Escape'])(
     else expect(document.activeElement).toBe(trigger);
   }
 );
+
+it('confirms cache clearing and preserves browser history, results, and preferences', async () => {
+  await mount();
+  const savedHistory = JSON.stringify([{ word: 'local-unsynced', rank: 42 }]);
+  window.localStorage.setItem('guess-history:cache-check', savedHistory);
+  window.sessionStorage.setItem('guess-solvedAt:cache-check', '123');
+  const preferences = JSON.stringify(userSettings.value);
+  const button = (text: string) =>
+    Array.from(container.querySelectorAll<HTMLButtonElement>('button')).find(
+      (button) => button.textContent?.trim() === text
+    )!;
+  await act(() => {
+    tab('Gameplay').click();
+  });
+  await act(() => {
+    container.querySelector('summary')!.click();
+    button('Clear Word Cache').click();
+  });
+  expect(container.textContent).toContain('Clear Downloaded Word Data?');
+  expect((globalThis as any).__settingsCacheReset).not.toHaveBeenCalled();
+  await act(() => {
+    button('Cancel').click();
+  });
+  expect(container.querySelector('[aria-label="Confirm Word Cache Reset"]')).toBeNull();
+  await act(() => {
+    button('Clear Word Cache').click();
+  });
+  await act(async () => {
+    button('Confirm Clear Word Data').click();
+  });
+  expect((globalThis as any).__settingsCacheReset).toHaveBeenCalledTimes(1);
+  expect(window.localStorage.getItem('guess-history:cache-check')).toBe(savedHistory);
+  expect(window.sessionStorage.getItem('guess-solvedAt:cache-check')).toBe('123');
+  expect(JSON.stringify(userSettings.value)).toBe(preferences);
+  await expect
+    .poll(() => container.querySelector('[role="status"]')?.textContent ?? '')
+    .toContain('history and settings were kept');
+  window.localStorage.removeItem('guess-history:cache-check');
+  window.sessionStorage.removeItem('guess-solvedAt:cache-check');
+});

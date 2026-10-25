@@ -4,8 +4,8 @@ function ToolbarIcon({ children }: { children: ComponentChildren }) {
   return (
     <svg
       aria-hidden="true"
-      width="20"
-      height="20"
+      width="24"
+      height="24"
       viewBox="0 0 24 24"
       fill="none"
       stroke="currentColor"
@@ -44,11 +44,30 @@ export const GearIcon = () => (
     <circle cx="12" cy="12" r="3" />
   </ToolbarIcon>
 );
-export const ActionsIcon = () => (
+export const BellIcon = ({ off = false }: { off?: boolean }) => (
   <ToolbarIcon>
-    <circle cx="5" cy="12" r="1" />
-    <circle cx="12" cy="12" r="1" />
-    <circle cx="19" cy="12" r="1" />
+    <path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4" />
+    {off && <path d="m3 3 18 18" />}
+  </ToolbarIcon>
+);
+export const ShieldIcon = () => (
+  <ToolbarIcon>
+    <path d="m12 3 9 4v5c0 5-6 8-9 10-3-2-9-5-9-10V7ZM9 12l2 2 4-4" />
+  </ToolbarIcon>
+);
+export const HintIcon = () => (
+  <ToolbarIcon>
+    <path d="M9 18h6M10 22h4M8 14a6 6 0 1 1 8 0c-1 1-1 2-1 4H9c0-2 0-3-1-4ZM12 1v1M3 5l1 1M20 6l1-1M1 12h1M22 12h1" />
+  </ToolbarIcon>
+);
+export const FlagIcon = () => (
+  <ToolbarIcon>
+    <path d="M5 22V3c4-3 10 3 14 0v11c-4 3-10-3-14 0" />
+  </ToolbarIcon>
+);
+export const DeveloperIcon = () => (
+  <ToolbarIcon>
+    <path d="m8 8-5 4 5 4M16 8l5 4-5 4M14 4l-4 16" />
   </ToolbarIcon>
 );
 export const SpeakerIcon = ({ muted }: { muted: boolean }) => (

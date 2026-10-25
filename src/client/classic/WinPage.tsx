@@ -13,8 +13,11 @@ import { getPrettyDuration } from '../../shared/prettyDuration';
 import { ScoreBreakdownModal } from './scoreBreakdownModal';
 import { loadHintsForChallenge, type HintWord } from '../core/hints';
 import { context, showShareSheet, showToast } from '@devvit/web/client';
-import { getBrowserIanaTimeZone } from '../../shared/timezones';
 import { formatCompactNumber } from '../../shared/formatCompactNumber';
+import { ShareIcon } from './icons';
+import { ReminderButton } from './reminders';
+import { ScrollPanel } from '../shared/scrollNavigation';
+import { userSettings } from './state/userSettings';
 
 type LeaderboardEntry = { member: string; score: number };
 
@@ -40,7 +43,7 @@ const StatCard = ({
 
 type CallToActionType = 'JOIN_SUBREDDIT' | 'REMIND_ME_TO_PLAY' | 'COMMENT' | null;
 
-const CallToAction = ({
+export const ResultsActions = ({
   didWin,
   challengeNumber,
   stats,
@@ -74,29 +77,7 @@ const CallToAction = ({
         setCta(null);
       }
     })();
-  }, [challengeNumber]);
-
-  // Temporary backfill shim: for ~1 week, whenever a user reaches the win page
-  // and already has reminders enabled, send their timezone so we can populate
-  // missing data for users who opted in before we collected timezones.
-  // Use a reliable tRPC check instead of CTA to determine opt-in state.
-  // TODO: Remove this after the backfill window ends.
-  useEffect(() => {
-    void (async () => {
-      try {
-        if (!context.userId) return;
-        const isOptedIn = await trpc.cta.isOptedIntoReminders.query();
-        if (!isOptedIn) return;
-        const timezone = getBrowserIanaTimeZone();
-        await trpc.cta.setReminder.mutate({ timezone });
-      } catch (err) {
-        console.error('Error backfilling timezone', err);
-        // ignore
-      }
-    })();
-  }, []);
-
-  if (cta === null) return null;
+  }, [challengeNumber, userSettings.value.isUserOptedIntoReminders]);
 
   const doAction = async () => {
     setIsLoading(true);
@@ -111,12 +92,6 @@ const CallToAction = ({
           joined_subreddit: true,
         });
         await trpc.cta.joinSubreddit.mutate({});
-      } else if (cta === 'REMIND_ME_TO_PLAY') {
-        posthog.setPersonProperties({
-          opted_into_reminders: true,
-        });
-        const timezone = getBrowserIanaTimeZone();
-        await trpc.cta.setReminder.mutate({ timezone });
       } else if (cta === 'COMMENT') {
         // Preload the server-computed suffix before opening modal
         try {
@@ -159,8 +134,8 @@ const CallToAction = ({
     cta === 'JOIN_SUBREDDIT'
       ? `Join r/${context.subredditName}`
       : cta === 'REMIND_ME_TO_PLAY'
-        ? 'Remind me to play every day'
-        : 'Share your journey in the thread';
+        ? 'Remind Me to Play Daily'
+        : 'Share Your Journey in the Thread';
 
   const shareResults = async () => {
     posthog.capture('Win Page Share Clicked', {
@@ -188,33 +163,36 @@ const CallToAction = ({
 
   return (
     <div className="text-sm">
-      <div className="flex flex-col items-center">
-        <button
-          type="button"
-          onClick={doAction}
-          disabled={isLoading}
-          className="w-fit cursor-pointer rounded-full bg-zinc-100 text-black focus:ring-2 focus:ring-slate-400 focus:ring-offset-2 focus:ring-offset-slate-50 focus:outline-none dark:bg-zinc-800 dark:text-white"
-        >
-          <GradientBorder isHidden={isLoading}>
-            <span className="inline-flex h-10 items-center justify-center px-8 leading-none font-semibold whitespace-nowrap">
-              {isLoading ? 'Working…' : label}
-            </span>
-          </GradientBorder>
-        </button>
+      <div className="flex w-full flex-col items-center gap-2">
+        {didWin && <ReminderButton prominent />}
+        {cta && cta !== 'REMIND_ME_TO_PLAY' && (
+          <button
+            type="button"
+            onClick={doAction}
+            disabled={isLoading}
+            className="w-full max-w-sm cursor-pointer rounded-full bg-zinc-100 text-black focus:ring-2 focus:ring-slate-400 focus:ring-offset-2 focus:ring-offset-slate-50 focus:outline-none dark:bg-zinc-800 dark:text-white"
+          >
+            <GradientBorder isHidden={isLoading}>
+              <span className="inline-flex min-h-10 items-center justify-center px-4 py-2 text-center leading-snug font-semibold">
+                {isLoading ? 'Working…' : label}
+              </span>
+            </GradientBorder>
+          </button>
+        )}
         <button
           type="button"
           onClick={() => {
             void shareResults();
           }}
-          className="mt-2 w-fit rounded-full bg-zinc-100 px-8 py-2.5 leading-none font-semibold whitespace-nowrap text-black focus:ring-2 focus:ring-slate-400 focus:ring-offset-2 focus:ring-offset-slate-50 focus:outline-none dark:bg-zinc-800 dark:text-white"
+          className="inline-flex w-full max-w-sm items-center justify-center gap-2 rounded-full bg-zinc-100 px-4 py-2.5 leading-snug font-semibold text-black focus:ring-2 focus:ring-slate-400 focus:ring-offset-2 focus:ring-offset-slate-50 focus:outline-none dark:bg-zinc-800 dark:text-white"
         >
-          Share Results
+          <ShareIcon /> Share Results
         </button>
       </div>
 
       <Modal isOpen={isCommentOpen} onClose={() => setIsCommentOpen(false)}>
         <div className="w-[90vw] max-w-md rounded-xl border border-gray-200 bg-white p-4 text-black shadow-xl dark:border-gray-700 dark:bg-gray-900 dark:text-white">
-          <h2 className="mb-2 text-lg font-bold">Share your results</h2>
+          <h2 className="mb-2 text-lg font-bold">Share Your Results</h2>
           <p className="mb-3 text-sm text-gray-600 dark:text-gray-300">
             Say something about your game. We'll post this as a comment on your behalf.
           </p>
@@ -248,7 +226,7 @@ const CallToAction = ({
               onClick={submitComment}
               disabled={!comment.trim() || isLoading}
             >
-              Post comment
+              Post Comment
             </button>
           </div>
         </div>
@@ -361,7 +339,7 @@ export function WinPage() {
   ];
 
   return (
-    <div className={cn('flex flex-1 flex-col gap-6 md:px-4')}>
+    <div className="flex min-h-0 flex-1 flex-col gap-3">
       <div className="mx-auto">
         <Tablist
           activeIndex={activeIndex}
@@ -377,157 +355,114 @@ export function WinPage() {
         />
       </div>
 
-      <div className="mx-auto w-full max-w-xl flex-auto px-4">
-        {activeIndex === 0 && (
-          <div className="flex h-full flex-col items-center justify-start gap-8">
-            <h1 className="text-center text-2xl font-bold text-gray-900 dark:text-white">
-              {didWin ? 'Congratulations!' : 'Nice Try!'} The word was:{' '}
-              <span className="text-[#dd4c4c]">{word?.word ?? '—'}</span>
-            </h1>
+      <ScrollPanel key={activeIndex} label="Results">
+        <div className="mx-auto w-full max-w-xl px-1 pb-3">
+          {activeIndex === 0 && (
+            <div className="flex flex-col items-center justify-start gap-4">
+              <h1 className="text-center text-2xl font-bold text-gray-900 dark:text-white">
+                {didWin ? 'Congratulations!' : 'Nice Try!'} The word was:{' '}
+                <span className="text-[#dd4c4c]">{word?.word ?? '—'}</span>
+              </h1>
 
-            <div className="flex gap-2 md:gap-4">
-              {didWin && (
+              <div className="flex flex-wrap justify-center gap-2">
+                {didWin && (
+                  <StatCard
+                    title={
+                      <>
+                        Score{' '}
+                        <span className="whitespace-nowrap">
+                          (
+                          <button
+                            type="button"
+                            className="cursor-pointer text-inherit underline"
+                            onClick={() => {
+                              posthog.capture('Win Page Score Breakdown Clicked');
+                              setIsScoreOpen(true);
+                            }}
+                          >
+                            breakdown
+                          </button>
+                          )
+                        </span>
+                      </>
+                    }
+                    value={challengeUserInfo.score?.finalScore ?? 0}
+                    valueSubtext={
+                      playerRank > 0
+                        ? (`Top ${percentageOutperformed}%` as any)
+                        : (undefined as any)
+                    }
+                  />
+                )}
                 <StatCard
-                  title={
-                    <>
-                      Score{' '}
-                      <span className="whitespace-nowrap">
-                        (
-                        <button
-                          type="button"
-                          className="cursor-pointer text-inherit underline"
-                          onClick={() => {
-                            posthog.capture('Win Page Score Breakdown Clicked');
-                            setIsScoreOpen(true);
-                          }}
-                        >
-                          breakdown
-                        </button>
-                        )
-                      </span>
-                    </>
-                  }
-                  value={challengeUserInfo.score?.finalScore ?? 0}
-                  valueSubtext={
-                    playerRank > 0 ? (`Top ${percentageOutperformed}%` as any) : (undefined as any)
+                  title="Time to Solve"
+                  value={
+                    getPrettyDuration(
+                      new Date(challengeUserInfo.startedPlayingAtMs!),
+                      new Date(challengeUserInfo.solvedAtMs ?? challengeUserInfo.gaveUpAtMs!)
+                    ) ?? '--'
                   }
                 />
-              )}
-              <StatCard
-                title="Time to Solve"
-                value={
-                  getPrettyDuration(
+                <StatCard title="Rank" value={didWin ? `#${userRank ?? '--'}` : '--'} />
+              </div>
+              <ResultsActions
+                didWin={didWin}
+                challengeNumber={challengeNumber}
+                stats={{
+                  score: challengeUserInfo.score?.finalScore ?? null,
+                  rank: userRank ?? null,
+                  timeToSolve: getPrettyDuration(
                     new Date(challengeUserInfo.startedPlayingAtMs!),
                     new Date(challengeUserInfo.solvedAtMs ?? challengeUserInfo.gaveUpAtMs!)
-                  ) ?? '--'
-                }
+                  ),
+                }}
               />
-              <StatCard title="Rank" value={didWin ? `#${userRank ?? '--'}` : '--'} />
             </div>
-            <CallToAction
-              didWin={didWin}
-              challengeNumber={challengeNumber}
-              stats={{
-                score: challengeUserInfo.score?.finalScore ?? null,
-                rank: userRank ?? null,
-                timeToSolve: getPrettyDuration(
-                  new Date(challengeUserInfo.startedPlayingAtMs!),
-                  new Date(challengeUserInfo.solvedAtMs ?? challengeUserInfo.gaveUpAtMs!)
-                ),
-              }}
-            />
-          </div>
-        )}
+          )}
 
-        {activeIndex === 1 && (
-          <div className="flex flex-col gap-6">
-            <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
-              <StatCard title="Total Players" value={formatCompactNumber(totalPlayers)} />
-              <StatCard title="Total Solves" value={formatCompactNumber(totalSolves)} />
-              <StatCard title="Total Guesses" value={formatCompactNumber(totalGuesses)} />
-              <StatCard title="Total Hints" value={formatCompactNumber(totalHints)} />
-              <StatCard title="Give Ups" value={formatCompactNumber(totalGiveUps)} />
-              <StatCard
-                title="Solve Rate"
-                value={`${Math.round(((challengeInfo?.totalSolves ?? 0) / (challengeInfo?.totalPlayers ?? 1)) * 100)}%`}
-              />
-              <StatCard
-                title="Average Guesses"
-                value={formatCompactNumber(averageGuessesRounded)}
-              />
+          {activeIndex === 1 && (
+            <div className="flex flex-col gap-6">
+              <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
+                <StatCard title="Total Players" value={formatCompactNumber(totalPlayers)} />
+                <StatCard title="Total Solves" value={formatCompactNumber(totalSolves)} />
+                <StatCard title="Total Guesses" value={formatCompactNumber(totalGuesses)} />
+                <StatCard title="Total Hints" value={formatCompactNumber(totalHints)} />
+                <StatCard title="Give Ups" value={formatCompactNumber(totalGiveUps)} />
+                <StatCard
+                  title="Solve Rate"
+                  value={`${Math.round(((challengeInfo?.totalSolves ?? 0) / (challengeInfo?.totalPlayers ?? 1)) * 100)}%`}
+                />
+                <StatCard
+                  title="Average Guesses"
+                  value={formatCompactNumber(averageGuessesRounded)}
+                />
+              </div>
             </div>
-          </div>
-        )}
+          )}
 
-        {activeIndex === 2 && (
-          <div className="flex flex-col gap-4">
-            <div className="flex items-center justify-between">
-              <h2 className="text-base font-semibold text-gray-900 dark:text-white">
-                Closest words
-              </h2>
-              {hints && hints.length > 0 && (
-                <span className="text-xs text-gray-500 dark:text-gray-400">
-                  {hints.length} words
-                </span>
-              )}
-            </div>
-            <div className="max-h-[50vh] overflow-y-auto rounded-lg border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900">
-              {isHintsLoading ? (
-                <div className="p-4 text-sm text-gray-500 dark:text-gray-400">Loading…</div>
-              ) : !hints || hints.length === 0 ? (
-                <div className="p-4 text-sm text-gray-700 dark:text-gray-300">
-                  No hints available.
-                </div>
-              ) : (
-                hints.map((h, index) => (
-                  <div
-                    key={`${h.word}-${index}`}
-                    className={cn(
-                      'flex items-center px-4 py-1 transition-colors duration-150',
-                      index % 2 === 0
-                        ? 'bg-gray-50 dark:bg-gray-800/50'
-                        : 'bg-gray-100 dark:bg-gray-900/50'
-                    )}
-                  >
-                    <div className="flex flex-1 items-center gap-3">
-                      <span className="min-w-[2rem] font-mono text-sm text-gray-600 dark:text-gray-400">
-                        #{h.rank ?? index}
-                      </span>
-                      <span className="truncate font-medium text-gray-900 dark:text-white">
-                        {h.word}
-                      </span>
-                    </div>
-                    <span className="text-sm text-gray-700 dark:text-gray-300">
-                      {(h.similarity * 100).toFixed(1)}%
-                    </span>
+          {activeIndex === 2 && (
+            <div className="flex flex-col gap-4">
+              <div className="flex items-center justify-between">
+                <h2 className="text-base font-semibold text-gray-900 dark:text-white">
+                  Closest Words
+                </h2>
+                {hints && hints.length > 0 && (
+                  <span className="text-xs text-gray-500 dark:text-gray-400">
+                    {hints.length} words
+                  </span>
+                )}
+              </div>
+              <div className="rounded-lg border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900">
+                {isHintsLoading ? (
+                  <div className="p-4 text-sm text-gray-500 dark:text-gray-400">Loading…</div>
+                ) : !hints || hints.length === 0 ? (
+                  <div className="p-4 text-sm text-gray-700 dark:text-gray-300">
+                    No hints available.
                   </div>
-                ))
-              )}
-            </div>
-          </div>
-        )}
-
-        {activeIndex === 3 && (
-          <div className="flex flex-col gap-4">
-            <div className="flex items-center justify-between">
-              <h2 className="text-base font-semibold text-gray-900 dark:text-white">
-                Your guesses
-              </h2>
-              {challengeUserInfo.guesses?.length ? (
-                <span className="text-xs text-gray-500 dark:text-gray-400">
-                  {challengeUserInfo.guesses.length} total
-                </span>
-              ) : null}
-            </div>
-            <div className="max-h-[50vh] overflow-y-auto rounded-lg border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900">
-              {!challengeUserInfo.guesses || challengeUserInfo.guesses.length === 0 ? (
-                <div className="p-4 text-sm text-gray-700 dark:text-gray-300">No guesses yet.</div>
-              ) : (
-                [...challengeUserInfo.guesses]
-                  .sort((a: any, b: any) => Number(b.timestampMs ?? 0) - Number(a.timestampMs ?? 0))
-                  .map((g: any, index: number) => (
+                ) : (
+                  hints.map((h, index) => (
                     <div
-                      key={`${g.word}-${g.timestampMs ?? index}`}
+                      key={`${h.word}-${index}`}
                       className={cn(
                         'flex items-center px-4 py-1 transition-colors duration-150',
                         index % 2 === 0
@@ -536,94 +471,145 @@ export function WinPage() {
                       )}
                     >
                       <div className="flex flex-1 items-center gap-3">
-                        <span className="min-w-[2.25rem] font-mono text-sm text-gray-600 dark:text-gray-400">
-                          #{typeof g.rank === 'number' && g.rank >= 0 ? g.rank : '—'}
+                        <span className="min-w-[2rem] font-mono text-sm text-gray-600 dark:text-gray-400">
+                          #{h.rank ?? index}
                         </span>
                         <span className="truncate font-medium text-gray-900 dark:text-white">
-                          {g.word}
+                          {h.word}
                         </span>
-                        {g.isHint ? (
-                          <span className="ml-2 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-700 dark:bg-amber-900/30 dark:text-amber-300">
-                            Hint
-                          </span>
-                        ) : null}
                       </div>
                       <span className="text-sm text-gray-700 dark:text-gray-300">
-                        {typeof g.similarity === 'number'
-                          ? (g.similarity * 100).toFixed(1) + '%'
-                          : '—'}
+                        {(h.similarity * 100).toFixed(1)}%
                       </span>
                     </div>
                   ))
-              )}
+                )}
+              </div>
             </div>
-          </div>
-        )}
+          )}
 
-        {activeIndex === 4 && (
-          <div className="flex flex-col gap-4">
-            <div className="flex flex-col gap-1 text-center">
-              {userRank && (
-                <p className="text-gray-400">
-                  Your Rank: <span className="font-bold text-blue-400">#{userRank}</span>
+          {activeIndex === 3 && (
+            <div className="flex flex-col gap-4">
+              <div className="flex items-center justify-between">
+                <h2 className="text-base font-semibold text-gray-900 dark:text-white">
+                  Your Guesses
+                </h2>
+                {challengeUserInfo.guesses?.length ? (
+                  <span className="text-xs text-gray-500 dark:text-gray-400">
+                    {challengeUserInfo.guesses.length} total
+                  </span>
+                ) : null}
+              </div>
+              <div className="rounded-lg border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900">
+                {!challengeUserInfo.guesses || challengeUserInfo.guesses.length === 0 ? (
+                  <div className="p-4 text-sm text-gray-700 dark:text-gray-300">
+                    No guesses yet.
+                  </div>
+                ) : (
+                  [...challengeUserInfo.guesses]
+                    .sort(
+                      (a: any, b: any) => Number(b.timestampMs ?? 0) - Number(a.timestampMs ?? 0)
+                    )
+                    .map((g: any, index: number) => (
+                      <div
+                        key={`${g.word}-${g.timestampMs ?? index}`}
+                        className={cn(
+                          'flex items-center px-4 py-1 transition-colors duration-150',
+                          index % 2 === 0
+                            ? 'bg-gray-50 dark:bg-gray-800/50'
+                            : 'bg-gray-100 dark:bg-gray-900/50'
+                        )}
+                      >
+                        <div className="flex flex-1 items-center gap-3">
+                          <span className="min-w-[2.25rem] font-mono text-sm text-gray-600 dark:text-gray-400">
+                            #{typeof g.rank === 'number' && g.rank >= 0 ? g.rank : '—'}
+                          </span>
+                          <span className="truncate font-medium text-gray-900 dark:text-white">
+                            {g.word}
+                          </span>
+                          {g.isHint ? (
+                            <span className="ml-2 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-700 dark:bg-amber-900/30 dark:text-amber-300">
+                              Hint
+                            </span>
+                          ) : null}
+                        </div>
+                        <span className="text-sm text-gray-700 dark:text-gray-300">
+                          {typeof g.similarity === 'number'
+                            ? (g.similarity * 100).toFixed(1) + '%'
+                            : '—'}
+                        </span>
+                      </div>
+                    ))
+                )}
+              </div>
+            </div>
+          )}
+
+          {activeIndex === 4 && (
+            <div className="flex flex-col gap-4">
+              <div className="flex flex-col gap-1 text-center">
+                {userRank && (
+                  <p className="text-gray-400">
+                    Your Rank: <span className="font-bold text-blue-400">#{userRank}</span>
+                  </p>
+                )}
+              </div>
+
+              {leaderboard?.length ? (
+                <div className="rounded-lg border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900">
+                  {leaderboard.map((entry, index) => {
+                    const isCurrentUser = entry.member === challengeUserInfo.username;
+                    const rank = index + 1;
+                    const isTopThree = rank <= 3;
+                    return (
+                      <div
+                        key={`${entry.member}-${index}`}
+                        className={cn(
+                          'flex items-center px-4 py-1 transition-colors duration-150',
+                          index % 2 === 0
+                            ? 'bg-gray-50 dark:bg-gray-800/50'
+                            : 'bg-gray-100 dark:bg-gray-900/50',
+                          isCurrentUser && 'bg-blue-100 dark:bg-blue-900/20'
+                        )}
+                      >
+                        <div className="flex flex-1 items-center gap-3">
+                          <span
+                            className={cn(
+                              'min-w-[2rem] font-mono text-sm',
+                              isTopThree
+                                ? 'font-bold text-yellow-600 dark:text-yellow-400'
+                                : 'text-gray-600 dark:text-gray-400'
+                            )}
+                          >
+                            #{rank}
+                          </span>
+                          <span
+                            className={cn(
+                              'truncate font-medium',
+                              isCurrentUser
+                                ? 'text-blue-700 dark:text-blue-500'
+                                : 'text-gray-900 dark:text-white'
+                            )}
+                          >
+                            {entry.member} {isCurrentUser && '(you)'}
+                          </span>
+                        </div>
+                        <span className="font-bold text-gray-900 dark:text-gray-200">
+                          {prettyNumber(entry.score)}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <p className="text-center text-gray-700 dark:text-gray-300">
+                  No one has completed today's challenge. Check back soon!
                 </p>
               )}
             </div>
-
-            {leaderboard?.length ? (
-              <div className="max-h-[50vh] overflow-y-auto rounded-lg border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900">
-                {leaderboard.map((entry, index) => {
-                  const isCurrentUser = entry.member === challengeUserInfo.username;
-                  const rank = index + 1;
-                  const isTopThree = rank <= 3;
-                  return (
-                    <div
-                      key={`${entry.member}-${index}`}
-                      className={cn(
-                        'flex items-center px-4 py-1 transition-colors duration-150',
-                        index % 2 === 0
-                          ? 'bg-gray-50 dark:bg-gray-800/50'
-                          : 'bg-gray-100 dark:bg-gray-900/50',
-                        isCurrentUser && 'bg-blue-100 dark:bg-blue-900/20'
-                      )}
-                    >
-                      <div className="flex flex-1 items-center gap-3">
-                        <span
-                          className={cn(
-                            'min-w-[2rem] font-mono text-sm',
-                            isTopThree
-                              ? 'font-bold text-yellow-600 dark:text-yellow-400'
-                              : 'text-gray-600 dark:text-gray-400'
-                          )}
-                        >
-                          #{rank}
-                        </span>
-                        <span
-                          className={cn(
-                            'truncate font-medium',
-                            isCurrentUser
-                              ? 'text-blue-700 dark:text-blue-500'
-                              : 'text-gray-900 dark:text-white'
-                          )}
-                        >
-                          {entry.member} {isCurrentUser && '(you)'}
-                        </span>
-                      </div>
-                      <span className="font-bold text-gray-900 dark:text-gray-200">
-                        {prettyNumber(entry.score)}
-                      </span>
-                    </div>
-                  );
-                })}
-              </div>
-            ) : (
-              <p className="text-center text-gray-700 dark:text-gray-300">
-                No one has completed today's challenge. Check back soon!
-              </p>
-            )}
-          </div>
-        )}
-      </div>
+          )}
+        </div>
+      </ScrollPanel>
       <ScoreBreakdownModal
         isOpen={isScoreOpen}
         onClose={() => setIsScoreOpen(false)}

@@ -9,6 +9,7 @@ import type { WordRevealAcknowledgement } from '../../../shared/moderation';
 import { DEFAULT_TEST_WORD } from '../../../shared/playtest';
 import { RedisSamplePanel } from './redisSample';
 import { formatBytes as bytes } from './format';
+import { DeveloperTools } from './developerTools';
 import {
   ModeratorNavigation,
   QueueAlertToggle,
@@ -259,6 +260,10 @@ function ModeratorConsole() {
                     {SECTION_DESCRIPTIONS[section]}
                   </p>
                 </div>
+
+                {section === 'Developer Tools' && data.developerToolsAvailable && (
+                  <DeveloperTools />
+                )}
 
                 {section === 'Latest' && (
                   <div className="space-y-4">

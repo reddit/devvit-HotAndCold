@@ -2,9 +2,10 @@ import type { ComponentChildren, RefObject } from 'preact';
 import type { inferRouterOutputs } from '@trpc/server';
 import type { AppRouter } from '../../../server';
 import { LOW_QUEUE_THRESHOLD } from '../../../shared/lowQueue';
+import { DeveloperIcon } from '../icons';
 
 export const MODERATOR_SECTIONS = ['Latest', 'Schedule', 'Reminders', 'Words', 'Storage'] as const;
-export type ModeratorSection = (typeof MODERATOR_SECTIONS)[number];
+export type ModeratorSection = (typeof MODERATOR_SECTIONS)[number] | 'Developer Tools';
 type Overview = inferRouterOutputs<AppRouter>['moderation']['overview'];
 
 export const SECTION_DESCRIPTIONS: Record<ModeratorSection, string> = {
@@ -13,6 +14,7 @@ export const SECTION_DESCRIPTIONS: Record<ModeratorSection, string> = {
   Reminders: 'Review pending player reminder groups and their delivery times.',
   Words: 'Add upcoming words, check queue coverage, and manage low-queue alerts.',
   Storage: 'Inspect Redis storage and selectively clear old ranking caches.',
+  'Developer Tools': 'Developer-only experiments and notification testing.',
 };
 
 function Icon({ children }: { children: ComponentChildren }) {
@@ -32,7 +34,7 @@ function Icon({ children }: { children: ComponentChildren }) {
     </svg>
   );
 }
-const icons: Record<ModeratorSection, ComponentChildren> = {
+const icons: Record<(typeof MODERATOR_SECTIONS)[number], ComponentChildren> = {
   Latest: <path d="M4 20V4h16v16ZM8 8h8M8 12h5M8 16h3" />,
   Schedule: (
     <>
@@ -67,6 +69,8 @@ function summary(section: ModeratorSection, data: Overview, date: (ms: number) =
       return `${data.queueSize.toLocaleString()} ${data.queueSize === 1 ? 'Word' : 'Words'} · About ${data.queueSize.toLocaleString()} ${data.queueSize === 1 ? 'Day' : 'Days'}`;
     case 'Storage':
       return 'Inspect Data and Clear Ranking Caches';
+    case 'Developer Tools':
+      return 'Local Experiments and Push Tests';
   }
 }
 
@@ -136,6 +140,22 @@ export function ModeratorNavigation({
           </li>
         ))}
       </ul>
+      {data.developerToolsAvailable && (
+        <div className="mt-4 border-t border-gray-200 pt-3 dark:border-gray-800">
+          <button
+            type="button"
+            ref={selected === 'Developer Tools' ? selectedButtonRef : null}
+            aria-label="Developer Tools"
+            aria-current={selected === 'Developer Tools' ? 'page' : undefined}
+            aria-controls="moderator-details"
+            onClick={() => onNavigate('Developer Tools')}
+            className={`flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm font-semibold ${selected === 'Developer Tools' ? 'bg-cyan-50 text-cyan-800 dark:bg-cyan-950 dark:text-cyan-200' : 'text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800'}`}
+          >
+            <DeveloperIcon />
+            Developer Tools
+          </button>
+        </div>
+      )}
     </nav>
   );
 }

@@ -3,41 +3,62 @@ import { useState } from 'preact/hooks';
 import { Modal } from '../shared/modal';
 import { SoundPreferences } from './feedback/controls';
 import { userSettings } from './state/userSettings';
-import { openModeratorSettings } from './moderator/launch';
 import { resetGuessCache } from '../core/guess';
-import { isLoggedOut } from '../shared/user';
 
 export const settingsOpen = signal(false);
-type SettingsTab = 'Sound & Effects' | 'Gameplay' | 'Moderation';
+type SettingsTab = 'Sound & Effects' | 'Gameplay';
 
-export async function resetLocalGameCache() {
+export async function clearDownloadedWordData() {
+  // Downloadable rank/lemma caches only. Keep all local history, solved state,
+  // preferences, and in-flight submissions; no reload interrupts their sync.
   await resetGuessCache();
-  // This retains the previous Reset Cache behavior. Server progress is untouched.
-  window.sessionStorage.clear();
-  window.localStorage.clear();
-  window.location.reload();
 }
 
-export function PlayerSettings({
-  isModerator,
-  onToggleReminder,
+function ChoiceToggle<T extends string>({
+  label,
+  options,
+  value,
+  onChange,
 }: {
-  isModerator: boolean;
-  onToggleReminder: () => Promise<unknown>;
+  label: string;
+  options: readonly { value: T; label: string }[];
+  value: T;
+  onChange: (value: T) => void;
 }) {
+  return (
+    <fieldset className="space-y-2">
+      <legend className="text-sm font-semibold">{label}</legend>
+      <div className="flex rounded-lg bg-gray-100 p-1 dark:bg-gray-800">
+        {options.map((option) => (
+          <button
+            type="button"
+            key={option.value}
+            aria-pressed={value === option.value}
+            onClick={() => onChange(option.value)}
+            className={`min-w-0 flex-1 rounded-md px-2 py-2 text-xs font-semibold ${value === option.value ? 'bg-white text-cyan-800 shadow-sm dark:bg-gray-600 dark:text-cyan-100' : 'text-gray-600 dark:text-gray-300'}`}
+          >
+            {option.label}
+          </button>
+        ))}
+      </div>
+    </fieldset>
+  );
+}
+
+export function PlayerSettings() {
   const [tab, setTab] = useState<SettingsTab>('Sound & Effects');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [confirmReset, setConfirmReset] = useState(false);
+  const [notice, setNotice] = useState('');
   const settings = userSettings.value;
-  const tabs: SettingsTab[] = [
-    'Sound & Effects',
-    'Gameplay',
-    ...(isModerator ? ['Moderation' as const] : []),
-  ];
+  const tabs: SettingsTab[] = ['Sound & Effects', 'Gameplay'];
   const selectedTab = tabs.includes(tab) ? tab : 'Sound & Effects';
   const close = () => {
     settingsOpen.value = false;
     setError('');
+    setConfirmReset(false);
+    setNotice('');
   };
   return (
     <Modal isOpen={settingsOpen.value} onClose={close} labelledBy="player-settings-title">
@@ -100,108 +121,100 @@ export function PlayerSettings({
           {selectedTab === 'Sound & Effects' && <SoundPreferences />}
           {selectedTab === 'Gameplay' && (
             <>
-              <label className="block text-sm font-semibold">
-                Guess Spacing
-                <select
-                  className="mt-2 w-full rounded-lg border border-gray-300 bg-transparent p-2 dark:border-gray-600"
-                  value={settings.layout}
-                  onChange={(event) => {
-                    userSettings.value = {
-                      ...userSettings.value,
-                      layout: event.currentTarget.value as typeof settings.layout,
-                    };
-                  }}
-                >
-                  <option value="CONDENSED">Compact</option>
-                  <option value="EXPANDED">Roomy</option>
-                </select>
-              </label>
-              <label className="block text-sm font-semibold">
-                Guess Order
-                <select
-                  className="mt-2 w-full rounded-lg border border-gray-300 bg-transparent p-2 dark:border-gray-600"
-                  value={settings.sortType}
-                  onChange={(event) => {
-                    userSettings.value = {
-                      ...userSettings.value,
-                      sortType: event.currentTarget.value as typeof settings.sortType,
-                      sortDirection: 'DESC',
-                    };
-                  }}
-                >
-                  <option value="SIMILARITY">Closest First</option>
-                  <option value="TIMESTAMP">Newest First</option>
-                </select>
-              </label>
+              <ChoiceToggle
+                label="Guess Spacing"
+                value={settings.layout}
+                options={[
+                  { value: 'CONDENSED', label: 'Compact' },
+                  { value: 'EXPANDED', label: 'Roomy' },
+                ]}
+                onChange={(layout) => {
+                  userSettings.value = { ...userSettings.value, layout };
+                }}
+              />
+              <ChoiceToggle
+                label="Guess Order"
+                value={settings.sortType}
+                options={[
+                  { value: 'SIMILARITY', label: 'Closest First' },
+                  { value: 'TIMESTAMP', label: 'Newest First' },
+                ]}
+                onChange={(sortType) => {
+                  userSettings.value = { ...userSettings.value, sortType, sortDirection: 'DESC' };
+                }}
+              />
               <p className="text-xs text-gray-500 dark:text-gray-400">
                 Your newest guess stays pinned in either order.
               </p>
-              {!isLoggedOut() && (
-                <div className="rounded-xl bg-gray-50 p-3 dark:bg-gray-800">
-                  <h3 className="text-sm font-semibold">Daily Reminders</h3>
-                  <p className="my-2 text-xs text-gray-500 dark:text-gray-400">
-                    {settings.isUserOptedIntoReminders
-                      ? 'Subscribed to new daily puzzles.'
-                      : 'Get a notification when a new daily puzzle is ready.'}
-                  </p>
-                  <button
-                    disabled={busy}
-                    className="rounded-lg border border-gray-300 px-3 py-2 text-sm dark:border-gray-600"
-                    onClick={async () => {
-                      setBusy(true);
-                      try {
-                        await onToggleReminder();
-                      } finally {
-                        setBusy(false);
-                      }
-                    }}
-                  >
-                    {settings.isUserOptedIntoReminders ? 'Turn Off Reminders' : 'Turn On Reminders'}
-                  </button>
-                </div>
-              )}
               <details className="rounded-xl border border-gray-200 p-3 dark:border-gray-700">
                 <summary className="text-sm font-semibold">Troubleshooting</summary>
                 <p className="my-3 text-xs text-gray-500 dark:text-gray-400">
-                  Reset cached word data and browser preferences, then reload. Synced progress stays
-                  on the server; unsynced guesses may be lost.
+                  Clear downloaded word rankings if they seem incorrect. Your guess history,
+                  results, browser preferences, and reminders are kept. Word data downloads again as
+                  needed; the game stays open.
                 </p>
-                <button
-                  disabled={busy}
-                  className="rounded-lg border border-gray-300 px-3 py-2 text-sm dark:border-gray-600"
-                  onClick={async () => {
-                    setBusy(true);
-                    setError('');
-                    try {
-                      await resetLocalGameCache();
-                    } catch {
-                      setError('Could not reset the cache. Try reloading the game.');
-                      setBusy(false);
-                    }
-                  }}
-                >
-                  Reset Cache and Reload
-                </button>
+                {confirmReset ? (
+                  <div
+                    role="group"
+                    aria-label="Confirm Word Cache Reset"
+                    className="space-y-3 rounded-lg bg-gray-50 p-3 dark:bg-gray-800"
+                  >
+                    <p className="text-sm font-semibold">Clear Downloaded Word Data?</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                      Only downloaded ranking data is removed. Your guesses and settings stay saved.
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        disabled={busy}
+                        className="rounded-lg border border-gray-300 px-3 py-2 text-sm dark:border-gray-600"
+                        onClick={() => setConfirmReset(false)}
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="button"
+                        disabled={busy}
+                        className="rounded-lg bg-cyan-700 px-3 py-2 text-sm font-semibold text-white"
+                        onClick={async () => {
+                          setBusy(true);
+                          setError('');
+                          try {
+                            await clearDownloadedWordData();
+                            setConfirmReset(false);
+                            setNotice(
+                              'Downloaded word data cleared. Your history and settings were kept.'
+                            );
+                          } catch {
+                            setError('Could not clear word data. Please try again.');
+                          } finally {
+                            setBusy(false);
+                          }
+                        }}
+                      >
+                        {busy ? 'Clearing…' : 'Confirm Clear Word Data'}
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    className="rounded-lg border border-gray-300 px-3 py-2 text-sm dark:border-gray-600"
+                    onClick={() => {
+                      setNotice('');
+                      setConfirmReset(true);
+                    }}
+                  >
+                    Clear Word Cache
+                  </button>
+                )}
               </details>
             </>
           )}
-          {selectedTab === 'Moderation' && isModerator && (
-            <>
-              <h3 className="text-sm font-semibold">Moderator Settings (Experimental)</h3>
-              <p className="text-sm text-gray-600 dark:text-gray-300">
-                Manage the word queue, daily publishing, reminders, and Redis in a full-size view.
-                Secret words stay hidden until you confirm a reveal.
-              </p>
-              <button
-                className="w-full rounded-xl bg-gray-900 px-4 py-3 text-sm font-semibold text-white dark:bg-white dark:text-gray-950"
-                onClick={(event) => {
-                  openModeratorSettings(event);
-                  close();
-                }}
-              >
-                Open Moderator Settings ↗
-              </button>
-            </>
+          {notice && (
+            <p role="status" className="text-sm text-cyan-800 dark:text-cyan-200">
+              {notice}
+            </p>
           )}
           {error && (
             <p role="alert" className="text-sm text-red-600 dark:text-red-300">

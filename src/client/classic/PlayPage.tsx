@@ -9,10 +9,11 @@ import { context } from '@devvit/web/client';
 import { openHowToPlay } from './state/howToPlay';
 import { posthog } from '../posthog';
 import { trpc } from '../trpc';
-import { getBrowserIanaTimeZone } from '../../shared/timezones';
-import { setReminderOptIn, userSettings } from './state/userSettings';
+import { userSettings } from './state/userSettings';
 import { gameAudio, guessTemperature } from './feedback/audio';
 import { GuessTemperature, useTemperatureFeedback } from './feedback/temperature';
+import { GuessActions } from './guessActions';
+import { updateReminders } from './state/reminders';
 
 type PlayPrompt = 'JOIN_SUBREDDIT' | 'REMIND_ME_TO_PLAY';
 type ReactNode = ComponentChildren;
@@ -23,7 +24,7 @@ const generateOnboarding = (arr: GuessHistoryItem[]): string | null => {
     `"${arr[0]!.word}" is the ${formatOrdinal(arr[0]!.rank)} closest. Smaller number = closer.`,
     'Keep guessing! Try as many as you want.',
     "Try to get under 1000. That's when it gets interesting!",
-    'Stuck? Grab a hint from the menu.',
+    'Hints unlock after 5 guesses below the input.',
   ] as const;
 
   const idx = Math.min(arr.length, 5) - 1; // 0..4
@@ -69,9 +70,7 @@ export function PlayPage({ engine }: { engine?: GuessEngine }) {
   const [hasJoinedSubreddit, setHasJoinedSubreddit] = useState<boolean | null>(
     context.userId ? null : true
   );
-  const [hasReminders, setHasReminders] = useState<boolean>(
-    userSettings.value.isUserOptedIntoReminders
-  );
+  const hasReminders = userSettings.value.isUserOptedIntoReminders;
   const [isJoinLoading, setIsJoinLoading] = useState(false);
   const [isReminderLoading, setIsReminderLoading] = useState(false);
   const lastFeedbackMessage = useRef<string | null>(null);
@@ -102,15 +101,6 @@ export function PlayPage({ engine }: { engine?: GuessEngine }) {
         if (isMounted) {
           setHasJoinedSubreddit(null);
         }
-      }
-      try {
-        const optedIn = await trpc.cta.isOptedIntoReminders.query();
-        if (isMounted) {
-          setHasReminders(optedIn);
-          setReminderOptIn(optedIn);
-        }
-      } catch (err) {
-        console.error('Failed to determine reminder preference', err);
       }
     })();
     return () => {
@@ -201,11 +191,7 @@ export function PlayPage({ engine }: { engine?: GuessEngine }) {
     setIsReminderLoading(true);
     posthog.capture('Game Page Reminder Prompt Clicked');
     try {
-      const timezone = getBrowserIanaTimeZone();
-      await trpc.cta.setReminder.mutate({ timezone });
-      posthog.setPersonProperties({ opted_into_reminders: true });
-      setHasReminders(true);
-      setReminderOptIn(true);
+      if ((await updateReminders('enable')) !== true) throw new Error('Reminder update failed');
       const guessCount = engine ? (engine.history.value ?? []).length : itemsArray.length;
       const nextPrompt = evaluatePrompt({
         guessCount,
@@ -289,6 +275,17 @@ export function PlayPage({ engine }: { engine?: GuessEngine }) {
           </div>
         )}
       </div>
+      <GuessActions
+        engine={engine}
+        onHint={(result, previousRank) => {
+          const direction = guessTemperature(previousRank, result.rank);
+          if (direction) {
+            gameAudio.cue(direction);
+            showTemperature(direction);
+          }
+          showFeedback('Hint added. Each hint reduces your score by 30%.', null);
+        }}
+      />
       {items?.value?.length ? (
         <Guesses items={items as any} latest={latest} />
       ) : (

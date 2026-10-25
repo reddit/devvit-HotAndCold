@@ -11,7 +11,7 @@ export function HowToPlayModal() {
           <h2 id="how-to-play-title" className="text-lg font-bold">
             How to Play
           </h2>
-          <div className="h-5" role="img" aria-label="Hot and Cold">
+          <div className="h-7" role="img" aria-label="Hot and Cold">
             <Logo />
           </div>
         </div>
@@ -55,7 +55,8 @@ export function HowToPlayModal() {
         </div>
         <p className="text-xs leading-relaxed text-gray-500 dark:text-gray-400">
           Warmer or colder compares with your previous guess. The newest guess stays pinned above
-          your history.
+          your history. Hint unlocks after 5 guesses and adds a nearby word; each hint reduces your
+          score by 30%. Give Up unlocks after 10 guesses and asks before revealing the answer.
         </p>
       </section>
     </Modal>

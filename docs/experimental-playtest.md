@@ -29,7 +29,7 @@ largest client chunk from about 573 kB to 391 kB without raising the warning lim
 
 - The subreddit menu's **Moderator Settings (Experimental)** item creates or
   reopens one reusable launcher post. Its button opens the separate console in
-  expanded mode. A moderator-only cog in existing game posts opens the same console.
+  expanded mode. The moderator shield in the game toolbar opens the same console directly.
 - The existing menus and developer experiment tools remain available.
 - Moderator membership is checked against the current subreddit on every private
   read and action. A Reddit staff/admin flag does not grant moderator access.
@@ -52,11 +52,42 @@ largest client chunk from about 573 kB to 391 kB without raising the warning lim
   action. Extra posts default to skipping reminders. Queue clearing requires
   typing CLEAR. Reminder delivery operations remain in their existing menus.
 
+## Game Controls and Results
+
+- The larger logo and quiet “Pssst” mascot remain in the header; the mascot opens
+  How to Play. The toolbar has Help, Daily Reminders, Archive, Share, Sound,
+  Settings, and a moderator-only shield. There is no overflow menu or Moderation
+  tab in player settings.
+- **Hint** and **Give Up** sit between the input and guess history. Hint unlocks
+  after five guesses; Give Up after ten. Give Up requires confirmation and keeps
+  existing guesses. These are UI availability thresholds, not API restrictions.
+- Hints use actual global ranks instead of treating sparse CSV positions as
+  ranks. They choose an unused, closer word near half the best rank, excluding
+  the answer. No closer hint means no new guess. Each hint keeps the existing
+  0.7 score multiplier (30% reduction per hint).
+- The solved screen always offers Share Results with an icon, independently of
+  other calls to action. A larger Daily Reminders button appears only after the
+  current opt-in is checked and the user is not subscribed. Enabling it hides
+  the button and updates the toolbar bell.
+- Guess Spacing and Guess Order are explicit two-choice toggles. **Clear Word
+  Cache** requires confirmation, clears only downloadable ranking and lemma
+  stores, and keeps all local/session history, results, and preferences. It does
+  not reload, so pending guesses can finish syncing. Data rebuilds on demand. The
+  older “Reset Cache and Reload” flow cleared both browser storage areas and
+  could lose unsynced history.
+- Results use one scrolling body; long pop-ups and results expose Scroll Up and
+  Scroll Down controls when needed. Lists have no second vertical scroller.
+- Developer Tools appear separately below the five moderator navigation items,
+  preserving the existing Reddit-admin restriction as well as moderator access.
+  Local experiment overrides persist for the current account/browser/app version
+  and sync between views. Reopen older playtest views after an update. Test Push
+  sends a real notification only when explicitly clicked and requires opt-in.
+
 ## Player sound and motion
 
 - The speaker starts off in every new webview. Only an explicit sound toggle
   creates audio elements or starts loading audio. Music and effects can be
-  controlled independently through **Menu → Sound & Effects**.
+  controlled independently through **Settings → Sound & Effects**.
 - Warmer/colder previews do not submit guesses. Real feedback compares a newly
   accepted guess with the preceding guess. Initial history, invalid/duplicate
   submissions, equal ranks, and unranked guesses do not trigger feedback.

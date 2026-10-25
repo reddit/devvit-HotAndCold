@@ -12,6 +12,7 @@ import { ChallengeLeaderboard } from './challengeLeaderboard';
 import { ChallengeProgress } from './challengeProgress';
 import { UserGuess } from './userGuess';
 import { LowQueueAlerts } from './lowQueueAlerts';
+import { Admin } from './admin';
 
 const acknowledgement = {
   purpose: 'word_issue' as const,
@@ -19,6 +20,20 @@ const acknowledgement = {
   promiseNotToCheat: true as const,
   confirmation: 'REVEAL' as const,
 };
+
+test('ordinary moderators do not gain developer tools simply by opening moderator settings', async () => {
+  const role = mockRole(true);
+  const admin = vi.spyOn(Admin, 'isAdmin').mockResolvedValue(false);
+  try {
+    const caller = moderationRouter.createCaller({});
+    expect((await caller.overview()).developerToolsAvailable).toBe(false);
+    admin.mockResolvedValue(true);
+    expect((await caller.overview()).developerToolsAvailable).toBe(true);
+  } finally {
+    admin.mockRestore();
+    role.restore();
+  }
+});
 
 function mockRole(moderator: boolean) {
   const user = { id: 't2_testuser', username: 'testuser', isAdmin: true };

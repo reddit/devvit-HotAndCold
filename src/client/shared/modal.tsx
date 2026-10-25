@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'preact/hooks';
 import type { FunctionalComponent, ComponentChildren } from 'preact';
+import { ScrollNavigation, useScrollNavigation } from './scrollNavigation';
 
 interface ModalProps {
   isOpen: boolean;
@@ -23,6 +24,7 @@ export const Modal: FunctionalComponent<ModalProps> = ({
   const modalRef = useRef<HTMLDivElement>(null);
   const previousActiveElement = useRef<HTMLElement | null>(null);
   const onCloseRef = useRef(onClose);
+  const scrollControls = useScrollNavigation(isOpen);
 
   // Keep a stable reference to the latest onClose without retriggering the open effect
   useEffect(() => {
@@ -44,13 +46,15 @@ export const Modal: FunctionalComponent<ModalProps> = ({
         const last = buttons.at(-1);
         if (
           event.shiftKey &&
-          (document.activeElement === first || document.activeElement === modalRef.current)
+          (document.activeElement === first ||
+            !buttons.includes(document.activeElement as HTMLElement))
         ) {
           event.preventDefault();
           last?.focus();
         } else if (
           !event.shiftKey &&
-          (document.activeElement === last || document.activeElement === modalRef.current)
+          (document.activeElement === last ||
+            !buttons.includes(document.activeElement as HTMLElement))
         ) {
           event.preventDefault();
           first?.focus();
@@ -87,11 +91,14 @@ export const Modal: FunctionalComponent<ModalProps> = ({
       tabIndex={-1} // Makes the div focusable
     >
       <div
-        class="relative max-h-[84dvh] min-h-0 max-w-full overflow-y-auto overscroll-contain rounded-2xl"
+        ref={scrollControls.scrollRef}
+        class="relative max-h-[calc(100dvh-7rem)] min-h-0 max-w-full overflow-y-auto overscroll-contain rounded-2xl"
         onClick={(e) => e.stopPropagation()}
       >
-        {children}
+        <div>{children}</div>
       </div>
+
+      <ScrollNavigation controls={scrollControls} className="absolute right-6 bottom-3 left-6" />
 
       <button
         type="button"

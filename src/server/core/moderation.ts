@@ -14,6 +14,7 @@ import { WORD_DATA_RELEASE } from '../../shared/wordDataVersion';
 import { isPlaytestContext } from '../../shared/playtest';
 import { Playtest } from './playtest';
 import { LowQueueAlerts } from './lowQueueAlerts';
+import { Admin } from './admin';
 import {
   WORD_REVEAL_DURATION_MS,
   WORD_REVEAL_PURPOSES,
@@ -171,13 +172,15 @@ export const moderationRouter = router({
       return LowQueueAlerts.setEnabled(user.id, user.username, input.enabled);
     }),
   overview: moderatorProcedure.query(async () => {
-    const [number, queueSize, notifications, job, lowQueueAlertsEnabled] = await Promise.all([
-      Challenge.getCurrentChallengeNumber(),
-      WordQueue.size(),
-      Notifications.pendingStats(),
-      CommonWordsAggregator.getJobState(),
-      LowQueueAlerts.isEnabled(context.userId!),
-    ]);
+    const [number, queueSize, notifications, job, lowQueueAlertsEnabled, developerToolsAvailable] =
+      await Promise.all([
+        Challenge.getCurrentChallengeNumber(),
+        WordQueue.size(),
+        Notifications.pendingStats(),
+        CommonWordsAggregator.getJobState(),
+        LowQueueAlerts.isEnabled(context.userId!),
+        Admin.isAdmin(),
+      ]);
     const record = number > 0 ? await Challenge.getChallenge({ challengeNumber: number }) : null;
     // Default dashboard responses must not disclose an answer, even in network tools.
     const challenge = record ? (({ secretWord: _secretWord, ...safe }) => safe)(record) : null;
@@ -188,6 +191,7 @@ export const moderationRouter = router({
       challenge,
       queueSize,
       lowQueueAlertsEnabled,
+      developerToolsAvailable,
       notifications,
       job,
       nextPostAtMs: next.getTime(),

@@ -78,25 +78,24 @@ const openDatabase = (): Promise<IDBDatabase> => {
  * - IndexedDB backing store
  */
 export async function resetGuessCache(): Promise<void> {
-  try {
-    fileCache.clear();
-  } catch {
-    // ignore
-  }
-  try {
-    hintOrderCache.clear();
-  } catch {
-    // ignore
-  }
+  fileCache.clear();
+  hintOrderCache.clear();
+  lemmaMap.clear();
+  lemmaLoadPromise = null;
+  // Clear stores in place: deleting the whole database can remain blocked by
+  // existing connections while the player keeps the game open.
+  const db = await openDatabase();
   try {
     await new Promise<void>((resolve, reject) => {
-      const req = indexedDB.deleteDatabase(DB_NAME);
-      req.onsuccess = () => resolve();
-      req.onerror = () => reject(req.error);
-      req.onblocked = () => resolve();
+      const tx = db.transaction([STORE_NAME, LEMMA_STORE_NAME], 'readwrite');
+      tx.objectStore(STORE_NAME).clear();
+      tx.objectStore(LEMMA_STORE_NAME).clear();
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+      tx.onabort = () => reject(tx.error ?? new Error('Cache clearing was interrupted.'));
     });
-  } catch {
-    // ignore
+  } finally {
+    db.close();
   }
 }
 

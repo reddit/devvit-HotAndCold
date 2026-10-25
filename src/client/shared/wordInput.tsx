@@ -4,7 +4,7 @@ import { PrimaryButton } from './button';
 import { cn } from '../utils/cn';
 import { makeGuess } from '../core/guess';
 import type { ClientGuessResult } from '../core/guessEngine';
-import { experiments } from '../../shared/experiments/experiments';
+import { evaluateClientExperiment } from '../core/experimentOverrides';
 import { context } from '@devvit/web/client';
 
 export type WordInputResult = {
@@ -70,7 +70,7 @@ export function WordInput({
   ...rest
 }: WordInputProps) {
   const defaultGuessToOn =
-    experiments.evaluate(context.userId ?? '', 'exp_default_guess_to_on').treatment === 'on';
+    evaluateClientExperiment('exp_default_guess_to_on', context.userId ?? '') === 'on';
 
   const [currentPlaceholder, setCurrentPlaceholder] = useState(0);
   const [isAnimating, setIsAnimating] = useState(false);
