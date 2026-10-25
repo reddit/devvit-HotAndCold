@@ -124,7 +124,7 @@ export function ModeratorNavigation({
               </span>
               <svg
                 aria-hidden="true"
-                className="mt-1 shrink-0 text-gray-400 @min-[640px]:rotate-180"
+                className="mt-1 shrink-0 text-gray-400"
                 width="14"
                 height="14"
                 viewBox="0 0 24 24"

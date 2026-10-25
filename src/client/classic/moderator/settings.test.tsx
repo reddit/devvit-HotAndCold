@@ -206,13 +206,13 @@ describe('moderator settings entry points', () => {
     expect(revealAnswer).not.toHaveBeenCalled();
   });
 
-  it('places navigation on the right and keeps details beside it in a wide view', async () => {
+  it('places navigation on the left and keeps details beside it in a wide view', async () => {
     container.style.width = '900px';
     await loadConsole();
     const nav = container.querySelector('nav')!;
     const details = container.querySelector<HTMLElement>('#moderator-details')!;
     await expect.poll(() => getComputedStyle(details).display).toBe('block');
-    expect(nav.getBoundingClientRect().left).toBeGreaterThan(details.getBoundingClientRect().right);
+    expect(nav.getBoundingClientRect().right).toBeLessThan(details.getBoundingClientRect().left);
     expect(getComputedStyle(button('Back to Settings')).display).toBe('none');
     await click('Words');
     expect(getComputedStyle(nav).display).toBe('block');

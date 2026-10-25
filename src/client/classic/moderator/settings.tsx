@@ -225,19 +225,19 @@ function ModeratorConsole() {
           </p>
         ) : (
           <>
-            <div className="grid items-start gap-5 @min-[640px]:grid-cols-[minmax(0,1fr)_13rem] @min-[900px]:grid-cols-[minmax(0,1fr)_16rem]">
+            <div className="grid items-start gap-5 @min-[640px]:grid-cols-[13rem_minmax(0,1fr)] @min-[900px]:grid-cols-[16rem_minmax(0,1fr)]">
               <ModeratorNavigation
                 data={data}
                 selected={section}
                 onNavigate={navigate}
                 selectedButtonRef={selectedNavigationRef}
                 date={date}
-                className={`${detailsOpen ? 'hidden @min-[640px]:block' : 'block'} min-w-0 @min-[640px]:col-start-2 @min-[640px]:row-start-1`}
+                className={`${detailsOpen ? 'hidden @min-[640px]:block' : 'block'} min-w-0 @min-[640px]:col-start-1 @min-[640px]:row-start-1`}
               />
               <section
                 id="moderator-details"
                 aria-labelledby="moderator-details-heading"
-                className={`${detailsOpen ? 'block' : 'hidden @min-[640px]:block'} min-w-0 space-y-4 @min-[640px]:col-start-1 @min-[640px]:row-start-1`}
+                className={`${detailsOpen ? 'block' : 'hidden @min-[640px]:block'} min-w-0 space-y-4 @min-[640px]:col-start-2 @min-[640px]:row-start-1`}
               >
                 <button
                   type="button"
