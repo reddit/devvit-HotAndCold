@@ -8,7 +8,7 @@ import { Modal } from '../shared/modal';
 import { isLoggedOut } from '../shared/user';
 import { trpc } from '../trpc';
 import { navigate } from './state/navigation';
-import { FlagIcon, HintIcon } from './icons';
+import { GiveUpIcon, HintIcon } from './icons';
 
 export const HINT_GUESS_THRESHOLD = 5;
 export const GIVE_UP_GUESS_THRESHOLD = 10;
@@ -100,9 +100,9 @@ export function GuessActions({
             </>
           )}
         </p>
-        <IconButton
-          iconOnly
-          icon={<FlagIcon />}
+        <button
+          type="button"
+          className="inline-flex h-10 shrink-0 cursor-pointer items-center justify-center gap-1.5 rounded-full bg-gray-50 px-3 text-xs font-medium transition-colors hover:bg-gray-200 focus-visible:ring-2 focus-visible:ring-cyan-500 focus-visible:outline-none dark:bg-black dark:hover:bg-gray-800"
           aria-label="Give Up"
           title={
             count < GIVE_UP_GUESS_THRESHOLD
@@ -115,8 +115,9 @@ export function GuessActions({
             setConfirmGiveUp(true);
           }}
         >
-          Give Up
-        </IconButton>
+          <GiveUpIcon />
+          <span>Give Up</span>
+        </button>
       </div>
       <Modal
         isOpen={confirmGiveUp}
@@ -148,7 +149,7 @@ export function GuessActions({
               className="inline-flex items-center gap-2 rounded-lg bg-gray-900 px-4 py-2 text-sm font-semibold text-white dark:bg-white dark:text-gray-900"
               onClick={() => void giveUp()}
             >
-              <FlagIcon />
+              <GiveUpIcon />
               {busy ? 'Revealing…' : 'Give Up and Reveal'}
             </button>
           </div>

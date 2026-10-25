@@ -60,9 +60,9 @@ export const HintIcon = () => (
     <path d="M9 18h6M10 22h4M8 14a6 6 0 1 1 8 0c-1 1-1 2-1 4H9c0-2 0-3-1-4ZM12 1v1M3 5l1 1M20 6l1-1M1 12h1M22 12h1" />
   </ToolbarIcon>
 );
-export const FlagIcon = () => (
+export const GiveUpIcon = () => (
   <ToolbarIcon>
-    <path d="M5 22V3c4-3 10 3 14 0v11c-4 3-10-3-14 0" />
+    <path d="M10 4H5a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h5M9 12h12m-4-4 4 4-4 4" />
   </ToolbarIcon>
 );
 export const DeveloperIcon = () => (
