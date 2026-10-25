@@ -24,7 +24,6 @@ const wordConfigSchema = z
   })
   .strict();
 
-const THIRTY_DAYS_IN_SECONDS = 30 * 24 * 60 * 60;
 export const WordConfigKey = (word: string) => `word_config4:${WORD_DATA_RELEASE}:${word}` as const;
 
 export type WordConfig = z.infer<typeof wordConfigSchema>;
@@ -55,16 +54,6 @@ async function readCachedWordConfig(key: string): Promise<WordConfig | null> {
   }
 }
 
-async function cacheWordConfig(key: string, config: WordConfig): Promise<void> {
-  try {
-    await redis.set(key, JSON.stringify(config));
-    await redis.expire(key, THIRTY_DAYS_IN_SECONDS);
-  } catch (error) {
-    console.error('[word-data] Redis config write failed', { key, error });
-    // The configured source remains available when Redis is unavailable.
-  }
-}
-
 export const getWordConfigCached = fn(
   z.object({
     word: z.string().trim().toLowerCase(),
@@ -77,21 +66,20 @@ export const getWordConfigCached = fn(
 
     const key = WordConfigKey(word);
     const promise = (async () => {
-      const cached = await readCachedWordConfig(key);
-      if (cached) return cached;
-
-      const fresh = await getStaticWordConfig(word);
-      if (!fresh) {
-        console.error('[word-data] static target lookup returned no data', {
-          word,
-          key,
-          release: WORD_DATA_RELEASE,
-        });
-        throw new StaticTargetNotFoundError(`Static target is unavailable: ${word}`);
+      try {
+        // Static files already use Devvit's cache. Avoid also retaining every
+        // expanded ranking table in installation Redis for 30 days.
+        const fresh = await getStaticWordConfig(word);
+        if (!fresh) {
+          throw new StaticTargetNotFoundError(`Static target is unavailable: ${word}`);
+        }
+        return wordConfigSchema.parse(fresh);
+      } catch (error) {
+        // Existing caches remain a read-only fallback during an origin outage.
+        const cached = await readCachedWordConfig(key);
+        if (cached) return cached;
+        throw error;
       }
-      const parsed = wordConfigSchema.parse(fresh);
-      await cacheWordConfig(key, parsed);
-      return parsed;
     })();
     configPending.set(word, promise);
     try {

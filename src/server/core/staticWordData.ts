@@ -7,7 +7,8 @@ export const STATIC_WORD_DATA_BASE_URL =
   'https://raw.githubusercontent.com/reddit/devvit-HotAndCold/main/word-data/v1';
 
 const STATIC_FETCH_TIMEOUT_MS = 15_000;
-const STATIC_CACHE_TTL_SECONDS = 30 * 24 * 60 * 60;
+// Rebuildable binary rankings need a short cache, not a month of retention.
+const STATIC_CACHE_TTL_SECONDS = 3 * 24 * 60 * 60;
 const DICTIONARY_HEADER = 'id,word,isHint';
 const MAGIC = 'HCW2';
 const HEADER_BYTES = 12;
@@ -218,7 +219,7 @@ async function fetchStaticBytes(path: string): Promise<Uint8Array | null> {
         cacheFillAttempted = true;
         const bytes = await fetchStaticBytesFromOrigin(path, url, cacheKey, 'cache-fill');
         if (!bytes) {
-          // Cache helper stores both returned values and errors. Throwing avoids a 30-day
+          // Cache helper stores both returned values and errors. Throwing avoids a long-lived
           // successful negative value; the caller bypasses cached errors on later requests.
           throw new Error(`Static word data returned HTTP 404 for ${path}`);
         }

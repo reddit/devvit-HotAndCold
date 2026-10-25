@@ -44,7 +44,7 @@ const decompress = (value: string): string => {
  * It automatically:
  * - Compresses values on write (set, hSet, mSet, etc.) if it saves space
  * - Decompresses values on read (get, hGet, mGet, etc.)
- * - Migrates uncompressed data to compressed format on read (lazy migration)
+ * - Reads existing uncompressed values without rewriting or changing their TTL
  */
 export const redisCompressed = new Proxy(redis, {
   get(target, prop, receiver) {

@@ -23,6 +23,13 @@ export namespace CommonWordsAggregator {
     lastHeartbeat?: number;
   };
 
+  // SET clears an existing TTL unless expiration is supplied with the write.
+  async function saveState(state: JobState) {
+    await redis.set(JOB_STATE_KEY, JSON.stringify(state), {
+      expiration: new Date(Date.now() + TTL_SECONDS * 1000),
+    });
+  }
+
   export async function startJob(params: {
     startChallenge: number;
     endChallenge: number;
@@ -51,7 +58,7 @@ export namespace CommonWordsAggregator {
     await redis.del(JOB_CANCEL_SIGNAL_KEY);
 
     // Set new state
-    await redis.set(JOB_STATE_KEY, JSON.stringify(state));
+    await saveState(state);
 
     // Set expiry for cleanup
     await redis.expire(JOB_STATE_KEY, TTL_SECONDS);
@@ -73,6 +80,7 @@ export namespace CommonWordsAggregator {
     // Signal cancellation to any running process
     await redis.set(JOB_CANCEL_SIGNAL_KEY, '1');
     await redis.expire(JOB_CANCEL_SIGNAL_KEY, 60 * 60); // 1 hour expiry
+    await redis.expire(COUNTS_KEY, TTL_SECONDS);
 
     const stateStr = await redis.get(JOB_STATE_KEY);
     if (!stateStr) return false;
@@ -81,7 +89,7 @@ export namespace CommonWordsAggregator {
 
     // Force status to cancelled regardless of current status (to stop watchdog/pending)
     state.status = 'cancelled';
-    await redis.set(JOB_STATE_KEY, JSON.stringify(state));
+    await saveState(state);
     console.log('[CommonWords] Job cancelled by user request');
 
     return true;
@@ -111,7 +119,7 @@ export namespace CommonWordsAggregator {
       console.log('[CommonWords] Cancellation signal detected. Stopping batch.');
       if (state.status !== 'cancelled') {
         state.status = 'cancelled';
-        await redis.set(JOB_STATE_KEY, JSON.stringify(state));
+        await saveState(state);
       }
       return true;
     }
@@ -130,7 +138,7 @@ export namespace CommonWordsAggregator {
 
     // Update heartbeat
     state.lastHeartbeat = Date.now();
-    await redis.set(JOB_STATE_KEY, JSON.stringify(state));
+    await saveState(state);
 
     try {
       while (Date.now() - startTime < timeLimitMs) {
@@ -209,6 +217,8 @@ export namespace CommonWordsAggregator {
           await Promise.allSettled(
             updates.map(([word, count]) => redis.zIncrBy(COUNTS_KEY, word, count))
           );
+          // The counts key may not exist when the job starts.
+          await redis.expire(COUNTS_KEY, TTL_SECONDS);
 
           state.totalProcessed += members.length;
           state.processedInCurrentChallenge += members.length;
@@ -234,11 +244,11 @@ export namespace CommonWordsAggregator {
       if (finalCancelCheck) {
         console.log('[CommonWords] Cancellation signal detected during batch. Aborting save.');
         state.status = 'cancelled';
-        await redis.set(JOB_STATE_KEY, JSON.stringify(state));
+        await saveState(state);
         return true;
       }
 
-      await redis.set(JOB_STATE_KEY, JSON.stringify(state));
+      await saveState(state);
       // Extend expiry to keep alive
       await redis.expire(JOB_STATE_KEY, TTL_SECONDS);
       await redis.expire(COUNTS_KEY, TTL_SECONDS);
@@ -253,14 +263,14 @@ export namespace CommonWordsAggregator {
       console.error('[CommonWords] Fatal error in batch', error);
       // Let's abort to be safe
       state.status = 'cancelled';
-      await redis.set(JOB_STATE_KEY, JSON.stringify(state));
+      await saveState(state);
       return true;
     }
   }
 
   async function finishJob(state: JobState) {
     state.status = 'done';
-    await redis.set(JOB_STATE_KEY, JSON.stringify(state));
+    await saveState(state);
     await redis.expire(JOB_STATE_KEY, TTL_SECONDS);
     await redis.expire(COUNTS_KEY, TTL_SECONDS);
 
@@ -321,7 +331,7 @@ export namespace CommonWordsAggregator {
 
       // Update heartbeat to prevent immediate re-restart loop if queue is just slow
       state.lastHeartbeat = now;
-      await redis.set(JOB_STATE_KEY, JSON.stringify(state));
+      await saveState(state);
       return { restarted: true, age };
     }
     return { restarted: false, age };

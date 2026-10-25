@@ -6,7 +6,49 @@ import {
   buildHintCsvForChallenge,
   buildLetterCsvForChallenge,
   getWord,
+  getWordConfigCached,
 } from './api';
+import * as staticData from './staticWordData';
+
+const fixtureConfig = {
+  closest_word: 'near',
+  closest_similarity: 0.8,
+  furthest_word: 'far',
+  furthest_similarity: 0.1,
+  similar_words: [
+    { word: 'near', similarity: 0.8, is_hint: true },
+    { word: 'far', similarity: 0.1, is_hint: false },
+  ],
+};
+
+test('static rankings do not create another full ranking table in Redis', async () => {
+  const source = vi.spyOn(staticData, 'getStaticWordConfig').mockResolvedValue(fixtureConfig);
+  try {
+    const word = 'no-redis-ranking-cache-test';
+    expect(await getWordConfigCached({ word })).toEqual(fixtureConfig);
+    expect(await redis.get(WordConfigKey(word))).toBeUndefined();
+  } finally {
+    source.mockRestore();
+  }
+});
+
+test('an existing Redis ranking cache remains an outage fallback without refreshing its TTL', async () => {
+  const source = vi
+    .spyOn(staticData, 'getStaticWordConfig')
+    .mockRejectedValue(new Error('host unavailable'));
+  const word = 'legacy-ranking-outage-test';
+  await redis.set(WordConfigKey(word), JSON.stringify(fixtureConfig), {
+    expiration: new Date(Date.now() + 60_000),
+  });
+  const writes = vi.spyOn(redis, 'set');
+  try {
+    expect(await getWordConfigCached({ word })).toEqual(fixtureConfig);
+    expect(writes).not.toHaveBeenCalled();
+  } finally {
+    writes.mockRestore();
+    source.mockRestore();
+  }
+});
 
 test('buildLetterCsvForChallenge serves the full ranked list and secret from static caches', async () => {
   await redis.set(
