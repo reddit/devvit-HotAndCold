@@ -220,7 +220,49 @@ describe('moderator settings entry points', () => {
     expect(document.activeElement).toBe(container.querySelector('#moderator-details-heading'));
   });
 
-  it('uses list then details on narrow screens, restores focus on Back, and has no nested panel scroller', async () => {
+  it.each([
+    [320, 440],
+    [390, 520],
+    [900, 440],
+    [900, 600],
+    [1280, 720],
+  ])(
+    'keeps every navigation item visible without scrolling at %s × %s, including developer tools',
+    async (width, height) => {
+      container.style.width = `${width}px`;
+      const ordinary = await overview();
+      overview.mockResolvedValue({ ...ordinary, developerToolsAvailable: true, queueSize: 0 });
+      await loadConsole();
+      const main = container.querySelector('main')!;
+      main.style.height = `${height}px`;
+      const nav = container.querySelector('nav')!;
+      const details = container.querySelector<HTMLElement>('#moderator-details')!;
+      await expect.poll(() => nav.clientHeight > 0).toBe(true);
+      const navBounds = nav.getBoundingClientRect();
+      expect(main.scrollHeight).toBeLessThanOrEqual(main.clientHeight);
+      expect(main.scrollWidth).toBe(main.clientWidth);
+      expect(nav.scrollHeight).toBeLessThanOrEqual(nav.clientHeight);
+      const buttons = Array.from(nav.querySelectorAll('button'));
+      expect(buttons).toHaveLength(6);
+      for (const item of buttons) {
+        const bounds = item.getBoundingClientRect();
+        expect(bounds.top).toBeGreaterThanOrEqual(navBounds.top);
+        expect(bounds.bottom).toBeLessThanOrEqual(navBounds.bottom);
+        expect(bounds.height).toBeGreaterThanOrEqual(32);
+        expect(item.scrollHeight).toBeLessThanOrEqual(item.clientHeight);
+      }
+      if (width! >= 900) {
+        const before = nav.getBoundingClientRect().toJSON();
+        await click('Words');
+        details.scrollTop = details.scrollHeight;
+        expect(details.scrollTop).toBeGreaterThan(0);
+        expect(main.scrollTop).toBe(0);
+        expect(nav.getBoundingClientRect().toJSON()).toEqual(before);
+      }
+    }
+  );
+
+  it('uses list then details on narrow screens, restores focus on Back, and scrolls only the panel', async () => {
     container.style.width = '320px';
     await loadConsole();
     const main = container.querySelector('main')!;
@@ -230,18 +272,24 @@ describe('moderator settings entry points', () => {
     await expect.poll(() => getComputedStyle(details).display).toBe('none');
     expect(getComputedStyle(nav).display).toBe('block');
     expect(main.scrollWidth).toBe(main.clientWidth);
-    expect(main.scrollHeight).toBeGreaterThan(main.clientHeight);
-    expect(
-      Array.from(main.querySelectorAll('*')).filter((element) =>
-        ['auto', 'scroll'].includes(getComputedStyle(element).overflowY)
-      )
-    ).toHaveLength(0);
+    expect(main.scrollHeight).toBeLessThanOrEqual(main.clientHeight);
+    expect(nav.scrollHeight).toBeLessThanOrEqual(nav.clientHeight);
+    expect(getComputedStyle(main).overflowY).toBe('hidden');
     await click('Schedule');
     expect(getComputedStyle(nav).display).toBe('none');
     expect(getComputedStyle(details).display).toBe('block');
     expect(getComputedStyle(button('Back to Settings')).display).not.toBe('none');
     expect(document.activeElement).toBe(container.querySelector('#moderator-details-heading'));
     expect(container.textContent).toContain('Next Scheduled Post');
+    expect(getComputedStyle(details).overflowY).toBe('auto');
+    expect(details.scrollHeight).toBeGreaterThan(details.clientHeight);
+    details.scrollTop = details.scrollHeight;
+    expect(details.scrollTop).toBeGreaterThan(0);
+    expect(main.scrollTop).toBe(0);
+    expect(button('Back to Settings').getBoundingClientRect().top).toBeGreaterThanOrEqual(
+      details.getBoundingClientRect().top
+    );
+
     const extra = Array.from(container.querySelectorAll('details')).find(
       (element) => element.querySelector('summary')?.textContent === 'Post an Extra Puzzle Now'
     );

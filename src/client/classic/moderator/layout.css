@@ -1,0 +1,87 @@
+/* Size navigation to the space left below the fixed console header. */
+.moderator-navigation {
+  container: moderator-navigation / size;
+  height: 100%;
+  min-height: 0;
+}
+
+.moderator-navigation-layout {
+  display: flex;
+  height: 100%;
+  min-height: 0;
+  flex-direction: column;
+  padding: 4px;
+}
+
+.moderator-navigation-list {
+  display: grid;
+  min-height: 0;
+  flex: 1;
+  grid-template-rows: repeat(5, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.moderator-navigation-list > li {
+  min-height: 0;
+}
+
+.moderator-navigation-list > li > button {
+  height: 100%;
+  min-height: 0;
+  align-items: center;
+}
+
+.moderator-navigation-summary {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+@container moderator-navigation (max-height: 640px) {
+  .moderator-navigation-heading {
+    margin-bottom: 8px;
+    font-size: 12px;
+  }
+
+  .moderator-navigation-list {
+    gap: 4px;
+  }
+
+  .moderator-navigation-list > li > button {
+    gap: 8px;
+    padding: 6px 10px;
+  }
+
+  .moderator-navigation-summary {
+    margin-top: 0;
+    -webkit-line-clamp: 1;
+  }
+
+  .moderator-navigation-developer {
+    margin-top: 8px;
+    padding-top: 8px;
+  }
+
+  .moderator-navigation-queue-warning {
+    display: none;
+  }
+}
+
+@container moderator-navigation (max-height: 320px) {
+  .moderator-navigation-heading,
+  .moderator-navigation-summary {
+    display: none;
+  }
+
+  .moderator-navigation-developer {
+    margin-top: 4px;
+    padding-top: 4px;
+  }
+}
+
+@media (max-height: 640px) {
+  .moderator-console-description {
+    display: none;
+  }
+}

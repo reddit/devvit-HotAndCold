@@ -90,72 +90,77 @@ export function ModeratorNavigation({
   className: string;
 }) {
   return (
-    <nav aria-label="Moderator Settings Sections" className={className}>
-      <h2 className="mb-3 text-sm font-bold text-gray-600 dark:text-gray-300">Moderator Tools</h2>
-      <ul className="space-y-2">
-        {MODERATOR_SECTIONS.map((section) => (
-          <li key={section}>
+    <nav aria-label="Moderator Settings Sections" className={`moderator-navigation ${className}`}>
+      <div className="moderator-navigation-layout">
+        <h2 className="moderator-navigation-heading mb-3 shrink-0 text-sm font-bold text-gray-600 dark:text-gray-300">
+          Moderator Tools
+        </h2>
+        <ul className="moderator-navigation-list">
+          {MODERATOR_SECTIONS.map((section) => (
+            <li key={section}>
+              <button
+                type="button"
+                ref={selected === section ? selectedButtonRef : null}
+                aria-label={section}
+                aria-describedby={`moderator-summary-${section}`}
+                aria-current={selected === section ? 'page' : undefined}
+                aria-controls="moderator-details"
+                onClick={() => onNavigate(section)}
+                className={`flex w-full items-start gap-3 rounded-xl border px-3 py-2.5 text-left transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-600 ${selected === section ? 'border-cyan-600 bg-cyan-50 dark:border-cyan-700 dark:bg-cyan-950/40' : 'border-gray-200 bg-white hover:border-gray-400 hover:bg-gray-100 dark:border-gray-800 dark:bg-gray-900 dark:hover:bg-gray-800'}`}
+              >
+                <span className="mt-0.5 shrink-0 text-cyan-700 dark:text-cyan-300">
+                  <Icon>{icons[section]}</Icon>
+                </span>
+                <span className="min-w-0 grow">
+                  <span className="block text-sm font-bold">{section}</span>
+                  <span
+                    id={`moderator-summary-${section}`}
+                    title={summary(section, data, date)}
+                    className="moderator-navigation-summary mt-1 text-xs leading-snug text-gray-500 dark:text-gray-400"
+                  >
+                    {summary(section, data, date)}
+                  </span>
+                  {section === 'Words' && data.queueSize <= LOW_QUEUE_THRESHOLD && (
+                    <span className="moderator-navigation-queue-warning mt-1 block text-xs font-semibold text-amber-800 dark:text-amber-200">
+                      {data.queueSize === 0 ? 'Queue Empty' : 'Queue Running Low'}
+                    </span>
+                  )}
+                </span>
+                <svg
+                  aria-hidden="true"
+                  className="mt-1 shrink-0 text-gray-400"
+                  width="14"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <path d="m9 6 6 6-6 6" />
+                </svg>
+              </button>
+            </li>
+          ))}
+        </ul>
+        {data.developerToolsAvailable && (
+          <div className="moderator-navigation-developer mt-4 shrink-0 border-t border-gray-200 pt-3 dark:border-gray-800">
             <button
               type="button"
-              ref={selected === section ? selectedButtonRef : null}
-              aria-label={section}
-              aria-describedby={`moderator-summary-${section}`}
-              aria-current={selected === section ? 'page' : undefined}
+              ref={selected === 'Developer Tools' ? selectedButtonRef : null}
+              aria-label="Developer Tools"
+              aria-current={selected === 'Developer Tools' ? 'page' : undefined}
               aria-controls="moderator-details"
-              onClick={() => onNavigate(section)}
-              className={`flex w-full items-start gap-3 rounded-xl border px-3 py-2.5 text-left transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-600 ${selected === section ? 'border-cyan-600 bg-cyan-50 dark:border-cyan-700 dark:bg-cyan-950/40' : 'border-gray-200 bg-white hover:border-gray-400 hover:bg-gray-100 dark:border-gray-800 dark:bg-gray-900 dark:hover:bg-gray-800'}`}
+              onClick={() => onNavigate('Developer Tools')}
+              className={`flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm font-semibold ${selected === 'Developer Tools' ? 'bg-cyan-50 text-cyan-800 dark:bg-cyan-950 dark:text-cyan-200' : 'text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800'}`}
             >
-              <span className="mt-0.5 shrink-0 text-cyan-700 dark:text-cyan-300">
-                <Icon>{icons[section]}</Icon>
-              </span>
-              <span className="min-w-0 grow">
-                <span className="block text-sm font-bold">{section}</span>
-                <span
-                  id={`moderator-summary-${section}`}
-                  className="mt-1 block text-xs leading-snug text-gray-500 dark:text-gray-400"
-                >
-                  {summary(section, data, date)}
-                </span>
-                {section === 'Words' && data.queueSize <= LOW_QUEUE_THRESHOLD && (
-                  <span className="mt-1 block text-xs font-semibold text-amber-800 dark:text-amber-200">
-                    {data.queueSize === 0 ? 'Queue Empty' : 'Queue Running Low'}
-                  </span>
-                )}
-              </span>
-              <svg
-                aria-hidden="true"
-                className="mt-1 shrink-0 text-gray-400"
-                width="14"
-                height="14"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <path d="m9 6 6 6-6 6" />
-              </svg>
+              <DeveloperIcon />
+              Developer Tools
             </button>
-          </li>
-        ))}
-      </ul>
-      {data.developerToolsAvailable && (
-        <div className="mt-4 border-t border-gray-200 pt-3 dark:border-gray-800">
-          <button
-            type="button"
-            ref={selected === 'Developer Tools' ? selectedButtonRef : null}
-            aria-label="Developer Tools"
-            aria-current={selected === 'Developer Tools' ? 'page' : undefined}
-            aria-controls="moderator-details"
-            onClick={() => onNavigate('Developer Tools')}
-            className={`flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm font-semibold ${selected === 'Developer Tools' ? 'bg-cyan-50 text-cyan-800 dark:bg-cyan-950 dark:text-cyan-200' : 'text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800'}`}
-          >
-            <DeveloperIcon />
-            Developer Tools
-          </button>
-        </div>
-      )}
+          </div>
+        )}
+      </div>
     </nav>
   );
 }

@@ -16,6 +16,7 @@ import {
   SECTION_DESCRIPTIONS,
   type ModeratorSection,
 } from './navigation';
+import './layout.css';
 
 type Outputs = inferRouterOutputs<AppRouter>['moderation'];
 const button =
@@ -43,7 +44,7 @@ function ModeratorConsole() {
   const detailsHeadingRef = useRef<HTMLHeadingElement>(null);
   const selectedNavigationRef = useRef<HTMLButtonElement>(null);
   const returnFocusToNavigation = useRef(false);
-  const mainRef = useRef<HTMLElement>(null);
+  const detailsRef = useRef<HTMLElement>(null);
   const [data, setData] = useState<Outputs['overview'] | null>(null);
   const [queue, setQueue] = useState<Outputs['queue'] | null>(null);
   const [queuePage, setQueuePage] = useState(0);
@@ -85,6 +86,7 @@ function ModeratorConsole() {
       await work();
     } catch (cause) {
       setError(message(cause));
+      setDetailsOpen(true);
     } finally {
       setBusy(false);
     }
@@ -139,18 +141,17 @@ function ModeratorConsole() {
     hideWords();
     setSection(section);
     setDetailsOpen(true);
-    mainRef.current?.scrollTo({ top: 0 });
   };
   const backToSettings = () => {
     hideWords();
     returnFocusToNavigation.current = true;
     setDetailsOpen(false);
-    mainRef.current?.scrollTo({ top: 0 });
   };
   useLayoutEffect(() => {
+    detailsRef.current?.scrollTo({ top: 0 });
     if (detailsOpen) detailsHeadingRef.current?.focus({ preventScroll: true });
     else if (returnFocusToNavigation.current) {
-      selectedNavigationRef.current?.focus();
+      selectedNavigationRef.current?.focus({ preventScroll: true });
       returnFocusToNavigation.current = false;
     }
   }, [section, detailsOpen]);
@@ -172,81 +173,96 @@ function ModeratorConsole() {
     setQueuePage(page);
   };
 
+  const feedback = (
+    <>
+      {error && (
+        <p
+          role="alert"
+          className="shrink-0 rounded-xl border border-red-300 bg-red-50 p-3 text-sm text-red-900 dark:bg-red-950 dark:text-red-200"
+        >
+          {error}
+        </p>
+      )}
+      {notice && (
+        <p
+          role="status"
+          className="shrink-0 rounded-xl bg-cyan-50 p-3 text-sm text-cyan-900 dark:bg-cyan-950 dark:text-cyan-100"
+        >
+          {notice}
+        </p>
+      )}
+    </>
+  );
+
   return (
-    <main
-      ref={mainRef}
-      className="h-[100dvh] overflow-y-auto bg-gray-50 text-gray-950 dark:bg-gray-950 dark:text-gray-100"
-    >
-      <div className="@container mx-auto max-w-6xl space-y-5 px-4 py-5 sm:px-6">
-        <header className="flex flex-wrap items-start justify-between gap-4">
-          <div>
-            <div className="mb-2 text-xs font-bold tracking-widest text-cyan-700 uppercase dark:text-cyan-300">
+    <main className="h-[100dvh] overflow-hidden bg-gray-50 text-gray-950 dark:bg-gray-950 dark:text-gray-100">
+      <div className="@container mx-auto flex h-full min-h-0 max-w-6xl flex-col gap-3 px-3 py-3 sm:px-6 sm:py-4">
+        <header className="flex shrink-0 items-start justify-between gap-2">
+          <div className="min-w-0">
+            <div className="mb-1 text-[10px] font-bold tracking-wide text-cyan-700 uppercase dark:text-cyan-300">
               Hot and Cold · r/{context.subredditName}
             </div>
-            <h1 className="text-2xl font-bold">
+            <h1 className="text-lg font-bold @min-[640px]:text-2xl">
               Moderator Settings{' '}
               <span className="ml-1 inline-block rounded-full bg-amber-100 px-2 py-1 align-middle text-[10px] font-semibold text-amber-900">
                 Experimental
               </span>
             </h1>
-            <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
+            <p className="moderator-console-description mt-1 text-xs text-gray-500 dark:text-gray-400">
               Choose a section to see details and moderation tools.
             </p>
           </div>
-          <div className="flex gap-2">
-            <button className={button} disabled={busy} onClick={() => void run(refresh)}>
+          <div className="flex shrink-0 gap-1">
+            <button
+              className={`${button} !px-2 !text-xs`}
+              disabled={busy}
+              onClick={() => void run(refresh)}
+            >
               Refresh
             </button>
-            <button className={button} onClick={(event) => exitExpandedMode(event)}>
+            <button
+              className={`${button} !px-2 !text-xs`}
+              onClick={(event) => exitExpandedMode(event)}
+            >
               Close
             </button>
           </div>
         </header>
 
-        {error && (
-          <p
-            role="alert"
-            className="rounded-xl border border-red-300 bg-red-50 p-4 text-sm text-red-900 dark:bg-red-950 dark:text-red-200"
-          >
-            {error}
-          </p>
-        )}
-        {notice && (
-          <p
-            role="status"
-            className="rounded-xl bg-cyan-50 p-4 text-sm text-cyan-900 dark:bg-cyan-950 dark:text-cyan-100"
-          >
-            {notice}
-          </p>
-        )}
         {!data ? (
-          <p role="status">
-            {busy ? 'Loading community data…' : 'Use Refresh to load community data.'}
-          </p>
+          <div className="min-h-0 flex-1 space-y-3 overflow-y-auto">
+            {feedback}
+            <p role="status">
+              {busy ? 'Loading community data…' : 'Use Refresh to load community data.'}
+            </p>
+          </div>
         ) : (
           <>
-            <div className="grid items-start gap-5 @min-[640px]:grid-cols-[13rem_minmax(0,1fr)] @min-[900px]:grid-cols-[16rem_minmax(0,1fr)]">
+            <div className="grid min-h-0 flex-1 grid-rows-[minmax(0,1fr)] gap-4 @min-[640px]:grid-cols-[13rem_minmax(0,1fr)] @min-[900px]:grid-cols-[16rem_minmax(0,1fr)]">
               <ModeratorNavigation
                 data={data}
                 selected={section}
                 onNavigate={navigate}
                 selectedButtonRef={selectedNavigationRef}
                 date={date}
-                className={`${detailsOpen ? 'hidden @min-[640px]:block' : 'block'} min-w-0 @min-[640px]:col-start-1 @min-[640px]:row-start-1`}
+                className={`${detailsOpen ? 'hidden @min-[640px]:block' : 'block'} min-h-0 min-w-0 @min-[640px]:col-start-1 @min-[640px]:row-start-1`}
               />
               <section
                 id="moderator-details"
+                ref={detailsRef}
+                tabIndex={0}
                 aria-labelledby="moderator-details-heading"
-                className={`${detailsOpen ? 'block' : 'hidden @min-[640px]:block'} min-w-0 space-y-4 @min-[640px]:col-start-2 @min-[640px]:row-start-1`}
+                className={`${detailsOpen ? 'block' : 'hidden @min-[640px]:block'} h-full min-h-0 min-w-0 space-y-4 overflow-y-auto overscroll-contain p-1 outline-none @min-[640px]:col-start-2 @min-[640px]:row-start-1`}
               >
                 <button
                   type="button"
                   aria-label="Back to Settings"
-                  className={`${button} @min-[640px]:hidden`}
+                  className={`${button} sticky top-0 z-10 @min-[640px]:hidden`}
                   onClick={backToSettings}
                 >
                   ← Back to Settings
                 </button>
+                {feedback}
                 <div>
                   <h2
                     id="moderator-details-heading"

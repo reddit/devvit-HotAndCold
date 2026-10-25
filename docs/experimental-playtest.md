@@ -14,7 +14,9 @@ largest client chunk from about 573 kB to 391 kB without raising the warning lim
   in the order **Latest, Schedule, Reminders, Words, Storage**. At wide sizes the
   list sits on the left, with compact summaries and the selected details/actions
   on the right. Narrow sizes show the list first; choosing a section opens its
-  details with **Back to Settings**. Both layouts use one main vertical scroller.
+  details with **Back to Settings**. The header and navigation stay in place;
+  only the details panel scrolls. Navigation summaries shorten when height is
+  limited so every section stays reachable without scrolling.
   Queue counts are secret words (one per puzzle); days assume one daily puzzle
   and no extra posts. Returning to the list also hides any revealed words.
 - **Notify Low Queue** is an individual moderator opt-in for Reddit DMs, separate
