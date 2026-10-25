@@ -9,6 +9,8 @@ import type { GuessEngine, GuessHistoryItem } from '../core/guessEngine';
 vi.mock('@devvit/web/client', () => ({
   context: { userId: 't2_player', postData: { challengeNumber: 1 } },
   showToast: vi.fn(),
+  requestExpandedMode: (...args: unknown[]) =>
+    (globalThis as any).__guessActionsMock.expand(...args),
 }));
 vi.mock('../core/hints', async (original) => ({
   ...(await original<any>()),
@@ -44,6 +46,7 @@ beforeEach(() => {
     giveUp: vi.fn().mockResolvedValue({}),
     navigate: vi.fn(),
     onHint: vi.fn(),
+    expand: vi.fn(),
   };
   (globalThis as any).__guessActionsMock = mock;
   engine = {
@@ -103,38 +106,14 @@ it('chooses a hint from current engine history, submits it as a hint, and report
   );
 });
 
-it('requires confirmation before giving up and allows keeping the puzzle active', async () => {
+it('opens Give Up in expanded mode without revealing the answer or changing progress', async () => {
   engine.history.value = guesses(10);
   await mount();
-  await act(() => {
-    button('Give Up').click();
-  });
-  expect(container.querySelector('[role="dialog"]')).not.toBeNull();
-  expect(mock.giveUp).not.toHaveBeenCalled();
-  await act(() => {
-    button('Keep Playing').click();
+  await act(() => button('Give Up').click());
+  expect(mock.expand).toHaveBeenCalledWith(expect.any(MouseEvent), 'give-up', {
+    title: 'Give Up This Puzzle?',
   });
   expect(container.querySelector('[role="dialog"]')).toBeNull();
-  await act(() => {
-    button('Give Up').click();
-  });
-  await act(async () => {
-    button('Give Up and Reveal').click();
-  });
-  expect(mock.giveUp).toHaveBeenCalledWith({ challengeNumber: 1 });
-  expect(mock.navigate).toHaveBeenCalledWith('win');
-});
-
-it('keeps the confirmation open after a failed Give Up instead of showing a result', async () => {
-  mock.giveUp.mockRejectedValue(new Error('offline'));
-  engine.history.value = guesses(10);
-  await mount();
-  await act(() => {
-    button('Give Up').click();
-  });
-  await act(async () => {
-    button('Give Up and Reveal').click();
-  });
-  expect(container.querySelector('[role="alert"]')?.textContent).toContain('Could not give up');
+  expect(mock.giveUp).not.toHaveBeenCalled();
   expect(mock.navigate).not.toHaveBeenCalled();
 });

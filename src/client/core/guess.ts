@@ -77,11 +77,22 @@ const openDatabase = (): Promise<IDBDatabase> => {
  * - Hint order cache
  * - IndexedDB backing store
  */
-export async function resetGuessCache(): Promise<void> {
+const wordCacheResetKey = 'hotandcold:word-cache-reset';
+
+function clearMemoryCaches() {
   fileCache.clear();
   hintOrderCache.clear();
   lemmaMap.clear();
   lemmaLoadPromise = null;
+}
+
+// Other expanded/inline views keep their progress, but discard the same rank maps.
+window.addEventListener('storage', (event) => {
+  if (event.storageArea === localStorage && event.key === wordCacheResetKey) clearMemoryCaches();
+});
+
+export async function resetGuessCache(): Promise<void> {
+  clearMemoryCaches();
   // Clear stores in place: deleting the whole database can remain blocked by
   // existing connections while the player keeps the game open.
   const db = await openDatabase();
@@ -97,6 +108,7 @@ export async function resetGuessCache(): Promise<void> {
   } finally {
     db.close();
   }
+  localStorage.setItem(wordCacheResetKey, crypto.randomUUID());
 }
 
 const getMapFromDB = async (key: string): Promise<Map<string, ShardMapEntry> | null> => {

@@ -3,16 +3,21 @@ import { act } from 'preact/test-utils';
 import { page } from '@vitest/browser/context';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import '../index.css';
-import { PlayerSettings, settingsOpen } from './settings';
+import { PlayerSettings } from './playerSettings';
 import { HowToPlayModal } from './howToPlayModal';
 import { howToPlayOpen } from './state/howToPlay';
 import { userSettings } from './state/userSettings';
 import { HelpMenu } from '../shared/helpMenu';
+import { ExpandedPage } from '../shared/expandedPage';
 
 vi.mock('@devvit/web/client', () => ({
   context: { userId: 't2_player', postData: { challengeNumber: 1 } },
   showToast: () => {},
+  exitExpandedMode: vi.fn(),
   requestExpandedMode: (...args: unknown[]) => (globalThis as any).__settingsExpand(...args),
+}));
+vi.mock('./feedback/soundPreference', () => ({
+  soundPreference: { restore: async () => {}, choose: async () => true },
 }));
 vi.mock('../core/guess', () => ({
   resetGuessCache: () => (globalThis as any).__settingsCacheReset(),
@@ -21,13 +26,11 @@ let container: HTMLDivElement;
 beforeEach(() => {
   container = document.createElement('div');
   document.body.append(container);
-  settingsOpen.value = true;
   (globalThis as any).__settingsCacheReset = vi.fn().mockResolvedValue(undefined);
   (globalThis as any).__settingsExpand = vi.fn();
 });
 afterEach(async () => {
   await act(() => render(null, container));
-  settingsOpen.value = false;
   howToPlayOpen.value = false;
   container.remove();
   delete (globalThis as any).__settingsExpand;
@@ -35,7 +38,14 @@ afterEach(async () => {
   await page.viewport(1280, 720);
 });
 const mount = async () => {
-  await act(() => render(<PlayerSettings />, container));
+  await act(() =>
+    render(
+      <ExpandedPage title="Settings">
+        <PlayerSettings />
+      </ExpandedPage>,
+      container
+    )
+  );
 };
 const tab = (name: string) =>
   Array.from(container.querySelectorAll<HTMLButtonElement>('[role="tab"]')).find(
@@ -86,8 +96,7 @@ it.each([
   await act(() => {
     tab('Gameplay').click();
   });
-  const dialog = container.querySelector<HTMLElement>('[role="dialog"]')!;
-  const scroll = dialog.firstElementChild as HTMLElement;
+  const scroll = container.querySelector<HTMLElement>('main')!;
   const previews = Array.from(container.querySelectorAll<HTMLElement>('[data-setting-preview]'));
   expect(previews).toHaveLength(4);
   expect(scroll.scrollHeight).toBeLessThanOrEqual(scroll.clientHeight + 2);
@@ -109,40 +118,49 @@ it.each([
   expect(scroll.scrollHeight).toBeLessThanOrEqual(scroll.clientHeight + 2);
 });
 
-it('keeps long settings reachable in one bounded scrolling surface', async () => {
-  await page.viewport(320, 440);
+it('uses the whole expanded view with a single native scroll and reachable close button', async () => {
+  await page.viewport(320, 360);
   await mount();
-  const dialog = container.querySelector<HTMLElement>('[role="dialog"]')!;
-  const scroll = dialog.firstElementChild as HTMLElement;
-  expect(scroll.getBoundingClientRect().top).toBeGreaterThan(20);
-  expect(scroll.getBoundingClientRect().bottom).toBeLessThan(window.innerHeight - 20);
+  const scroll = container.querySelector<HTMLElement>('main')!;
+  expect(scroll.clientHeight).toBe(window.innerHeight);
   expect(scroll.scrollHeight).toBeGreaterThan(scroll.clientHeight);
   scroll.scrollTop = scroll.scrollHeight;
   expect(scroll.scrollTop).toBeGreaterThan(0);
-  const close = container.querySelector<HTMLButtonElement>('[aria-label="Close modal"]')!;
+  const close = container.querySelector<HTMLButtonElement>('[aria-label="Close Settings"]')!;
+  expect(close.getBoundingClientRect().top).toBeGreaterThanOrEqual(0);
   expect(close.getBoundingClientRect().bottom).toBeLessThan(window.innerHeight);
-  await act(() => {
-    dialog.click();
-  });
-  expect(settingsOpen.value).toBe(false);
+  expect(container.textContent).not.toContain('Scroll Down');
+  expect(container.querySelector('[role="dialog"]')).toBeNull();
 });
 
-it('leaves clickable space around How to Play and supports closing with Escape', async () => {
-  await page.viewport(320, 440);
-  howToPlayOpen.value = true;
-  await act(() => render(<HowToPlayModal />, container));
-  const dialog = container.querySelector<HTMLElement>('[role="dialog"]')!;
-  const card = dialog.firstElementChild!.getBoundingClientRect();
-  expect(card.left).toBeGreaterThanOrEqual(24);
-  expect(card.top).toBeGreaterThan(20);
-  expect(card.bottom).toBeLessThan(window.innerHeight - 20);
-  expect(container.textContent).toContain('Warmer');
-  expect(container.textContent).toContain('Colder');
-  await act(() => {
-    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
-  });
-  expect(howToPlayOpen.value).toBe(false);
-});
+it.each([
+  [320, 440],
+  [390, 520],
+  [768, 600],
+])(
+  'fits How to Play without scrolling at %s × %s, with space to dismiss it',
+  async (width, height) => {
+    await page.viewport(width!, height!);
+    howToPlayOpen.value = true;
+    await act(() => render(<HowToPlayModal />, container));
+    const dialog = container.querySelector<HTMLElement>('[role="dialog"]')!;
+    const content = dialog.firstElementChild as HTMLElement;
+    const card = content.getBoundingClientRect();
+    expect(content.scrollHeight).toBeLessThanOrEqual(content.clientHeight);
+    expect(card.height).toBeLessThan(window.innerHeight - 48);
+    expect(content.scrollWidth).toBe(content.clientWidth);
+    expect(container.textContent).not.toContain('Scroll Down');
+    expect(card.left).toBeGreaterThanOrEqual(24);
+    expect(card.top).toBeGreaterThan(20);
+    expect(card.bottom).toBeLessThan(window.innerHeight - 20);
+    expect(container.textContent).toContain('Warmer');
+    expect(container.textContent).toContain('Colder');
+    await act(() => {
+      document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+    });
+    expect(howToPlayOpen.value).toBe(false);
+  }
+);
 
 it.each(['Tab', 'Escape'])(
   'lets %s dismiss the actions menu even when every action is disabled',

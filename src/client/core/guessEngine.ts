@@ -69,21 +69,82 @@ const isValidWord = (word: string): boolean => /^[a-zA-Z][a-zA-Z'-]*$/.test(word
 import { trpc } from '../trpc';
 import { markSolvedForCurrentChallenge } from '../classic/state/navigation';
 import { posthog } from '../posthog';
+import { context } from '@devvit/web/client';
 // import { rankToProgress } from '../../shared/progress';
+
+const pendingKey = (challengeNumber: number) =>
+  `guess-pending:${context.userId ?? 'guest'}:${challengeNumber}`;
+
+function pendingGuesses(challengeNumber: number): GuessSubmission[] {
+  try {
+    const value: unknown = JSON.parse(localStorage.getItem(pendingKey(challengeNumber)) ?? '[]');
+    return Array.isArray(value)
+      ? value.filter(
+          (item): item is GuessSubmission =>
+            item &&
+            typeof item.word === 'string' &&
+            Number.isFinite(item.similarity) &&
+            Number.isFinite(item.rank) &&
+            Number.isFinite(item.atMs)
+        )
+      : [];
+  } catch {
+    return [];
+  }
+}
+
+function savePending(challengeNumber: number, items: GuessSubmission[]) {
+  try {
+    if (items.length) localStorage.setItem(pendingKey(challengeNumber), JSON.stringify(items));
+    else localStorage.removeItem(pendingKey(challengeNumber));
+  } catch {
+    // Storage can be unavailable; server submission should still proceed.
+  }
+}
 
 const submitBatchToServer = async (
   challengeNumber: number,
   items: GuessSubmission[]
 ): Promise<{ solvedAtMs?: number | null } | void> => {
+  // Expanded views can replace the iframe while a background save is in flight.
+  // Persist only unacknowledged submissions, including their hint flag, for retry.
+  const pending = new Map(pendingGuesses(challengeNumber).map((item) => [item.word, item]));
+  items.forEach((item) => pending.set(item.word, item));
+  savePending(challengeNumber, [...pending.values()]);
   const res = await trpc.guess.submitBatch.mutate({
     challengeNumber,
     guesses: items,
   });
+  savePending(
+    challengeNumber,
+    pendingGuesses(challengeNumber).filter(
+      (item) =>
+        !items.some(
+          (saved) =>
+            saved.word === item.word && saved.atMs === item.atMs && saved.isHint === item.isHint
+        )
+    )
+  );
   if (res && typeof res === 'object' && 'challengeUserInfo' in res) {
     const anyRes = res as any;
     return { solvedAtMs: anyRes.challengeUserInfo?.solvedAtMs ?? null };
   }
 };
+
+export async function flushPendingGuesses(challengeNumber: number) {
+  const pending = pendingGuesses(challengeNumber);
+  if (!pending.length) return;
+  // The server may have saved a request whose response was lost on navigation.
+  // Drop acknowledged words before retrying; duplicate submissions are rejected.
+  const server = await trpc.game.get.query({ challengeNumber });
+  const saved = new Set(server.challengeUserInfo?.guesses.map((guess) => guess.word) ?? []);
+  savePending(
+    challengeNumber,
+    pendingGuesses(challengeNumber).filter((guess) => !saved.has(guess.word))
+  );
+  const missing = pending.filter((guess) => !saved.has(guess.word));
+  if (missing.length) await submitBatchToServer(challengeNumber, missing);
+}
 
 // ---------------------------------------------------------
 // Engine factory
@@ -170,6 +231,7 @@ export function createGuessEngine(params: {
   void (async () => {
     const localHistorySnapshot: GuessHistoryItem[] = history.value.slice();
     try {
+      if (pendingGuesses(challengeNumber).length) await flushPendingGuesses(challengeNumber);
       const server = await trpc.game.get.query({ challengeNumber });
       if (!server.challengeUserInfo) {
         return;
@@ -209,9 +271,21 @@ export function createGuessEngine(params: {
 
       // Always prefer server and persist locally via localStorageSignal
       batch(() => {
-        history.value = serverHistory;
+        // Keep guesses submitted while the initial server fetch was in flight.
+        const unsaved = pendingGuesses(challengeNumber).filter(
+          (guess) => !serverWords.includes(guess.word)
+        );
+        history.value = [
+          ...serverHistory,
+          ...unsaved.map((guess) => ({
+            word: guess.word,
+            similarity: guess.similarity,
+            rank: guess.rank,
+            timestamp: guess.atMs,
+          })),
+        ];
         guessedSet.clear();
-        serverWords.forEach((w: string) => guessedSet.add(w));
+        history.value.forEach((guess) => guessedSet.add(guess.word));
       });
     } catch (e) {
       // ignore network/server errors; keep local
@@ -570,6 +644,7 @@ export function createGuessEngine(params: {
   // removed markSolvedOptimistically; solvedAtMs is set via real events
 
   const clear = () => {
+    savePending(challengeNumber, []);
     batch(() => {
       history.value = [];
       lastResult.value = null;

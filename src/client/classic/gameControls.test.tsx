@@ -7,12 +7,12 @@ import { Header } from './header';
 import { ResultsActions, WinPage } from './WinPage';
 import { setReminderOptIn } from './state/userSettings';
 import { reminderBusy, reminderStatus } from './state/reminders';
-import { settingsOpen } from './settings';
 import { setActiveTestRun } from '../playtest/run';
 
 vi.mock('@devvit/web/client', () => ({
   context: { userId: 't2_player', subredditName: 'testsub', postData: { challengeNumber: 1 } },
   showToast: vi.fn(),
+  exitExpandedMode: vi.fn(),
   showShareSheet: (...args: unknown[]) => (globalThis as any).__gameControlsMock.share(...args),
   requestExpandedMode: (...args: unknown[]) =>
     (globalThis as any).__gameControlsMock.expand(...args),
@@ -33,7 +33,6 @@ beforeEach(() => {
   setActiveTestRun(null);
   container = document.createElement('div');
   document.body.append(container);
-  settingsOpen.value = false;
   setReminderOptIn(false);
   reminderBusy.value = false;
   reminderStatus.value = 'loading';
@@ -90,7 +89,11 @@ it('restores the bell and direct moderator shield, enlarges branding, and remove
   expect(mock.expand).toHaveBeenCalledWith(expect.any(MouseEvent), 'moderator-console', {
     title: 'Moderator Settings (Experimental)',
   });
-  expect(settingsOpen.value).toBe(false);
+  await act(() => button('Settings')!.click());
+  expect(mock.expand).toHaveBeenLastCalledWith(expect.any(MouseEvent), 'player-settings', {
+    title: 'Settings',
+  });
+  expect(container.querySelector('[role="dialog"]')).toBeNull();
 });
 
 it('fits all seven moderator toolbar controls in a narrow view without horizontal scrolling', async () => {
@@ -166,7 +169,7 @@ it('hides the solved reminder for subscribers and keeps Share Results available 
   );
 });
 
-it('keeps long solved-page lists in one scrolling area with reachable navigation controls', async () => {
+it('keeps long solved-page lists in one scrolling area with native scrolling', async () => {
   await page.viewport(320, 440);
   container.className = 'flex h-[380px] w-[288px] flex-col';
   const words = Array.from({ length: 100 }, (_, i) => ({
@@ -193,7 +196,7 @@ it('keeps long solved-page lists in one scrolling area with reachable navigation
   mock.leaderboard = {
     get: { query: vi.fn().mockResolvedValue({ leaderboardByScore: [], userRank: null }) },
   };
-  await mount(<WinPage />);
+  await mount(<WinPage expanded />);
   await expect.poll(() => Boolean(button('Closest'))).toBe(true);
   await act(() => {
     button('Closest')!.click();
@@ -205,14 +208,32 @@ it('keeps long solved-page lists in one scrolling area with reachable navigation
       ['auto', 'scroll'].includes(getComputedStyle(element).overflowY)
     )
   ).toHaveLength(0);
-  await expect.poll(() => Boolean(button('↓ Scroll Down'))).toBe(true);
-  await act(() => {
-    button('↓ Scroll Down')!.click();
-  });
-  await expect.poll(() => scroller.scrollTop).toBeGreaterThan(0);
+  expect(button('↓ Scroll Down')).toBeUndefined();
+  scroller.scrollTop = scroller.scrollHeight;
+  expect(scroller.scrollTop).toBeGreaterThan(0);
   await act(() => {
     button('Guesses')!.click();
   });
   expect(container.querySelector<HTMLElement>('[aria-label="Results"]')!.scrollTop).toBe(0);
   expect(container.scrollWidth).toBe(container.clientWidth);
+});
+
+it('opens result tabs in expanded mode instead of trapping scrolling in the inline post', async () => {
+  mock.hints = vi.fn().mockResolvedValue([]);
+  mock.game = {
+    get: {
+      query: vi.fn().mockResolvedValue({ challengeInfo: {}, challengeUserInfo: { guesses: [] } }),
+    },
+  };
+  mock.leaderboard = {
+    get: { query: vi.fn().mockResolvedValue({ leaderboardByScore: [], userRank: null }) },
+  };
+  await mount(<WinPage />);
+  await expect.poll(() => Boolean(button('Guesses'))).toBe(true);
+  await act(() => button('Guesses')!.click());
+  expect(mock.expand).toHaveBeenCalledWith(expect.any(MouseEvent), 'results', { title: 'Results' });
+  expect(localStorage.getItem('results-tab:1')).toBe('3');
+  expect(getComputedStyle(container.querySelector('[aria-label="Results"]')!).overflowY).toBe(
+    'hidden'
+  );
 });

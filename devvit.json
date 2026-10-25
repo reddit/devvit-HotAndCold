@@ -22,6 +22,24 @@
         "entry": "playtest.html",
         "inline": true,
         "height": "regular"
+      },
+      "player-settings": {
+        "entry": "player-settings.html"
+      },
+      "give-up": {
+        "entry": "give-up.html"
+      },
+      "score-breakdown": {
+        "entry": "score-breakdown.html"
+      },
+      "comment-composer": {
+        "entry": "comment-composer.html"
+      },
+      "playtest-controls": {
+        "entry": "playtest-controls.html"
+      },
+      "results": {
+        "entry": "results.html"
       }
     }
   },

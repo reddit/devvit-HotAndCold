@@ -7,7 +7,7 @@ import { posthog } from '../posthog';
 import { openArchive } from './state/archive';
 import { isLoggedOut } from '../shared/user';
 import { SoundButton } from './feedback/controls';
-import { PlayerSettings, settingsOpen } from './settings';
+import { openPopup } from './expanded/launch';
 import { HelpIcon, ArchiveIcon, ShareIcon, GearIcon, ShieldIcon } from './icons';
 import { openModeratorSettings } from './moderator/launch';
 import { ReminderButton } from './reminders';
@@ -81,6 +81,7 @@ export function Header({
                 iconOnly
                 icon={<ArchiveIcon />}
                 aria-label="Play the Archive"
+                disabled={isSubmitting}
                 onClick={(event) => {
                   posthog.capture('Game Page Archive Opened');
                   openArchive(event);
@@ -98,9 +99,8 @@ export function Header({
             iconOnly
             icon={<GearIcon />}
             aria-label="Settings"
-            onClick={() => {
-              settingsOpen.value = true;
-            }}
+            disabled={isSubmitting}
+            onClick={(event) => openPopup(event, 'player-settings')}
           >
             Settings
           </IconButton>
@@ -109,6 +109,7 @@ export function Header({
               iconOnly
               icon={<ShieldIcon />}
               aria-label="Moderator Settings (Experimental)"
+              disabled={isSubmitting}
               onClick={openModeratorSettings}
             >
               Moderator Settings
@@ -116,7 +117,6 @@ export function Header({
           )}
         </nav>
       </header>
-      <PlayerSettings />
     </>
   );
 }

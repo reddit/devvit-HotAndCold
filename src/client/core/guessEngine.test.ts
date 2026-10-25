@@ -1,5 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+vi.mock('@devvit/web/client', () => ({ context: { userId: 'player' } }));
+
 // Mutable mock fns that hoisted mocks will delegate to
 let makeGuessMock: any;
 let preloadLetterMapsMock: any;
@@ -379,6 +381,55 @@ describe('guessEngine', () => {
         },
       ],
     });
+  });
+
+  it('retries a guess interrupted by switching into an expanded view before hydrating server history', async () => {
+    trpcMock.game.get.query.mockResolvedValue({ challengeUserInfo: { guesses: [] } });
+    trpcMock.guess.submitBatch.mutate.mockRejectedValue(new Error('iframe closed'));
+    makeGuessMock.mockResolvedValue({ word: 'cloud', similarity: 0.5, rank: 42 });
+    const original = createGuessEngine({ challengeNumber: 77 });
+    await original.submitHint('cloud');
+    await Promise.resolve();
+    const key = Object.keys(localStorage).find(
+      (key) => key.startsWith('guess-pending:') && key.endsWith(':77')
+    )!;
+    expect(JSON.parse(localStorage.getItem(key)!)).toEqual([
+      expect.objectContaining({ word: 'cloud', isHint: true }),
+    ]);
+    trpcMock.guess.submitBatch.mutate.mockResolvedValue({});
+    trpcMock.game.get.query
+      .mockResolvedValueOnce({ challengeUserInfo: { guesses: [] } })
+      .mockResolvedValue({
+        challengeUserInfo: {
+          guesses: [{ word: 'cloud', rank: 42, similarity: 0.5, timestampMs: 1_000_000 }],
+        },
+      });
+    const returned = createGuessEngine({ challengeNumber: 77 });
+    // Allow submission acknowledgement and the subsequent hydration to complete.
+    for (let i = 0; i < 8; i++) await Promise.resolve();
+    expect(trpcMock.guess.submitBatch.mutate).toHaveBeenLastCalledWith({
+      challengeNumber: 77,
+      guesses: [expect.objectContaining({ word: 'cloud', isHint: true })],
+    });
+    expect(localStorage.getItem(key)).toBeNull();
+    expect(returned.history.value).toEqual([expect.objectContaining({ word: 'cloud', rank: 42 })]);
+  });
+
+  it('acknowledges a save whose response was interrupted without submitting the same word twice', async () => {
+    localStorage.setItem(
+      'guess-pending:player:78',
+      JSON.stringify([{ word: 'cloud', similarity: 0.5, rank: 42, atMs: 1000 }])
+    );
+    trpcMock.game.get.query.mockResolvedValue({
+      challengeUserInfo: {
+        guesses: [{ word: 'cloud', rank: 42, similarity: 0.5, timestampMs: 1000 }],
+      },
+    });
+    const returned = createGuessEngine({ challengeNumber: 78 });
+    for (let i = 0; i < 8; i++) await Promise.resolve();
+    expect(localStorage.getItem('guess-pending:player:78')).toBeNull();
+    expect(trpcMock.guess.submitBatch.mutate).not.toHaveBeenCalled();
+    expect(returned.history.value).toHaveLength(1);
   });
 
   it('clear resets state and guessed set', async () => {

@@ -4,10 +4,7 @@ import type { ClientGuessResult, GuessEngine } from '../core/guessEngine';
 import { loadHintsForChallenge, selectNextHint } from '../core/hints';
 import { requireChallengeNumber } from '../requireChallengeNumber';
 import { IconButton } from '../shared/button';
-import { Modal } from '../shared/modal';
-import { isLoggedOut } from '../shared/user';
-import { trpc } from '../trpc';
-import { navigate } from './state/navigation';
+import { openPopup } from './expanded/launch';
 import { GiveUpIcon, HintIcon } from './icons';
 
 export const HINT_GUESS_THRESHOLD = 5;
@@ -24,8 +21,6 @@ export function GuessActions({
   ) => void;
 }) {
   const [busy, setBusy] = useState(false);
-  const [confirmGiveUp, setConfirmGiveUp] = useState(false);
-  const [error, setError] = useState('');
   const count = engine?.history.value?.length ?? 0;
   const blocked = !engine || busy || engine.isSubmitting.value || Boolean(engine.solvedAtMs.value);
   const challengeNumber = requireChallengeNumber();
@@ -52,19 +47,6 @@ export function GuessActions({
       else showToast({ text: result.message });
     } catch {
       showToast({ text: 'Could not load a hint. Please try again.' });
-    } finally {
-      setBusy(false);
-    }
-  };
-  const giveUp = async () => {
-    if (blocked || count < GIVE_UP_GUESS_THRESHOLD) return;
-    setBusy(true);
-    setError('');
-    try {
-      if (!isLoggedOut()) await trpc.guess.giveUp.mutate({ challengeNumber });
-      navigate('win');
-    } catch {
-      setError('Could not give up right now. Please try again.');
     } finally {
       setBusy(false);
     }
@@ -110,56 +92,12 @@ export function GuessActions({
               : 'Give Up and Reveal the Answer'
           }
           disabled={blocked || count < GIVE_UP_GUESS_THRESHOLD}
-          onClick={() => {
-            setError('');
-            setConfirmGiveUp(true);
-          }}
+          onClick={(event) => openPopup(event, 'give-up')}
         >
           <GiveUpIcon />
           <span>Give Up</span>
         </button>
       </div>
-      <Modal
-        isOpen={confirmGiveUp}
-        onClose={() => {
-          if (!busy) setConfirmGiveUp(false);
-        }}
-        labelledBy="give-up-title"
-      >
-        <section className="w-[min(80vw,360px)] space-y-4 bg-white p-5 text-gray-900 dark:bg-gray-900 dark:text-gray-100">
-          <h2 id="give-up-title" className="text-lg font-bold">
-            Give Up This Puzzle?
-          </h2>
-          <p className="text-sm text-gray-600 dark:text-gray-300">
-            This reveals the answer and records a Give Up. Your existing guesses stay in your
-            history.
-          </p>
-          <div className="flex flex-wrap gap-2">
-            <button
-              type="button"
-              disabled={busy}
-              className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-semibold dark:border-gray-600"
-              onClick={() => setConfirmGiveUp(false)}
-            >
-              Keep Playing
-            </button>
-            <button
-              type="button"
-              disabled={busy}
-              className="inline-flex items-center gap-2 rounded-lg bg-gray-900 px-4 py-2 text-sm font-semibold text-white dark:bg-white dark:text-gray-900"
-              onClick={() => void giveUp()}
-            >
-              <GiveUpIcon />
-              {busy ? 'Revealing…' : 'Give Up and Reveal'}
-            </button>
-          </div>
-          {error && (
-            <p role="alert" className="text-sm text-red-600 dark:text-red-300">
-              {error}
-            </p>
-          )}
-        </section>
-      </Modal>
     </>
   );
 }

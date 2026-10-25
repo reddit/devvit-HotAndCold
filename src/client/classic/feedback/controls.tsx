@@ -37,7 +37,7 @@ export async function toggleSound() {
     showToast({ text: 'Sound works here, but your choice could not be saved for other posts.' });
 }
 
-export function SoundButton() {
+export function useSoundPlayback() {
   useEffect(() => {
     const stopVisibility = watchGameVisibility((visible) => {
       inView.value = visible;
@@ -76,6 +76,10 @@ export function SoundButton() {
       gameAudio.disable();
     };
   }, []);
+}
+
+export function SoundButton() {
+  useSoundPlayback();
   return (
     <IconButton
       iconOnly

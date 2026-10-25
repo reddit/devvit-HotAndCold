@@ -5,12 +5,11 @@ import { GradientBorder } from '../shared/gradientBorder';
 // import { RightChevronIcon } from '../shared/icons';
 import { cn } from '../utils/cn';
 import { trpc } from '../trpc';
-import { Modal } from '../shared/modal';
+import { openPopup } from './expanded/launch';
 import { posthog } from '../posthog';
 // import { context } from '@devvit/web/client';
 import { requireChallengeNumber } from '../requireChallengeNumber';
 import { getPrettyDuration } from '../../shared/prettyDuration';
-import { ScoreBreakdownModal } from './scoreBreakdownModal';
 import { loadHintsForChallenge, type HintWord } from '../core/hints';
 import { context, showShareSheet, showToast } from '@devvit/web/client';
 import { formatCompactNumber } from '../../shared/formatCompactNumber';
@@ -54,9 +53,6 @@ export const ResultsActions = ({
 }) => {
   const [cta, setCta] = useState<CallToActionType>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [isCommentOpen, setIsCommentOpen] = useState(false);
-  const [comment, setComment] = useState('');
-  const [serverSuffix, setServerSuffix] = useState<string | null>(null);
 
   useEffect(() => {
     if (!cta) return;
@@ -79,7 +75,11 @@ export const ResultsActions = ({
     })();
   }, [challengeNumber, userSettings.value.isUserOptedIntoReminders]);
 
-  const doAction = async () => {
+  const doAction = async (event: MouseEvent) => {
+    if (cta === 'COMMENT') {
+      openPopup(event, 'comment-composer');
+      return;
+    }
     setIsLoading(true);
 
     posthog.capture('Win Page Call To Action Clicked', {
@@ -92,37 +92,7 @@ export const ResultsActions = ({
           joined_subreddit: true,
         });
         await trpc.cta.joinSubreddit.mutate({});
-      } else if (cta === 'COMMENT') {
-        // Preload the server-computed suffix before opening modal
-        try {
-          const res = await trpc.cta.getCommentSuffix.query({ challengeNumber });
-          setServerSuffix(res.suffix);
-        } catch {
-          setServerSuffix(null);
-        }
-        setIsCommentOpen(true);
-        return;
       }
-      const next = await trpc.cta.getCallToAction.query({ challengeNumber });
-      setCta(next);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const submitComment = async () => {
-    posthog.capture('Win Page Comment Submit Clicked', {
-      challengeNumber,
-      comment,
-    });
-
-    if (!comment.trim()) return;
-    setIsLoading(true);
-    try {
-      const text = comment.trim();
-      await trpc.cta.submitComment.mutate({ challengeNumber, comment: text });
-      setIsCommentOpen(false);
-      setComment('');
       const next = await trpc.cta.getCallToAction.query({ challengeNumber });
       setCta(next);
     } finally {
@@ -189,57 +159,18 @@ export const ResultsActions = ({
           <ShareIcon /> Share Results
         </button>
       </div>
-
-      <Modal isOpen={isCommentOpen} onClose={() => setIsCommentOpen(false)}>
-        <div className="w-[90vw] max-w-md rounded-xl border border-gray-200 bg-white p-4 text-black shadow-xl dark:border-gray-700 dark:bg-gray-900 dark:text-white">
-          <h2 className="mb-2 text-lg font-bold">Share Your Results</h2>
-          <p className="mb-3 text-sm text-gray-600 dark:text-gray-300">
-            Say something about your game. We'll post this as a comment on your behalf.
-          </p>
-          <textarea
-            className="mb-3 h-28 w-full resize-none rounded-md border border-gray-300 bg-white p-2 text-sm text-black outline-none focus:ring-2 focus:ring-blue-400 dark:border-gray-700 dark:bg-gray-800 dark:text-white"
-            value={comment}
-            onInput={(e) => setComment((e.target as HTMLTextAreaElement).value)}
-            placeholder={`Share your word journey or details about your strategy!`}
-          />
-          {serverSuffix && (
-            <p className="-mt-2 mb-3 text-[10px] leading-4 text-gray-500 dark:text-gray-400">
-              {serverSuffix}
-            </p>
-          )}
-          <div className="flex justify-end gap-2">
-            <button
-              type="button"
-              className="rounded-md px-3 py-2 text-sm text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800"
-              onClick={() => {
-                posthog.capture('Win Page Comment Cancel Clicked', {
-                  challengeNumber,
-                });
-                setIsCommentOpen(false);
-              }}
-            >
-              Cancel
-            </button>
-            <button
-              type="button"
-              className="rounded-md bg-blue-600 px-3 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-60"
-              onClick={submitComment}
-              disabled={!comment.trim() || isLoading}
-            >
-              Post Comment
-            </button>
-          </div>
-        </div>
-      </Modal>
     </div>
   );
 };
 
-export function WinPage() {
-  const [activeIndex, setActiveIndex] = useState(0);
+export function WinPage({ expanded = false }: { expanded?: boolean }) {
+  const [activeIndex, setActiveIndex] = useState(() => {
+    if (!expanded) return 0;
+    const saved = Number(localStorage.getItem(`results-tab:${requireChallengeNumber()}`));
+    return Number.isInteger(saved) && saved >= 0 && saved <= 4 ? saved : 0;
+  });
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
   const [userRank, setUserRank] = useState<number | null>(null);
-  const [isScoreOpen, setIsScoreOpen] = useState(false);
   const [hints, setHints] = useState<HintWord[] | null>(null);
   const [isHintsLoading, setIsHintsLoading] = useState(false);
 
@@ -343,7 +274,12 @@ export function WinPage() {
       <div className="mx-auto">
         <Tablist
           activeIndex={activeIndex}
-          onChange={(index) => {
+          onChange={(index, event) => {
+            if (!expanded) {
+              localStorage.setItem(`results-tab:${challengeNumber}`, String(index));
+              openPopup(event, 'results');
+              return;
+            }
             const tabClicked = tabList[index]!.name;
             posthog.capture('Win Page Tab Clicked', {
               index,
@@ -353,9 +289,21 @@ export function WinPage() {
           }}
           items={tabList}
         />
+        {!expanded && (
+          <button
+            type="button"
+            className="mx-auto mt-1 block rounded-full border border-gray-300 px-3 py-1 text-xs font-semibold dark:border-gray-600"
+            onClick={(event) => {
+              localStorage.setItem(`results-tab:${challengeNumber}`, '0');
+              openPopup(event, 'results');
+            }}
+          >
+            Expand Results
+          </button>
+        )}
       </div>
 
-      <ScrollPanel key={activeIndex} label="Results">
+      <ScrollPanel key={activeIndex} label="Results" scrollable={expanded}>
         <div className="mx-auto w-full max-w-xl px-1 pb-3">
           {activeIndex === 0 && (
             <div className="flex flex-col items-center justify-start gap-4">
@@ -375,12 +323,12 @@ export function WinPage() {
                           <button
                             type="button"
                             className="cursor-pointer text-inherit underline"
-                            onClick={() => {
+                            onClick={(event) => {
                               posthog.capture('Win Page Score Breakdown Clicked');
-                              setIsScoreOpen(true);
+                              openPopup(event, 'score-breakdown');
                             }}
                           >
-                            breakdown
+                            Breakdown
                           </button>
                           )
                         </span>
@@ -610,11 +558,6 @@ export function WinPage() {
           )}
         </div>
       </ScrollPanel>
-      <ScoreBreakdownModal
-        isOpen={isScoreOpen}
-        onClose={() => setIsScoreOpen(false)}
-        score={challengeUserInfo.score ?? null}
-      />
     </div>
   );
 }

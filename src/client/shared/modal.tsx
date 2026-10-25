@@ -1,6 +1,5 @@
 import { useEffect, useRef } from 'preact/hooks';
 import type { FunctionalComponent, ComponentChildren } from 'preact';
-import { ScrollNavigation, useScrollNavigation } from './scrollNavigation';
 
 interface ModalProps {
   isOpen: boolean;
@@ -24,7 +23,6 @@ export const Modal: FunctionalComponent<ModalProps> = ({
   const modalRef = useRef<HTMLDivElement>(null);
   const previousActiveElement = useRef<HTMLElement | null>(null);
   const onCloseRef = useRef(onClose);
-  const scrollControls = useScrollNavigation(isOpen);
 
   // Keep a stable reference to the latest onClose without retriggering the open effect
   useEffect(() => {
@@ -90,15 +88,9 @@ export const Modal: FunctionalComponent<ModalProps> = ({
       aria-labelledby={labelledBy}
       tabIndex={-1} // Makes the div focusable
     >
-      <div
-        ref={scrollControls.scrollRef}
-        class="relative max-h-[calc(100dvh-7rem)] min-h-0 max-w-full overflow-y-auto overscroll-contain rounded-2xl"
-        onClick={(e) => e.stopPropagation()}
-      >
+      <div class="relative min-h-0 max-w-full rounded-2xl" onClick={(e) => e.stopPropagation()}>
         <div>{children}</div>
       </div>
-
-      <ScrollNavigation controls={scrollControls} className="absolute right-6 bottom-3 left-6" />
 
       <button
         type="button"

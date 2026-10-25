@@ -72,17 +72,26 @@ largest client chunk from about 573 kB to 391 kB without raising the warning lim
   other calls to action. A larger Daily Reminders button appears only after the
   current opt-in is checked and the user is not subscribed. Enabling it hides
   the button and updates the toolbar bell.
+- Settings, Give Up confirmation, score details, the comment composer, Playtest
+  Controls, Archive, and Moderator Settings open in Reddit's expanded mode. Each
+  uses normal scrolling with a close button. How to Play stays a compact inline
+  pop-up with the logo, examples, temperature indicators, and help thresholds;
+  its content fits without scrolling down to 320 × 440.
 - Guess Spacing and Guess Order are explicit two-choice toggles with small sample
-  lists inside each option. The normal Gameplay panel fits without scrolling
-  down to 320 × 440; opening Troubleshooting can still use the modal's single
-  scroll surface. The previews use sample words and do not submit guesses.
+  lists inside each option. The Gameplay choices fit without scrolling down to
+  320 × 440; opening Troubleshooting can use the expanded view's scroll surface.
+  The previews use sample words and do not submit guesses.
 - **Clear Word Cache** requires confirmation, clears only downloadable ranking and lemma
   stores, and keeps all local/session history, results, and preferences. It does
-  not reload, so pending guesses can finish syncing. Data rebuilds on demand. The
+  not reload the settings view. Data rebuilds on demand. The
   older “Reset Cache and Reload” flow cleared both browser storage areas and
   could lose unsynced history.
-- Results use one scrolling body; long pop-ups and results expose Scroll Up and
-  Scroll Down controls when needed. Lists have no second vertical scroller.
+- Results tabs and **Expand Results** open the selected results view in expanded
+  mode. Long lists use normal scrolling there; inline results do not capture
+  page scrolling. The custom Scroll Up / Scroll Down buttons are removed.
+- Expanded mode can replace the game iframe. Unacknowledged guesses are saved
+  locally and retried when the game returns, preserving hint flags. Recovery
+  first checks server history to avoid resubmitting a word already accepted.
 - Developer Tools appear separately below the five moderator navigation items,
   preserving the existing Reddit-admin restriction as well as moderator access.
   Local experiment overrides persist for the current account/browser/app version
@@ -123,7 +132,7 @@ largest client chunk from about 573 kB to 391 kB without raising the warning lim
   it in a release build.
 - Each moderator has an independent run on the test post. **Reset My Test Run**
   starts empty, including after a win. **Jump to Solved** starts a new run with a
-  real winning guess, score, and result screen. Both reload the same test post.
+  real winning guess, score, and result screen. Return to the game to use the new run.
 - Open the **Playtest** chip beside the mascot for the test word and both run
   controls. It replaces the small “Pssst…” bubble in test posts and adds no banner
   or extra header height. Regular posts keep the “Pssst…” bubble.
