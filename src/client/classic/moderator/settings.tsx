@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'preact/hooks';
-import { context, exitExpandedMode } from '@devvit/web/client';
+import { context } from '@devvit/web/client';
 import type { inferRouterOutputs } from '@trpc/server';
 import type { AppRouter } from '../../../server';
 import { trpc } from '../../trpc';
@@ -212,28 +212,21 @@ function ModeratorConsole() {
               Choose a section to see details and moderation tools.
             </p>
           </div>
-          <div className="flex shrink-0 gap-1">
-            <button
-              className={`${button} !px-2 !text-xs`}
-              disabled={busy}
-              onClick={() => void run(refresh)}
-            >
-              Refresh
-            </button>
-            <button
-              className={`${button} !px-2 !text-xs`}
-              onClick={(event) => exitExpandedMode(event)}
-            >
-              Close
-            </button>
-          </div>
+          <button
+            className={`${button} shrink-0 !px-2 !text-xs`}
+            disabled={busy}
+            title="Reload dashboard summaries and hide revealed words. Does not clear caches."
+            onClick={() => void run(refresh)}
+          >
+            Refresh Data
+          </button>
         </header>
 
         {!data ? (
           <div className="min-h-0 flex-1 space-y-3 overflow-y-auto">
             {feedback}
             <p role="status">
-              {busy ? 'Loading community data…' : 'Use Refresh to load community data.'}
+              {busy ? 'Loading community data…' : 'Use Refresh Data to load community data.'}
             </p>
           </div>
         ) : (

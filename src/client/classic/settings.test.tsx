@@ -118,7 +118,7 @@ it.each([
   expect(scroll.scrollHeight).toBeLessThanOrEqual(scroll.clientHeight + 2);
 });
 
-it('uses the whole expanded view with a single native scroll and reachable close button', async () => {
+it('uses the whole expanded view with a single native scroll and no duplicate close button', async () => {
   await page.viewport(320, 360);
   await mount();
   const scroll = container.querySelector<HTMLElement>('main')!;
@@ -126,9 +126,10 @@ it('uses the whole expanded view with a single native scroll and reachable close
   expect(scroll.scrollHeight).toBeGreaterThan(scroll.clientHeight);
   scroll.scrollTop = scroll.scrollHeight;
   expect(scroll.scrollTop).toBeGreaterThan(0);
-  const close = container.querySelector<HTMLButtonElement>('[aria-label="Close Settings"]')!;
-  expect(close.getBoundingClientRect().top).toBeGreaterThanOrEqual(0);
-  expect(close.getBoundingClientRect().bottom).toBeLessThan(window.innerHeight);
+  expect(container.querySelector('[aria-label="Close Settings"]')).toBeNull();
+  const heading = container.querySelector('h1')!;
+  expect(heading.getBoundingClientRect().top).toBeGreaterThanOrEqual(0);
+  expect(heading.getBoundingClientRect().bottom).toBeLessThan(window.innerHeight);
   expect(container.textContent).not.toContain('Scroll Down');
   expect(container.querySelector('[role="dialog"]')).toBeNull();
 });

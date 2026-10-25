@@ -124,6 +124,8 @@ describe('moderator settings entry points', () => {
     expect(container.querySelector('nav')?.textContent).toContain('Storage');
     expect(container.textContent).not.toContain('Open Moderator Settings');
     expect(overview).toHaveBeenCalledTimes(1);
+    expect(container.querySelector('header')?.textContent).not.toContain('Close');
+    expect(button('Refresh Data').title).toContain('Does not clear caches');
     expect(queue).not.toHaveBeenCalled();
     expect(revealAnswer).not.toHaveBeenCalled();
   });
@@ -183,7 +185,7 @@ describe('moderator settings entry points', () => {
     expect(container.querySelector('button[aria-label="Developer Tools"]')).toBeNull();
     const ordinary = await overview.mock.results[0]!.value;
     overview.mockResolvedValue({ ...ordinary, developerToolsAvailable: true });
-    await click('Refresh');
+    await click('Refresh Data');
     await expect
       .poll(() => Boolean(container.querySelector('button[aria-label="Developer Tools"]')))
       .toBe(true);
@@ -420,7 +422,7 @@ describe('moderator settings entry points', () => {
       nextPostAtMs: Date.now(),
       playtestAvailable: true,
     });
-    await click('Refresh');
+    await click('Refresh Data');
     await expect.poll(() => container.textContent).toContain('Playtest Tools');
     expect(container.querySelector<HTMLInputElement>('#test-word')?.value).toBe('apple');
     await click('Create Test Post');

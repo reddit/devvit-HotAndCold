@@ -16,7 +16,7 @@ import {
 import { cn } from '../utils/cn';
 import { formatCompactNumber } from '../../shared/formatCompactNumber';
 import { posthog } from '../posthog';
-import { context, exitExpandedMode, navigateTo } from '@devvit/web/client';
+import { context, navigateTo } from '@devvit/web/client';
 import type { JSX } from 'preact';
 
 const STATUS_LABEL: Record<ArchiveChallengeStatus, string> = {
@@ -209,13 +209,6 @@ export function ArchiveModal() {
               Jump into a previous Hot and Cold challenge.
             </p>
           </div>
-          <button
-            type="button"
-            className="shrink-0 rounded-full border border-gray-300 px-3 py-2 text-sm font-semibold dark:border-gray-600"
-            onClick={(event) => exitExpandedMode(event)}
-          >
-            Close Archive
-          </button>
         </header>
         <div className="mt-4 shrink-0">
           <button

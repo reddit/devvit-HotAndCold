@@ -17,6 +17,11 @@ largest client chunk from about 573 kB to 391 kB without raising the warning lim
   details with **Back to Settings**. The header and navigation stay in place;
   only the details panel scrolls. Navigation summaries shorten when height is
   limited so every section stays reachable without scrolling.
+  **Refresh Data** reloads the overview (puzzle activity, queue count, schedule,
+  reminders, and moderator preferences) and hides revealed words. Opening the
+  console and queue/post actions already reload that overview. Manual refresh is
+  useful for changes from another moderator or the scheduler; it does not clear
+  caches, reload storage samples, or poll in the background.
   Queue counts are secret words (one per puzzle); days assume one daily puzzle
   and no extra posts. Returning to the list also hides any revealed words.
 - **Notify Low Queue** is an individual moderator opt-in for Reddit DMs, separate
@@ -77,7 +82,7 @@ largest client chunk from about 573 kB to 391 kB without raising the warning lim
   the button and updates the toolbar bell.
 - Settings, Give Up confirmation, score details, the comment composer, Playtest
   Controls, Archive, and Moderator Settings open in Reddit's expanded mode. Each
-  uses normal scrolling with a close button. How to Play stays a compact inline
+  uses normal scrolling; Reddit's built-in X dismisses the expanded view. How to Play stays a compact inline
   pop-up with the logo, examples, temperature indicators, and help thresholds;
   its content fits without scrolling down to 320 × 440.
 - Guess Spacing and Guess Order are explicit two-choice toggles with small sample

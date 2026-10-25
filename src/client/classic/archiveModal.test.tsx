@@ -67,7 +67,7 @@ afterEach(async () => {
   await page.viewport(1280, 720);
 });
 
-it('keeps the close button and one scrollable list inside a small expanded viewport', async () => {
+it('keeps one scrollable archive list in a small expanded viewport without a duplicate close button', async () => {
   await page.viewport(320, 440);
   await act(() => {
     archiveEntries.value = Array.from({ length: 40 }, (_, index) => ({
@@ -76,16 +76,14 @@ it('keeps the close button and one scrollable list inside a small expanded viewp
     }));
   });
   const list = container.querySelector<HTMLElement>('[aria-label="Archive Challenges"]')!;
-  const close = Array.from(container.querySelectorAll('button')).find(
-    (button) => button.textContent === 'Close Archive'
-  )!;
-  expect(close.getBoundingClientRect().bottom).toBeLessThanOrEqual(window.innerHeight);
+  expect(container.textContent).not.toContain('Close Archive');
+  const heading = container.querySelector('h1')!;
   expect(list.getBoundingClientRect().bottom).toBeLessThanOrEqual(window.innerHeight);
   expect(list.clientHeight).toBeGreaterThan(100);
   expect(list.scrollHeight).toBeGreaterThan(list.clientHeight);
   list.scrollTop = list.scrollHeight;
   expect(list.scrollTop).toBeGreaterThan(0);
-  expect(close.getBoundingClientRect().top).toBeGreaterThanOrEqual(0);
+  expect(heading.getBoundingClientRect().top).toBeGreaterThanOrEqual(0);
 });
 
 it.each(['empty', 'failed'])('does not repeatedly fetch an %s archive', async (kind) => {
