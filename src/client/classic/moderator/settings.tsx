@@ -9,10 +9,17 @@ import type { WordRevealAcknowledgement } from '../../../shared/moderation';
 import { DEFAULT_TEST_WORD } from '../../../shared/playtest';
 import { RedisSamplePanel } from './redisSample';
 import { formatBytes as bytes } from './format';
+import { ModeratorDashboard, QueueAlertToggle, type ModeratorSection } from './dashboard';
 
 type Outputs = inferRouterOutputs<AppRouter>['moderation'];
-type Tab = 'Overview' | 'Word Queue' | 'Publishing' | 'Reminders' | 'Redis';
-const tabs: Tab[] = ['Overview', 'Word Queue', 'Publishing', 'Reminders', 'Redis'];
+const tabs: ModeratorSection[] = [
+  'Dashboard',
+  'Latest Puzzle',
+  'Word Queue',
+  'Scheduling',
+  'Reminders',
+  'Redis',
+];
 const button =
   'rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-700 dark:bg-gray-800';
 const primary = `${button} !border-cyan-700 !bg-cyan-700 !text-white`;
@@ -21,12 +28,20 @@ const panel =
 const input =
   'w-full rounded-lg border border-gray-300 bg-transparent p-3 text-sm dark:border-gray-700';
 const date = (ms: number) =>
-  new Date(ms).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
+  new Date(ms).toLocaleString(undefined, {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+    timeZoneName: 'short',
+  });
 const message = (error: unknown) =>
   error instanceof Error ? error.message : 'Something went wrong. Please try again.';
 
 function ModeratorConsole() {
-  const [tab, setTab] = useState<Tab>('Overview');
+  const [tab, setTab] = useState<ModeratorSection>('Dashboard');
+  const mainRef = useRef<HTMLElement>(null);
   const [data, setData] = useState<Outputs['overview'] | null>(null);
   const [queue, setQueue] = useState<Outputs['queue'] | null>(null);
   const [queuePage, setQueuePage] = useState(0);
@@ -118,13 +133,34 @@ function ModeratorConsole() {
       }
     });
   };
+  const navigate = (section: ModeratorSection) => {
+    hideWords();
+    setTab(section);
+    mainRef.current?.scrollTo({ top: 0 });
+  };
+  const toggleLowQueueAlerts = () =>
+    void run(async () => {
+      if (!data) return;
+      const result = await trpc.moderation.setLowQueueAlerts.mutate({
+        enabled: !data.lowQueueAlertsEnabled,
+      });
+      setData((current) => current && { ...current, lowQueueAlertsEnabled: result.enabled });
+      setNotice(
+        result.enabled
+          ? 'Low-queue alerts enabled for you. Reddit DMs are checked hourly at seven words or fewer, and again if the queue empties.'
+          : 'Low-queue alerts turned off for you.'
+      );
+    });
   const changeQueuePage = (page: number) => {
     hideWords();
     setQueuePage(page);
   };
 
   return (
-    <main className="h-[100dvh] overflow-y-auto bg-gray-50 text-gray-950 dark:bg-gray-950 dark:text-gray-100">
+    <main
+      ref={mainRef}
+      className="h-[100dvh] overflow-y-auto bg-gray-50 text-gray-950 dark:bg-gray-950 dark:text-gray-100"
+    >
       <div className="mx-auto max-w-4xl space-y-5 px-4 py-7 sm:px-8">
         <header className="flex flex-wrap items-start justify-between gap-4">
           <div>
@@ -173,32 +209,6 @@ function ModeratorConsole() {
           </p>
         ) : (
           <>
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-              {[
-                [
-                  'Latest Puzzle',
-                  data.challenge ? `#${data.challenge.challengeNumber}` : 'None yet',
-                ],
-                ['Words Queued', `${data.queueSize} ${data.queueSize === 1 ? 'day' : 'days'}`],
-                [
-                  'Next Daily Post',
-                  new Date(data.nextPostAtMs).toLocaleTimeString([], {
-                    hour: 'numeric',
-                    minute: '2-digit',
-                    timeZoneName: 'short',
-                  }),
-                ],
-                ['Reminder Groups', String(data.notifications.total)],
-              ].map(([label, value]) => (
-                <div
-                  className="rounded-xl border border-gray-200 bg-white px-4 py-3 dark:border-gray-800 dark:bg-gray-900"
-                  key={label}
-                >
-                  <div className="text-xs text-gray-500 dark:text-gray-400">{label}</div>
-                  <div className="mt-1 text-lg font-bold">{value}</div>
-                </div>
-              ))}
-            </div>
             <nav
               aria-label="Moderator Settings Sections"
               className="flex flex-wrap gap-1 rounded-xl bg-gray-200/60 p-1 dark:bg-gray-900"
@@ -208,20 +218,29 @@ function ModeratorConsole() {
                   key={name}
                   className={`grow rounded-lg px-3 py-2 text-sm font-medium ${tab === name ? 'bg-white text-cyan-800 shadow-sm dark:bg-gray-700 dark:text-cyan-200' : 'text-gray-600 dark:text-gray-400'}`}
                   aria-current={tab === name ? 'page' : undefined}
-                  onClick={() => {
-                    hideWords();
-                    setTab(name);
-                  }}
+                  onClick={() => navigate(name)}
                 >
                   {name}
                 </button>
               ))}
             </nav>
 
-            {tab === 'Overview' && (
-              <div className="grid gap-4 sm:grid-cols-2">
+            {tab === 'Dashboard' && (
+              <ModeratorDashboard
+                data={data}
+                busy={busy}
+                onNavigate={navigate}
+                onToggleAlerts={toggleLowQueueAlerts}
+                date={date}
+              />
+            )}
+
+            {tab === 'Latest Puzzle' && (
+              <div className="space-y-4">
                 <section className={panel}>
-                  <h2 className="mb-4 font-bold">Current Puzzle</h2>
+                  <h2 className="mb-4 font-bold">
+                    Latest Puzzle {data.challenge ? `#${data.challenge.challengeNumber}` : ''}
+                  </h2>
                   {data.challenge ? (
                     <>
                       <dl className="grid grid-cols-2 gap-3 text-sm">
@@ -286,20 +305,6 @@ function ModeratorConsole() {
                   )}
                 </section>
                 <section className={panel}>
-                  <h2 className="mb-3 font-bold">Daily Publishing</h2>
-                  <p className="text-sm">
-                    Next scheduled post: <strong>{date(data.nextPostAtMs)}</strong>
-                  </p>
-                  <p className="mt-3 text-sm text-gray-500 dark:text-gray-400">
-                    Daily at 12:00 UTC, with retries at 12:05, 12:15, and 12:30 UTC. Late manual
-                    recovery won’t delay the following day.
-                  </p>
-                  <p className="mt-3 text-xs text-gray-500">
-                    This is the configured schedule; it does not confirm a scheduler run has
-                    happened.
-                  </p>
-                </section>
-                <section className={`${panel} sm:col-span-2`}>
                   <h2 className="mb-2 font-bold">About This Preview</h2>
                   <p className="text-sm text-gray-600 dark:text-gray-300">
                     The existing moderator menus remain available. “Experiments” in the game menu is
@@ -312,6 +317,22 @@ function ModeratorConsole() {
 
             {tab === 'Word Queue' && (
               <div className="space-y-4">
+                <section className={panel}>
+                  <h2 className="font-bold">
+                    Word Queue · {data.queueSize.toLocaleString()}{' '}
+                    {data.queueSize === 1 ? 'Word' : 'Words'}
+                  </h2>
+                  <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
+                    About {data.queueSize.toLocaleString()} {data.queueSize === 1 ? 'day' : 'days'}{' '}
+                    at one puzzle per day. Extra posts use words faster. Add words below without
+                    revealing the existing queue.
+                  </p>
+                  <QueueAlertToggle
+                    enabled={data.lowQueueAlertsEnabled}
+                    busy={busy}
+                    onToggle={toggleLowQueueAlerts}
+                  />
+                </section>
                 <section className={panel}>
                   <h2 className="mb-3 font-bold">Add Upcoming Words</h2>
                   <label className="mb-2 block text-sm" htmlFor="queue-words">
@@ -485,8 +506,92 @@ function ModeratorConsole() {
               </div>
             )}
 
-            {tab === 'Publishing' && (
+            {tab === 'Scheduling' && (
               <div className="space-y-4">
+                <section className={panel}>
+                  <h2 className="mb-3 font-bold">Next Scheduled Post</h2>
+                  <time
+                    className="text-xl font-semibold"
+                    dateTime={new Date(data.nextPostAtMs).toISOString()}
+                  >
+                    {date(data.nextPostAtMs)}
+                  </time>
+                  <p className="mt-3 text-sm text-gray-500 dark:text-gray-400">
+                    Daily at 12:00 UTC, with retries at 12:05, 12:15, and 12:30 UTC. Late manual
+                    recovery won’t delay the following day. Times above use your local time zone.
+                  </p>
+                  <p className="mt-3 text-xs text-gray-500 dark:text-gray-400">
+                    This is the configured schedule; it does not confirm that a scheduler run has
+                    happened.
+                  </p>
+                </section>
+                <section className={panel}>
+                  <h2 className="mb-2 font-bold">Recover Today’s Scheduled Post</h2>
+                  <p className="mb-4 text-sm text-gray-500 dark:text-gray-400">
+                    Use this when automatic posting appears to have stopped. It checks the current
+                    daily slot and creates a puzzle only if one is missing, with normal player
+                    reminders. It will not create a duplicate for a slot that already has a puzzle.
+                  </p>
+                  <button
+                    className={primary}
+                    disabled={busy}
+                    onClick={() =>
+                      void run(async () => {
+                        const result = await trpc.moderation.recoverPost.mutate();
+                        await refresh();
+                        setNotice(
+                          result.status === 'created'
+                            ? `Created puzzle #${result.challengeNumber}.`
+                            : result.status === 'exists'
+                              ? `Puzzle #${result.challengeNumber} already covers this posting slot.`
+                              : `Recovery status: ${result.status}.`
+                        );
+                      })
+                    }
+                  >
+                    Check and Recover
+                  </button>
+                </section>
+                <details className={panel}>
+                  <summary className="cursor-pointer font-bold">Post an Extra Puzzle Now</summary>
+                  <p className="mt-3 text-sm text-gray-500 dark:text-gray-400">
+                    Creates an additional puzzle immediately and consumes the next queued word, even
+                    if today’s puzzle already exists.
+                  </p>
+                  <label className="mt-4 flex items-center gap-2 text-sm">
+                    <input
+                      type="checkbox"
+                      checked={skipNotifications}
+                      onChange={(event) => setSkipNotifications(event.currentTarget.checked)}
+                    />
+                    Skip Reminder Messages
+                  </label>
+                  <label className="mt-3 flex items-center gap-2 text-sm">
+                    <input
+                      type="checkbox"
+                      checked={postConfirm}
+                      onChange={(event) => setPostConfirm(event.currentTarget.checked)}
+                    />
+                    Create an Additional Puzzle Now
+                  </label>
+                  <button
+                    className={`${button} mt-4`}
+                    disabled={busy || !postConfirm || data.queueSize === 0}
+                    onClick={() =>
+                      void run(async () => {
+                        const result = await trpc.moderation.postNext.mutate({
+                          confirm: 'POST',
+                          skipNotifications,
+                        });
+                        setPostConfirm(false);
+                        await refresh();
+                        setNotice(`Created puzzle #${result.challenge}.`);
+                      })
+                    }
+                  >
+                    Post Extra Puzzle Now
+                  </button>
+                </details>
                 {data.playtestAvailable && (
                   <section className={`${panel} !border-amber-300 dark:!border-amber-900`}>
                     <h2 className="mb-2 font-bold">Playtest Tools</h2>
@@ -539,72 +644,6 @@ function ModeratorConsole() {
                     )}
                   </section>
                 )}
-                <section className={panel}>
-                  <h2 className="mb-2 font-bold">Recover Today’s Scheduled Post</h2>
-                  <p className="mb-4 text-sm text-gray-500 dark:text-gray-400">
-                    Checks the current daily slot and creates a puzzle only if one is missing. Uses
-                    the normal reminder behavior.
-                  </p>
-                  <button
-                    className={primary}
-                    disabled={busy}
-                    onClick={() =>
-                      void run(async () => {
-                        const result = await trpc.moderation.recoverPost.mutate();
-                        await refresh();
-                        setNotice(
-                          result.status === 'created'
-                            ? `Created puzzle #${result.challengeNumber}.`
-                            : result.status === 'exists'
-                              ? `Puzzle #${result.challengeNumber} already covers this posting slot.`
-                              : `Recovery status: ${result.status}.`
-                        );
-                      })
-                    }
-                  >
-                    Check and Recover
-                  </button>
-                </section>
-                <section className={panel}>
-                  <h2 className="mb-2 font-bold">Post the Next Word Now</h2>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">
-                    Creates an additional puzzle immediately and consumes the next queued word, even
-                    if today’s puzzle already exists.
-                  </p>
-                  <label className="mt-4 flex items-center gap-2 text-sm">
-                    <input
-                      type="checkbox"
-                      checked={skipNotifications}
-                      onChange={(event) => setSkipNotifications(event.currentTarget.checked)}
-                    />
-                    Skip Reminder Messages
-                  </label>
-                  <label className="mt-3 flex items-center gap-2 text-sm">
-                    <input
-                      type="checkbox"
-                      checked={postConfirm}
-                      onChange={(event) => setPostConfirm(event.currentTarget.checked)}
-                    />
-                    Create an Additional Puzzle Now
-                  </label>
-                  <button
-                    className={`${button} mt-4`}
-                    disabled={busy || !postConfirm || data.queueSize === 0}
-                    onClick={() =>
-                      void run(async () => {
-                        const result = await trpc.moderation.postNext.mutate({
-                          confirm: 'POST',
-                          skipNotifications,
-                        });
-                        setPostConfirm(false);
-                        await refresh();
-                        setNotice(`Created puzzle #${result.challenge}.`);
-                      })
-                    }
-                  >
-                    Post Next Word
-                  </button>
-                </section>
               </div>
             )}
 

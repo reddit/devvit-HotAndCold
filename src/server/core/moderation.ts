@@ -13,6 +13,7 @@ import { CommonWordsAggregator } from './commonWordsAggregator';
 import { WORD_DATA_RELEASE } from '../../shared/wordDataVersion';
 import { isPlaytestContext } from '../../shared/playtest';
 import { Playtest } from './playtest';
+import { LowQueueAlerts } from './lowQueueAlerts';
 import {
   WORD_REVEAL_DURATION_MS,
   WORD_REVEAL_PURPOSES,
@@ -162,12 +163,20 @@ export const moderationRouter = router({
     )
     .mutation(({ input }) => Playtest.resetRun(input.state, input.expectedChallengeNumber)),
   access: publicProcedure.query(async () => ({ isModerator: await isModerator() })),
+  setLowQueueAlerts: moderatorProcedure
+    .input(z.object({ enabled: z.boolean() }))
+    .mutation(async ({ input }) => {
+      const user = await reddit.getUserById(context.userId!);
+      if (!user) throw new TRPCError({ code: 'UNAUTHORIZED' });
+      return LowQueueAlerts.setEnabled(user.id, user.username, input.enabled);
+    }),
   overview: moderatorProcedure.query(async () => {
-    const [number, queueSize, notifications, job] = await Promise.all([
+    const [number, queueSize, notifications, job, lowQueueAlertsEnabled] = await Promise.all([
       Challenge.getCurrentChallengeNumber(),
       WordQueue.size(),
       Notifications.pendingStats(),
       CommonWordsAggregator.getJobState(),
+      LowQueueAlerts.isEnabled(context.userId!),
     ]);
     const record = number > 0 ? await Challenge.getChallenge({ challengeNumber: number }) : null;
     // Default dashboard responses must not disclose an answer, even in network tools.
@@ -178,6 +187,7 @@ export const moderationRouter = router({
     return {
       challenge,
       queueSize,
+      lowQueueAlertsEnabled,
       notifications,
       job,
       nextPostAtMs: next.getTime(),
@@ -219,6 +229,7 @@ export const moderationRouter = router({
           challenges: ready.map(({ word }) => ({ word })),
           prepend: input.prepend,
         });
+        await LowQueueAlerts.recordRefill();
       }
       return { added: ready.length, skipped: preview.length - ready.length };
     }),

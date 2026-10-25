@@ -30,6 +30,7 @@ describe('moderator settings entry points', () => {
     overview = vi.fn().mockResolvedValue({
       challenge: { challengeNumber: '1', totalPlayers: 0, totalSolves: 0 },
       queueSize: 75,
+      lowQueueAlertsEnabled: false,
       notifications: { total: 0, next: [] },
       job: null,
       nextPostAtMs: Date.now(),
@@ -49,6 +50,9 @@ describe('moderator settings entry points', () => {
       overview: { query: overview },
       queue: { mutate: queue },
       revealAnswer: { mutate: revealAnswer },
+      setLowQueueAlerts: {
+        mutate: vi.fn().mockImplementation(async ({ enabled }) => ({ enabled })),
+      },
       createTestPost: {
         mutate: vi.fn().mockResolvedValue({ postUrl: 'https://reddit.com/comments/test' }),
       },
@@ -124,6 +128,72 @@ describe('moderator settings entry points', () => {
     expect(revealAnswer).not.toHaveBeenCalled();
   });
 
+  it('shows counts and navigable dashboard cards without fetching sensitive words or storage samples', async () => {
+    await loadConsole();
+    const dashboard = container.querySelector('[aria-label="Moderator Dashboard"]')!;
+    expect(
+      Array.from(dashboard.querySelectorAll('h2')).map((heading) => heading.textContent)
+    ).toEqual(['Latest Puzzle', 'Word Queue', 'Scheduling', 'Reminders', 'Redis']);
+    expect(dashboard.textContent).toContain('75 Words');
+    expect(dashboard.textContent).toContain('About 75 days');
+    expect(container.querySelector('textarea')).toBeNull();
+    expect(container.textContent).not.toContain('Request Answer Reveal');
+    for (const [action, section] of [
+      ['View Puzzle Details', 'Latest Puzzle'],
+      ['Manage Queue', 'Word Queue'],
+      ['Manage Scheduling', 'Scheduling'],
+      ['View Reminders', 'Reminders'],
+      ['Inspect Redis', 'Redis'],
+    ]) {
+      await click(action!);
+      expect(container.querySelector('[aria-current="page"]')?.textContent).toBe(section);
+      await click('Dashboard');
+    }
+    expect(queue).not.toHaveBeenCalled();
+    expect(revealAnswer).not.toHaveBeenCalled();
+  });
+
+  it('persists the individual low-queue opt-in and leaves it unchanged on failure', async () => {
+    await loadConsole();
+    const toggle = () => container.querySelector<HTMLButtonElement>('[role="switch"]')!;
+    expect(toggle().getAttribute('aria-checked')).toBe('false');
+    const mutate = (globalThis as any).__moderationClientMock.setLowQueueAlerts.mutate;
+    await act(async () => toggle().click());
+    await expect.poll(() => toggle().getAttribute('aria-checked')).toBe('true');
+    expect(mutate).toHaveBeenLastCalledWith({ enabled: true });
+    await click('Manage Queue');
+    expect(toggle().getAttribute('aria-checked')).toBe('true');
+    mutate.mockRejectedValueOnce(new Error('Unable to save preference.'));
+    await act(async () => toggle().click());
+    await expect
+      .poll(() => container.querySelector('[role="alert"]')?.textContent)
+      .toContain('Unable to save preference');
+    expect(toggle().getAttribute('aria-checked')).toBe('true');
+    await act(async () => toggle().click());
+    await expect.poll(() => toggle().getAttribute('aria-checked')).toBe('false');
+  });
+
+  it('keeps dashboard cards within a narrow viewport and uses only the main vertical scroller', async () => {
+    container.style.width = '320px';
+    await loadConsole();
+    const main = container.querySelector('main')!;
+    main.style.height = '440px';
+    expect(main.scrollWidth).toBe(main.clientWidth);
+    expect(main.scrollHeight).toBeGreaterThan(main.clientHeight);
+    expect(
+      Array.from(main.querySelectorAll('*')).filter((element) =>
+        ['auto', 'scroll'].includes(getComputedStyle(element).overflowY)
+      )
+    ).toHaveLength(0);
+    await click('Manage Scheduling');
+    expect(container.textContent).toContain('Next Scheduled Post');
+    const extra = Array.from(container.querySelectorAll('details')).find(
+      (element) => element.querySelector('summary')?.textContent === 'Post an Extra Puzzle Now'
+    );
+    expect(extra?.open).toBe(false);
+    expect(main.scrollWidth).toBe(main.clientWidth);
+  });
+
   it('does not load the console or private data for non-moderators', async () => {
     access.mockResolvedValue({ isModerator: false });
     await mount(false);
@@ -163,6 +233,7 @@ describe('moderator settings entry points', () => {
 
   it('hides a confirmed answer after 60 seconds and when leaving the view', async () => {
     await loadConsole();
+    await click('Latest Puzzle');
     const reveal = async () => {
       await click('Request Answer Reveal');
       const form = await fillRevealForm();
@@ -186,7 +257,7 @@ describe('moderator settings entry points', () => {
     await reveal();
     await click('Word Queue');
     expect(container.textContent).not.toContain('secretanswer');
-    await click('Overview');
+    await click('Latest Puzzle');
     expect(container.textContent).not.toContain('secretanswer');
   });
 
@@ -194,6 +265,7 @@ describe('moderator settings entry points', () => {
     let resolveAnswer!: (result: unknown) => void;
     revealAnswer.mockReturnValue(new Promise((resolve) => (resolveAnswer = resolve)));
     await loadConsole();
+    await click('Latest Puzzle');
     await click('Request Answer Reveal');
     const form = await fillRevealForm();
     await form.typeConfirmation();
@@ -207,13 +279,13 @@ describe('moderator settings entry points', () => {
         expiresAtMs: Date.now() + 60_000,
       })
     );
-    await click('Overview');
+    await click('Latest Puzzle');
     expect(container.textContent).not.toContain('secretanswer');
   });
 
   it('offers test-post creation only when the server identifies a playtest build', async () => {
     await loadConsole();
-    await click('Publishing');
+    await click('Scheduling');
     expect(container.textContent).not.toContain('Playtest Tools');
     overview.mockResolvedValue({
       challenge: null,

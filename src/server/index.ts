@@ -31,6 +31,7 @@ import { WORD_DATA_API_PREFIX } from '../shared/wordDataVersion';
 import { moderationRouter, openModeratorSettingsPost } from './core/moderation';
 import { Playtest } from './core/playtest';
 import { isTestChallengeNumber } from '../shared/playtest';
+import { LowQueueAlerts } from './core/lowQueueAlerts';
 
 // Formats a duration in milliseconds to a human-readable long form like
 // "2 hours 5 minutes 3 seconds" or "2 minutes 45 seconds" or "5 seconds".
@@ -894,6 +895,7 @@ app.post('/internal/form/queue/add', async (req, res): Promise<void> => {
     }
 
     const successCount = toEnqueue.length;
+    if (successCount > 0) await LowQueueAlerts.recordRefill();
     const failureWords = failures.map((f) => f.word).join(', ');
     const duplicateWords = duplicates.join(', ');
     const usedWordsText = usedWords.join(', ');
@@ -1639,6 +1641,16 @@ app.post('/internal/menu/export-secret-words', async (_req, res): Promise<void> 
         appearance: 'neutral',
       },
     });
+  }
+});
+
+app.post('/internal/scheduler/low-queue-alerts', async (_req, res): Promise<void> => {
+  try {
+    const result = await LowQueueAlerts.check(await WordQueue.size());
+    res.json({ status: 'success', ...result });
+  } catch (error) {
+    console.error('[LowQueueAlerts] Check failed', error);
+    res.status(500).json({ status: 'error', message: 'Unable to check the word queue.' });
   }
 });
 

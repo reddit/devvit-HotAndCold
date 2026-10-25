@@ -164,6 +164,11 @@
   },
   "scheduler": {
     "tasks": {
+      "low-queue-alerts": {
+        "cron": "35 * * * *",
+        "endpoint": "/internal/scheduler/low-queue-alerts",
+        "data": {}
+      },
       "create-new-challenge": {
         "cron": "0 12 * * *",
         "endpoint": "/internal/scheduler/create-new-challenge",

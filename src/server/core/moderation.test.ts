@@ -11,6 +11,7 @@ import { WORD_DATA_RELEASE } from '../../shared/wordDataVersion';
 import { ChallengeLeaderboard } from './challengeLeaderboard';
 import { ChallengeProgress } from './challengeProgress';
 import { UserGuess } from './userGuess';
+import { LowQueueAlerts } from './lowQueueAlerts';
 
 const acknowledgement = {
   purpose: 'word_issue' as const,
@@ -42,6 +43,9 @@ test('moderator APIs deny non-mods even when their Reddit admin flag is true', a
   try {
     expect(await caller.access()).toEqual({ isModerator: false });
     await expect(caller.overview()).rejects.toMatchObject({ code: 'FORBIDDEN' });
+    await expect(caller.setLowQueueAlerts({ enabled: true })).rejects.toMatchObject({
+      code: 'FORBIDDEN',
+    });
     await expect(caller.queue({ page: 0, ...acknowledgement })).rejects.toMatchObject({
       code: 'FORBIDDEN',
     });
@@ -64,6 +68,57 @@ test('moderator APIs deny non-mods even when their Reddit admin flag is true', a
     ).rejects.toMatchObject({ code: 'FORBIDDEN' });
     expect(await WordQueue.size()).toBe(1);
   } finally {
+    role.restore();
+  }
+});
+
+test('low-queue preferences affect only the requesting moderator and never send on opt-in', async () => {
+  const role = mockRole(true);
+  const send = vi.spyOn(reddit, 'sendPrivateMessage').mockResolvedValue();
+  const caller = moderationRouter.createCaller({});
+  try {
+    expect(await LowQueueAlerts.isEnabled(role.user.id)).toBe(false);
+    await caller.setLowQueueAlerts({
+      enabled: true,
+      userId: 't2_someoneelse',
+      username: 'someoneelse',
+    } as any);
+    expect(await LowQueueAlerts.isEnabled(role.user.id)).toBe(true);
+    expect(await LowQueueAlerts.isEnabled('t2_someoneelse')).toBe(false);
+    expect((await caller.overview()).lowQueueAlertsEnabled).toBe(true);
+    await caller.setLowQueueAlerts({ enabled: false });
+    expect((await caller.overview()).lowQueueAlertsEnabled).toBe(false);
+    expect(send).not.toHaveBeenCalled();
+  } finally {
+    send.mockRestore();
+    role.restore();
+  }
+});
+
+test('adding words through the console rearms alerts even when the refill is consumed before the next check', async () => {
+  const role = mockRole(true);
+  const send = vi.spyOn(reddit, 'sendPrivateMessage').mockResolvedValue();
+  const valid = vi
+    .spyOn(api, 'getWord')
+    .mockImplementation(async ({ word }) => ({ data: [{ word, id: 0 }] }));
+  const caller = moderationRouter.createCaller({});
+  try {
+    await caller.setLowQueueAlerts({ enabled: true });
+    await caller.addWords({
+      words: 'apple, ocean, banana, river, forest, mountain, valley, lake',
+      prepend: false,
+    });
+    await WordQueue.shift();
+    await LowQueueAlerts.check(await WordQueue.size());
+    expect(send).toHaveBeenCalledTimes(1);
+    await caller.addWords({ words: 'cloud', prepend: false });
+    await WordQueue.shift();
+    await redis.del('queueAlerts:checkLock');
+    await LowQueueAlerts.check(await WordQueue.size());
+    expect(send).toHaveBeenCalledTimes(2);
+  } finally {
+    valid.mockRestore();
+    send.mockRestore();
     role.restore();
   }
 });

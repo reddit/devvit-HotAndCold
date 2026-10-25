@@ -10,6 +10,20 @@ largest client chunk from about 573 kB to 391 kB without raising the warning lim
 
 ## Moderator tools
 
+- The expanded console opens on a dashboard with Latest Puzzle, Word Queue,
+  Scheduling, Reminders, and Redis cards. Larger actions open dedicated sections
+  inside the same single-scroll view. Queue counts are secret words (one per
+  puzzle), so days remaining assume one puzzle per day and no extra posts.
+- **Notify Low Queue** is an individual moderator opt-in for Reddit DMs, separate
+  from player push reminders. An hourly task (minute 35) checks for seven or fewer
+  words, then sends one further warning if empty. Refilling above seven words
+  rearms alerts, including through legacy queue tools. No answers appear in DMs.
+  Opening settings never subscribes anyone or sends a message. Failed deliveries
+  can retry next hour; former moderators are removed on checks. Preferences and
+  tiny delivery receipts live in `queueAlerts:subscribers`, `queueAlerts:receipts`,
+  and `queueAlerts:generation`; the check lease expires after five minutes.
+  A new scheduler task requires restarting an existing playtest watcher.
+
 - The subreddit menu's **Moderator Settings (Experimental)** item creates or
   reopens one reusable launcher post. Its button opens the separate console in
   expanded mode. A moderator-only cog in existing game posts opens the same console.
@@ -31,7 +45,7 @@ largest client chunk from about 573 kB to 391 kB without raising the warning lim
 - Storage inspection and cleanup use challenge numbers without sending answers to
   the client. Console publishing results and error messages do not expose answers.
   The legacy menu and form flows are unchanged.
-- Publishing offers idempotent scheduled-slot recovery and an explicit extra-post
+- Scheduling offers idempotent scheduled-slot recovery and an explicit extra-post
   action. Extra posts default to skipping reminders. Queue clearing requires
   typing CLEAR. Reminder delivery operations remain in their existing menus.
 
@@ -51,7 +65,7 @@ largest client chunk from about 573 kB to 391 kB without raising the warning lim
 
 ## Disposable Test Posts
 
-- In **Publishing → Playtest Tools**, choose a supported **Test Word** (default:
+- In **Scheduling → Playtest Tools**, choose a supported **Test Word** (default:
   apple) and select **Create Test Post**, then **Open Test Post**. Repeating this
   with the same word reuses your most recent test post when it still exists.
 - This panel and its APIs require current subreddit moderator membership and a
