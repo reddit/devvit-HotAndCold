@@ -218,7 +218,7 @@ export function PlayPage({ engine }: { engine?: GuessEngine }) {
 
       <GuessTemperature {...temperatureFeedback} />
 
-      <div className="relative mx-auto w-full max-w-xl pb-6">
+      <div className="relative mx-auto grid w-full max-w-xl grid-cols-[minmax(0,1fr)_auto] gap-x-2">
         <WordInput
           placeholders={['Try banana', 'Try apple', 'Try pizza']}
           isHighContrast
@@ -267,13 +267,11 @@ export function PlayPage({ engine }: { engine?: GuessEngine }) {
             return res;
           }}
           onFeedback={(msg) => showFeedback(msg, null)}
-          className="mt-4"
+          className="col-span-2 mt-4 grid grid-cols-subgrid"
         />
-        {feedback && (
-          <div className="absolute right-0 bottom-[7px] left-0 flex justify-start gap-1 text-[10px] text-gray-600 dark:text-zinc-300">
-            {feedback}
-          </div>
-        )}
+        <div className="col-start-1 flex min-h-6 flex-wrap items-start justify-center gap-x-1 pt-1 text-center text-[10px] leading-[14px] text-gray-600 dark:text-zinc-300">
+          {feedback}
+        </div>
       </div>
       <GuessActions
         engine={engine}
