@@ -49,6 +49,9 @@ describe('moderator settings entry points', () => {
       overview: { query: overview },
       queue: { mutate: queue },
       revealAnswer: { mutate: revealAnswer },
+      createTestPost: {
+        mutate: vi.fn().mockResolvedValue({ postUrl: 'https://reddit.com/comments/test' }),
+      },
     };
   });
   afterEach(async () => {
@@ -206,5 +209,27 @@ describe('moderator settings entry points', () => {
     );
     await click('Overview');
     expect(container.textContent).not.toContain('secretanswer');
+  });
+
+  it('offers test-post creation only when the server identifies a playtest build', async () => {
+    await loadConsole();
+    await click('Publishing');
+    expect(container.textContent).not.toContain('Playtest Tools');
+    overview.mockResolvedValue({
+      challenge: null,
+      queueSize: 1,
+      notifications: { total: 0, next: [] },
+      job: null,
+      nextPostAtMs: Date.now(),
+      playtestAvailable: true,
+    });
+    await click('Refresh');
+    await expect.poll(() => container.textContent).toContain('Playtest Tools');
+    expect(container.querySelector<HTMLInputElement>('#test-word')?.value).toBe('apple');
+    await click('Create Test Post');
+    await expect.poll(() => container.textContent).toContain('Open Test Post');
+    expect((globalThis as any).__moderationClientMock.createTestPost.mutate).toHaveBeenCalledWith({
+      word: 'apple',
+    });
   });
 });

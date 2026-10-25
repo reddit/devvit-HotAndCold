@@ -49,6 +49,29 @@ largest client chunk from about 573 kB to 391 kB without raising the warning lim
 - Audio is CC0, with no in-game attribution requirement. Sources and conversions
   are recorded in `src/client/public/audio/LICENSE.txt`.
 
+## Disposable Test Posts
+
+- In **Publishing → Playtest Tools**, choose a supported **Test Word** (default:
+  apple) and select **Create Test Post**, then **Open Test Post**. Repeating this
+  with the same word reuses your most recent test post when it still exists.
+- This panel and its APIs require current subreddit moderator membership and a
+  Devvit playtest version (the fourth version component described in the Devvit
+  docs' `guides/tools/playtest.md`, **Upload your app**). The production community
+  is also explicitly excluded. URL parameters or a client-side flag cannot enable
+  it in a release build.
+- Each moderator has an independent run on the test post. **Reset My Test Run**
+  starts empty, including after a win. **Jump to Solved** starts a new run with a
+  real winning guess, score, and result screen. Both reload the same test post.
+- Every transition allocates a fresh run ID before the game boots. Old requests
+  or local caches cannot restore a previous run. Other testers are unaffected.
+- Test progress uses `playtest:challenge:*` keys, outside the daily numbering,
+  archive, word queue, historical-answer checks, and ordinary leaderboards. Run
+  state expires after three days; small post fixtures remain for reuse. Test
+  posts send no reminders and do not update the ordinary last-played index.
+- The test word is deliberately visible in the test post's title and controls;
+  it is never taken from the upcoming daily queue. The regular settings word
+  reveal protections and existing moderator flows are unchanged.
+
 ## Redis investigation and fixes
 
 - Full expanded JSON ranking tables are no longer written to installation Redis.

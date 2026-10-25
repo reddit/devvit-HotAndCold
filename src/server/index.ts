@@ -29,6 +29,8 @@ import { makeClientConfig } from '../shared/makeClientConfig';
 import { CommonWordsAggregator } from './core/commonWordsAggregator';
 import { WORD_DATA_API_PREFIX } from '../shared/wordDataVersion';
 import { moderationRouter, openModeratorSettingsPost } from './core/moderation';
+import { Playtest } from './core/playtest';
+import { isTestChallengeNumber } from '../shared/playtest';
 
 // Formats a duration in milliseconds to a human-readable long form like
 // "2 hours 5 minutes 3 seconds" or "2 minutes 45 seconds" or "5 seconds".
@@ -458,9 +460,12 @@ const appRouter = router({
           challengeNumber,
           guesses: mapped,
         });
+        await Playtest.refreshRunExpiry(challengeNumber, username);
         // Track when the user last played
         try {
-          await LastPlayedAt.setLastPlayedAtForUsername({ username });
+          if (!isTestChallengeNumber(challengeNumber)) {
+            await LastPlayedAt.setLastPlayedAtForUsername({ username });
+          }
         } catch (e) {
           console.error('Failed to record lastPlayedAt', e);
         }
@@ -477,6 +482,7 @@ const appRouter = router({
         const current = await User.getCurrent();
         const username = current.username;
         const response = await UserGuess.giveUp({ username, challengeNumber });
+        await Playtest.refreshRunExpiry(challengeNumber, username);
         return response;
       }),
   },

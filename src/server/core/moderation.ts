@@ -11,6 +11,8 @@ import { ChallengeProgress } from './challengeProgress';
 import { UserGuess } from './userGuess';
 import { CommonWordsAggregator } from './commonWordsAggregator';
 import { WORD_DATA_RELEASE } from '../../shared/wordDataVersion';
+import { isPlaytestContext } from '../../shared/playtest';
+import { Playtest } from './playtest';
 import {
   WORD_REVEAL_DURATION_MS,
   WORD_REVEAL_PURPOSES,
@@ -136,6 +138,28 @@ export async function sampleRedisStorage(endChallenge?: number) {
 }
 
 export const moderationRouter = router({
+  createTestPost: moderatorProcedure
+    .input(
+      z.object({
+        word: z
+          .string()
+          .trim()
+          .toLowerCase()
+          .min(2)
+          .max(80)
+          .regex(/^[a-z][a-z'-]*$/),
+      })
+    )
+    .mutation(({ input }) => Playtest.createPost(input.word)),
+  testRun: moderatorProcedure.query(() => Playtest.getRun()),
+  resetTestRun: moderatorProcedure
+    .input(
+      z.object({
+        state: z.enum(['fresh', 'solved']),
+        expectedChallengeNumber: z.number().int().min(1),
+      })
+    )
+    .mutation(({ input }) => Playtest.resetRun(input.state, input.expectedChallengeNumber)),
   access: publicProcedure.query(async () => ({ isModerator: await isModerator() })),
   overview: moderatorProcedure.query(async () => {
     const [number, queueSize, notifications, job] = await Promise.all([
@@ -150,7 +174,14 @@ export const moderationRouter = router({
     const next = new Date();
     next.setUTCHours(12, 0, 0, 0);
     if (next.getTime() <= Date.now()) next.setUTCDate(next.getUTCDate() + 1);
-    return { challenge, queueSize, notifications, job, nextPostAtMs: next.getTime() };
+    return {
+      challenge,
+      queueSize,
+      notifications,
+      job,
+      nextPostAtMs: next.getTime(),
+      playtestAvailable: isPlaytestContext(context),
+    };
   }),
   queue: moderatorProcedure
     .input(revealInput.extend({ page: z.number().int().min(0) }))

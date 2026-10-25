@@ -4,6 +4,7 @@ import { fn } from '../../shared/fn';
 import { redis, reddit, Post, settings, context, scheduler } from '@devvit/web/server';
 import { WordQueue } from './wordQueue';
 import { getWordConfigCached } from './api';
+import { isTestChallengeNumber } from '../../shared/playtest';
 
 export const stringifyValues = <T extends Record<string, any>>(
   obj: T
@@ -271,9 +272,10 @@ export namespace Challenge {
   };
   export const CurrentChallengeNumberKey = () => 'current_challenge_number' as const;
 
-  export const ChallengeKey = (challengeNumber: number) => `challenge:${challengeNumber}` as const;
+  export const ChallengeKey = (challengeNumber: number) =>
+    `${isTestChallengeNumber(challengeNumber) ? 'playtest:challenge' : 'challenge'}:${challengeNumber}` as const;
   export const ChallengePostIdKey = (challengeNumber: number) =>
-    `challenge:${challengeNumber}:postId` as const;
+    `${ChallengeKey(challengeNumber)}:postId` as const;
 
   const challengeSchema = z
     .object({

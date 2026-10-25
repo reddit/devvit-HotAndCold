@@ -6,6 +6,7 @@ import { trpc } from '../../trpc';
 import { SettingsIcon, openModeratorSettings } from './launch';
 import { WordRevealGate } from './wordReveal';
 import type { WordRevealAcknowledgement } from '../../../shared/moderation';
+import { DEFAULT_TEST_WORD } from '../../../shared/playtest';
 
 type Outputs = inferRouterOutputs<AppRouter>['moderation'];
 type Tab = 'Overview' | 'Word Queue' | 'Publishing' | 'Reminders' | 'Redis';
@@ -48,6 +49,8 @@ function ModeratorConsole() {
   const [sample, setSample] = useState<Outputs['redisSample'] | null>(null);
   const [sampleEnd, setSampleEnd] = useState<number | undefined>(undefined);
   const [cacheConfirm, setCacheConfirm] = useState(false);
+  const [testWord, setTestWord] = useState(DEFAULT_TEST_WORD);
+  const [testPostUrl, setTestPostUrl] = useState('');
 
   const hideWords = useCallback(() => {
     // Invalidate pending requests too: a late response must not reveal words
@@ -487,6 +490,57 @@ function ModeratorConsole() {
 
             {tab === 'Publishing' && (
               <div className="space-y-4">
+                {data.playtestAvailable && (
+                  <section className={`${panel} !border-amber-300 dark:!border-amber-900`}>
+                    <h2 className="mb-2 font-bold">Playtest Tools</h2>
+                    <p className="mb-4 text-sm text-gray-500 dark:text-gray-400">
+                      Create a disposable test post with a known word. Each moderator gets their own
+                      run, with Reset My Test Run and Jump to Solved controls. This does not consume
+                      queued words, advance daily puzzle numbers, or send reminders.
+                    </p>
+                    <label htmlFor="test-word" className="mb-2 block text-sm font-semibold">
+                      Test Word
+                    </label>
+                    <input
+                      id="test-word"
+                      className={input}
+                      value={testWord}
+                      disabled={busy}
+                      maxLength={80}
+                      onInput={(event) => {
+                        setTestWord(event.currentTarget.value);
+                        setTestPostUrl('');
+                      }}
+                    />
+                    <button
+                      className={`${button} mt-4`}
+                      disabled={busy || !testWord.trim()}
+                      onClick={() =>
+                        void run(async () => {
+                          const result = await trpc.moderation.createTestPost.mutate({
+                            word: testWord,
+                          });
+                          setTestPostUrl(result.postUrl);
+                          setNotice(
+                            'Test post ready. Open it to play or use the test state controls.'
+                          );
+                        })
+                      }
+                    >
+                      Create Test Post
+                    </button>
+                    {testPostUrl && (
+                      <a
+                        className="mt-4 block text-sm font-semibold underline"
+                        href={testPostUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        Open Test Post ↗
+                      </a>
+                    )}
+                  </section>
+                )}
                 <section className={panel}>
                   <h2 className="mb-2 font-bold">Recover Today’s Scheduled Post</h2>
                   <p className="mb-4 text-sm text-gray-500 dark:text-gray-400">

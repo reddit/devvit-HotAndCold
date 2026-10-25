@@ -1,13 +1,14 @@
 import { z } from 'zod';
 import { redis } from '@devvit/web/server';
 import { fn } from '../../shared/fn';
+import { Challenge } from './challenge';
 
 export namespace ChallengeLeaderboard {
   export const ScoreKey = (challengeNumber: number) =>
-    `challenge:${challengeNumber}:leaderboard:score` as const;
+    `${Challenge.ChallengeKey(challengeNumber)}:leaderboard:score` as const;
 
   export const FastestKey = (challengeNumber: number) =>
-    `challenge:${challengeNumber}:leaderboard:fastest` as const;
+    `${Challenge.ChallengeKey(challengeNumber)}:leaderboard:fastest` as const;
 
   export const getLeaderboardByScore = fn(
     z.object({

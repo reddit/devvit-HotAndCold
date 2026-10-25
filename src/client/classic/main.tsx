@@ -20,6 +20,7 @@ import type { GuessEngine } from '../core/guessEngine';
 import { remountKey } from './state/experiments';
 import { trpc } from '../trpc';
 import { SoundSettings } from './feedback/controls';
+import { TestRunControls } from '../playtest/controls';
 
 configurePosthog({ mode: 'classic' });
 
@@ -37,6 +38,7 @@ function AppContent({
   return (
     <div className="h-[100dvh] min-h-[100dvh] w-full overflow-hidden">
       <div className="mx-auto flex h-full min-h-0 max-w-2xl flex-col overflow-hidden px-4 py-6 md:px-6">
+        <TestRunControls isSubmitting={Boolean(engine.isSubmitting.value)} />
         <Header engine={engine} isAdmin={isAdmin} isModerator={isModerator} />
         {page.value === 'win' ? (
           isLoggedOut() ? (
