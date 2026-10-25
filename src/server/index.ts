@@ -28,6 +28,7 @@ import { Notifications } from './core/notifications';
 import { makeClientConfig } from '../shared/makeClientConfig';
 import { CommonWordsAggregator } from './core/commonWordsAggregator';
 import { WORD_DATA_API_PREFIX } from '../shared/wordDataVersion';
+import { moderationRouter, openModeratorSettingsPost } from './core/moderation';
 
 // Formats a duration in milliseconds to a human-readable long form like
 // "2 hours 5 minutes 3 seconds" or "2 minutes 45 seconds" or "5 seconds".
@@ -92,6 +93,7 @@ async function computeCommentSuffix({
 }
 
 const appRouter = router({
+  moderation: moderationRouter,
   init: publicProcedure.query(async () => {
     console.log('inside of init');
 
@@ -604,6 +606,17 @@ app.use('/api', (...args) => {
 });
 
 app.use(express.json());
+
+app.post('/internal/menu/moderator-settings', async (_req, res): Promise<void> => {
+  try {
+    res.json({ navigateTo: await openModeratorSettingsPost() });
+  } catch (error) {
+    console.error('Unable to open moderator settings', error);
+    res
+      .status(403)
+      .json({ showToast: { text: 'Moderator settings are unavailable. Please try again.' } });
+  }
+});
 
 // Needs to be before /api/challenges/:challengeNumber/:letter.csv!!
 app.get(

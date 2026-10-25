@@ -23,6 +23,9 @@ import { openExperiments } from './state/experiments';
 import { openArchive } from './state/archive';
 import { getBrowserIanaTimeZone } from '../../shared/timezones';
 import { isLoggedOut } from '../shared/user';
+import { SoundButton } from './feedback/controls';
+import { soundSettingsOpen } from './feedback/audio';
+import { SettingsIcon, openModeratorSettings } from './moderator/launch';
 
 const SpeechBubbleTail = ({ className }: { className?: string }) => (
   <svg
@@ -36,7 +39,15 @@ const SpeechBubbleTail = ({ className }: { className?: string }) => (
   </svg>
 );
 
-export function Header({ engine, isAdmin }: { engine?: GuessEngine; isAdmin: boolean }) {
+export function Header({
+  engine,
+  isAdmin,
+  isModerator,
+}: {
+  engine?: GuessEngine;
+  isAdmin: boolean;
+  isModerator: boolean;
+}) {
   // Local UI state for modals (score breakdown placeholder)
   // Future: show score breakdown when available
   // const [isScoreOpen, setScoreOpen] = useState(false);
@@ -115,7 +126,7 @@ export function Header({ engine, isAdmin }: { engine?: GuessEngine; isAdmin: boo
             <Logo />
           </div>
           <button
-            className={cn('flex gap-1', accessStatus === 'inactive' && 'cursor-pointer')}
+            className={cn('hidden gap-1 sm:flex', accessStatus === 'inactive' && 'cursor-pointer')}
             onClick={() => {
               posthog.capture('Game Page Hardcore Psst Clicked');
               // Placeholder for unlock hardcore modal
@@ -176,6 +187,12 @@ export function Header({ engine, isAdmin }: { engine?: GuessEngine; isAdmin: boo
           <HelpMenu
             items={[
               { name: 'Toggle Size', action: () => toggleLayout() },
+              {
+                name: 'Sound & effects',
+                action: () => {
+                  soundSettingsOpen.value = true;
+                },
+              },
               {
                 name: `Sort by ${sortType === 'TIMESTAMP' ? 'Similarity' : 'Time'}`,
                 disabled: !isActivelyPlaying,
@@ -280,6 +297,17 @@ export function Header({ engine, isAdmin }: { engine?: GuessEngine; isAdmin: boo
                 : ([] as const)),
             ]}
           />
+          <SoundButton />
+          {isModerator && (
+            <IconButton
+              icon={<SettingsIcon />}
+              aria-label="Moderator settings (Experimental)"
+              title="Moderator settings (Experimental)"
+              onClick={openModeratorSettings}
+            >
+              Settings
+            </IconButton>
+          )}
         </div>
       </div>
 

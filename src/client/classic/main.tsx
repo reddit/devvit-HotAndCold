@@ -19,6 +19,7 @@ import { GUESS_SAMPLE_RATE } from '../config';
 import type { GuessEngine } from '../core/guessEngine';
 import { remountKey } from './state/experiments';
 import { trpc } from '../trpc';
+import { SoundSettings } from './feedback/controls';
 
 configurePosthog({ mode: 'classic' });
 
@@ -26,15 +27,17 @@ function AppContent({
   engine,
   challengeNumber,
   isAdmin,
+  isModerator,
 }: {
   engine: GuessEngine;
   challengeNumber: number;
   isAdmin: boolean;
+  isModerator: boolean;
 }) {
   return (
     <div className="h-[100dvh] min-h-[100dvh] w-full overflow-hidden">
       <div className="mx-auto flex h-full min-h-0 max-w-2xl flex-col overflow-hidden px-4 py-6 md:px-6">
-        <Header engine={engine} isAdmin={isAdmin} />
+        <Header engine={engine} isAdmin={isAdmin} isModerator={isModerator} />
         {page.value === 'win' ? (
           isLoggedOut() ? (
             <WinPageLoggedOut engine={engine} />
@@ -50,6 +53,7 @@ function AppContent({
         <HowToPlayModal />
         <ExperimentsModal />
         <ArchiveModal />
+        <SoundSettings />
       </div>
     </div>
   );
@@ -57,6 +61,14 @@ function AppContent({
 
 export function App() {
   const [isAdmin, setIsAdmin] = useState(false);
+  const [isModerator, setIsModerator] = useState(false);
+  useEffect(() => {
+    if (!isLoggedOut())
+      void trpc.moderation.access
+        .query()
+        .then((result) => setIsModerator(result.isModerator))
+        .catch(() => {});
+  }, []);
   const challengeNumber = requireChallengeNumber();
 
   const engine = useMemo(() => {
@@ -182,6 +194,7 @@ export function App() {
       engine={engine}
       challengeNumber={challengeNumber}
       isAdmin={isAdmin}
+      isModerator={isModerator}
     />
   );
 }

@@ -6,6 +6,14 @@
     "entrypoints": {
       "default": {
         "entry": "classic.html"
+      },
+      "moderator": {
+        "entry": "moderator.html",
+        "height": "regular",
+        "inline": true
+      },
+      "moderator-console": {
+        "entry": "moderator-console.html"
       }
     }
   },
@@ -30,6 +38,12 @@
   },
   "menu": {
     "items": [
+      {
+        "label": "Moderator settings (Experimental)",
+        "forUserType": "moderator",
+        "location": "subreddit",
+        "endpoint": "/internal/menu/moderator-settings"
+      },
       {
         "label": "[queue] Add to queue",
         "forUserType": "moderator",

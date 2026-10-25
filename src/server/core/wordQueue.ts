@@ -65,6 +65,23 @@ export namespace WordQueue {
     return await redis.zCard(Key());
   });
 
+  export const addMany = fn(
+    z.object({ challenges: z.array(ChallengeSchema).min(1).max(200), prepend: z.boolean() }),
+    async ({ challenges, prepend }) => {
+      const edge = await redis.zRange(Key(), 0, 0, { by: 'rank', reverse: !prepend });
+      const base = prepend
+        ? (edge[0]?.score ?? Date.now()) - challenges.length
+        : Math.max(Date.now(), (edge[0]?.score ?? 0) + 1);
+      await redis.zAdd(
+        Key(),
+        ...challenges.map((challenge, index) => ({
+          score: base + index,
+          member: JSON.stringify(assertValidChallenge(challenge)),
+        }))
+      );
+    }
+  );
+
   export const peekAll = fn(z.void(), async () => {
     const items = await redis.zRange(Key(), 0, -1, { by: 'rank' });
     return items.map((i) => assertValidChallenge(JSON.parse(i.member)));

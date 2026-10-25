@@ -1,0 +1,48 @@
+.guess-temperature {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  border-radius: 999px;
+  padding: 0.12rem 0.6rem;
+  font-size: 11px;
+  font-weight: 600;
+}
+.guess-temperature--warmer {
+  color: #a63811;
+  background: #ffedd5;
+}
+.guess-temperature--colder {
+  color: #075985;
+  background: #e0f2fe;
+}
+.guess-temperature[data-motion='true'] svg {
+  animation: temperature-pulse 650ms ease-out;
+}
+@keyframes temperature-pulse {
+  0% {
+    transform: translateY(2px) scale(0.85);
+    opacity: 0.35;
+  }
+  50% {
+    transform: translateY(-1px) scale(1.08);
+    opacity: 1;
+  }
+  100% {
+    transform: none;
+  }
+}
+@media (prefers-color-scheme: dark) {
+  .guess-temperature--warmer {
+    color: #fdba74;
+    background: #431c12;
+  }
+  .guess-temperature--colder {
+    color: #7dd3fc;
+    background: #0c2e43;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .guess-temperature[data-motion='true'] svg {
+    animation: none;
+  }
+}

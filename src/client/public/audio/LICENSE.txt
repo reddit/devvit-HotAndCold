@@ -1,0 +1,18 @@
+These audio assets are dedicated to the public domain under CC0 1.0:
+https://creativecommons.org/publicdomain/zero/1.0/
+No in-game attribution is required. This file records their provenance.
+
+calm-loop.mp3
+  Calm Loop by wipics, published 2020-02-02
+  https://opengameart.org/content/calm-loop
+  Original file: Relaxing_0.mp3 (unchanged)
+  Source declares CC0 and "Public Domain".
+
+warmer.wav and colder.wav
+  Interface Sounds 1.0 by Kenney, published 2020-02-11
+  https://kenney.nl/assets/interface-sounds
+  Original files: Audio/maximize_001.ogg and Audio/minimize_001.ogg
+  Converted to PCM WAV for browser compatibility; no creative edits.
+  https://kenney.nl/support confirms attribution is not required.
+
+Verified 2026-10-24.

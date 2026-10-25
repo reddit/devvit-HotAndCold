@@ -11,6 +11,8 @@ import { posthog } from '../posthog';
 import { trpc } from '../trpc';
 import { getBrowserIanaTimeZone } from '../../shared/timezones';
 import { setReminderOptIn, userSettings } from './state/userSettings';
+import { gameAudio, guessTemperature, type Temperature } from './feedback/audio';
+import { GuessTemperature } from './feedback/temperature';
 
 type PlayPrompt = 'JOIN_SUBREDDIT' | 'REMIND_ME_TO_PLAY';
 type ReactNode = ComponentChildren;
@@ -62,6 +64,10 @@ const getPromptMessage = (prompt: PlayPrompt | null): string | null => {
 };
 
 export function PlayPage({ engine }: { engine?: GuessEngine }) {
+  const [temperature, setTemperature] = useState<Temperature | null>(null);
+  const [temperatureSequence, setTemperatureSequence] = useState(0);
+  const temperatureTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  useEffect(() => () => clearTimeout(temperatureTimer.current), []);
   const [feedback, setFeedback] = useState<ReactNode | null>(null);
   const [hasJoinedSubreddit, setHasJoinedSubreddit] = useState<boolean | null>(
     context.userId ? null : true
@@ -227,14 +233,29 @@ export function PlayPage({ engine }: { engine?: GuessEngine }) {
         {itemsArray.length > 0 ? `Guesses: ${itemsArray.length}` : 'Can you guess the secret word?'}
       </h1>
 
+      <GuessTemperature direction={temperature} sequence={temperatureSequence} />
+
       <div className="relative mx-auto w-full max-w-xl pb-6">
         <WordInput
           placeholders={['Try banana', 'Try apple', 'Try pizza']}
           isHighContrast
           submitGuess={async (word) => {
             if (!engine) return null;
+            const before = engine.history.value ?? [];
+            const previous = before.reduce<GuessHistoryItem | null>(
+              (last, item) => (!last || item.timestamp >= last.timestamp ? item : last),
+              null
+            );
             const res = await engine.submit(word);
             if (res.ok) {
+              const direction = guessTemperature(previous?.rank, res.rank);
+              if (direction && !before.some((guess) => guess.word === res.word)) {
+                gameAudio.cue(direction);
+                clearTimeout(temperatureTimer.current);
+                setTemperature(direction);
+                setTemperatureSequence((value) => value + 1);
+                temperatureTimer.current = setTimeout(() => setTemperature(null), 1400);
+              }
               const historyNow = engine.history.value ?? [];
               const notVeryCloseMessage =
                 res.rank != null && res.rank < 0

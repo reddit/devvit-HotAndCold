@@ -6,6 +6,26 @@ function makeChallenge(word: string): WordQueue.Challenge {
   return { word };
 }
 
+test('bulk queue additions preserve input order even in the same millisecond', async () => {
+  vi.useFakeTimers();
+  vi.setSystemTime(1000);
+  try {
+    await WordQueue.addMany({ challenges: [{ word: 'zebra' }, { word: 'apple' }], prepend: false });
+    await WordQueue.addMany({ challenges: [{ word: 'river' }, { word: 'boat' }], prepend: false });
+    await WordQueue.addMany({ challenges: [{ word: 'sun' }, { word: 'moon' }], prepend: true });
+    expect((await WordQueue.peekAll()).map((item) => item.word)).toEqual([
+      'sun',
+      'moon',
+      'zebra',
+      'apple',
+      'river',
+      'boat',
+    ]);
+  } finally {
+    vi.useRealTimers();
+  }
+});
+
 test('WordQueue: FIFO append and shift preserves order', async () => {
   await WordQueue.clear();
   const c1 = makeChallenge('one');
