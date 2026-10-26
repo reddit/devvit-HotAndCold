@@ -1,10 +1,11 @@
 import './loadingSplash.css';
+import clsx from 'clsx';
 
 /** Matches the initial HTML fallback, so startup stays branded before scripts load. */
 export function LoadingSplash({ inline = false }: { inline?: boolean }) {
   return (
     <div
-      className={`loading-splash${inline ? 'loading-splash--inline' : ''}`}
+      className={clsx('loading-splash', inline && 'loading-splash--inline')}
       role="status"
       aria-label="Loading Hot and Cold"
     >

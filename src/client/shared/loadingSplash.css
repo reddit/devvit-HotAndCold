@@ -100,6 +100,22 @@ body,
   font-size: 20px;
 }
 
+@media (max-height: 440px) {
+  .loading-splash--inline {
+    padding: 8px;
+  }
+
+  .loading-splash--inline .loading-splash__spinner {
+    width: 64px;
+    height: 64px;
+  }
+
+  .loading-splash--inline .loading-splash__caption {
+    gap: 4px;
+    margin-top: 4px;
+  }
+}
+
 @keyframes loading-splash-spin {
   to {
     transform: rotate(360deg);

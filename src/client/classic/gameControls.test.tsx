@@ -17,6 +17,7 @@ import { PlayPage } from './PlayPage';
 import { soundEnabled } from './feedback/audio';
 import { ExpandedPage } from '../shared/expandedPage';
 import { ResultsIcon } from './icons';
+import { ErrorBoundary } from '../shared/error';
 
 vi.mock('@devvit/web/client', () => ({
   context: { userId: 't2_player', subredditName: 'testsub', postData: { challengeNumber: 1 } },
@@ -477,6 +478,52 @@ it('shows the branded splash until results data arrives, then replaces it with t
   await expect.poll(() => Boolean(button('View Results'))).toBe(true);
   expect(container.querySelector('[aria-label="Loading Hot and Cold"]')).toBeNull();
 });
+
+it.each([
+  [620, 512],
+  [320, 360],
+])(
+  'centers the results loader after mounting over the initial HTML splash at %s × %s',
+  async (width, height) => {
+    await page.viewport(width!, height!);
+    container.innerHTML = `
+    <div class="loading-splash" role="status" aria-label="Loading Hot and Cold">
+      <div class="loading-splash__spinner" aria-hidden="true">
+        <img src="/assets/hot-and-cold-icon.png" alt="" width="144" height="144" />
+      </div>
+      <div class="loading-splash__caption">
+        <p class="loading-splash__name" aria-hidden="true">Hot &amp; Cold</p>
+        <p class="loading-splash__message">Loading…</p>
+      </div>
+    </div>`;
+    mock.game = { get: { query: vi.fn(() => new Promise(() => {})) } };
+    mock.leaderboard = {
+      get: { query: vi.fn().mockResolvedValue({ leaderboardByScore: [], userRank: null }) },
+    };
+    await mount(
+      <ErrorBoundary>
+        <div className="relative isolate h-[100dvh] min-h-[100dvh] w-full overflow-hidden">
+          <div className="mx-auto flex h-full min-h-0 max-w-2xl flex-col overflow-hidden px-4 py-6 md:px-6">
+            <Header isModerator={false} showSoundControl />
+            <WinPage />
+          </div>
+        </div>
+      </ErrorBoundary>
+    );
+    const loaders = container.querySelectorAll('.loading-splash');
+    expect(loaders).toHaveLength(1);
+    const loader = loaders[0]!;
+    const image = loader.querySelector('img')!.getBoundingClientRect();
+    const bounds = loader.getBoundingClientRect();
+    expect(getComputedStyle(loader).display).toBe('grid');
+    expect(Math.abs(image.x + image.width / 2 - (bounds.x + bounds.width / 2))).toBeLessThan(1);
+    expect(Math.abs(image.y + image.height / 2 - (bounds.y + bounds.height / 2))).toBeLessThan(1);
+    expect(container.querySelectorAll('.loading-splash__spinner')).toHaveLength(1);
+    expect(
+      loader.querySelector('.loading-splash__caption')!.getBoundingClientRect().bottom
+    ).toBeLessThanOrEqual(bounds.bottom);
+  }
+);
 
 it('opens full results from the compact inline summary without showing inline tabs or lists', async () => {
   mock.hints = vi.fn().mockResolvedValue([]);
