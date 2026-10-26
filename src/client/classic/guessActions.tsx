@@ -1,10 +1,11 @@
-import { useState } from 'preact/hooks';
+import { useRef, useState } from 'preact/hooks';
 import { showToast } from '@devvit/web/client';
 import type { ClientGuessResult, GuessEngine } from '../core/guessEngine';
 import { loadHintsForChallenge, selectNextHint } from '../core/hints';
 import { requireChallengeNumber } from '../requireChallengeNumber';
 import { IconButton } from '../shared/button';
-import { openPopup } from './expanded/launch';
+import { Modal } from '../shared/modal';
+import { GiveUpPanel } from './expanded/panels';
 import { GiveUpIcon, HintIcon } from './icons';
 
 export const HINT_GUESS_THRESHOLD = 5;
@@ -21,6 +22,12 @@ export function GuessActions({
   ) => void;
 }) {
   const [busy, setBusy] = useState(false);
+  const [giveUpOpen, setGiveUpOpen] = useState(false);
+  const [givingUp, setGivingUp] = useState(false);
+  const givingUpRef = useRef(false);
+  const closeGiveUp = () => {
+    if (!givingUpRef.current) setGiveUpOpen(false);
+  };
   const count = engine?.history.value?.length ?? 0;
   const blocked = !engine || busy || engine.isSubmitting.value || Boolean(engine.solvedAtMs.value);
   const challengeNumber = requireChallengeNumber();
@@ -75,13 +82,33 @@ export function GuessActions({
             aria-label="Give Up"
             title="Give Up and Reveal the Answer"
             disabled={blocked}
-            onClick={(event) => openPopup(event, 'give-up')}
+            onClick={() => setGiveUpOpen(true)}
           >
             <GiveUpIcon />
             <span>Give Up</span>
           </button>
         )}
       </div>
+      <Modal
+        isOpen={giveUpOpen}
+        onClose={closeGiveUp}
+        closeDisabled={givingUp}
+        labelledBy="give-up-title"
+      >
+        <section className="w-[min(84vw,360px)] max-w-full space-y-3 rounded-2xl bg-white p-4 text-gray-900 shadow-xl dark:bg-gray-900 dark:text-gray-100">
+          <h2 id="give-up-title" className="text-base font-bold">
+            Give Up This Puzzle?
+          </h2>
+          <GiveUpPanel
+            onCancel={closeGiveUp}
+            onComplete={() => setGiveUpOpen(false)}
+            onBusyChange={(pending) => {
+              givingUpRef.current = pending;
+              setGivingUp(pending);
+            }}
+          />
+        </section>
+      </Modal>
     </>
   );
 }

@@ -7,6 +7,7 @@ interface ModalProps {
   children: ComponentChildren;
   clickAnywhereToClose?: boolean;
   labelledBy?: string;
+  closeDisabled?: boolean;
 }
 
 /**
@@ -19,6 +20,7 @@ export const Modal: FunctionalComponent<ModalProps> = ({
   children,
   clickAnywhereToClose = true,
   labelledBy,
+  closeDisabled = false,
 }) => {
   const modalRef = useRef<HTMLDivElement>(null);
   const previousActiveElement = useRef<HTMLElement | null>(null);
@@ -97,6 +99,7 @@ export const Modal: FunctionalComponent<ModalProps> = ({
         class="absolute top-1 right-1 rounded-full bg-white/90 p-1 text-gray-800 shadow-sm focus-visible:ring-2 focus-visible:ring-cyan-500 dark:bg-gray-800 dark:text-white"
         onClick={onClose}
         aria-label="Close modal"
+        disabled={closeDisabled}
       >
         <svg
           xmlns="http://www.w3.org/2000/svg"

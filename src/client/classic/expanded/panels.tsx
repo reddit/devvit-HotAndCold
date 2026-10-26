@@ -1,5 +1,5 @@
 import { exitExpandedMode } from '@devvit/web/client';
-import { useEffect, useState } from 'preact/hooks';
+import { useEffect, useRef, useState } from 'preact/hooks';
 import { trpc } from '../../trpc';
 import { requireChallengeNumber } from '../../requireChallengeNumber';
 import { isLoggedOut } from '../../shared/user';
@@ -12,8 +12,17 @@ import { flushPendingGuesses } from '../../core/guessEngine';
 const button =
   'min-h-10 rounded-lg border border-gray-300 px-4 py-2 text-sm font-semibold disabled:opacity-50 dark:border-gray-600';
 
-export function GiveUpPanel() {
+export function GiveUpPanel({
+  onCancel = exitExpandedMode,
+  onComplete,
+  onBusyChange,
+}: {
+  onCancel?: (event: MouseEvent) => void;
+  onComplete?: () => void;
+  onBusyChange?: (busy: boolean) => void;
+} = {}) {
   const [busy, setBusy] = useState(false);
+  const busyRef = useRef(false);
   const [done, setDone] = useState(false);
   const [error, setError] = useState('');
   const challengeNumber = requireChallengeNumber();
@@ -31,14 +40,17 @@ export function GiveUpPanel() {
         </>
       ) : (
         <div className="flex flex-wrap gap-2">
-          <button disabled={busy} className={button} onClick={exitExpandedMode}>
+          <button disabled={busy} className={button} onClick={onCancel}>
             Keep Playing
           </button>
           <button
             disabled={busy}
             className={`${button} inline-flex items-center gap-2 bg-gray-900 text-white dark:bg-white dark:text-gray-900`}
             onClick={async () => {
+              if (busyRef.current) return;
+              busyRef.current = true;
               setBusy(true);
+              onBusyChange?.(true);
               setError('');
               try {
                 if (!isLoggedOut()) {
@@ -47,11 +59,14 @@ export function GiveUpPanel() {
                 }
                 // Navigation is shared through localStorage with the inline game.
                 navigate('win');
-                setDone(true);
+                if (onComplete) onComplete();
+                else setDone(true);
               } catch {
                 setError('Could not give up right now. Please try again.');
               } finally {
+                busyRef.current = false;
                 setBusy(false);
+                onBusyChange?.(false);
               }
             }}
           >
