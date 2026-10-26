@@ -11,6 +11,7 @@ import type { GuessEngine } from '../core/guessEngine';
 import { setReminderOptIn } from './state/userSettings';
 import { reminderBusy, reminderStatus } from './state/reminders';
 import { setActiveTestRun } from '../playtest/run';
+import { takeInitialModeratorSection } from './moderator/launch';
 
 vi.mock('@devvit/web/client', () => ({
   context: { userId: 't2_player', subredditName: 'testsub', postData: { challengeNumber: 1 } },
@@ -109,6 +110,46 @@ it('fits all seven moderator toolbar controls in a narrow view without horizonta
   expect(container.querySelector('header')!.getBoundingClientRect().height).toBeLessThanOrEqual(
     104
   );
+});
+
+it.each([
+  [0, 'empty'],
+  [1, 'low'],
+  [7, 'low'],
+  [8, null],
+  [null, null],
+] as const)(
+  'shows moderator queue attention for %s words without changing toolbar size',
+  async (queueSize, health) => {
+    await page.viewport(320, 440);
+    container.style.width = '288px';
+    await mount(<Header isModerator queueSize={queueSize} />);
+    const badge = container.querySelector('[data-moderator-queue-badge]');
+    expect(badge?.getAttribute('data-moderator-queue-badge') ?? null).toBe(health);
+    const shield = button('Moderator Settings (Experimental)')!;
+    if (health) {
+      expect(shield.title).toContain(
+        health === 'empty' ? 'Word Queue Empty' : 'Word Queue Running Low'
+      );
+      expect(container.querySelector('#moderator-queue-warning')?.textContent).toContain(
+        `${queueSize} upcoming words`
+      );
+    }
+    await act(() => shield.click());
+    expect(takeInitialModeratorSection()).toBe(health ? 'Words' : 'Latest');
+    const toolbar = container.querySelector<HTMLElement>('[aria-label="Game Toolbar"]')!;
+    expect(toolbar.scrollWidth).toBe(toolbar.clientWidth);
+    expect(container.querySelector('header')!.getBoundingClientRect().height).toBeLessThanOrEqual(
+      104
+    );
+  }
+);
+
+it('keeps queue counts and moderator badges out of the player toolbar', async () => {
+  await mount(<Header isModerator={false} queueSize={0} />);
+  expect(button('Moderator Settings (Experimental)')).toBeUndefined();
+  expect(container.querySelector('[data-moderator-queue-badge]')).toBeNull();
+  expect(container.textContent).not.toContain('Word Queue');
 });
 
 it.each([

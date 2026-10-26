@@ -8,8 +8,8 @@ import { openArchive } from './state/archive';
 import { isLoggedOut } from '../shared/user';
 import { SoundButton } from './feedback/controls';
 import { openPopup } from './expanded/launch';
-import { HelpIcon, ArchiveIcon, ShareIcon, GearIcon, ShieldIcon } from './icons';
-import { openModeratorSettings } from './moderator/launch';
+import { HelpIcon, ArchiveIcon, ShareIcon, GearIcon } from './icons';
+import { ModeratorSettingsButton } from './moderator/button';
 import { ReminderButton } from './reminders';
 import { TestRunControls } from '../playtest/controls';
 import { getActiveTestRun } from '../playtest/run';
@@ -18,9 +18,11 @@ import './toolbar.css';
 export function Header({
   isModerator,
   isSubmitting = false,
+  queueSize,
 }: {
   isModerator: boolean;
   isSubmitting?: boolean;
+  queueSize?: number | null;
 }) {
   const challengeNumber = requireChallengeNumber();
   const isPlaytest = Boolean(getActiveTestRun());
@@ -105,15 +107,7 @@ export function Header({
             Settings
           </IconButton>
           {isModerator && (
-            <IconButton
-              iconOnly
-              icon={<ShieldIcon />}
-              aria-label="Moderator Settings (Experimental)"
-              disabled={isSubmitting}
-              onClick={openModeratorSettings}
-            >
-              Moderator Settings
-            </IconButton>
+            <ModeratorSettingsButton queueSize={queueSize ?? null} disabled={isSubmitting} />
           )}
         </nav>
       </header>

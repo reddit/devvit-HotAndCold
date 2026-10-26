@@ -2,6 +2,8 @@ import { render } from 'preact';
 import { act } from 'preact/test-utils';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ModeratorEntry } from './settings';
+import { openModeratorSettings } from './launch';
+import { queueStatusKey } from './status';
 import '../../index.css';
 
 vi.mock('@devvit/web/client', () => ({
@@ -253,6 +255,12 @@ describe('moderator settings entry points', () => {
         expect(bounds.height).toBeGreaterThanOrEqual(32);
         expect(item.scrollHeight).toBeLessThanOrEqual(item.clientHeight);
       }
+      const badge = button('Words').querySelector<HTMLElement>('[data-queue-health="empty"]')!;
+      expect(getComputedStyle(badge).display).not.toBe('none');
+      expect(badge.getBoundingClientRect().height).toBeGreaterThan(0);
+      expect(badge.getBoundingClientRect().bottom).toBeLessThanOrEqual(
+        button('Words').getBoundingClientRect().bottom
+      );
       if (width! >= 900) {
         const before = nav.getBoundingClientRect().toJSON();
         await click('Words');
@@ -263,6 +271,61 @@ describe('moderator settings entry points', () => {
       }
     }
   );
+
+  it.each([
+    [0, 'empty'],
+    [1, 'low'],
+    [7, 'low'],
+    [8, null],
+  ] as const)(
+    'makes queue health visible at %s words and clears it after refilling',
+    async (queueSize, health) => {
+      const ordinary = await overview();
+      overview.mockResolvedValue({ ...ordinary, queueSize });
+      await loadConsole();
+      expect(
+        container.querySelector('[data-queue-shortcut]')?.getAttribute('data-queue-shortcut') ??
+          null
+      ).toBe(health);
+      await click('Words');
+      const notice = container.querySelector('[data-queue-notice]');
+      expect(notice?.getAttribute('data-queue-notice') ?? null).toBe(health);
+      if (health === 'empty')
+        expect(notice?.textContent).toContain('a new puzzle cannot be created');
+      expect(queue).not.toHaveBeenCalled();
+      expect(revealAnswer).not.toHaveBeenCalled();
+      overview.mockResolvedValue({ ...ordinary, queueSize: 20 });
+      await click('Refresh Data');
+      expect(container.querySelector('[data-queue-health]')).toBeNull();
+      expect(container.querySelector('[data-queue-notice]')).toBeNull();
+      expect(container.querySelector('[data-queue-shortcut]')).toBeNull();
+      expect(localStorage.getItem(queueStatusKey)).toBe('20');
+    }
+  );
+
+  it('opens Words directly from the shield warning on narrow screens', async () => {
+    container.style.width = '320px';
+    openModeratorSettings(new MouseEvent('click'), 'Words');
+    await loadConsole();
+    expect(container.querySelector('#moderator-details-heading')?.textContent).toBe('Words');
+    expect(
+      getComputedStyle(container.querySelector<HTMLElement>('#moderator-details')!).display
+    ).toBe('block');
+    expect(getComputedStyle(container.querySelector('nav')!).display).toBe('none');
+    expect(queue).not.toHaveBeenCalled();
+  });
+
+  it('takes the empty-queue shortcut straight to the add form without revealing words', async () => {
+    const ordinary = await overview();
+    overview.mockResolvedValue({ ...ordinary, queueSize: 0 });
+    await loadConsole();
+    const shortcut = container.querySelector<HTMLButtonElement>('[data-queue-shortcut]')!;
+    await act(() => shortcut.click());
+    await expect.poll(() => document.activeElement?.id).toBe('queue-words');
+    expect(container.querySelector('#moderator-details-heading')?.textContent).toBe('Words');
+    expect(queue).not.toHaveBeenCalled();
+    expect(revealAnswer).not.toHaveBeenCalled();
+  });
 
   it('uses list then details on narrow screens, restores focus on Back, and scrolls only the panel', async () => {
     container.style.width = '320px';

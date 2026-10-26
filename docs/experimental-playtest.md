@@ -24,6 +24,16 @@ largest client chunk from about 573 kB to 391 kB without raising the warning lim
   caches, reload storage samples, or poll in the background.
   Queue counts are secret words (one per puzzle); days assume one daily puzzle
   and no extra posts. Returning to the list also hides any revealed words.
+- Queue health stays visible even in short layouts: red **Empty** at zero words,
+  amber **Low** at seven or fewer. The Words navigation badge and console header
+  shortcut stay visible; the queue panel explains that an empty queue prevents
+  the next puzzle from being created and provides **Add Words**. Current puzzles
+  remain playable. These warnings do not reveal words or enable notifications.
+  A matching `!` badge appears on the moderator shield in game posts; clicking
+  it opens **Words** directly. Counts refresh on load/focus and sync after console
+  queue/post actions, without polling. The existing access check reads only the
+  queue count for verified moderators, with no Redis read for non-moderators.
+  Unknown/unavailable counts are never presented as an empty queue.
 - **Notify Low Queue** is an individual moderator opt-in for Reddit DMs, separate
   from player push reminders. An hourly task (minute 35) checks for seven or fewer
   words, then sends one further warning if empty. Refilling above seven words

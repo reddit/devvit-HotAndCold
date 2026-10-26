@@ -163,7 +163,12 @@ export const moderationRouter = router({
       })
     )
     .mutation(({ input }) => Playtest.resetRun(input.state, input.expectedChallengeNumber)),
-  access: publicProcedure.query(async () => ({ isModerator: await isModerator() })),
+  access: publicProcedure.query(async () => {
+    if (!(await isModerator())) return { isModerator: false as const };
+    // The toolbar needs only the count, never queue contents or a full dashboard query.
+    const queueSize = await WordQueue.size().catch(() => null);
+    return { isModerator: true as const, queueSize };
+  }),
   setLowQueueAlerts: moderatorProcedure
     .input(z.object({ enabled: z.boolean() }))
     .mutation(async ({ input }) => {

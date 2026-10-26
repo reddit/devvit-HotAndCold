@@ -1,8 +1,9 @@
 import type { ComponentChildren, RefObject } from 'preact';
 import type { inferRouterOutputs } from '@trpc/server';
 import type { AppRouter } from '../../../server';
-import { LOW_QUEUE_THRESHOLD } from '../../../shared/lowQueue';
+import { LOW_QUEUE_THRESHOLD, queueHealth } from '../../../shared/lowQueue';
 import { DeveloperIcon } from '../icons';
+import { QueueStatusBadge } from './queueStatus';
 
 export const MODERATOR_SECTIONS = ['Latest', 'Schedule', 'Reminders', 'Words', 'Storage'] as const;
 export type ModeratorSection = (typeof MODERATOR_SECTIONS)[number] | 'Developer Tools';
@@ -66,7 +67,9 @@ function summary(section: ModeratorSection, data: Overview, date: (ms: number) =
     case 'Reminders':
       return `${data.notifications.total.toLocaleString()} Pending ${data.notifications.total === 1 ? 'Group' : 'Groups'}`;
     case 'Words':
-      return `${data.queueSize.toLocaleString()} ${data.queueSize === 1 ? 'Word' : 'Words'} · About ${data.queueSize.toLocaleString()} ${data.queueSize === 1 ? 'Day' : 'Days'}`;
+      return data.queueSize === 0
+        ? 'Queue Empty · 0 Upcoming Words'
+        : `${queueHealth(data.queueSize) ? 'Queue Low · ' : ''}${data.queueSize.toLocaleString()} ${data.queueSize === 1 ? 'Word' : 'Words'} · About ${data.queueSize.toLocaleString()} ${data.queueSize === 1 ? 'Day' : 'Days'}`;
     case 'Storage':
       return 'Inspect Data and Clear Ranking Caches';
     case 'Developer Tools':
@@ -112,7 +115,10 @@ export function ModeratorNavigation({
                   <Icon>{icons[section]}</Icon>
                 </span>
                 <span className="min-w-0 grow">
-                  <span className="block text-sm font-bold">{section}</span>
+                  <span className="flex items-center justify-between gap-1 text-sm font-bold">
+                    {section}
+                    {section === 'Words' && <QueueStatusBadge size={data.queueSize} />}
+                  </span>
                   <span
                     id={`moderator-summary-${section}`}
                     title={summary(section, data, date)}
@@ -120,11 +126,6 @@ export function ModeratorNavigation({
                   >
                     {summary(section, data, date)}
                   </span>
-                  {section === 'Words' && data.queueSize <= LOW_QUEUE_THRESHOLD && (
-                    <span className="moderator-navigation-queue-warning mt-1 block text-xs font-semibold text-amber-800 dark:text-amber-200">
-                      {data.queueSize === 0 ? 'Queue Empty' : 'Queue Running Low'}
-                    </span>
-                  )}
                 </span>
                 <svg
                   aria-hidden="true"

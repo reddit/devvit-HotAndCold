@@ -142,10 +142,37 @@ test('moderator status is checked again after access is revoked', async () => {
   const role = mockRole(true);
   const caller = moderationRouter.createCaller({});
   try {
-    expect(await caller.access()).toEqual({ isModerator: true });
+    expect(await caller.access()).toEqual({ isModerator: true, queueSize: 0 });
     role.mods.mockReturnValue({ all: async () => [] } as any);
     await expect(caller.overview()).rejects.toMatchObject({ code: 'FORBIDDEN' });
   } finally {
+    role.restore();
+  }
+});
+
+test('the toolbar gets a queue count only for moderators and never receives queued words', async () => {
+  const role = mockRole(true);
+  const caller = moderationRouter.createCaller({});
+  await WordQueue.append({ challenge: { word: 'secretqueuedword' } });
+  try {
+    expect(await caller.access()).toEqual({ isModerator: true, queueSize: 1 });
+    role.mods.mockReturnValue({ all: async () => [] } as any);
+    expect(await caller.access()).toEqual({ isModerator: false });
+  } finally {
+    role.restore();
+  }
+});
+
+test('an unavailable queue count does not hide moderator tools or report a false empty queue', async () => {
+  const role = mockRole(true);
+  const count = vi.spyOn(WordQueue, 'size').mockRejectedValue(new Error('Redis unavailable'));
+  try {
+    expect(await moderationRouter.createCaller({}).access()).toEqual({
+      isModerator: true,
+      queueSize: null,
+    });
+  } finally {
+    count.mockRestore();
     role.restore();
   }
 });

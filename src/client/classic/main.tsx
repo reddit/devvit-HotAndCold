@@ -1,5 +1,5 @@
 import { render } from 'preact';
-import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
+import { useEffect, useMemo, useRef } from 'preact/hooks';
 import '../index.css';
 import { createGuessEngine } from '../core/guessEngine';
 import { requireChallengeNumber } from '../requireChallengeNumber';
@@ -16,6 +16,7 @@ import { posthog, configurePosthog } from '../posthog';
 import { GUESS_SAMPLE_RATE } from '../config';
 import type { GuessEngine } from '../core/guessEngine';
 import { trpc } from '../trpc';
+import { useModeratorStatus } from './moderator/status';
 
 configurePosthog({ mode: 'classic' });
 
@@ -23,15 +24,21 @@ function AppContent({
   engine,
   challengeNumber,
   isModerator,
+  queueSize,
 }: {
   engine: GuessEngine;
   challengeNumber: number;
   isModerator: boolean;
+  queueSize: number | null;
 }) {
   return (
     <div className="relative isolate h-[100dvh] min-h-[100dvh] w-full overflow-hidden">
       <div className="mx-auto flex h-full min-h-0 max-w-2xl flex-col overflow-hidden px-4 py-6 md:px-6">
-        <Header isModerator={isModerator} isSubmitting={Boolean(engine.isSubmitting.value)} />
+        <Header
+          isModerator={isModerator}
+          queueSize={queueSize}
+          isSubmitting={Boolean(engine.isSubmitting.value)}
+        />
         {page.value === 'win' ? (
           isLoggedOut() ? (
             <WinPageLoggedOut engine={engine} />
@@ -53,14 +60,7 @@ function AppContent({
 }
 
 export function App() {
-  const [isModerator, setIsModerator] = useState(false);
-  useEffect(() => {
-    if (!isLoggedOut())
-      void trpc.moderation.access
-        .query()
-        .then((result) => setIsModerator(result.isModerator))
-        .catch(() => {});
-  }, []);
+  const { isModerator, queueSize } = useModeratorStatus();
   const challengeNumber = requireChallengeNumber();
 
   const engine = useMemo(() => {
@@ -184,6 +184,7 @@ export function App() {
       engine={engine}
       challengeNumber={challengeNumber}
       isModerator={isModerator}
+      queueSize={queueSize}
     />
   );
 }

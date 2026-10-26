@@ -3,13 +3,16 @@ import { context } from '@devvit/web/client';
 import type { inferRouterOutputs } from '@trpc/server';
 import type { AppRouter } from '../../../server';
 import { trpc } from '../../trpc';
-import { SettingsIcon, openModeratorSettings } from './launch';
+import { SettingsIcon, openModeratorSettings, takeInitialModeratorSection } from './launch';
 import { WordRevealGate } from './wordReveal';
 import type { WordRevealAcknowledgement } from '../../../shared/moderation';
 import { DEFAULT_TEST_WORD } from '../../../shared/playtest';
 import { RedisSamplePanel } from './redisSample';
 import { formatBytes as bytes } from './format';
 import { DeveloperTools } from './developerTools';
+import { queueHealth } from '../../../shared/lowQueue';
+import { notifyQueueSize } from './status';
+import { QueueStatusNotice, QueueWarningIcon } from './queueStatus';
 import {
   ModeratorNavigation,
   QueueAlertToggle,
@@ -39,8 +42,8 @@ const message = (error: unknown) =>
   error instanceof Error ? error.message : 'Something went wrong. Please try again.';
 
 function ModeratorConsole() {
-  const [section, setSection] = useState<ModeratorSection>('Latest');
-  const [detailsOpen, setDetailsOpen] = useState(false);
+  const [section, setSection] = useState<ModeratorSection>(takeInitialModeratorSection);
+  const [detailsOpen, setDetailsOpen] = useState(section === 'Words');
   const detailsHeadingRef = useRef<HTMLHeadingElement>(null);
   const selectedNavigationRef = useRef<HTMLButtonElement>(null);
   const returnFocusToNavigation = useRef(false);
@@ -55,6 +58,7 @@ function ModeratorConsole() {
   const [revealTarget, setRevealTarget] = useState<'answer' | 'queue' | null>(null);
   const revealVersion = useRef(0);
   const [words, setWords] = useState('');
+  const wordsInputRef = useRef<HTMLTextAreaElement>(null);
   const [prepend, setPrepend] = useState(false);
   const [preview, setPreview] = useState<Outputs['previewWords'] | null>(null);
   const [clearConfirm, setClearConfirm] = useState('');
@@ -76,7 +80,9 @@ function ModeratorConsole() {
   }, []);
   const refresh = async () => {
     hideWords();
-    setData(await trpc.moderation.overview.query());
+    const next = await trpc.moderation.overview.query();
+    setData(next);
+    notifyQueueSize(next.queueSize);
   };
   const run = async (work: () => Promise<void>) => {
     setBusy(true);
@@ -141,6 +147,10 @@ function ModeratorConsole() {
     hideWords();
     setSection(section);
     setDetailsOpen(true);
+  };
+  const addUpcomingWords = () => {
+    navigate('Words');
+    requestAnimationFrame(() => wordsInputRef.current?.focus());
   };
   const backToSettings = () => {
     hideWords();
@@ -211,6 +221,17 @@ function ModeratorConsole() {
             <p className="moderator-console-description mt-1 text-xs text-gray-500 dark:text-gray-400">
               Choose a section to see details and moderation tools.
             </p>
+            {queueHealth(data?.queueSize) && (
+              <button
+                type="button"
+                data-queue-shortcut={queueHealth(data?.queueSize)}
+                className={`mt-1 flex items-center gap-1.5 rounded-md px-2 py-1 text-xs font-bold ${data?.queueSize === 0 ? 'bg-red-100 text-red-900 dark:bg-red-950 dark:text-red-200' : 'bg-amber-100 text-amber-950 dark:bg-amber-950 dark:text-amber-200'}`}
+                onClick={addUpcomingWords}
+              >
+                <QueueWarningIcon />
+                {data?.queueSize === 0 ? 'Word Queue Empty' : 'Word Queue Low'} · Add Words
+              </button>
+            )}
           </div>
           <button
             className={`${button} shrink-0 !px-2 !text-xs`}
@@ -355,11 +376,14 @@ function ModeratorConsole() {
                         Word Queue · {data.queueSize.toLocaleString()}{' '}
                         {data.queueSize === 1 ? 'Word' : 'Words'}
                       </h3>
-                      <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
-                        About {data.queueSize.toLocaleString()}{' '}
-                        {data.queueSize === 1 ? 'day' : 'days'} at one puzzle per day. Extra posts
-                        use words faster. Add words below without revealing the existing queue.
-                      </p>
+                      <QueueStatusNotice size={data.queueSize} onAddWords={addUpcomingWords} />
+                      {!queueHealth(data.queueSize) && (
+                        <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
+                          About {data.queueSize.toLocaleString()}{' '}
+                          {data.queueSize === 1 ? 'day' : 'days'} at one puzzle per day. Extra posts
+                          use words faster. Add words below without revealing the existing queue.
+                        </p>
+                      )}
                       <QueueAlertToggle
                         enabled={data.lowQueueAlertsEnabled}
                         busy={busy}
@@ -375,6 +399,7 @@ function ModeratorConsole() {
                         Comma-separated or one per line. Up to 200 words.
                       </p>
                       <textarea
+                        ref={wordsInputRef}
                         id="queue-words"
                         disabled={busy}
                         rows={4}
