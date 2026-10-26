@@ -140,19 +140,18 @@ export function CommunityProgress({
           />
         ))}
       </div>
-      <dl className="mt-2 grid grid-cols-3 gap-2 text-[11px] text-gray-600 dark:text-gray-300">
+      <ul className="mt-2 grid grid-cols-3 gap-2 text-[11px] text-gray-600 dark:text-gray-300">
         {outcomes.map(({ label, count, color }) => (
-          <div key={label} className="min-w-0">
-            <dt className="flex items-center gap-1.5">
-              <span aria-hidden="true" className={`h-2 w-2 shrink-0 rounded-full ${color}`} />
-              {label}
-            </dt>
-            <dd title={count.toLocaleString('en-US')} className="mt-0.5 font-semibold tabular-nums">
-              {formatCompactNumber(count)}
-            </dd>
-          </div>
+          <li
+            key={label}
+            title={`${count.toLocaleString('en-US')} ${label}`}
+            className="flex min-w-0 items-center gap-1.5"
+          >
+            <span aria-hidden="true" className={`h-2 w-2 shrink-0 rounded-full ${color}`} />
+            {label}
+          </li>
         ))}
-      </dl>
+      </ul>
     </figure>
   );
 }
