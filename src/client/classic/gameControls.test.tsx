@@ -419,3 +419,95 @@ it('keeps guest results and their actions inside a short inline post too', async
   expect(button('Share Results')).toBeDefined();
   expect(button('View Results')).toBeDefined();
 });
+
+it('shares the standings page with its graph, keeps Global local, and ignores stale summary responses', async () => {
+  localStorage.setItem('results-tab:1', '0');
+  mock.game = {
+    get: {
+      query: vi.fn().mockResolvedValue({
+        challengeInfo: { totalPlayers: 100, totalSolves: 30, totalGiveUps: 10 },
+        challengeUserInfo: {
+          username: 'player',
+          solvedAtMs: 2000,
+          startedPlayingAtMs: 1000,
+          guesses: [{ word: 'apple', rank: 0, similarity: 1 }],
+          score: null,
+        },
+      }),
+    },
+  };
+  let finishSummary: (data: unknown) => void = () => {};
+  const entries = Array.from({ length: 10 }, (_, index) => ({
+    member: index === 4 ? 'player' : `finisher${index}`,
+    score: 100 - index * 5,
+  }));
+  mock.leaderboard = {
+    get: {
+      query: vi
+        .fn()
+        .mockImplementationOnce(
+          () =>
+            new Promise((resolve) => {
+              finishSummary = resolve;
+            })
+        )
+        .mockResolvedValue({ leaderboardByScore: entries, userRank: { score: 5 } }),
+    },
+  };
+  await mount(<WinPage expanded />);
+  await expect.poll(() => Boolean(button('Global'))).toBe(true);
+  expect(mock.leaderboard.get.query).toHaveBeenCalledWith({
+    challengeNumber: 1,
+    start: 0,
+    stop: 0,
+  });
+  await act(() => button('Global')!.click());
+  expect(
+    container.querySelector('[aria-label^="Player outcomes"]')?.getAttribute('aria-label')
+  ).toContain('30 solved, 10 gave up, 60 unfinished');
+  expect(mock.leaderboard.get.query).toHaveBeenCalledTimes(1);
+  await act(() => button('Standings')!.click());
+  await expect
+    .poll(() => container.querySelectorAll('table[aria-label="Standings"] tbody tr').length)
+    .toBe(10);
+  expect(mock.leaderboard.get.query).toHaveBeenLastCalledWith({
+    challengeNumber: 1,
+    start: 0,
+    stop: 49,
+  });
+  expect(container.querySelectorAll('svg[aria-label^="Scores"] rect')).toHaveLength(10);
+  expect(container.querySelector('tr[aria-current="true"]')?.textContent).toContain('player (You)');
+  await act(async () => {
+    finishSummary({ leaderboardByScore: [entries[0]], userRank: { score: 999 } });
+  });
+  expect(container.querySelectorAll('table[aria-label="Standings"] tbody tr')).toHaveLength(10);
+  expect(
+    container.querySelector('svg[aria-label^="Scores"]')?.getAttribute('aria-label')
+  ).toContain('Your position in this chart: 5');
+  expect(container.textContent).not.toContain('#999');
+});
+
+it('distinguishes a failed standings request from an empty leaderboard and can retry', async () => {
+  localStorage.setItem('results-tab:1', '4');
+  mock.game = {
+    get: {
+      query: vi.fn().mockResolvedValue({ challengeInfo: {}, challengeUserInfo: { guesses: [] } }),
+    },
+  };
+  mock.leaderboard = {
+    get: {
+      query: vi
+        .fn()
+        .mockRejectedValueOnce(new Error('offline'))
+        .mockResolvedValue({ leaderboardByScore: [], userRank: null }),
+    },
+  };
+  await mount(<WinPage expanded />);
+  await expect
+    .poll(() => container.querySelector('[role="alert"]')?.textContent)
+    .toContain('Could not load standings');
+  expect(container.textContent).not.toContain('No one has completed');
+  await act(() => button('Try Again')!.click());
+  await expect.poll(() => container.textContent).toContain('No one has completed');
+  expect(container.querySelector('svg[aria-label^="Scores"]')).toBeNull();
+});

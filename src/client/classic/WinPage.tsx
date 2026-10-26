@@ -3,7 +3,6 @@ import type { ComponentChildren } from 'preact';
 import { Tablist } from '../shared/tablist';
 import { GradientBorder } from '../shared/gradientBorder';
 // import { RightChevronIcon } from '../shared/icons';
-import { cn } from '../utils/cn';
 import { trpc } from '../trpc';
 import { openPopup } from './expanded/launch';
 import { posthog } from '../posthog';
@@ -18,12 +17,15 @@ import { ReminderButton } from './reminders';
 import { ScrollPanel } from '../shared/scrollNavigation';
 import { userSettings } from './state/userSettings';
 import { InlineResults, InlineResultButtons } from './inlineResults';
-import { GuessJourney, CommunityProgress } from './resultsCharts';
+import { GuessJourney, CommunityProgress, StandingsScores } from './resultsCharts';
+import { ResultsTable, ResultsTableRow } from './resultsTable';
 import { ResultTemperature } from './feedback/temperature';
 
 type LeaderboardEntry = { member: string; score: number };
 
 const prettyNumber = (num: number): string => num.toLocaleString('en-US');
+const similarityPercent = (value: unknown): string =>
+  typeof value === 'number' && Number.isFinite(value) ? `${(value * 100).toFixed(1)}%` : '—';
 
 const StatCard = ({
   title,
@@ -185,6 +187,9 @@ export function WinPage({ expanded = false }: { expanded?: boolean }) {
   });
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
   const [userRank, setUserRank] = useState<number | null>(null);
+  const [leaderboardLoading, setLeaderboardLoading] = useState(false);
+  const [leaderboardError, setLeaderboardError] = useState(false);
+  const [leaderboardAttempt, setLeaderboardAttempt] = useState(0);
   const [hints, setHints] = useState<HintWord[] | null>(null);
   const [isHintsLoading, setIsHintsLoading] = useState(false);
 
@@ -207,22 +212,32 @@ export function WinPage({ expanded = false }: { expanded?: boolean }) {
   }, [challengeNumber]);
 
   useEffect(() => {
-    // Load leaderboard lazily when page mounts
+    let active = true;
+    setLeaderboardLoading(true);
+    setLeaderboardError(false);
+    // Load the larger page only for Standings; both its graph and table share it.
     void (async () => {
       try {
         const res = await trpc.leaderboard.get.query({
           challengeNumber,
           start: 0,
-          stop: expanded && activeIndex === 4 ? 50 : 0,
+          stop: expanded && activeIndex === 4 ? 49 : 0,
         });
+        if (!active) return;
         setLeaderboard(res.leaderboardByScore ?? []);
         const myRank = res.userRank?.score ?? null;
         setUserRank(typeof myRank === 'number' ? myRank : null);
       } catch {
-        // ignore
+        if (active) setLeaderboardError(true);
+      } finally {
+        if (active) setLeaderboardLoading(false);
       }
     })();
-  }, [challengeNumber, expanded && activeIndex === 4]);
+    // A slower summary request must not replace the full page after switching tabs.
+    return () => {
+      active = false;
+    };
+  }, [challengeNumber, expanded && activeIndex === 4, leaderboardAttempt]);
 
   useEffect(() => {
     if (!expanded || activeIndex !== 2 || hints !== null) return;
@@ -427,7 +442,11 @@ export function WinPage({ expanded = false }: { expanded?: boolean }) {
 
           {activeIndex === 1 && (
             <div className="flex flex-col gap-6">
-              <CommunityProgress players={totalPlayers} solves={totalSolves} />
+              <CommunityProgress
+                players={totalPlayers}
+                solves={totalSolves}
+                giveUps={totalGiveUps}
+              />
               <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
                 <StatCard title="Total Players" value={formatCompactNumber(totalPlayers)} />
                 <StatCard title="Total Solves" value={formatCompactNumber(totalSolves)} />
@@ -444,167 +463,120 @@ export function WinPage({ expanded = false }: { expanded?: boolean }) {
 
           {activeIndex === 2 && (
             <div className="flex flex-col gap-4">
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between gap-2">
                 <h2 className="text-base font-semibold text-gray-900 dark:text-white">
                   Closest Words
                 </h2>
                 {hints && hints.length > 0 && (
-                  <span className="text-xs text-gray-500 dark:text-gray-400">
-                    {hints.length} words
+                  <span className="text-xs text-gray-600 tabular-nums dark:text-gray-300">
+                    {prettyNumber(hints.length)} Words
                   </span>
                 )}
               </div>
-              <div className="rounded-lg border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900">
-                {isHintsLoading ? (
-                  <div className="p-4 text-sm text-gray-500 dark:text-gray-400">Loading…</div>
-                ) : !hints || hints.length === 0 ? (
-                  <div className="p-4 text-sm text-gray-700 dark:text-gray-300">
-                    No hints available.
-                  </div>
-                ) : (
-                  hints.map((h, index) => (
-                    <div
-                      key={`${h.word}-${index}`}
-                      className={cn(
-                        'flex items-center px-4 py-1 transition-colors duration-150',
-                        index % 2 === 0
-                          ? 'bg-gray-50 dark:bg-gray-800/50'
-                          : 'bg-gray-100 dark:bg-gray-900/50'
-                      )}
-                    >
-                      <div className="flex flex-1 items-center gap-3">
-                        <span className="min-w-[2rem] font-mono text-sm text-gray-600 dark:text-gray-400">
-                          #{h.rank ?? index}
-                        </span>
-                        <span className="truncate font-medium text-gray-900 dark:text-white">
-                          {h.word}
-                        </span>
-                      </div>
-                      <span className="text-sm text-gray-700 dark:text-gray-300">
-                        {(h.similarity * 100).toFixed(1)}%
-                      </span>
-                    </div>
-                  ))
-                )}
-              </div>
+              {isHintsLoading ? (
+                <p role="status" className="text-sm text-gray-600 dark:text-gray-300">
+                  Loading…
+                </p>
+              ) : !hints?.length ? (
+                <p className="text-sm text-gray-700 dark:text-gray-300">No hints available.</p>
+              ) : (
+                <ResultsTable label="Closest Words" nameHeading="Word" valueHeading="Similarity">
+                  {hints.map((hint, index) => (
+                    <ResultsTableRow
+                      key={`${hint.word}-${index}`}
+                      rank={hint.rank ?? index}
+                      name={hint.word}
+                      value={similarityPercent(hint.similarity)}
+                    />
+                  ))}
+                </ResultsTable>
+              )}
             </div>
           )}
 
           {activeIndex === 3 && (
             <div className="flex flex-col gap-4">
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between gap-2">
                 <h2 className="text-base font-semibold text-gray-900 dark:text-white">
                   Your Guesses
                 </h2>
                 {challengeUserInfo.guesses?.length ? (
-                  <span className="text-xs text-gray-500 dark:text-gray-400">
-                    {challengeUserInfo.guesses.length} total
+                  <span className="text-xs text-gray-600 tabular-nums dark:text-gray-300">
+                    {prettyNumber(challengeUserInfo.guesses.length)} Total
                   </span>
                 ) : null}
               </div>
-              <div className="rounded-lg border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900">
-                {!challengeUserInfo.guesses || challengeUserInfo.guesses.length === 0 ? (
-                  <div className="p-4 text-sm text-gray-700 dark:text-gray-300">
-                    No guesses yet.
-                  </div>
-                ) : (
-                  [...challengeUserInfo.guesses]
+              {!challengeUserInfo.guesses?.length ? (
+                <p className="text-sm text-gray-700 dark:text-gray-300">No guesses yet.</p>
+              ) : (
+                <ResultsTable label="Your Guesses" nameHeading="Word" valueHeading="Similarity">
+                  {[...challengeUserInfo.guesses]
                     .sort(
                       (a: any, b: any) => Number(b.timestampMs ?? 0) - Number(a.timestampMs ?? 0)
                     )
-                    .map((g: any, index: number) => (
-                      <div
-                        key={`${g.word}-${g.timestampMs ?? index}`}
-                        className={cn(
-                          'flex items-center px-4 py-1 transition-colors duration-150',
-                          index % 2 === 0
-                            ? 'bg-gray-50 dark:bg-gray-800/50'
-                            : 'bg-gray-100 dark:bg-gray-900/50'
-                        )}
-                      >
-                        <div className="flex flex-1 items-center gap-3">
-                          <span className="min-w-[2.25rem] font-mono text-sm text-gray-600 dark:text-gray-400">
-                            #{typeof g.rank === 'number' && g.rank >= 0 ? g.rank : '—'}
-                          </span>
-                          <span className="truncate font-medium text-gray-900 dark:text-white">
-                            {g.word}
-                          </span>
-                          {g.isHint ? (
-                            <span className="ml-2 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-700 dark:bg-amber-900/30 dark:text-amber-300">
-                              Hint
-                            </span>
-                          ) : null}
-                        </div>
-                        <span className="text-sm text-gray-700 dark:text-gray-300">
-                          {typeof g.similarity === 'number'
-                            ? (g.similarity * 100).toFixed(1) + '%'
-                            : '—'}
-                        </span>
-                      </div>
-                    ))
-                )}
-              </div>
+                    .map((guess: any, index: number) => (
+                      <ResultsTableRow
+                        key={`${guess.word}-${guess.timestampMs ?? index}`}
+                        rank={typeof guess.rank === 'number' ? guess.rank : null}
+                        name={guess.word}
+                        value={similarityPercent(guess.similarity)}
+                        isHint={!!guess.isHint}
+                      />
+                    ))}
+                </ResultsTable>
+              )}
             </div>
           )}
 
           {activeIndex === 4 && (
-            <div className="flex flex-col gap-4">
-              <div className="flex flex-col gap-1 text-center">
+            <div className="flex flex-col gap-3">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <h2 className="text-base font-semibold text-gray-900 dark:text-white">Standings</h2>
                 {userRank && (
-                  <p className="text-gray-400">
-                    Your Rank: <span className="font-bold text-blue-400">#{userRank}</span>
+                  <p className="text-xs text-gray-600 dark:text-gray-300">
+                    Your Rank:{' '}
+                    <span className="font-semibold whitespace-nowrap text-cyan-800 tabular-nums dark:text-cyan-200">
+                      #{prettyNumber(userRank)}
+                    </span>
                   </p>
                 )}
               </div>
-
-              {leaderboard?.length ? (
-                <div className="rounded-lg border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900">
-                  {leaderboard.map((entry, index) => {
-                    const isCurrentUser = entry.member === challengeUserInfo.username;
-                    const rank = index + 1;
-                    const isTopThree = rank <= 3;
-                    return (
-                      <div
-                        key={`${entry.member}-${index}`}
-                        className={cn(
-                          'flex items-center px-4 py-1 transition-colors duration-150',
-                          index % 2 === 0
-                            ? 'bg-gray-50 dark:bg-gray-800/50'
-                            : 'bg-gray-100 dark:bg-gray-900/50',
-                          isCurrentUser && 'bg-blue-100 dark:bg-blue-900/20'
-                        )}
-                      >
-                        <div className="flex flex-1 items-center gap-3">
-                          <span
-                            className={cn(
-                              'min-w-[2rem] font-mono text-sm',
-                              isTopThree
-                                ? 'font-bold text-yellow-600 dark:text-yellow-400'
-                                : 'text-gray-600 dark:text-gray-400'
-                            )}
-                          >
-                            #{rank}
-                          </span>
-                          <span
-                            className={cn(
-                              'truncate font-medium',
-                              isCurrentUser
-                                ? 'text-blue-700 dark:text-blue-500'
-                                : 'text-gray-900 dark:text-white'
-                            )}
-                          >
-                            {entry.member} {isCurrentUser && '(you)'}
-                          </span>
-                        </div>
-                        <span className="font-bold text-gray-900 dark:text-gray-200">
-                          {prettyNumber(entry.score)}
-                        </span>
-                      </div>
-                    );
-                  })}
+              {leaderboardLoading ? (
+                <p role="status" className="text-sm text-gray-600 dark:text-gray-300">
+                  Loading Standings…
+                </p>
+              ) : leaderboardError ? (
+                <div className="flex flex-wrap items-center gap-3 text-sm">
+                  <p role="alert">Could not load standings.</p>
+                  <button
+                    type="button"
+                    className="rounded-lg border border-gray-300 px-3 py-2 font-semibold dark:border-gray-600"
+                    onClick={() => setLeaderboardAttempt((attempt) => attempt + 1)}
+                  >
+                    Try Again
+                  </button>
                 </div>
+              ) : leaderboard.length ? (
+                <>
+                  <StandingsScores
+                    entries={leaderboard}
+                    currentUsername={challengeUserInfo.username ?? null}
+                  />
+                  <ResultsTable label="Standings" nameHeading="Player" valueHeading="Score">
+                    {leaderboard.map((entry, index) => (
+                      <ResultsTableRow
+                        key={`${entry.member}-${index}`}
+                        rank={index + 1}
+                        name={entry.member}
+                        value={prettyNumber(entry.score)}
+                        isCurrentUser={entry.member === challengeUserInfo.username}
+                        isTopThree={index < 3}
+                      />
+                    ))}
+                  </ResultsTable>
+                </>
               ) : (
-                <p className="text-center text-gray-700 dark:text-gray-300">
+                <p className="text-center text-sm text-gray-700 dark:text-gray-300">
                   No one has completed today's challenge. Check back soon!
                 </p>
               )}

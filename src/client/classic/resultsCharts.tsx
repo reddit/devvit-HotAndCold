@@ -96,32 +96,154 @@ export function GuessJourney({
   );
 }
 
-export function CommunityProgress({ players, solves }: { players: number; solves: number }) {
-  if (!Number.isFinite(players) || players <= 0) return null;
-  const count = Number.isFinite(solves) ? Math.max(0, solves) : 0;
-  const percent = Math.min(100, Math.round((count / players) * 100));
+const playerCount = (count: number) =>
+  Number.isFinite(count) ? Math.max(0, Math.floor(count)) : 0;
+
+export function CommunityProgress({
+  players,
+  solves,
+  giveUps = 0,
+}: {
+  players: number;
+  solves: number;
+  giveUps?: number;
+}) {
+  const total = playerCount(players);
+  if (!total) return null;
+  // Legacy/in-flight counters must not produce negative segments or overflow the chart.
+  const solved = Math.min(total, playerCount(solves));
+  const gaveUp = Math.min(total - solved, playerCount(giveUps));
+  const playing = total - solved - gaveUp;
+  const percent = Math.round((solved / total) * 100);
+  const outcomes = [
+    { label: 'Solved', count: solved, color: 'bg-orange-600 dark:bg-orange-400' },
+    { label: 'Gave Up', count: gaveUp, color: 'bg-sky-600 dark:bg-sky-400' },
+    { label: 'Unfinished', count: playing, color: 'bg-gray-400 dark:bg-gray-500' },
+  ];
   return (
-    <figure className="rounded-xl bg-gray-50 p-4 dark:bg-gray-800/60">
-      <figcaption className="mb-2 flex flex-wrap justify-between gap-1 text-sm">
+    <figure className="rounded-xl bg-gray-50 p-3 dark:bg-gray-800/60">
+      <figcaption className="mb-2 flex flex-wrap justify-between gap-1 text-xs text-gray-600 dark:text-gray-300">
         <span className="font-semibold">Community Progress</span>
-        <span className="text-gray-500 dark:text-gray-400">
-          {formatCompactNumber(count)} of {formatCompactNumber(players)} Players Solved
-        </span>
+        <span>{percent}% Solve Rate</span>
       </figcaption>
       <div
-        role="meter"
-        aria-label="Players Who Solved"
-        aria-valuemin={0}
-        aria-valuemax={100}
-        aria-valuenow={percent}
-        className="h-2.5 overflow-hidden rounded-full bg-gray-200 dark:bg-gray-700"
+        role="img"
+        aria-label={`Player outcomes: ${solved.toLocaleString('en-US')} solved, ${gaveUp.toLocaleString('en-US')} gave up, ${playing.toLocaleString('en-US')} unfinished, out of ${total.toLocaleString('en-US')} players.`}
+        className="flex h-3 overflow-hidden rounded-full"
       >
-        <div
-          className="h-full rounded-full bg-gradient-to-r from-amber-400 to-orange-600"
-          style={{ width: `${percent}%` }}
-        />
+        {outcomes.map(({ label, count, color }) => (
+          <span
+            key={label}
+            aria-hidden="true"
+            className={color}
+            style={{ width: `${(count / total) * 100}%` }}
+          />
+        ))}
       </div>
-      <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">{percent}% Solve Rate</p>
+      <dl className="mt-2 grid grid-cols-3 gap-2 text-[11px] text-gray-600 dark:text-gray-300">
+        {outcomes.map(({ label, count, color }) => (
+          <div key={label} className="min-w-0">
+            <dt className="flex items-center gap-1.5">
+              <span aria-hidden="true" className={`h-2 w-2 shrink-0 rounded-full ${color}`} />
+              {label}
+            </dt>
+            <dd title={count.toLocaleString('en-US')} className="mt-0.5 font-semibold tabular-nums">
+              {formatCompactNumber(count)}
+            </dd>
+          </div>
+        ))}
+      </dl>
+    </figure>
+  );
+}
+
+export type StandingScore = { member: string; score: number };
+
+/** Uses only the leaderboard page already requested for the table below it. */
+export function StandingsScores({
+  entries,
+  currentUsername,
+}: {
+  entries: StandingScore[];
+  currentUsername?: string | null;
+}) {
+  const valid = entries
+    .map((entry, index) => ({ ...entry, place: index + 1 }))
+    .filter((entry) => Number.isFinite(entry.score) && entry.score >= 0);
+  if (!valid.length) return null;
+  const highest = Math.max(...valid.map((entry) => entry.score));
+  const width = 320;
+  const height = 56;
+  const pitch = width / entries.length;
+  const barWidth = Math.min(24, pitch * 0.7);
+  const current = valid.find((entry) => entry.member === currentUsername);
+  return (
+    <figure className="rounded-xl bg-gray-50 p-3 dark:bg-gray-800/60">
+      <figcaption className="mb-2 flex flex-wrap justify-between gap-1 text-xs text-gray-600 dark:text-gray-300">
+        <span className="font-semibold">Leaderboard Scores</span>
+        <span>
+          Top {entries.length} {entries.length === 1 ? 'Finisher' : 'Finishers'}
+        </span>
+      </figcaption>
+      <div className="flex gap-2">
+        <div
+          aria-hidden="true"
+          className="flex w-10 shrink-0 flex-col justify-between text-right text-[10px] leading-3 text-gray-600 tabular-nums dark:text-gray-300"
+        >
+          <span>{formatCompactNumber(highest)}</span>
+          <span>0</span>
+        </div>
+        <svg
+          role="img"
+          aria-label={`Scores for the top ${entries.length} ${entries.length === 1 ? 'finisher' : 'finishers'}. Highest score ${highest.toLocaleString('en-US')}. Scores start at zero.${current ? ` Your position in this chart: ${current.place}.` : ''}`}
+          className="block min-w-0 flex-1"
+          style={{ height }}
+          viewBox={`0 0 ${width} ${height}`}
+          preserveAspectRatio="none"
+        >
+          <path
+            d={`M0,${height - 1}H${width}`}
+            stroke="currentColor"
+            className="text-gray-300 dark:text-gray-600"
+          />
+          {valid.map((entry) => {
+            const barHeight = highest > 0 ? (entry.score / highest) * (height - 5) : 0;
+            const isCurrent = entry.member === currentUsername;
+            return (
+              <rect
+                key={entry.member}
+                x={(entry.place - 0.5) * pitch - barWidth / 2}
+                y={height - 1 - barHeight}
+                width={barWidth}
+                height={barHeight}
+                rx={Math.min(2, barWidth / 2)}
+                fill="currentColor"
+                className={
+                  isCurrent
+                    ? 'text-orange-600 dark:text-orange-400'
+                    : 'text-cyan-700 dark:text-cyan-400'
+                }
+              >
+                <title>{`#${entry.place} · ${entry.member}: ${entry.score.toLocaleString('en-US')} Points`}</title>
+              </rect>
+            );
+          })}
+        </svg>
+      </div>
+      <div
+        aria-hidden="true"
+        className={`mt-1 ml-12 flex ${entries.length === 1 ? 'justify-center' : 'justify-between'} gap-2 text-[10px] leading-3 text-gray-600 tabular-nums dark:text-gray-300`}
+      >
+        {entries.length > 1 && <span>#1</span>}
+        {current && (
+          <span className="inline-flex items-center gap-1 text-orange-800 dark:text-orange-200">
+            <span className="h-1.5 w-1.5 rounded-full bg-orange-600 dark:bg-orange-400" />
+            You{entries.length === 1 && ' · #1'}
+          </span>
+        )}
+        {entries.length === 1 && !current && <span>#1</span>}
+        {entries.length > 1 && <span>#{entries.length}</span>}
+      </div>
     </figure>
   );
 }
