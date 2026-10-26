@@ -128,6 +128,7 @@ largest client chunk from about 573 kB to 391 kB without raising the warning lim
 
 ## Player sound and motion
 
+- Volume defaults to **50%**; existing saved volume levels are preserved.
 - New players default to sound on, but audio stays silent until their first
   Guess submission (or an explicit sound-button action). Typing and opening
   menus do not start sound. The speaker remembers the current Reddit account's
