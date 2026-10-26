@@ -47,7 +47,7 @@ afterEach(async () => {
 });
 const button = (text: string) =>
   Array.from(container.querySelectorAll('button')).find(
-    (element) => element.textContent?.trim() === text
+    (element) => element.getAttribute('aria-label') === text || element.textContent?.trim() === text
   )!;
 
 it('keeps playing without a mutation, then requires a separate confirmation to give up', async () => {

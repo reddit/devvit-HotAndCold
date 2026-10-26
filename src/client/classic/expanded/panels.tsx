@@ -11,6 +11,8 @@ import { flushPendingGuesses } from '../../core/guessEngine';
 
 const button =
   'min-h-10 rounded-lg border border-gray-300 px-4 py-2 text-sm font-semibold disabled:opacity-50 dark:border-gray-600';
+const giveUpButton =
+  'inline-flex min-h-10 min-w-0 items-center justify-center gap-1.5 rounded-lg border border-gray-300 px-2 py-2 text-sm font-semibold whitespace-nowrap disabled:opacity-50 dark:border-gray-600 [&>svg]:h-4 [&>svg]:w-4';
 
 export function GiveUpPanel({
   onCancel = exitExpandedMode,
@@ -39,13 +41,14 @@ export function GiveUpPanel({
           </button>
         </>
       ) : (
-        <div className="flex flex-wrap gap-2">
-          <button disabled={busy} className={button} onClick={onCancel}>
+        <div className="grid grid-cols-2 items-stretch gap-2">
+          <button disabled={busy} className={giveUpButton} onClick={onCancel}>
             Keep Playing
           </button>
           <button
             disabled={busy}
-            className={`${button} inline-flex items-center gap-2 bg-gray-900 text-white dark:bg-white dark:text-gray-900`}
+            aria-label="Give Up and Reveal"
+            className={`${giveUpButton} bg-gray-900 text-white dark:bg-white dark:text-gray-900`}
             onClick={async () => {
               if (busyRef.current) return;
               busyRef.current = true;
@@ -70,7 +73,7 @@ export function GiveUpPanel({
               }
             }}
           >
-            <GiveUpIcon /> {busy ? 'Revealing…' : 'Give Up and Reveal'}
+            {!busy && <GiveUpIcon />} {busy ? 'Revealing…' : 'Give Up'}
           </button>
         </div>
       )}
