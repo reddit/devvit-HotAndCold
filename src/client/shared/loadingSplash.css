@@ -1,0 +1,122 @@
+/* Also linked directly by the HTML shells, before JavaScript is ready. */
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+.loading-splash {
+  box-sizing: border-box;
+  display: flex;
+  min-height: 100dvh;
+  width: 100%;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  overflow: hidden;
+  padding: 24px;
+  background: #fff;
+  color: #475569;
+  font-family:
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    'Segoe UI',
+    sans-serif;
+  text-align: center;
+}
+
+.loading-splash__spinner {
+  position: relative;
+  width: clamp(80px, 28vmin, 144px);
+  height: clamp(80px, 28vmin, 144px);
+  flex-shrink: 0;
+  margin: 12px;
+  animation: loading-splash-spin 3s linear infinite;
+}
+
+.loading-splash__spinner::before {
+  position: absolute;
+  inset: -12px;
+  border: 3px solid transparent;
+  border-top-color: #de3232;
+  border-right-color: #ffbf0b;
+  border-bottom-color: #4ce1f2;
+  border-radius: 50%;
+  content: '';
+}
+
+.loading-splash__spinner img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+}
+
+.loading-splash__name {
+  margin: 0;
+  color: #0f172a;
+  font-size: 24px;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.loading-splash__message {
+  margin: 0;
+  font-size: 14px;
+  line-height: 20px;
+}
+
+.loading-splash--inline {
+  min-height: 0;
+  height: 100%;
+  flex: 1;
+  gap: 8px;
+  padding: 16px;
+}
+
+.loading-splash--inline .loading-splash__spinner {
+  width: 80px;
+  height: 80px;
+}
+
+.loading-splash--inline .loading-splash__name {
+  font-size: 20px;
+}
+
+@keyframes loading-splash-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-color-scheme: dark) {
+  .loading-splash {
+    background: #030712;
+    color: #cbd5e1;
+  }
+
+  .loading-splash__name {
+    color: #f1f5f9;
+  }
+}
+
+@media (max-height: 300px) {
+  .loading-splash {
+    gap: 8px;
+    padding: 12px;
+  }
+
+  .loading-splash__spinner {
+    width: 64px;
+    height: 64px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .loading-splash__spinner {
+    animation: none;
+  }
+}

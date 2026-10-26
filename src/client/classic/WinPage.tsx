@@ -21,6 +21,7 @@ import { GuessJourney, CommunityProgress, StandingsScores } from './resultsChart
 import { ResultsTable, ResultsTableRow } from './resultsTable';
 import { ResultTemperature } from './feedback/temperature';
 import { ResultArtwork } from './resultArtwork';
+import { LoadingSplash } from '../shared/loadingSplash';
 
 type LeaderboardEntry = { member: string; score: number };
 
@@ -263,13 +264,7 @@ export function WinPage({ expanded = false }: { expanded?: boolean }) {
   }, [challengeNumber, expanded, activeIndex, hints]);
 
   if (!challengeUserInfo || !challengeInfo) {
-    // optimistic skeleton
-    return (
-      <div className="flex flex-1 flex-col gap-4 px-4">
-        <div className="mx-auto h-10 w-64 animate-pulse rounded bg-gray-200 dark:bg-gray-800" />
-        <div className="mx-auto h-24 w-full max-w-xl animate-pulse rounded bg-gray-200 dark:bg-gray-800" />
-      </div>
-    );
+    return <LoadingSplash inline />;
   }
 
   const didWin = !!challengeUserInfo.solvedAtMs;

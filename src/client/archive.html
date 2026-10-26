@@ -4,9 +4,18 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Hot and Cold Archive</title>
+    <link rel="stylesheet" href="./shared/loadingSplash.css" />
   </head>
   <body class="h-full">
-    <div id="root" class="h-full bg-white dark:bg-gray-950 dark:text-gray-200"></div>
+    <div id="root" class="h-full bg-white dark:bg-gray-950 dark:text-gray-200">
+      <div class="loading-splash" role="status" aria-label="Loading Hot and Cold">
+        <div class="loading-splash__spinner" aria-hidden="true">
+          <img src="/assets/hot-and-cold-icon.png" alt="" width="144" height="144" />
+        </div>
+        <p class="loading-splash__name" aria-hidden="true">Hot &amp; Cold</p>
+        <p class="loading-splash__message">Loading…</p>
+      </div>
+    </div>
     <script type="module" src="classic/archive/main.tsx"></script>
   </body>
 </html>

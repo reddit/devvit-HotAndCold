@@ -320,6 +320,31 @@ it('keeps long solved-page lists in one scrolling area with native scrolling', a
   expect(container.scrollWidth).toBe(container.clientWidth);
 });
 
+it('shows the branded splash until results data arrives, then replaces it with the game', async () => {
+  let finish: (value: any) => void = () => {};
+  mock.game = {
+    get: {
+      query: vi.fn(
+        () =>
+          new Promise((resolve) => {
+            finish = resolve;
+          })
+      ),
+    },
+  };
+  mock.leaderboard = {
+    get: { query: vi.fn().mockResolvedValue({ leaderboardByScore: [], userRank: null }) },
+  };
+  await mount(<WinPage />);
+  const loading = container.querySelector('[role="status"][aria-label="Loading Hot and Cold"]');
+  expect(loading).not.toBeNull();
+  expect(loading?.textContent).toContain('Hot & Cold');
+  expect(button('View Results')).toBeUndefined();
+  await act(async () => finish({ challengeInfo: {}, challengeUserInfo: { guesses: [] } }));
+  await expect.poll(() => Boolean(button('View Results'))).toBe(true);
+  expect(container.querySelector('[aria-label="Loading Hot and Cold"]')).toBeNull();
+});
+
 it('opens full results from the compact inline summary without showing inline tabs or lists', async () => {
   mock.hints = vi.fn().mockResolvedValue([]);
   mock.game = {
