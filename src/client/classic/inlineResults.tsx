@@ -1,10 +1,11 @@
 import type { ComponentChildren } from 'preact';
 import { requireChallengeNumber } from '../requireChallengeNumber';
 import { openPopup } from './expanded/launch';
-import { ShareIcon } from './icons';
+import { ShareIcon, ResultsIcon } from './icons';
 import { GuessJourney, type JourneyGuess } from './resultsCharts';
 import './inlineResults.css';
 import { ResultTemperature } from './feedback/temperature';
+import { ResultArtwork } from './resultArtwork';
 
 export type ResultStat = {
   label: string;
@@ -32,14 +33,17 @@ export function InlineResults({
     >
       <ResultTemperature didWin={didWin} />
       <div className="inline-results-content">
-        <h1 className="inline-results-heading text-center font-bold">
-          <span className="block text-base">{didWin ? 'Congratulations!' : 'Nice Try!'}</span>
-          <span
-            className={`block text-xl break-words ${didWin ? 'text-orange-800 dark:text-orange-200' : 'text-sky-800 dark:text-sky-200'}`}
-          >
-            {word}
-          </span>
-        </h1>
+        <div className="inline-results-hero">
+          <ResultArtwork didWin={didWin} className="inline-results-artwork" />
+          <h1 className="inline-results-heading min-w-0 text-center font-bold">
+            <span className="block text-base">{didWin ? 'Congratulations!' : 'Nice Try!'}</span>
+            <span
+              className={`block text-xl break-words ${didWin ? 'text-orange-800 dark:text-orange-200' : 'text-sky-800 dark:text-sky-200'}`}
+            >
+              {word}
+            </span>
+          </h1>
+        </div>
         <dl
           className="grid shrink-0 gap-2"
           style={{ gridTemplateColumns: `repeat(${stats.length}, minmax(0, 1fr))` }}
@@ -89,13 +93,13 @@ export function InlineResultButtons({ onShare }: { onShare: () => void }) {
       </button>
       <button
         type="button"
-        className="inline-result-button min-w-0 rounded-full border border-gray-300 px-2 text-xs font-semibold dark:border-gray-600"
+        className="inline-result-button inline-flex min-w-0 items-center justify-center gap-1.5 rounded-full border border-gray-900 bg-gray-900 px-2 text-xs font-semibold text-white transition-colors hover:bg-gray-800 focus-visible:ring-2 focus-visible:ring-cyan-600 focus-visible:ring-offset-2 focus-visible:outline-none dark:border-gray-100 dark:bg-gray-100 dark:text-gray-950 dark:hover:bg-white [&>svg]:h-4 [&>svg]:w-4"
         onClick={(event) => {
           localStorage.setItem(`results-tab:${requireChallengeNumber()}`, '0');
           openPopup(event, 'results');
         }}
       >
-        View Results
+        <ResultsIcon /> View Results
       </button>
     </div>
   );

@@ -12,6 +12,7 @@ import { setReminderOptIn } from './state/userSettings';
 import { reminderBusy, reminderStatus } from './state/reminders';
 import { setActiveTestRun } from '../playtest/run';
 import { takeInitialModeratorSection } from './moderator/launch';
+import { InlineResults } from './inlineResults';
 
 vi.mock('@devvit/web/client', () => ({
   context: { userId: 't2_player', subredditName: 'testsub', postData: { challengeNumber: 1 } },
@@ -335,6 +336,12 @@ it.each([
     await expect.poll(() => Boolean(button('Remind Me to Play Daily'))).toBe(true);
     const summary = container.querySelector<HTMLElement>('[aria-label="Puzzle Results"]')!;
     expect(summary.querySelector('.temperature-backdrop--victory')).not.toBeNull();
+    const art = summary.querySelector<SVGElement>('[data-result-art="hot"]')!;
+    expect(art.getAttribute('aria-hidden')).toBe('true');
+    expect(art.getBoundingClientRect().width).toBeGreaterThanOrEqual(40);
+    expect(art.getBoundingClientRect().top).toBeGreaterThanOrEqual(
+      summary.getBoundingClientRect().top
+    );
     const bounds = summary.getBoundingClientRect();
     expect(summary.scrollHeight).toBeLessThanOrEqual(summary.clientHeight);
     expect(summary.scrollWidth).toBe(summary.clientWidth);
@@ -353,6 +360,7 @@ it.each([
     expect(summary.scrollTop).toBe(0);
     expect(button('Share Results')?.querySelector('svg')).not.toBeNull();
     expect(button('View Results')).toBeDefined();
+    expect(button('View Results')?.querySelector('svg')).not.toBeNull();
     expect(mock.hints).not.toHaveBeenCalled();
     const chart = summary.querySelector<HTMLElement>('.inline-results-chart')!;
     if (width! >= 620) expect(chart.getBoundingClientRect().height).toBeGreaterThan(0);
@@ -388,6 +396,7 @@ it('does not turn a Give Up reveal into a winning point in the journey chart', a
   await expect.poll(() => container.textContent).toContain('Nice Try!');
   expect(container.querySelector('.temperature-backdrop--frozen')).not.toBeNull();
   expect(container.querySelector('.temperature-backdrop--victory')).toBeNull();
+  expect(container.querySelector('[data-result-art="cold"]')).not.toBeNull();
   const chart = container.querySelector('svg[aria-label^="Guess journey"]')!;
   expect(chart.getAttribute('aria-label')).toContain('over 2 guesses. Best rank 4');
   expect(container.textContent).toContain('apple');
@@ -419,6 +428,76 @@ it('keeps guest results and their actions inside a short inline post too', async
   expect(button('Share Results')).toBeDefined();
   expect(button('View Results')).toBeDefined();
 });
+
+it.each([true, false])(
+  'keeps View Results opaque and readable with the matching artwork (win: %s)',
+  async (didWin) => {
+    await page.viewport(700, 512);
+    const theme = matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    await mount(
+      <div className="relative isolate flex h-[100dvh] flex-col overflow-hidden bg-white px-4 py-6 text-gray-900 dark:bg-gray-950 dark:text-white">
+        <Header isModerator />
+        <InlineResults
+          didWin={didWin}
+          word={didWin ? 'mountain' : 'ocean'}
+          stats={[
+            { label: didWin ? 'Score' : 'Guesses', value: didWin ? 86 : 11 },
+            { label: 'Time', value: didWin ? '3m 25s' : '36h 40m' },
+            { label: 'Rank', value: didWin ? '#1' : '—' },
+          ]}
+          guesses={Array.from({ length: 17 }, (_, i) => ({
+            rank: i === 16 ? (didWin ? 0 : 33) : Math.round(30000 / (i + 1)),
+            timestamp: i,
+          }))}
+          actions={
+            <ResultsActions
+              compact
+              didWin={didWin}
+              challengeNumber={1}
+              stats={{ score: 86, timeToSolve: '3m 25s' }}
+            />
+          }
+        />
+      </div>
+    );
+    if (didWin) await expect.poll(() => Boolean(button('Remind Me to Play Daily'))).toBe(true);
+    const style = getComputedStyle(button('View Results')!);
+    const colorBytes = (color: string) => {
+      const canvas = document.createElement('canvas');
+      canvas.width = canvas.height = 1;
+      const ctx = canvas.getContext('2d')!;
+      ctx.fillStyle = color;
+      ctx.fillRect(0, 0, 1, 1);
+      return Array.from(ctx.getImageData(0, 0, 1, 1).data);
+    };
+    const luminance = (color: number[]) =>
+      color
+        .slice(0, 3)
+        .map((channel) => channel / 255)
+        .map((channel) =>
+          channel <= 0.04045 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4
+        )
+        .reduce((sum, channel, index) => sum + channel * [0.2126, 0.7152, 0.0722][index]!, 0);
+    const background = colorBytes(style.backgroundColor);
+    expect(background[3]).toBe(255);
+    const foreground = luminance(colorBytes(style.color));
+    const base = luminance(background);
+    expect(
+      (Math.max(foreground, base) + 0.05) / (Math.min(foreground, base) + 0.05)
+    ).toBeGreaterThanOrEqual(7);
+    const art = container.querySelector<SVGElement>(
+      `[data-result-art="${didWin ? 'hot' : 'cold'}"]`
+    )!;
+    expect(art.getBoundingClientRect().height).toBe(88);
+    expect(art.getAnimations()).toHaveLength(0);
+    expect(
+      container.querySelector('[aria-label="Puzzle Results"]')!.scrollHeight
+    ).toBeLessThanOrEqual(container.querySelector('[aria-label="Puzzle Results"]')!.clientHeight);
+    await page.screenshot({
+      path: `__screenshots__/result-${didWin ? 'hot' : 'cold'}-${theme}.png`,
+    });
+  }
+);
 
 it('shares the standings page with its graph, keeps Global local, and ignores stale summary responses', async () => {
   localStorage.setItem('results-tab:1', '0');

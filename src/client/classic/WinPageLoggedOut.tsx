@@ -9,6 +9,7 @@ import { ScrollPanel } from '../shared/scrollNavigation';
 import { InlineResults, InlineResultButtons } from './inlineResults';
 import { GuessJourney } from './resultsCharts';
 import { ResultTemperature } from './feedback/temperature';
+import { ResultArtwork } from './resultArtwork';
 
 export function WinPageLoggedOut({
   engine,
@@ -101,6 +102,7 @@ export function WinPageLoggedOut({
     <ScrollPanel label="Results">
       <ResultTemperature didWin={wonLocally} />
       <div className="flex flex-col items-center justify-center gap-6 px-4 py-4 text-center">
+        <ResultArtwork didWin={wonLocally} />
         <div className="flex flex-col gap-2">
           <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
             {wonLocally ? 'Congratulations!' : 'Game Over!'}

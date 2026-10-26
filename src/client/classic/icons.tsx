@@ -35,6 +35,11 @@ export const ShareIcon = () => (
     <path d="M12 16V3m-4 4 4-4 4 4M6 10H5a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7a2 2 0 0 0-2-2h-1" />
   </ToolbarIcon>
 );
+export const ResultsIcon = () => (
+  <ToolbarIcon>
+    <path d="M4 20h16M7 16v-4M12 16V5M17 16V9" />
+  </ToolbarIcon>
+);
 export const GearIcon = () => (
   <ToolbarIcon>
     <path

@@ -20,6 +20,7 @@ import { InlineResults, InlineResultButtons } from './inlineResults';
 import { GuessJourney, CommunityProgress, StandingsScores } from './resultsCharts';
 import { ResultsTable, ResultsTableRow } from './resultsTable';
 import { ResultTemperature } from './feedback/temperature';
+import { ResultArtwork } from './resultArtwork';
 
 type LeaderboardEntry = { member: string; score: number };
 
@@ -368,6 +369,7 @@ export function WinPage({ expanded = false }: { expanded?: boolean }) {
         <div className="mx-auto w-full max-w-xl px-1 pb-3">
           {activeIndex === 0 && (
             <div className="flex flex-col items-center justify-start gap-4">
+              <ResultArtwork didWin={didWin} />
               <h1 className="text-center text-2xl font-bold text-gray-900 dark:text-white">
                 {didWin ? 'Congratulations!' : 'Nice Try!'} The word was:{' '}
                 <span
