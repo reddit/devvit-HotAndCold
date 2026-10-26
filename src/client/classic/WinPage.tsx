@@ -22,6 +22,7 @@ import { ResultsTable, ResultsTableRow } from './resultsTable';
 import { ResultTemperature } from './feedback/temperature';
 import { ResultArtwork } from './resultArtwork';
 import { LoadingSplash } from '../shared/loadingSplash';
+import './expandedResults.css';
 
 type LeaderboardEntry = { member: string; score: number };
 
@@ -36,13 +37,13 @@ const StatCard = ({
 }: {
   title: ComponentChildren;
   value: string | number;
-  valueSubtext?: string;
+  valueSubtext?: string | undefined;
 }) => (
-  <div className="rounded-lg bg-gray-200 px-4 py-2 text-xs text-gray-600 dark:bg-gray-800 dark:text-gray-400">
+  <div className="result-stat min-w-0 rounded-lg bg-gray-200 px-3 py-2 text-xs text-gray-600 dark:bg-gray-800 dark:text-gray-400">
     <div className="pb-1">{title}</div>
-    <div>
-      <span className="truncate text-2xl font-bold text-black dark:text-white">{value}</span>
-      {valueSubtext && <> {valueSubtext}</>}
+    <div className="flex flex-wrap items-baseline gap-x-1 tabular-nums">
+      <span className="result-stat-value font-bold text-black dark:text-white">{value}</span>
+      {valueSubtext && <span>{valueSubtext}</span>}
     </div>
   </div>
 );
@@ -150,15 +151,15 @@ export const ResultsActions = ({
     );
 
   return (
-    <div className="text-sm">
-      <div className="flex w-full flex-col items-center gap-2">
+    <div className="expanded-results-actions w-full text-sm">
+      <div className="grid w-full gap-2">
         {didWin && <ReminderButton prominent />}
         {cta && cta !== 'REMIND_ME_TO_PLAY' && (
           <button
             type="button"
             onClick={doAction}
             disabled={isLoading}
-            className="w-full max-w-sm cursor-pointer rounded-full bg-zinc-100 text-black focus:ring-2 focus:ring-slate-400 focus:ring-offset-2 focus:ring-offset-slate-50 focus:outline-none dark:bg-zinc-800 dark:text-white"
+            className="expanded-results-cta w-full max-w-sm cursor-pointer rounded-full bg-zinc-100 text-black focus:ring-2 focus:ring-slate-400 focus:ring-offset-2 focus:ring-offset-slate-50 focus:outline-none dark:bg-zinc-800 dark:text-white"
           >
             <GradientBorder isHidden={isLoading}>
               <span className="inline-flex min-h-10 items-center justify-center px-4 py-2 text-center leading-snug font-semibold">
@@ -343,7 +344,7 @@ export function WinPage({ expanded = false }: { expanded?: boolean }) {
   ];
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col gap-3">
+    <div className="expanded-results flex min-h-0 flex-1 flex-col gap-3">
       <ResultTemperature didWin={didWin} />
       <div className="mx-auto">
         <Tablist
@@ -363,60 +364,47 @@ export function WinPage({ expanded = false }: { expanded?: boolean }) {
       <ScrollPanel key={activeIndex} label="Results">
         <div className="mx-auto w-full max-w-xl px-1 pb-3">
           {activeIndex === 0 && (
-            <div className="flex flex-col items-center justify-start gap-4">
-              <ResultArtwork didWin={didWin} />
-              <h1 className="text-center text-2xl font-bold text-gray-900 dark:text-white">
-                {didWin ? 'Congratulations!' : 'Nice Try!'} The word was:{' '}
-                <span
-                  className={
-                    didWin
-                      ? 'text-orange-800 dark:text-orange-200'
-                      : 'text-sky-800 dark:text-sky-200'
-                  }
-                >
-                  {word?.word ?? '—'}
-                </span>
-              </h1>
+            <div className="expanded-results-summary">
+              <div className="expanded-results-hero">
+                <ResultArtwork didWin={didWin} />
+                <h2 className="expanded-results-heading font-bold text-gray-900 dark:text-white">
+                  {didWin ? 'Congratulations!' : 'Nice Try!'} The word was:{' '}
+                  <span
+                    className={
+                      didWin
+                        ? 'text-orange-800 dark:text-orange-200'
+                        : 'text-sky-800 dark:text-sky-200'
+                    }
+                  >
+                    {word?.word ?? '—'}
+                  </span>
+                </h2>
+              </div>
 
-              <div className="flex flex-wrap justify-center gap-2">
+              <div
+                className={`expanded-results-stats ${didWin ? '' : 'expanded-results-stats--two'}`}
+              >
                 {didWin && (
                   <StatCard
                     title={
-                      <>
-                        Score{' '}
-                        <span className="whitespace-nowrap">
-                          (
-                          <button
-                            type="button"
-                            className="cursor-pointer text-inherit underline"
-                            onClick={(event) => {
-                              posthog.capture('Win Page Score Breakdown Clicked');
-                              openPopup(event, 'score-breakdown');
-                            }}
-                          >
-                            Breakdown
-                          </button>
-                          )
-                        </span>
-                      </>
+                      <button
+                        type="button"
+                        aria-label="Score Breakdown"
+                        title="View Score Breakdown"
+                        className="cursor-pointer text-inherit underline"
+                        onClick={(event) => {
+                          posthog.capture('Win Page Score Breakdown Clicked');
+                          openPopup(event, 'score-breakdown');
+                        }}
+                      >
+                        Score
+                      </button>
                     }
                     value={challengeUserInfo.score?.finalScore ?? 0}
-                    valueSubtext={
-                      playerRank > 0
-                        ? (`Top ${percentageOutperformed}%` as any)
-                        : (undefined as any)
-                    }
+                    valueSubtext={playerRank > 0 ? `Top ${percentageOutperformed}%` : undefined}
                   />
                 )}
-                <StatCard
-                  title="Time to Solve"
-                  value={
-                    getPrettyDuration(
-                      new Date(challengeUserInfo.startedPlayingAtMs!),
-                      new Date(challengeUserInfo.solvedAtMs ?? challengeUserInfo.gaveUpAtMs!)
-                    ) ?? '--'
-                  }
-                />
+                <StatCard title="Time to Solve" value={timeToSolve} />
                 <StatCard title="Rank" value={didWin ? `#${userRank ?? '--'}` : '--'} />
               </div>
               <div className="w-full">
@@ -428,23 +416,20 @@ export function WinPage({ expanded = false }: { expanded?: boolean }) {
                 stats={{
                   score: challengeUserInfo.score?.finalScore ?? null,
                   rank: userRank ?? null,
-                  timeToSolve: getPrettyDuration(
-                    new Date(challengeUserInfo.startedPlayingAtMs!),
-                    new Date(challengeUserInfo.solvedAtMs ?? challengeUserInfo.gaveUpAtMs!)
-                  ),
+                  timeToSolve,
                 }}
               />
             </div>
           )}
 
           {activeIndex === 1 && (
-            <div className="flex flex-col gap-6">
+            <div className="expanded-results-global flex flex-col gap-3">
               <CommunityProgress
                 players={totalPlayers}
                 solves={totalSolves}
                 giveUps={totalGiveUps}
               />
-              <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
                 <StatCard title="Total Players" value={formatCompactNumber(totalPlayers)} />
                 <StatCard title="Total Solves" value={formatCompactNumber(totalSolves)} />
                 <StatCard title="Total Guesses" value={formatCompactNumber(totalGuesses)} />

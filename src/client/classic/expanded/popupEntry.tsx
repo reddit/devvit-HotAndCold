@@ -39,6 +39,7 @@ async function start() {
         <ExpandedPage
           title={popupTitles[entry]}
           icon={entry === 'results' ? <ResultsIcon /> : undefined}
+          compactSpacing={entry === 'results'}
         >
           <Content />
         </ExpandedPage>

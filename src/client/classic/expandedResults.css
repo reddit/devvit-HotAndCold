@@ -1,0 +1,83 @@
+/* Summary tabs stay compact; long lists and small screens retain native scrolling. */
+.expanded-results-summary {
+  --guess-journey-height: clamp(48px, 11dvh, 80px);
+
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.expanded-results-hero {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.expanded-results-hero > svg {
+  width: 80px;
+  height: 80px;
+}
+
+.expanded-results-heading {
+  font-size: clamp(20px, 3.5vw, 24px);
+  line-height: 1.25;
+  text-align: center;
+  overflow-wrap: anywhere;
+}
+
+.expanded-results-stats {
+  display: grid;
+  width: 100%;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr) minmax(0, 0.8fr);
+  gap: 8px;
+}
+
+.expanded-results-stats--two {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.result-stat-value {
+  font-size: clamp(18px, 3.5vw, 24px);
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+
+.expanded-results-actions > div > button {
+  width: 100%;
+  max-width: none;
+  min-height: 44px;
+  padding-top: 8px;
+  padding-bottom: 8px;
+}
+
+.expanded-results-actions > div > .expanded-results-cta {
+  padding: 0;
+}
+
+@media (min-width: 480px) {
+  .expanded-results-actions > div {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .expanded-results-actions > div > :first-child:nth-last-child(3) {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-height: 700px) {
+  .expanded-results-hero {
+    flex-direction: row;
+    gap: 12px;
+  }
+
+  .expanded-results-hero > svg {
+    width: clamp(48px, 11dvh, 72px);
+    height: clamp(48px, 11dvh, 72px);
+  }
+
+  .expanded-results-heading {
+    text-align: left;
+  }
+}

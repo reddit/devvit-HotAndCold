@@ -51,7 +51,7 @@ export function GuessJourney({
         role="img"
         aria-label={`Guess journey over ${guesses.length} guesses. Best rank ${best}. Higher is closer; ranks use a logarithmic scale.`}
         className="block w-full"
-        style={{ height }}
+        style={{ height: compact ? height : 'var(--guess-journey-height, 104px)' }}
         viewBox={`0 0 ${width} ${height}`}
         preserveAspectRatio="none"
       >
@@ -88,8 +88,8 @@ export function GuessJourney({
         <circle cx={last.x} cy={last.y} r="3.5" fill={`url(#${id}-temperature)`} />
       </svg>
       {!compact && (
-        <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-          First Guess → Last Guess · Higher Points Mean Closer Ranks · Log Scale
+        <p className="mt-1 text-[11px] leading-4 text-gray-500 dark:text-gray-400">
+          First → Last Guess · Higher Is Closer · Log Scale
         </p>
       )}
     </figure>

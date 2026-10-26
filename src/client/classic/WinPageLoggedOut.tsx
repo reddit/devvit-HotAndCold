@@ -10,6 +10,7 @@ import { InlineResults, InlineResultButtons } from './inlineResults';
 import { GuessJourney } from './resultsCharts';
 import { ResultTemperature } from './feedback/temperature';
 import { ResultArtwork } from './resultArtwork';
+import './expandedResults.css';
 
 export function WinPageLoggedOut({
   engine,
@@ -101,24 +102,23 @@ export function WinPageLoggedOut({
   return (
     <ScrollPanel label="Results">
       <ResultTemperature didWin={wonLocally} />
-      <div className="flex flex-col items-center justify-center gap-6 px-4 py-4 text-center">
-        <ResultArtwork didWin={wonLocally} />
-        <div className="flex flex-col gap-2">
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
+      <div className="expanded-results-summary mx-auto max-w-xl px-1 pb-3 text-center">
+        <div className="expanded-results-hero">
+          <ResultArtwork didWin={wonLocally} />
+          <h2 className="expanded-results-heading font-bold text-gray-900 dark:text-white">
             {wonLocally ? 'Congratulations!' : 'Game Over!'}
-          </h1>
-          <p className="text-xl">
+            <br />
             The word was:{' '}
             <span
               className={`font-bold ${wonLocally ? 'text-orange-800 dark:text-orange-200' : 'text-sky-800 dark:text-sky-200'}`}
             >
               {secretWord ?? '...'}
             </span>
-          </p>
-          <p className="mt-4 text-lg text-gray-600 dark:text-gray-300">
-            Sign up to see the full leaderboard and save your progress.
-          </p>
+          </h2>
         </div>
+        <p className="text-sm text-gray-600 dark:text-gray-300">
+          Sign up to see the full leaderboard and save your progress.
+        </p>
         <div className="w-full">
           <GuessJourney guesses={history} />
         </div>

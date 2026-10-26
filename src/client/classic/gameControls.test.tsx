@@ -15,6 +15,8 @@ import { takeInitialModeratorSection } from './moderator/launch';
 import { InlineResults } from './inlineResults';
 import { PlayPage } from './PlayPage';
 import { soundEnabled } from './feedback/audio';
+import { ExpandedPage } from '../shared/expandedPage';
+import { ResultsIcon } from './icons';
 
 vi.mock('@devvit/web/client', () => ({
   context: { userId: 't2_player', subredditName: 'testsub', postData: { challengeNumber: 1 } },
@@ -319,6 +321,137 @@ it('keeps long solved-page lists in one scrolling area with native scrolling', a
   expect(container.querySelector<HTMLElement>('[aria-label="Results"]')!.scrollTop).toBe(0);
   expect(container.scrollWidth).toBe(container.clientWidth);
 });
+
+it.each([
+  [720, 594, true, 'COMMENT'],
+  [620, 512, true, 'COMMENT'],
+  [390, 600, true, null],
+  [320, 640, true, null],
+  [720, 594, false, 'COMMENT'],
+  [320, 640, false, 'COMMENT'],
+] as const)(
+  'fits Me and Global summaries and every action at %s × %s (win: %s, CTA: %s)',
+  async (width, height, didWin, cta) => {
+    await page.viewport(width, height);
+    localStorage.setItem('results-tab:1', '0');
+    mock.cta.getCallToAction.query.mockResolvedValue(cta);
+    mock.game = {
+      get: {
+        query: vi.fn().mockResolvedValue({
+          challengeInfo: {
+            totalPlayers: 1234567,
+            totalSolves: 678901,
+            totalGuesses: 123456789,
+            totalHints: 123456,
+            totalGiveUps: 12345,
+          },
+          challengeUserInfo: {
+            username: 'player',
+            startedPlayingAtMs: 1000,
+            ...(didWin ? { solvedAtMs: 2862000 } : { gaveUpAtMs: 2862000 }),
+            guesses: [
+              { word: 'fruit', rank: 10000, similarity: 0.6, timestampMs: 1000 },
+              { word: 'apple', rank: 0, similarity: 1, timestampMs: 2862000 },
+            ],
+            score: { finalScore: 60 },
+          },
+        }),
+      },
+    };
+    mock.leaderboard = {
+      get: { query: vi.fn().mockResolvedValue({ leaderboardByScore: [], userRank: { score: 1 } }) },
+    };
+    await mount(
+      <ExpandedPage title="Results" icon={<ResultsIcon />} compactSpacing>
+        <WinPage expanded />
+      </ExpandedPage>
+    );
+    await expect.poll(() => Boolean(button('Share Results'))).toBe(true);
+    if (didWin) await expect.poll(() => Boolean(button('Remind Me to Play Daily'))).toBe(true);
+    if (cta)
+      await expect.poll(() => Boolean(button('Share Your Journey in the Thread'))).toBe(true);
+    const assertFits = () => {
+      const main = container.querySelector('main')!;
+      expect(main.scrollHeight).toBeLessThanOrEqual(main.clientHeight);
+      expect(main.scrollWidth).toBe(main.clientWidth);
+      for (const action of Array.from(main.querySelectorAll('button'))) {
+        const bounds = action.getBoundingClientRect();
+        expect(bounds.bottom).toBeLessThanOrEqual(main.getBoundingClientRect().bottom);
+      }
+      for (const card of Array.from(main.querySelectorAll('.result-stat'))) {
+        expect(card.scrollWidth).toBe(card.clientWidth);
+      }
+    };
+    assertFits();
+    await act(() => button('Global')!.click());
+    expect(container.querySelector('[aria-label^="Player outcomes"]')).not.toBeNull();
+    assertFits();
+  }
+);
+
+it('allows one native page scroll instead of clipping summary actions on very short screens', async () => {
+  await page.viewport(320, 320);
+  localStorage.setItem('results-tab:1', '0');
+  mock.game = {
+    get: {
+      query: vi.fn().mockResolvedValue({
+        challengeInfo: {},
+        challengeUserInfo: {
+          solvedAtMs: 2000,
+          startedPlayingAtMs: 1000,
+          guesses: [{ word: 'apple', rank: 0, similarity: 1 }],
+        },
+      }),
+    },
+  };
+  mock.leaderboard = {
+    get: { query: vi.fn().mockResolvedValue({ leaderboardByScore: [], userRank: null }) },
+  };
+  await mount(
+    <ExpandedPage title="Results" compactSpacing>
+      <WinPage expanded />
+    </ExpandedPage>
+  );
+  await expect.poll(() => Boolean(button('Remind Me to Play Daily'))).toBe(true);
+  const main = container.querySelector('main')!;
+  expect(main.scrollHeight).toBeGreaterThan(main.clientHeight);
+  const nestedScrollers = Array.from(main.querySelectorAll<HTMLElement>('*')).filter(
+    (element) =>
+      element.scrollHeight > element.clientHeight &&
+      ['auto', 'scroll'].includes(getComputedStyle(element).overflowY)
+  );
+  expect(nestedScrollers).toHaveLength(0);
+  main.scrollTop = main.scrollHeight;
+  expect(button('Share Results')!.getBoundingClientRect().bottom).toBeLessThanOrEqual(
+    main.getBoundingClientRect().bottom
+  );
+});
+
+it.each([true, false])(
+  'fits the expanded guest summary without scrolling (win: %s)',
+  async (didWin) => {
+    await page.viewport(320, 520);
+    mock.game = { reveal: { query: vi.fn().mockResolvedValue({ secretWord: 'apple' }) } };
+    const engine = {
+      history: signal([
+        { word: 'fruit', rank: 10000, similarity: 0.6, timestamp: 1000 },
+        ...(didWin ? [{ word: 'apple', rank: 0, similarity: 1, timestamp: 2000 }] : []),
+      ]),
+    } as GuessEngine;
+    await mount(
+      <ExpandedPage title="Results" icon={<ResultsIcon />} compactSpacing>
+        <WinPageLoggedOut engine={engine} expanded />
+      </ExpandedPage>
+    );
+    await expect.poll(() => container.textContent).toContain('apple');
+    const main = container.querySelector('main')!;
+    expect(main.scrollHeight).toBeLessThanOrEqual(main.clientHeight);
+    expect(main.scrollWidth).toBe(main.clientWidth);
+    expect(button('Share Results')!.getBoundingClientRect().bottom).toBeLessThanOrEqual(
+      main.getBoundingClientRect().bottom
+    );
+  }
+);
 
 it('shows the branded splash until results data arrives, then replaces it with the game', async () => {
   let finish: (value: any) => void = () => {};
