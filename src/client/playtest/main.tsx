@@ -1,14 +1,14 @@
 import { render } from 'preact';
 import '../index.css';
 import { trpc } from '../trpc';
-import { setActiveTestRun, watchTestRunChanges } from './run';
+import { reloadTestRun, setActiveTestRun, watchTestRunChanges } from './run';
 
 async function start() {
   try {
     // Resolve this player's current run before importing navigation or the game
     // engine. Reloading after a reset cannot hydrate a previous run's caches.
     setActiveTestRun(await trpc.moderation.testRun.query());
-    watchTestRunChanges(() => window.location.reload());
+    watchTestRunChanges(reloadTestRun);
     await import('../classic/main');
   } catch {
     render(

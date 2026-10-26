@@ -8,6 +8,8 @@ export const setActiveTestRun = (run: TestRun | null) => {
   activeTestRun = run;
 };
 
+export const reloadTestRun = () => window.location.reload();
+
 const runChangeKey = () => `playtest:run-changed:${context.userId}:${context.postId}`;
 
 export function notifyTestRunChanged(challengeNumber: number) {
