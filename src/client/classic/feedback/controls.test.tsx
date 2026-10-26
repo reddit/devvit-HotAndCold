@@ -3,7 +3,7 @@ import { act } from 'preact/test-utils';
 import { page } from '@vitest/browser/context';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import type { MockInstance } from 'vitest';
-import { SoundButton, startSoundOnGuess } from './controls';
+import { SoundButton, startSoundOnGuess, useSoundPlayback } from './controls';
 import { gameAudio, soundEnabled } from './audio';
 import { soundPreference } from './soundPreference';
 import { trpc } from '../../trpc';
@@ -41,7 +41,7 @@ beforeEach(() => {
   unlock = vi.spyOn(gameAudio, 'unlock').mockResolvedValue(true);
   container = document.createElement('div');
   document.body.append(container);
-  soundEnabled.value = true;
+  soundEnabled.value = false;
   soundPreference.ready.value = false;
   vi.mocked(trpc.audioSettings.get.query).mockResolvedValue({ enabled: null });
 });
@@ -71,33 +71,37 @@ const intersect = async (visible: boolean) => {
     )
   );
 };
-const mount = async () => {
-  await act(() =>
-    render(
-      <>
-        <SoundButton />
-        <button>Open Settings</button>
-        <input aria-label="Guess Word" />
-        <button onClick={startSoundOnGuess}>Guess</button>
-      </>,
-      container
-    )
+function SoundTestView({ showButton = true }: { showButton?: boolean }) {
+  useSoundPlayback();
+  return (
+    <>
+      {showButton && <SoundButton variant="input" />}
+      <button>Open Settings</button>
+      <input aria-label="Guess Word" />
+      <button onClick={startSoundOnGuess}>Guess</button>
+    </>
   );
+}
+const mount = async () => {
+  await act(() => render(<SoundTestView />, container));
   await intersect(true);
 };
 
-it('keeps load, typing, and menus silent, then starts on Guess and stops offscreen', async () => {
+it('keeps new players muted through guesses until they enable sound, then stops offscreen', async () => {
   const visibility = vi.spyOn(gameAudio, 'setVisible');
   try {
     await mount();
     await expect.poll(() => soundPreference.ready.value).toBe(true);
     const sound = container.querySelector('[data-sound-toggle]')!;
-    expect(soundEnabled.value).toBe(true);
-    expect(sound.getAttribute('data-audio-playback')).toBe('awaiting-interaction');
+    expect(soundEnabled.value).toBe(false);
+    expect(sound.getAttribute('data-audio-playback')).toBe('muted');
     await page.getByRole('button', { name: 'Open Settings', exact: true }).click();
     await page.getByRole('textbox', { name: 'Guess Word' }).fill('apple');
     expect(enable).not.toHaveBeenCalled();
     await page.getByRole('button', { name: 'Guess', exact: true }).click();
+    expect(enable).not.toHaveBeenCalled();
+    expect(unlock).not.toHaveBeenCalled();
+    await page.getByRole('button', { name: 'Turn on music and sound effects' }).click();
     await expect.poll(() => sound.getAttribute('data-audio-playback')).toBe('playing');
     expect(enable).toHaveBeenCalledTimes(1);
     await intersect(false);
@@ -112,6 +116,7 @@ it('keeps load, typing, and menus silent, then starts on Guess and stops offscre
 });
 
 it('waits for the saved preference and never starts sound for a returning muted player', async () => {
+  soundEnabled.value = true;
   let finish: (value: { enabled: boolean | null }) => void = () => {};
   vi.mocked(trpc.audioSettings.get.query).mockImplementationOnce(
     () => new Promise((resolve) => (finish = resolve))
@@ -130,6 +135,7 @@ it('waits for the saved preference and never starts sound for a returning muted 
 });
 
 it('starts from the first guess after a slow preference read confirms sound is allowed', async () => {
+  soundEnabled.value = true;
   let finish: (value: { enabled: boolean | null }) => void = () => {};
   vi.mocked(trpc.audioSettings.get.query).mockImplementationOnce(
     () => new Promise((resolve) => (finish = resolve))
@@ -138,7 +144,7 @@ it('starts from the first guess after a slow preference read confirms sound is a
   await page.getByRole('button', { name: 'Guess', exact: true }).click();
   expect(unlock).toHaveBeenCalledTimes(1);
   expect(enable).not.toHaveBeenCalled();
-  finish({ enabled: null });
+  finish({ enabled: true });
   await expect.poll(() => enable.mock.calls.length).toBe(1);
 });
 
@@ -153,4 +159,28 @@ it('preserves an existing browser mute when there is no server choice, and saves
   await page.getByRole('button', { name: 'Mute music and sound effects' }).click();
   expect(soundEnabled.value).toBe(false);
   expect(trpc.audioSettings.set.mutate).toHaveBeenLastCalledWith({ enabled: false });
+});
+
+it('restores an explicit account opt-in while keeping page load silent', async () => {
+  vi.mocked(trpc.audioSettings.get.query).mockResolvedValue({ enabled: true });
+  await mount();
+  await expect.poll(() => soundEnabled.value).toBe(true);
+  expect(enable).not.toHaveBeenCalled();
+  await page.getByRole('button', { name: 'Guess', exact: true }).click();
+  expect(enable).toHaveBeenCalledTimes(1);
+});
+
+it('keeps playback alive when the input sound button disappears on results', async () => {
+  const disable = vi.spyOn(gameAudio, 'disable');
+  try {
+    await mount();
+    await page.getByRole('button', { name: 'Turn on music and sound effects' }).click();
+    const before = disable.mock.calls.length;
+    await act(() => render(<SoundTestView showButton={false} />, container));
+    expect(container.querySelector('[data-sound-toggle]')).toBeNull();
+    expect(disable).toHaveBeenCalledTimes(before);
+    expect(soundEnabled.value).toBe(true);
+  } finally {
+    disable.mockRestore();
+  }
 });

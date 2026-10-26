@@ -19,10 +19,12 @@ export function Header({
   isModerator,
   isSubmitting = false,
   queueSize,
+  showSoundControl = false,
 }: {
   isModerator: boolean;
   isSubmitting?: boolean;
   queueSize?: number | null;
+  showSoundControl?: boolean;
 }) {
   const challengeNumber = requireChallengeNumber();
   const isPlaytest = Boolean(getActiveTestRun());
@@ -96,7 +98,7 @@ export function Header({
           <IconButton iconOnly icon={<ShareIcon />} aria-label="Share Game" onClick={shareGame}>
             Share
           </IconButton>
-          <SoundButton />
+          {showSoundControl && <SoundButton />}
           <IconButton
             iconOnly
             icon={<GearIcon />}

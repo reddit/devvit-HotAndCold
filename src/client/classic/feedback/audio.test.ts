@@ -10,7 +10,11 @@ import {
 } from './audio';
 import { bestGuessHeat, getRankEmoji } from '../../shared/guessHeat';
 
-vi.mock('@devvit/web/client', () => ({ context: { userId: 't2_audio_test' } }));
+vi.mock('@devvit/web/client', () => {
+  // This was written even for players who never opted in under the old default.
+  localStorage.setItem('hotandcold:sound:v1:community:t2_audio_test', 'true');
+  return { context: { userId: 't2_audio_test' } };
+});
 
 const settings: AudioPreferences = { music: true, effects: true, motion: true, volume: 0.25 };
 function setup() {
@@ -68,9 +72,9 @@ const flush = async () => {
 };
 
 describe('guess-started game audio', () => {
-  it('defaults new players to sound on but creates no audio until a guess or explicit enable', async () => {
+  it('defaults to muted without treating the old cached sound-on default as an opt-in', async () => {
     const { audio, createContext, fetchAudio } = setup();
-    expect(soundEnabled.value).toBe(true);
+    expect(soundEnabled.value).toBe(false);
     audio.update(settings);
     audio.setVisible(true);
     await audio.setLevel(2);

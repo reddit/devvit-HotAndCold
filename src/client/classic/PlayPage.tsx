@@ -15,7 +15,7 @@ import { GuessTemperature, useTemperatureFeedback } from './feedback/temperature
 import { GuessActions } from './guessActions';
 import { updateReminders } from './state/reminders';
 import { bestGuessHeat } from '../shared/guessHeat';
-import { startSoundOnGuess } from './feedback/controls';
+import { SoundButton, startSoundOnGuess } from './feedback/controls';
 
 type PlayPrompt = 'JOIN_SUBREDDIT' | 'REMIND_ME_TO_PLAY';
 type ReactNode = ComponentChildren;
@@ -225,7 +225,10 @@ export function PlayPage({ engine }: { engine?: GuessEngine }) {
 
       <GuessTemperature {...temperatureFeedback} rank={latest?.rank ?? null} />
 
-      <div className="relative mx-auto grid w-full max-w-xl grid-cols-[minmax(0,1fr)_auto] gap-x-2">
+      <div className="relative mx-auto grid w-full max-w-xl grid-cols-[48px_minmax(0,1fr)_auto] gap-x-2">
+        <div className="col-start-1 row-start-1 mt-4">
+          <SoundButton variant="input" />
+        </div>
         <WordInput
           placeholders={['Try banana', 'Try apple', 'Try pizza']}
           isHighContrast
@@ -277,9 +280,9 @@ export function PlayPage({ engine }: { engine?: GuessEngine }) {
             return res;
           }}
           onFeedback={(msg) => showFeedback(msg, null)}
-          className="col-span-2 mt-4 grid grid-cols-subgrid"
+          className="col-span-2 col-start-2 row-start-1 mt-4 grid min-w-0 grid-cols-subgrid"
         />
-        <div className="col-start-1 flex min-h-6 flex-wrap items-start justify-center gap-x-1 pt-1 text-center text-[10px] leading-[14px] text-gray-600 dark:text-zinc-300">
+        <div className="col-start-2 flex min-h-6 flex-wrap items-start justify-center gap-x-1 pt-1 text-center text-[10px] leading-[14px] text-gray-600 dark:text-zinc-300">
           {feedback}
         </div>
       </div>

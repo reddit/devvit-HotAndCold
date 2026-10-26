@@ -14,9 +14,10 @@ export const audioPreferences = localStorageSignal<AudioPreferences>({
   initialValue: { music: true, effects: true, motion: true, volume: 0.5 },
 });
 export const soundEnabled = localStorageSignal<boolean>({
-  key: `hotandcold:sound:v1:${context.subredditId ?? context.subredditName ?? 'community'}:${context.userId ?? 'guest'}`,
-  // Retain existing browser mute choices; new players start sound on their first guess.
-  initialValue: true,
+  key: `hotandcold:sound:v2:${context.subredditId ?? context.subredditName ?? 'community'}:${context.userId ?? 'guest'}`,
+  // V1 cached the old sound-on default without an opt-in. Start muted here;
+  // explicit account choices are restored from the server, then cached in V2.
+  initialValue: false,
   serializer: { read: (raw) => JSON.parse(raw) === true, write: JSON.stringify },
 });
 

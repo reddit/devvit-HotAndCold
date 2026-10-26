@@ -1,6 +1,6 @@
 import { render } from 'preact';
 import { act } from 'preact/test-utils';
-import { page } from '@vitest/browser/context';
+import { page, userEvent } from '@vitest/browser/context';
 import { beforeEach, afterEach, expect, it, vi } from 'vitest';
 import '../index.css';
 import { Header } from './header';
@@ -13,6 +13,8 @@ import { reminderBusy, reminderStatus } from './state/reminders';
 import { setActiveTestRun } from '../playtest/run';
 import { takeInitialModeratorSection } from './moderator/launch';
 import { InlineResults } from './inlineResults';
+import { PlayPage } from './PlayPage';
+import { soundEnabled } from './feedback/audio';
 
 vi.mock('@devvit/web/client', () => ({
   context: { userId: 't2_player', subredditName: 'testsub', postData: { challengeNumber: 1 } },
@@ -49,6 +51,11 @@ beforeEach(() => {
       setReminder: { mutate: vi.fn().mockResolvedValue({}) },
       toggleReminder: { mutate: vi.fn().mockResolvedValue({ newValue: true }) },
       getCallToAction: { query: vi.fn().mockResolvedValue(null) },
+      hasJoinedSubreddit: { query: vi.fn().mockResolvedValue(true) },
+    },
+    audioSettings: {
+      get: { query: vi.fn().mockResolvedValue({ enabled: null }) },
+      set: { mutate: vi.fn().mockResolvedValue({}) },
     },
   };
   (globalThis as any).__gameControlsMock = mock;
@@ -101,17 +108,67 @@ it('restores the bell and direct moderator shield, enlarges branding, and remove
   expect(container.querySelector('[role="dialog"]')).toBeNull();
 });
 
-it('fits all seven moderator toolbar controls in a narrow view without horizontal scrolling', async () => {
+it('fits all six moderator toolbar controls in a narrow view without horizontal scrolling', async () => {
   await page.viewport(320, 440);
   container.style.width = '288px';
   await mount(<Header isModerator />);
   const toolbar = container.querySelector<HTMLElement>('[aria-label="Game Toolbar"]')!;
-  expect(toolbar.querySelectorAll('button')).toHaveLength(7);
+  expect(toolbar.querySelectorAll('button')).toHaveLength(6);
   expect(toolbar.scrollWidth).toBe(toolbar.clientWidth);
   expect(container.querySelector('header')!.getBoundingClientRect().height).toBeLessThanOrEqual(
     104
   );
 });
+
+it.each([
+  [320, 440],
+  [390, 520],
+  [620, 512],
+])(
+  'aligns the muted sound control, input, and Guess at %s × %s without stealing keyboard input',
+  async (width, height) => {
+    await page.viewport(width!, height!);
+    soundEnabled.value = false;
+    const engine: GuessEngine = {
+      history: signal([{ word: 'box', rank: 10928, similarity: 0.2, timestamp: 1 }]),
+      isSubmitting: signal(false),
+      solvedAtMs: signal<number | null>(null),
+      lastResult: signal(null),
+      hasGuessed: vi.fn(),
+      clear: vi.fn(),
+      submit: vi.fn(),
+      submitHint: vi.fn(),
+    };
+    await mount(
+      <div className="relative isolate flex h-[100dvh] flex-col overflow-hidden bg-white px-4 py-6 text-gray-900 dark:bg-gray-950 dark:text-white">
+        <Header isModerator />
+        <PlayPage engine={engine} />
+      </div>
+    );
+    const sound = container.querySelector<HTMLButtonElement>('[data-sound-toggle]')!;
+    const input = container.querySelector('input')!;
+    const guess = button('Guess')!;
+    const controls = [sound, input, guess].map((element) => element.getBoundingClientRect());
+    expect(controls.map(({ height }) => height)).toEqual([48, 48, 48]);
+    expect(controls[0]!.top).toBe(controls[1]!.top);
+    expect(controls[1]!.top).toBe(controls[2]!.top);
+    expect(controls[0]!.right).toBeLessThan(controls[1]!.left);
+    expect(controls[1]!.right).toBeLessThan(controls[2]!.left);
+    expect(controls[2]!.right).toBeLessThanOrEqual(width! - 16);
+    expect(input.getBoundingClientRect().width).toBeGreaterThan(120);
+    expect(container.querySelector('[aria-label="Game Toolbar"] [data-sound-toggle]')).toBeNull();
+    expect(container.scrollWidth).toBe(container.clientWidth);
+    const theme = matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    if (width === 620)
+      await page.screenshot({ path: `__screenshots__/sound-beside-input-${theme}.png` });
+    sound.focus();
+    await userEvent.keyboard(' ');
+    await expect.poll(() => sound.getAttribute('aria-pressed')).toBe('true');
+    expect(document.activeElement).toBe(sound);
+    expect(input.value).toBe('');
+    expect(engine.submit).not.toHaveBeenCalled();
+  }
+);
 
 it.each([
   [0, 'empty'],

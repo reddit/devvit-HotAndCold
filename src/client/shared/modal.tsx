@@ -96,7 +96,7 @@ export const Modal: FunctionalComponent<ModalProps> = ({
 
       <button
         type="button"
-        class="absolute top-1 right-1 rounded-full bg-white/90 p-1 text-gray-800 shadow-sm focus-visible:ring-2 focus-visible:ring-cyan-500 dark:bg-gray-800 dark:text-white"
+        class="absolute top-2 right-2 inline-flex h-10 w-10 items-center justify-center rounded-full border border-gray-300 bg-white/90 text-gray-700 transition-colors hover:border-cyan-500 hover:bg-cyan-50 focus-visible:ring-2 focus-visible:ring-cyan-500 focus-visible:outline-none disabled:opacity-50 dark:border-gray-600 dark:bg-gray-900/90 dark:text-gray-200 dark:hover:bg-gray-800"
         onClick={onClose}
         aria-label="Close modal"
         disabled={closeDisabled}
@@ -108,13 +108,12 @@ export const Modal: FunctionalComponent<ModalProps> = ({
           viewBox="0 0 24 24"
           fill="none"
           stroke="currentColor"
-          stroke-width="2"
+          stroke-width="1.8"
           stroke-linecap="round"
           stroke-linejoin="round"
-          class="h-8 w-8"
+          class="h-6 w-6"
         >
-          <path d="M10 10l4 4m0 -4l-4 4" />
-          <path d="M12 3c7.2 0 9 1.8 9 9s-1.8 9 -9 9s-9 -1.8 -9 -9s1.8 -9 9 -9z" />
+          <path d="m6 6 12 12M6 18 18 6" />
         </svg>
       </button>
     </div>

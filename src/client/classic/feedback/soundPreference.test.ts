@@ -26,19 +26,19 @@ it('restores an opt-in without writing and ignores a stale read after an explici
   expect(save).toHaveBeenCalledWith(false);
 });
 
-it('keeps the new default when unset and restores an explicit mute without writing a default record', async () => {
-  const enabled = signal(true);
+it('keeps the muted default when unset and restores an explicit opt-in without writing a default record', async () => {
+  const enabled = signal(false);
   const load = vi
     .fn<() => Promise<boolean | null>>()
     .mockResolvedValueOnce(null)
-    .mockResolvedValueOnce(false);
+    .mockResolvedValueOnce(true);
   const save = vi.fn();
   const preference = createSoundPreference({ enabled, load, save });
   await preference.restore();
-  expect(enabled.value).toBe(true);
+  expect(enabled.value).toBe(false);
   expect(preference.ready.value).toBe(true);
   await preference.restore();
-  expect(enabled.value).toBe(false);
+  expect(enabled.value).toBe(true);
   expect(save).not.toHaveBeenCalled();
 });
 

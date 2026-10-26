@@ -6,6 +6,7 @@ import { ErrorBoundary } from '../../shared/error';
 import { popupTitles, type PopupEntry } from './launch';
 import { trpc } from '../../trpc';
 import { setActiveTestRun } from '../../playtest/run';
+import { ResultsIcon } from '../icons';
 
 async function start() {
   const entry = window.location.pathname
@@ -35,7 +36,10 @@ async function start() {
     const Content = content;
     render(
       <ErrorBoundary>
-        <ExpandedPage title={popupTitles[entry]}>
+        <ExpandedPage
+          title={popupTitles[entry]}
+          icon={entry === 'results' ? <ResultsIcon /> : undefined}
+        >
           <Content />
         </ExpandedPage>
       </ErrorBoundary>,

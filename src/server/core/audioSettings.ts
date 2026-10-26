@@ -12,7 +12,7 @@ export const audioSettingsRouter = router({
   }),
   set: publicProcedure.input(z.object({ enabled: z.boolean() })).mutation(async ({ input }) => {
     if (!context.userId) throw new TRPCError({ code: 'UNAUTHORIZED' });
-    // Both choices must persist now that new players default to sound on after a guess.
+    // Preserve explicit choices across posts; unset accounts default to muted on the client.
     // One field per account, never a new record for each post or music milestone.
     await redis.hSet(AUDIO_ENABLED_KEY, { [context.userId]: input.enabled ? '1' : '0' });
     return { enabled: input.enabled };

@@ -17,6 +17,7 @@ import { GUESS_SAMPLE_RATE } from '../config';
 import type { GuessEngine } from '../core/guessEngine';
 import { trpc } from '../trpc';
 import { useModeratorStatus } from './moderator/status';
+import { useSoundPlayback } from './feedback/controls';
 
 configurePosthog({ mode: 'classic' });
 
@@ -38,6 +39,7 @@ function AppContent({
           isModerator={isModerator}
           queueSize={queueSize}
           isSubmitting={Boolean(engine.isSubmitting.value)}
+          showSoundControl={page.value === 'win'}
         />
         {page.value === 'win' ? (
           isLoggedOut() ? (
@@ -60,6 +62,8 @@ function AppContent({
 }
 
 export function App() {
+  // Playback survives the input disappearing when the game switches to results.
+  useSoundPlayback();
   const { isModerator, queueSize } = useModeratorStatus();
   const challengeNumber = requireChallengeNumber();
 

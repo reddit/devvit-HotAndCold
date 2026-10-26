@@ -9,9 +9,9 @@ function ToolbarIcon({ children }: { children: ComponentChildren }) {
       viewBox="0 0 24 24"
       fill="none"
       stroke="currentColor"
-      strokeWidth="1.8"
-      strokeLinecap="round"
-      strokeLinejoin="round"
+      stroke-width="1.8"
+      stroke-linecap="round"
+      stroke-linejoin="round"
     >
       {children}
     </svg>
@@ -21,7 +21,8 @@ function ToolbarIcon({ children }: { children: ComponentChildren }) {
 export const HelpIcon = () => (
   <ToolbarIcon>
     <circle cx="12" cy="12" r="9" />
-    <path d="M9.5 9a2.5 2.5 0 0 1 5 .5c0 1.5-2.5 2-2.5 3.5M12 16.5h.01" />
+    <path d="M9.5 9a2.5 2.5 0 0 1 5 .5c0 1.5-2.5 2-2.5 3.5" />
+    <circle cx="12" cy="16.5" r="0.9" fill="currentColor" stroke="none" />
   </ToolbarIcon>
 );
 export const ArchiveIcon = () => (

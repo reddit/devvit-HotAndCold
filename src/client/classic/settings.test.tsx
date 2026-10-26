@@ -156,6 +156,10 @@ it.each([
     expect(card.bottom).toBeLessThan(window.innerHeight - 20);
     expect(container.textContent).toContain('Warmer');
     expect(container.textContent).toContain('Colder');
+    if (width === 390) {
+      const theme = matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+      await page.screenshot({ path: `__screenshots__/how-to-play-${theme}.png` });
+    }
     await act(() => {
       document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
     });

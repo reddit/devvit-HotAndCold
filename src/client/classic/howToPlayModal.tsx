@@ -6,7 +6,7 @@ import { howToPlayOpen, closeHowToPlay } from './state/howToPlay';
 export function HowToPlayModal() {
   return (
     <Modal isOpen={howToPlayOpen.value} onClose={closeHowToPlay} labelledBy="how-to-play-title">
-      <section className="w-[min(84vw,380px)] space-y-2 bg-white p-4 text-gray-900 shadow-xl dark:bg-gray-900 dark:text-gray-100">
+      <section className="w-[min(84vw,380px)] space-y-2 rounded-2xl bg-white p-4 text-gray-900 shadow-xl dark:bg-gray-900 dark:text-gray-100">
         <div className="flex items-center justify-between gap-3">
           <h2 id="how-to-play-title" className="text-base font-bold">
             How to Play

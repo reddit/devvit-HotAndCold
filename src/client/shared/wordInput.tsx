@@ -114,8 +114,13 @@ export function WordInput({
   useEffect(() => {
     if (!autoFocusOnKeypress) return;
     const handleGlobalKeyPress = (e: KeyboardEvent) => {
-      const target = e.target as Element | null;
-      if (target && (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement))
+      const target = e.target instanceof Element ? e.target : null;
+      if (
+        e.defaultPrevented ||
+        target?.closest(
+          'input, textarea, select, button, a[href], [contenteditable="true"], [role="dialog"]'
+        )
+      )
         return;
       if (
         e.key === 'Escape' ||

@@ -80,12 +80,16 @@ export function useSoundPlayback() {
   }, []);
 }
 
-export function SoundButton() {
-  useSoundPlayback();
+export function SoundButton({ variant = 'toolbar' }: { variant?: 'toolbar' | 'input' }) {
   return (
     <IconButton
       iconOnly
       icon={<SpeakerIcon muted={!soundEnabled.value} />}
+      className={
+        variant === 'input'
+          ? 'h-12 w-12 border border-zinc-300 bg-zinc-100 text-zinc-700 hover:bg-zinc-200 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-700'
+          : undefined
+      }
       aria-label={
         soundEnabled.value ? 'Mute music and sound effects' : 'Turn on music and sound effects'
       }
@@ -124,8 +128,8 @@ export function SoundPreferences() {
   return (
     <div className="space-y-3">
       <p className="text-xs text-gray-500 dark:text-gray-400">
-        Sound starts with your first guess. Your mute choice is remembered across posts. Sound
-        pauses when the game is off-screen or in the background.
+        Sound is muted by default. Turn it on beside the guess input or below. Your choice is
+        remembered across posts. Sound pauses when the game is off-screen or in the background.
       </p>
       {soundEnabled.value && waitingForInteraction.value && (
         <p role="status" className="text-xs text-gray-500 dark:text-gray-400">
