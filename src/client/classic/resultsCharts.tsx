@@ -44,7 +44,7 @@ export function GuessJourney({
       <figcaption className="mb-1 flex items-center justify-between gap-2 text-[11px] leading-4 text-gray-600 dark:text-gray-300">
         <span className="font-semibold">Your Guess Journey</span>
         <span>
-          {guesses.length} {guesses.length === 1 ? 'Guess' : 'Guesses'} · Closer ↑
+          {guesses.length} {guesses.length === 1 ? 'Guess' : 'Guesses'}
         </span>
       </figcaption>
       <svg
