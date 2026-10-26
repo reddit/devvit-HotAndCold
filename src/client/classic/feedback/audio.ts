@@ -11,7 +11,7 @@ export type AudioPreferences = {
 };
 export const audioPreferences = localStorageSignal<AudioPreferences>({
   key: 'hotandcold:audio:v1',
-  initialValue: { music: true, effects: true, motion: true, volume: 0.5 },
+  initialValue: { music: true, effects: true, motion: true, volume: 0.3 },
 });
 export const soundEnabled = localStorageSignal<boolean>({
   key: `hotandcold:sound:v2:${context.subredditId ?? context.subredditName ?? 'community'}:${context.userId ?? 'guest'}`,
@@ -60,7 +60,7 @@ export function createGameAudio({
   let result: 'win' | 'give-up' | null = null;
   let victoryRequested = false;
   let victoryStarted = false;
-  let settings: AudioPreferences = { music: true, effects: true, motion: true, volume: 0.5 };
+  let settings: AudioPreferences = { music: true, effects: true, motion: true, volume: 0.3 };
   let music: MusicVoice | undefined;
   const musicVoices = new Set<Voice>();
   const effectVoices = new Set<Voice>();
