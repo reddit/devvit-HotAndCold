@@ -1,154 +1,268 @@
 import { describe, expect, it, vi } from 'vitest';
-import { createGameAudio, guessTemperature, soundEnabled, type AudioPreferences } from './audio';
+import {
+  createGameAudio,
+  guessTemperature,
+  MUSIC_TRACKS,
+  soundEnabled,
+  type AudioPreferences,
+} from './audio';
+import { bestGuessHeat, getRankEmoji } from '../../shared/guessHeat';
 
 vi.mock('@devvit/web/client', () => ({ context: { userId: 't2_audio_test' } }));
 
 const settings: AudioPreferences = { music: true, effects: true, motion: true, volume: 0.25 };
 function setup() {
-  const assets = new Map<string, ReturnType<typeof media>>();
-  function media() {
+  const sources: Array<ReturnType<typeof makeSource>> = [];
+  const gains: Array<ReturnType<typeof makeGain>> = [];
+  function makeSource() {
     return {
-      play: vi.fn().mockResolvedValue(undefined),
-      pause: vi.fn(),
-      load: vi.fn(),
-      volume: 1,
-      muted: false,
-      currentTime: 0,
+      buffer: null as AudioBuffer | null,
       loop: false,
-      preload: 'none' as const,
+      connect: vi.fn(),
+      disconnect: vi.fn(),
+      start: vi.fn(),
+      stop: vi.fn(),
+      onended: null as (() => void) | null,
     };
   }
-  const create = vi.fn((url: string) => {
-    const audio = media();
-    assets.set(url, audio);
-    return audio;
-  });
-  return { audio: createGameAudio(create), create, assets };
+  function makeGain() {
+    return {
+      gain: {
+        value: 1,
+        setValueAtTime: vi.fn(),
+        linearRampToValueAtTime: vi.fn(),
+        cancelScheduledValues: vi.fn(),
+      },
+      connect: vi.fn(),
+      disconnect: vi.fn(),
+    };
+  }
+  const ctx = {
+    currentTime: 0,
+    destination: {},
+    resume: vi.fn().mockResolvedValue(undefined),
+    decodeAudioData: vi.fn(async (data: ArrayBuffer) => ({
+      url: new TextDecoder().decode(data),
+      duration: 60,
+    })),
+    createBufferSource: () => {
+      const source = makeSource();
+      sources.push(source);
+      return source;
+    },
+    createGain: () => {
+      const gain = makeGain();
+      gains.push(gain);
+      return gain;
+    },
+  };
+  const createContext = vi.fn(() => ctx as unknown as AudioContext);
+  const fetchAudio = vi.fn(async (url: string) => new TextEncoder().encode(url).buffer);
+  const audio = createGameAudio({ createContext, fetchAudio });
+  return { audio, ctx, createContext, fetchAudio, sources, gains };
 }
+const flush = async () => {
+  for (let i = 0; i < 10; i++) await Promise.resolve();
+};
 
-describe('opt-in game audio', () => {
-  it('starts muted and does not create or load media before opting in', () => {
-    const { audio, create } = setup();
-    expect(soundEnabled.value).toBe(false);
+describe('guess-started game audio', () => {
+  it('defaults new players to sound on but creates no audio until a guess or explicit enable', async () => {
+    const { audio, createContext, fetchAudio } = setup();
+    expect(soundEnabled.value).toBe(true);
     audio.update(settings);
     audio.setVisible(true);
-    audio.cue('warmer');
-    expect(create).not.toHaveBeenCalled();
+    await audio.setLevel(2);
+    await audio.cue('warmer');
+    expect(createContext).not.toHaveBeenCalled();
+    expect(fetchAudio).not.toHaveBeenCalled();
   });
 
-  it('plays quiet music only after enabling and stops all playback when muted', async () => {
-    const { audio, assets } = setup();
+  it('unlocks one context before downloads and starts only quiet Exploration plus effects', async () => {
+    const { audio, ctx, fetchAudio, createContext, sources, gains } = setup();
     expect(await audio.enable(settings)).toBe(true);
-    const music = assets.get('/audio/calm-loop.mp3')!;
-    const warmer = assets.get('/audio/warmer.wav')!;
-    expect(music.loop).toBe(true);
-    expect(music.volume).toBeCloseTo(0.075);
-    warmer.play.mockClear();
-    audio.cue('warmer');
-    expect(warmer.play).toHaveBeenCalledTimes(1);
-    audio.disable();
-    audio.cue('warmer');
-    expect(music.pause).toHaveBeenCalled();
-    expect(warmer.play).toHaveBeenCalledTimes(1);
-  });
-
-  it('pauses hidden tabs, suppresses hidden effects, and resumes opted-in music', async () => {
-    const { audio, assets } = setup();
+    expect(ctx.resume.mock.invocationCallOrder[0]).toBeLessThan(
+      fetchAudio.mock.invocationCallOrder[0]!
+    );
+    expect(createContext).toHaveBeenCalledTimes(1);
+    expect(fetchAudio.mock.calls.map(([url]) => url)).toEqual([
+      MUSIC_TRACKS[0],
+      '/audio/warmer.wav',
+      '/audio/colder.wav',
+    ]);
+    expect(sources[0]!.loop).toBe(true);
+    expect(gains[0]!.gain.linearRampToValueAtTime).toHaveBeenCalledWith(0.075, 0.6);
+    await audio.cue('warmer');
+    expect(sources[1]!.loop).toBe(false);
+    expect(gains[1]!.gain.value).toBeCloseTo(0.175);
     await audio.enable(settings);
-    const music = assets.get('/audio/calm-loop.mp3')!;
-    const colder = assets.get('/audio/colder.wav')!;
-    colder.play.mockClear();
+    expect(sources).toHaveLength(2);
+    expect(createContext).toHaveBeenCalledTimes(1);
+  });
+
+  it('can unlock a first guess silently while waiting for preferences, then honor a mute', async () => {
+    const { audio, createContext, fetchAudio, sources } = setup();
+    expect(await audio.unlock()).toBe(true);
+    expect(createContext).toHaveBeenCalledTimes(1);
+    expect(fetchAudio).not.toHaveBeenCalled();
+    expect(sources).toHaveLength(0);
+    audio.disable();
+    await audio.setLevel(2);
+    await audio.cue('warmer');
+    expect(fetchAudio).not.toHaveBeenCalled();
+  });
+
+  it('crossfades at the sun and fire milestones without restarting on colder or repeated guesses', async () => {
+    const { audio, ctx, sources, gains, fetchAudio } = setup();
+    await audio.enable(settings);
+    await audio.setLevel(bestGuessHeat([{ rank: 1000 }]));
+    expect(sources[0]!.stop).toHaveBeenCalledWith(0.6);
+    expect(sources[1]!.buffer).toMatchObject({ url: MUSIC_TRACKS[1] });
+    expect(gains[0]!.gain.linearRampToValueAtTime).toHaveBeenCalledWith(0, 0.6);
+    await audio.setLevel(bestGuessHeat([{ rank: 1000 }, { rank: 5000 }]));
+    expect(sources).toHaveLength(2);
+    ctx.currentTime = 10;
+    await audio.setLevel(bestGuessHeat([{ rank: 1000 }, { rank: 250 }]));
+    expect(sources[2]!.buffer).toMatchObject({ url: MUSIC_TRACKS[2] });
+    expect(sources[1]!.stop).toHaveBeenCalledWith(10.6);
+    await audio.setLevel(2);
+    expect(sources).toHaveLength(3);
+    expect(fetchAudio.mock.calls.filter(([url]) => url.endsWith('.mp3'))).toHaveLength(3);
+  });
+
+  it('restores the best milestone silently and skips straight to fire if the first guess is very hot', async () => {
+    const { audio, fetchAudio, sources } = setup();
+    await audio.setLevel(bestGuessHeat([{ rank: 100 }, { rank: 5000 }]));
+    expect(fetchAudio).not.toHaveBeenCalled();
+    await audio.enable(settings);
+    expect(sources[0]!.buffer).toMatchObject({ url: MUSIC_TRACKS[2] });
+    expect(fetchAudio).not.toHaveBeenCalledWith(MUSIC_TRACKS[0]);
+    expect(fetchAudio).not.toHaveBeenCalledWith(MUSIC_TRACKS[1]);
+  });
+
+  it('stops music, crossfades, and effects immediately on mute and suppresses later cues', async () => {
+    const { audio, sources } = setup();
+    await audio.enable(settings);
+    await audio.setLevel(1);
+    await audio.cue('warmer');
+    audio.disable();
+    for (const source of sources) expect(source.stop).toHaveBeenLastCalledWith();
+    await audio.cue('colder');
+    await audio.setLevel(2);
+    expect(sources).toHaveLength(3);
+  });
+
+  it('pauses offscreen, suppresses hidden effects, and resumes the current track at its saved position', async () => {
+    const { audio, ctx, sources } = setup();
+    await audio.enable(settings);
+    ctx.currentTime = 12;
     audio.setVisible(false);
-    audio.cue('colder');
-    expect(music.pause).toHaveBeenCalled();
-    expect(colder.play).not.toHaveBeenCalled();
+    expect(sources[0]!.stop).toHaveBeenCalled();
+    await audio.cue('colder');
+    expect(sources).toHaveLength(1);
+    ctx.currentTime = 30;
     audio.setVisible(true);
-    expect(music.play).toHaveBeenCalledTimes(2);
+    await flush();
+    expect(sources[1]!.start).toHaveBeenCalledWith(30, 12);
   });
 
-  it('allows music and effects to be controlled independently', async () => {
-    const { audio, assets } = setup();
-    await audio.enable({ ...settings, music: false, effects: false });
-    expect(assets.has('/audio/calm-loop.mp3')).toBe(false);
-    const warmer = assets.get('/audio/warmer.wav')!;
-    warmer.play.mockClear();
-    audio.cue('warmer');
-    expect(warmer.play).not.toHaveBeenCalled();
-    audio.update({ ...settings, music: false });
-    audio.cue('warmer');
-    expect(warmer.play).toHaveBeenCalledTimes(1);
-  });
-
-  it('handles browser playback rejection without throwing or playing subsequent effects', async () => {
-    const { audio, create, assets } = setup();
-    create.mockImplementationOnce((url) => {
-      const media = {
-        play: vi.fn().mockRejectedValue(new Error('autoplay blocked')),
-        pause: vi.fn(),
-        load: vi.fn(),
-        volume: 1,
-        muted: false,
-        currentTime: 0,
-        loop: false,
-        preload: 'none' as const,
-      };
-      assets.set(url, media);
-      return media;
-    });
+  it('does not create audio while offscreen or start a download that finishes after scrolling away', async () => {
+    const { audio, createContext, fetchAudio, sources } = setup();
+    audio.setVisible(false);
     expect(await audio.enable(settings)).toBe(false);
-    const warmer = assets.get('/audio/warmer.wav')!;
-    warmer.play.mockClear();
-    audio.cue('warmer');
-    expect(warmer.play).not.toHaveBeenCalled();
+    expect(createContext).not.toHaveBeenCalled();
+    audio.setVisible(true);
+    let finish: (data: ArrayBuffer) => void = () => {};
+    fetchAudio.mockImplementationOnce(() => new Promise((resolve) => (finish = resolve)));
+    const pending = audio.enable(settings);
+    await Promise.resolve();
+    audio.setVisible(false);
+    finish(new ArrayBuffer(0));
+    expect(await pending).toBe(false);
+    expect(sources).toHaveLength(0);
   });
 
-  it('does not restart music when muted while its first play request is pending', async () => {
-    const { audio, create, assets } = setup();
-    let finish: () => void = () => {};
-    create.mockImplementationOnce((url) => {
-      const media = {
-        play: vi.fn(
-          () =>
-            new Promise<void>((resolve) => {
-              finish = resolve;
-            })
-        ),
-        pause: vi.fn(),
-        load: vi.fn(),
-        volume: 1,
-        muted: false,
-        currentTime: 0,
-        loop: false,
-        preload: 'none' as const,
-      };
-      assets.set(url, media);
-      return media;
-    });
+  it('does not start pending music after mute, or a stale lower tier after a hotter download wins', async () => {
+    const { audio, fetchAudio, sources } = setup();
+    await audio.enable(settings);
+    let finish: (data: ArrayBuffer) => void = () => {};
+    fetchAudio.mockImplementationOnce(() => new Promise((resolve) => (finish = resolve)));
+    const warm = audio.setLevel(1);
+    await audio.setLevel(2);
+    finish(new ArrayBuffer(0));
+    await warm;
+    expect(sources).toHaveLength(2);
+    expect(sources[1]!.buffer).toMatchObject({ url: MUSIC_TRACKS[2] });
+    audio.disable();
+    fetchAudio.mockImplementationOnce(() => new Promise((resolve) => (finish = resolve)));
+    await audio.setLevel(0);
     const pending = audio.enable(settings);
     audio.disable();
-    finish();
-    expect(await pending).toBe(false);
-    expect(assets.get('/audio/calm-loop.mp3')!.pause).toHaveBeenCalled();
-    expect(assets.get('/audio/calm-loop.mp3')!.play).toHaveBeenCalledTimes(1);
+    finish(new ArrayBuffer(0));
+    await pending;
+    expect(sources).toHaveLength(2);
   });
 
-  it('does not create media while off-screen or let a pending resume keep playing after scrolling away', async () => {
-    const { audio, create, assets } = setup();
-    audio.setVisible(false);
+  it('keeps music and effects independent and avoids loading disabled media', async () => {
+    const { audio, fetchAudio, sources } = setup();
+    await audio.enable({ ...settings, music: false, effects: false });
+    expect(fetchAudio).not.toHaveBeenCalled();
+    await audio.cue('warmer');
+    expect(sources).toHaveLength(0);
+    audio.update({ ...settings, music: false });
+    await audio.cue('warmer');
+    expect(sources).toHaveLength(1);
+    audio.update(settings);
+    await flush();
+    expect(sources[1]!.loop).toBe(true);
+    audio.update({ ...settings, music: false });
+    expect(sources[1]!.stop).toHaveBeenCalled();
+  });
+
+  it('recovers from blocked audio and retries a failed track download without affecting gameplay', async () => {
+    const { audio, ctx, fetchAudio, sources } = setup();
+    ctx.resume.mockRejectedValueOnce(new Error('blocked'));
     expect(await audio.enable(settings)).toBe(false);
-    expect(create).not.toHaveBeenCalled();
-    audio.setVisible(true);
-    await audio.enable(settings);
-    const music = assets.get('/audio/calm-loop.mp3')!;
-    audio.setVisible(false);
-    let finish: () => void = () => {};
-    music.play.mockImplementationOnce(() => new Promise<void>((resolve) => (finish = resolve)));
-    audio.setVisible(true);
-    audio.setVisible(false);
-    music.pause.mockClear();
-    finish();
-    await Promise.resolve();
-    expect(music.pause).toHaveBeenCalled();
+    await audio.cue('warmer');
+    expect(sources).toHaveLength(0);
+    expect(await audio.enable(settings)).toBe(true);
+    fetchAudio.mockRejectedValueOnce(new Error('offline'));
+    await audio.setLevel(1);
+    expect(sources).toHaveLength(1);
+    expect(await audio.enable(settings)).toBe(true);
+    expect(sources[1]!.buffer).toMatchObject({ url: MUSIC_TRACKS[1] });
+  });
+});
+
+it.each(MUSIC_TRACKS)('ships a complete, browser-decodable music track: %s', async (url) => {
+  // Decode offline: verifies the actual bundled files without playing audible test music.
+  const response = await fetch(url);
+  expect(response.ok).toBe(true);
+  const decoder = new OfflineAudioContext(2, 1, 44100);
+  const buffer = await decoder.decodeAudioData(await response.arrayBuffer());
+  expect(buffer.duration).toBeGreaterThan(20);
+  expect(buffer.numberOfChannels).toBeGreaterThan(0);
+  const samples = buffer.getChannelData(0);
+  expect(samples.some((sample) => Math.abs(sample) > 0.05)).toBe(true);
+});
+
+describe('soundtrack milestone boundaries', () => {
+  it.each([
+    [1001, null, 0],
+    [1000, '☀️', 1],
+    [251, '☀️', 1],
+    [250, '🔥', 2],
+    [1, '🔥', 2],
+    [0, null, 0],
+    [-1, null, 0],
+    [NaN, null, 0],
+    [Infinity, null, 0],
+  ] as const)('uses the same heat for rank %s emojis and music', (rank, emoji, level) => {
+    expect(getRankEmoji(rank)).toBe(emoji);
+    expect(bestGuessHeat([{ rank }])).toBe(level);
+  });
+  it('resets to Exploration for a fresh run and ignores a Give Up answer reveal', () => {
+    expect(bestGuessHeat([])).toBe(0);
+    expect(bestGuessHeat([{ rank: 5000 }, { rank: 0 }])).toBe(0);
   });
 });
 

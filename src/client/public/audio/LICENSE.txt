@@ -2,11 +2,23 @@ These audio assets are dedicated to the public domain under CC0 1.0:
 https://creativecommons.org/publicdomain/zero/1.0/
 No in-game attribution is required. This file records their provenance.
 
-calm-loop.mp3
-  Calm Loop by wipics, published 2020-02-02
-  https://opengameart.org/content/calm-loop
-  Original file: Relaxing_0.mp3 (unchanged)
-  Source declares CC0 and "Public Domain".
+exploration.mp3
+  Chiptune: Exploration by Ansimuz, published 2021-10-28
+  https://opengameart.org/content/chiptune-exploration
+  Source: https://opengameart.org/sites/default/files/exploration_files.zip
+  Original file: exploration files/exploration.mp3 (unchanged)
+  Source declares CC0 and attribution optional.
+
+stage-select.mp3 and boss-fight.mp3
+  4 Chiptunes (Adventure) by Juhani Junkala / SubspaceAudio, published 2017-05-26
+  https://opengameart.org/content/4-chiptunes-adventure
+  Source archive: Juhani Junkala [Chiptune Adventures] OGG.zip
+  Preview 4: Juhani Junkala [Chiptune Adventures] 4. Stage Select.ogg
+  Preview 3: Juhani Junkala [Chiptune Adventures] 3. Boss Fight.ogg
+  Bundled MP3s are the corresponding OpenGameArt MP3 preview encodings, unchanged:
+  https://opengameart.org/sites/default/files/audio_preview/Juhani%20Junkala%20%5BChiptune%20Adventures%5D%204.%20Stage%20Select.ogg.mp3
+  https://opengameart.org/sites/default/files/audio_preview/Juhani%20Junkala%20%5BChiptune%20Adventures%5D%203.%20Boss%20Fight.ogg.mp3
+  The page and archive's INFO.txt both declare CC0.
 
 warmer.wav and colder.wav
   Interface Sounds 1.0 by Kenney, published 2020-02-11
@@ -15,4 +27,4 @@ warmer.wav and colder.wav
   Converted to PCM WAV for browser compatibility; no creative edits.
   https://kenney.nl/support confirms attribution is not required.
 
-Verified 2026-10-24.
+Music verified 2026-10-26; sound effects verified 2026-10-24.

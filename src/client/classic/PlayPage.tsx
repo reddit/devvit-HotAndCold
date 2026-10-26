@@ -14,6 +14,8 @@ import { gameAudio, guessTemperature } from './feedback/audio';
 import { GuessTemperature, useTemperatureFeedback } from './feedback/temperature';
 import { GuessActions } from './guessActions';
 import { updateReminders } from './state/reminders';
+import { bestGuessHeat } from '../shared/guessHeat';
+import { startSoundOnGuess } from './feedback/controls';
 
 type PlayPrompt = 'JOIN_SUBREDDIT' | 'REMIND_ME_TO_PLAY';
 type ReactNode = ComponentChildren;
@@ -82,6 +84,11 @@ export function PlayPage({ engine }: { engine?: GuessEngine }) {
     const last = arr.length > 0 ? arr.reduce((a, b) => (a.timestamp > b.timestamp ? a : b)) : null;
     return { items: itemsSignal, itemsArray: arr, latest: last } as const;
   }, [engine, engine?.history.value]);
+
+  useEffect(() => {
+    // Include restored history and hints, and retain each milestone on colder guesses.
+    void gameAudio.setLevel(bestGuessHeat(itemsArray));
+  }, [itemsArray]);
 
   const totalPlayers = Number(context.postData?.totalPlayers ?? 0);
   const totalSolves = Number(context.postData?.totalSolves ?? 0);
@@ -224,6 +231,7 @@ export function PlayPage({ engine }: { engine?: GuessEngine }) {
           isHighContrast
           submitGuess={async (word) => {
             if (!engine) return null;
+            startSoundOnGuess();
             const before = engine.history.value ?? [];
             const previous = before.reduce<GuessHistoryItem | null>(
               (last, item) => (!last || item.timestamp >= last.timestamp ? item : last),
@@ -233,7 +241,7 @@ export function PlayPage({ engine }: { engine?: GuessEngine }) {
             if (res.ok) {
               const direction = guessTemperature(previous?.rank, res.rank);
               if (direction && !before.some((guess) => guess.word === res.word)) {
-                gameAudio.cue(direction);
+                void gameAudio.cue(direction);
                 showTemperature(direction);
               }
               const historyNow = engine.history.value ?? [];
@@ -278,7 +286,7 @@ export function PlayPage({ engine }: { engine?: GuessEngine }) {
         onHint={(result, previousRank) => {
           const direction = guessTemperature(previousRank, result.rank);
           if (direction) {
-            gameAudio.cue(direction);
+            void gameAudio.cue(direction);
             showTemperature(direction);
           }
           showFeedback('Hint added. Each hint reduces your score by 30%.', null);

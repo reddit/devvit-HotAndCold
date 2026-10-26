@@ -118,14 +118,25 @@ largest client chunk from about 573 kB to 391 kB without raising the warning lim
 
 ## Player sound and motion
 
-- Sound defaults to muted. The speaker remembers the current Reddit account's
+- New players default to sound on, but audio stays silent until their first
+  Guess submission (or an explicit sound-button action). Typing and opening
+  menus do not start sound. The speaker remembers the current Reddit account's
   choice across posts and app updates, using the `audio:enabled` Redis hash
-  (user ID → `1`; muting removes that field). No default or per-post records are
-  written. Guests keep their choice locally for this browser/app version.
-- Remembered opt-ins wait for a tap or keypress in each new webview before
-  loading/playing audio, as required by Reddit's safe-use-of-sound guidelines.
+  (user ID → `1` for on, `0` for muted). No default or per-post records are
+  written. Existing browser mutes are retained; guests keep their choice locally
+  for this browser/app version. Playback waits for preference restoration so a
+  saved mute cannot be overtaken by an early guess.
+- Guess submission resumes a single Web Audio context before any network work,
+  as required by Reddit's safe-use-of-sound guidelines. Track changes then work
+  without requiring another audio gesture. Media loads only on demand.
   Music and effects can be controlled independently through
   **Settings → Sound & Effects**.
+- The soundtrack follows the best ranked guess in the current puzzle, using
+  the same thresholds as its emojis: **Chiptune: Exploration** initially,
+  **Stage Select** (preview 4 in _4 Chiptunes (Adventure)_) on reaching ☀️ the
+  top 1,000, and **Boss Fight** (preview 3) on reaching 🔥 the top 250. Transitions
+  crossfade for 0.6 seconds. Colder guesses do not downgrade or restart music.
+  Restored history and hints count; Give Up's artificial answer reveal does not.
 - Warmer/colder previews do not submit guesses. Real feedback compares a newly
   accepted guess with the preceding guess. Initial history, invalid/duplicate
   submissions, equal ranks, and unranked guesses do not trigger feedback.

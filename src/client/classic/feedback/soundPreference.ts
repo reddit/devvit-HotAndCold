@@ -1,4 +1,4 @@
-import type { Signal } from '@preact/signals';
+import { signal, type Signal } from '@preact/signals';
 import { context } from '@devvit/web/client';
 import { trpc } from '../../trpc';
 import { soundEnabled } from './audio';
@@ -15,7 +15,9 @@ export function createSoundPreference({
   let revision = 0;
   let writes = Promise.resolve();
   let pendingRead: Promise<void> | undefined;
+  const ready = signal(false);
   return {
+    ready,
     restore() {
       if (pendingRead) return pendingRead;
       const before = revision;
@@ -29,6 +31,7 @@ export function createSoundPreference({
         } catch {
           // Keep the per-account browser preference when the server is unavailable.
         } finally {
+          ready.value = true;
           pendingRead = undefined;
         }
       })();
@@ -36,6 +39,7 @@ export function createSoundPreference({
     },
     choose(value: boolean) {
       revision++;
+      ready.value = true;
       enabled.value = value;
       let saved = true;
       // Serialize rapid toggles so the last choice is also the last server write.

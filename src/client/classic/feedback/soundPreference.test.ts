@@ -11,9 +11,11 @@ it('restores an opt-in without writing and ignores a stale read after an explici
   const save = vi.fn().mockResolvedValue(undefined);
   const preference = createSoundPreference({ enabled, load, save });
   const first = preference.restore();
+  expect(preference.ready.value).toBe(false);
   expect(preference.restore()).toBe(first);
   finish(true);
   await first;
+  expect(preference.ready.value).toBe(true);
   expect(enabled.value).toBe(true);
   expect(save).not.toHaveBeenCalled();
   const stale = preference.restore();
@@ -22,6 +24,22 @@ it('restores an opt-in without writing and ignores a stale read after an explici
   await stale;
   expect(enabled.value).toBe(false);
   expect(save).toHaveBeenCalledWith(false);
+});
+
+it('keeps the new default when unset and restores an explicit mute without writing a default record', async () => {
+  const enabled = signal(true);
+  const load = vi
+    .fn<() => Promise<boolean | null>>()
+    .mockResolvedValueOnce(null)
+    .mockResolvedValueOnce(false);
+  const save = vi.fn();
+  const preference = createSoundPreference({ enabled, load, save });
+  await preference.restore();
+  expect(enabled.value).toBe(true);
+  expect(preference.ready.value).toBe(true);
+  await preference.restore();
+  expect(enabled.value).toBe(false);
+  expect(save).not.toHaveBeenCalled();
 });
 
 it('serializes quick toggles and keeps the last local choice through a save failure', async () => {

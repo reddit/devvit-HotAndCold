@@ -1,5 +1,6 @@
 import { context } from '@devvit/web/client';
 import { localStorageSignal } from '../../utils/localStorageSignal';
+import type { GuessHeat } from '../../shared/guessHeat';
 
 export type Temperature = 'warmer' | 'colder';
 export type AudioPreferences = {
@@ -14,115 +15,239 @@ export const audioPreferences = localStorageSignal<AudioPreferences>({
 });
 export const soundEnabled = localStorageSignal<boolean>({
   key: `hotandcold:sound:v1:${context.subredditId ?? context.subredditName ?? 'community'}:${context.userId ?? 'guest'}`,
-  initialValue: false,
+  // Retain existing browser mute choices; new players start sound on their first guess.
+  initialValue: true,
   serializer: { read: (raw) => JSON.parse(raw) === true, write: JSON.stringify },
 });
 
-type Media = Pick<
-  HTMLAudioElement,
-  'play' | 'pause' | 'load' | 'volume' | 'muted' | 'currentTime' | 'loop' | 'preload'
->;
+export const MUSIC_TRACKS = [
+  '/audio/exploration.mp3',
+  '/audio/stage-select.mp3',
+  '/audio/boss-fight.mp3',
+] as const;
+const CROSSFADE_SECONDS = 0.6;
 
-export function createGameAudio(makeAudio: (url: string) => Media = (url) => new Audio(url)) {
+type Voice = { source: AudioBufferSourceNode; gain: GainNode };
+type MusicVoice = Voice & {
+  level: GuessHeat;
+  buffer: AudioBuffer;
+  startedAt: number;
+  offset: number;
+};
+type AudioDependencies = {
+  createContext?: () => AudioContext;
+  fetchAudio?: (url: string) => Promise<ArrayBuffer>;
+};
+
+export function createGameAudio({
+  createContext = () => new AudioContext(),
+  fetchAudio = async (url) => {
+    const response = await fetch(url);
+    if (!response.ok) throw new Error('Audio unavailable');
+    return response.arrayBuffer();
+  },
+}: AudioDependencies = {}) {
+  let audioContext: AudioContext | undefined;
   let enabled = false;
+  let unlocked = false;
   let visible = true;
   let generation = 0;
+  let cueSequence = 0;
+  let level: GuessHeat = 0;
   let settings: AudioPreferences = { music: true, effects: true, motion: true, volume: 0.25 };
-  let music: Media | undefined;
-  const effects: Partial<Record<Temperature, Media>> = {};
+  let music: MusicVoice | undefined;
+  const musicVoices = new Set<Voice>();
+  const effectVoices = new Set<Voice>();
+  const offsets = [0, 0, 0];
+  const buffers = new Map<string, Promise<AudioBuffer>>();
+  const volume = (scale: number) => Math.max(0, Math.min(1, settings.volume)) * scale;
 
-  const pauseAll = () => {
-    music?.pause();
-    effects.warmer?.pause();
-    effects.colder?.pause();
+  const loadBuffer = (url: string) => {
+    let pending = buffers.get(url);
+    if (!pending) {
+      pending = fetchAudio(url)
+        .then((data) => audioContext!.decodeAudioData(data))
+        .catch((error) => {
+          buffers.delete(url);
+          throw error;
+        });
+      buffers.set(url, pending);
+    }
+    return pending;
   };
-  const volume = () => {
-    const level = Math.max(0, Math.min(1, settings.volume));
-    if (music) music.volume = level * 0.3;
-    for (const effect of Object.values(effects)) effect.volume = level * 0.7;
+  const stopVoices = (voices: Set<Voice>) => {
+    for (const voice of voices) {
+      voice.source.stop();
+      voice.source.disconnect();
+      voice.gain.disconnect();
+    }
+    voices.clear();
   };
-  const ensureMusic = () => {
-    music ??= makeAudio('/audio/calm-loop.mp3');
-    music.loop = true;
-    music.preload = 'none';
-    volume();
-    return music;
+  const stopMusic = () => {
+    if (music && audioContext) {
+      offsets[music.level] =
+        (music.offset + audioContext.currentTime - music.startedAt) % music.buffer.duration;
+    }
+    music = undefined;
+    stopVoices(musicVoices);
+  };
+  const stopEffects = () => {
+    cueSequence++;
+    stopVoices(effectVoices);
+  };
+  const makeVoice = (buffer: AudioBuffer, voices: Set<Voice>) => {
+    const ctx = audioContext!;
+    const source = ctx.createBufferSource();
+    const gain = ctx.createGain();
+    source.buffer = buffer;
+    source.connect(gain);
+    gain.connect(ctx.destination);
+    const voice = { source, gain };
+    voices.add(voice);
+    source.onended = () => {
+      voices.delete(voice);
+      source.disconnect();
+      gain.disconnect();
+    };
+    return voice;
   };
   const playMusic = async () => {
-    const track = ensureMusic();
-    await track.play();
-    // A pending play promise can settle after a scroll-away or mute event.
-    if (!enabled || !visible || !settings.music) track.pause();
+    if (
+      !enabled ||
+      !unlocked ||
+      !visible ||
+      !settings.music ||
+      !audioContext ||
+      music?.level === level
+    )
+      return;
+    const requested = level;
+    const attempt = generation;
+    const buffer = await loadBuffer(MUSIC_TRACKS[requested]);
+    // Downloads can finish after muting, leaving the post, or reaching a hotter tier.
+    if (
+      !enabled ||
+      !visible ||
+      !settings.music ||
+      generation !== attempt ||
+      level !== requested ||
+      music?.level === requested
+    )
+      return;
+    const ctx = audioContext;
+    const previous = music;
+    const voice = makeVoice(buffer, musicVoices);
+    const now = ctx.currentTime;
+    const offset = offsets[requested] ?? 0;
+    voice.source.loop = true;
+    voice.gain.gain.setValueAtTime(0, now);
+    voice.gain.gain.linearRampToValueAtTime(volume(0.3), now + CROSSFADE_SECONDS);
+    voice.source.start(now, offset);
+    music = { ...voice, level: requested, buffer, startedAt: now, offset };
+    if (previous) {
+      previous.gain.gain.cancelScheduledValues(now);
+      previous.gain.gain.setValueAtTime(previous.gain.gain.value, now);
+      previous.gain.gain.linearRampToValueAtTime(0, now + CROSSFADE_SECONDS);
+      previous.source.stop(now + CROSSFADE_SECONDS);
+    }
+  };
+
+  const unlock = async () => {
+    if (!visible) return false;
+    try {
+      audioContext ??= createContext();
+      // Resume inside the original user gesture, even if preference restoration
+      // is still pending. This creates no sources, downloads, or audible output.
+      await audioContext.resume();
+      unlocked = true;
+      return visible;
+    } catch {
+      unlocked = false;
+      return false;
+    }
   };
 
   return {
+    unlock,
     async enable(preferences: AudioPreferences): Promise<boolean> {
       if (!visible) return false;
       settings = preferences;
       enabled = true;
-      const attempt = ++generation;
-      const starts: Promise<void>[] = [];
-      if (settings.music) starts.push(playMusic());
-      // Prime these same elements in the user's click gesture for mobile audio.
-      for (const direction of ['warmer', 'colder'] as const) {
-        const effect = (effects[direction] ??= makeAudio(`/audio/${direction}.wav`));
-        effect.muted = true;
-        starts.push(
-          effect.play().then(() => {
-            effect.pause();
-            effect.currentTime = 0;
-            effect.muted = false;
-          })
-        );
-      }
-      volume();
+      const attempt = generation;
       try {
-        await Promise.all(starts);
-        if (generation !== attempt) {
-          if (!enabled) pauseAll();
-          return false;
-        }
-        if (!visible) pauseAll();
-        return true;
+        // One context lets later track changes work without another audio gesture.
+        if (!(await unlock())) return false;
+        if (!enabled || !visible || generation !== attempt) return false;
+        await Promise.all([
+          playMusic(),
+          ...(settings.effects
+            ? ['warmer', 'colder'].map((direction) =>
+                loadBuffer(`/audio/${direction}.wav`).catch(() => {})
+              )
+            : []),
+        ]);
+        return enabled && visible && generation === attempt;
       } catch {
-        if (generation === attempt) {
+        if (generation === attempt && !music) {
           enabled = false;
-          pauseAll();
+          stopEffects();
         }
-        return false;
+        // If a hotter track fails to load, keep the current track and retry next guess.
+        return enabled && visible && Boolean(music);
       }
     },
     disable() {
       enabled = false;
       generation++;
-      pauseAll();
+      stopMusic();
+      stopEffects();
     },
     update(preferences: AudioPreferences) {
-      const startMusic = enabled && visible && !settings.music && preferences.music;
       settings = preferences;
-      volume();
-      if (!settings.music) music?.pause();
-      if (!settings.effects) {
-        effects.warmer?.pause();
-        effects.colder?.pause();
+      if (music && audioContext) {
+        music.gain.gain.cancelScheduledValues(audioContext.currentTime);
+        music.gain.gain.setValueAtTime(volume(0.3), audioContext.currentTime);
       }
-      if (startMusic) void playMusic().catch(() => {});
+      for (const voice of effectVoices) voice.gain.gain.value = volume(0.7);
+      if (!settings.music) stopMusic();
+      else void playMusic().catch(() => {});
+      if (!settings.effects) stopEffects();
+    },
+    setLevel(next: GuessHeat) {
+      if (level === next) return Promise.resolve();
+      level = next;
+      return playMusic().catch(() => {});
     },
     setVisible(value: boolean) {
       if (visible === value) return;
       visible = value;
-      if (!value) pauseAll();
-      else if (enabled && settings.music) void playMusic().catch(() => {});
+      if (!value) {
+        generation++;
+        stopMusic();
+        stopEffects();
+      } else void playMusic().catch(() => {});
     },
-    cue(direction: Temperature) {
-      if (!enabled || !visible || !settings.effects) return;
-      const effect = effects[direction];
-      if (!effect) return;
-      effects.warmer?.pause();
-      effects.colder?.pause();
-      effect.currentTime = 0;
-      effect.muted = false;
-      void effect.play().catch(() => {});
+    async cue(direction: Temperature) {
+      if (!enabled || !unlocked || !visible || !settings.effects) return;
+      const attempt = generation;
+      const sequence = ++cueSequence;
+      try {
+        const buffer = await loadBuffer(`/audio/${direction}.wav`);
+        if (
+          !enabled ||
+          !visible ||
+          !settings.effects ||
+          attempt !== generation ||
+          sequence !== cueSequence
+        )
+          return;
+        stopVoices(effectVoices);
+        const voice = makeVoice(buffer, effectVoices);
+        voice.gain.gain.value = volume(0.7);
+        voice.source.start();
+      } catch {
+        // Audio is optional; a missing effect must never interrupt a guess.
+      }
     },
   };
 }

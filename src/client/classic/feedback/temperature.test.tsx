@@ -10,8 +10,11 @@ vi.mock('@devvit/web/client', () => ({ context: {}, showToast: () => {} }));
 
 let container: HTMLDivElement;
 let originalPreferences: typeof audioPreferences.value;
+let originalSound: boolean;
 beforeEach(async () => {
   originalPreferences = audioPreferences.value;
+  originalSound = soundEnabled.value;
+  soundEnabled.value = false;
   audioPreferences.value = { ...originalPreferences, motion: true };
   vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
   container = document.createElement('div');
@@ -22,6 +25,7 @@ afterEach(async () => {
   await act(() => render(null, container));
   container.remove();
   audioPreferences.value = originalPreferences;
+  soundEnabled.value = originalSound;
   vi.useRealTimers();
 });
 const preview = async (direction: 'Warmer' | 'Colder') => {

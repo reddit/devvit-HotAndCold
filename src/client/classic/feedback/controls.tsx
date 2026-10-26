@@ -16,7 +16,7 @@ let starting = false;
 const waitingForInteraction = signal(false);
 
 async function startSound(explicit = false) {
-  if (!soundEnabled.value || !inView.value || playbackStarted || starting) return;
+  if (!soundPreference.ready.value || !soundEnabled.value || !inView.value || starting) return;
   starting = true;
   const attempt = ++toggleSequence;
   const success = await gameAudio.enable(audioPreferences.value);
@@ -25,16 +25,31 @@ async function startSound(explicit = false) {
   playbackStarted = success;
   waitingForInteraction.value = !success;
   if (!success && explicit)
-    showToast({ text: 'Audio could not start. Tap the game to try again.' });
+    showToast({ text: 'Audio could not start. Submit a guess or use Start Sound to try again.' });
 }
 
-export async function toggleSound() {
-  const next = !soundEnabled.value;
+// Called synchronously by Guess submission; typing and opening menus stay silent.
+export function startSoundOnGuess() {
+  if (!soundPreference.ready.value && soundEnabled.value && inView.value) {
+    // Unlock silently now, then honor the server's choice before starting audio.
+    void Promise.all([gameAudio.unlock(), soundPreference.restore()]).then(([unlocked]) => {
+      if (unlocked) void startSound();
+    });
+    return;
+  }
+  void startSound();
+}
+
+async function chooseSound(next: boolean) {
   const saved = soundPreference.choose(next);
   // Keep the play call in the click gesture; never wait for a network request first.
   if (next) void startSound(true);
   if (!(await saved) && soundEnabled.value === next)
     showToast({ text: 'Sound works here, but your choice could not be saved for other posts.' });
+}
+
+export function toggleSound() {
+  return chooseSound(!soundEnabled.value);
 }
 
 export function useSoundPlayback() {
@@ -53,26 +68,13 @@ export function useSoundPlayback() {
         gameAudio.disable();
       } else waitingForInteraction.value = !playbackStarted;
     });
-    const interaction = (event: Event) => {
-      if (
-        !event.isTrusted ||
-        (event.target instanceof Element && event.target.closest('[data-sound-toggle]'))
-      )
-        return;
-      void startSound();
-    };
-    document.addEventListener('pointerdown', interaction, true);
-    document.addEventListener('keydown', interaction, true);
     void soundPreference.restore();
     return () => {
       toggleSequence++;
       starting = false;
       playbackStarted = false;
-      waitingForInteraction.value = soundEnabled.value;
       unsubscribe();
       stopVisibility();
-      document.removeEventListener('pointerdown', interaction, true);
-      document.removeEventListener('keydown', interaction, true);
       gameAudio.disable();
     };
   }, []);
@@ -101,11 +103,13 @@ export function SoundButton() {
       onClick={toggleSound}
       title={
         soundEnabled.value
-          ? 'Sound On · Your Choice Is Saved · Mute Sound'
+          ? waitingForInteraction.value
+            ? 'Sound On · Starts With Your Next Guess · Mute Sound'
+            : 'Sound On · Your Choice Is Saved · Mute Sound'
           : 'Sound Off · Your Choice Is Saved · Turn On Sound'
       }
     >
-      {soundEnabled.value ? 'Sound on' : 'Sound off'}
+      {soundEnabled.value ? 'Sound On' : 'Sound Off'}
     </IconButton>
   );
 }
@@ -114,20 +118,24 @@ export function SoundPreferences() {
   const settings = audioPreferences.value;
   const { showTemperature, ...temperatureFeedback } = useTemperatureFeedback();
   const preview = (next: Temperature) => {
-    gameAudio.cue(next);
+    void gameAudio.cue(next);
     showTemperature(next);
   };
   return (
     <div className="space-y-3">
       <p className="text-xs text-gray-500 dark:text-gray-400">
-        Starts muted until you turn it on. Your sound choice is remembered across posts. Sound
-        pauses when the game is off-screen.
+        Sound starts with your first guess. Your mute choice is remembered across posts. Sound
+        pauses when the game is off-screen or in the background.
       </p>
       {soundEnabled.value && waitingForInteraction.value && (
         <p role="status" className="text-xs text-gray-500 dark:text-gray-400">
-          Sound is on. Tap or type in the game to resume it in this post.
+          Sound is on. Submit your next guess to start it, or use the sound button below.
         </p>
       )}
+      <p className="text-xs text-gray-500 dark:text-gray-400">
+        Music follows your best guess: Exploration → ☀️ Stage Select (Top 1,000) → 🔥 Boss Fight
+        (Top 250). Colder guesses keep your current track playing.
+      </p>
       <div className="space-y-2">
         {(['music', 'effects', 'motion'] as const).map((key) => (
           <label key={key} className="flex items-center justify-between gap-4 text-sm">
@@ -166,9 +174,15 @@ export function SoundPreferences() {
       <button
         data-sound-toggle
         className="w-full rounded-full bg-gray-900 px-4 py-2.5 text-sm font-semibold text-white dark:bg-white dark:text-gray-950"
-        onClick={toggleSound}
+        onClick={() =>
+          soundEnabled.value && waitingForInteraction.value ? chooseSound(true) : toggleSound()
+        }
       >
-        {soundEnabled.value ? 'Mute Sound' : 'Turn On Sound'}
+        {soundEnabled.value
+          ? waitingForInteraction.value
+            ? 'Start Sound'
+            : 'Mute Sound'
+          : 'Turn On Sound'}
       </button>
       <div className="relative isolate overflow-hidden rounded-xl bg-gray-50 p-3 dark:bg-gray-800">
         <p className="text-xs font-medium">Preview feedback without making a guess</p>

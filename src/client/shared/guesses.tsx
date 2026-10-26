@@ -3,6 +3,7 @@ import { Signal } from '@preact/signals';
 import { cn } from '../utils/cn';
 import { userSettings } from '../classic/state/userSettings';
 import { useDimensions } from './useDimensions';
+import { getRankEmoji } from './guessHeat';
 
 export type GuessItem = {
   word: string;
@@ -79,13 +80,6 @@ export function Guesses({
       sorted[0]!
     );
   }, [latest, sorted]);
-
-  const getRankEmoji = (rank?: number | null): string | null => {
-    const safeRank = Number.isFinite(rank) ? (rank as number) : -1;
-    if (safeRank >= 1 && safeRank <= 250) return '🔥';
-    if (safeRank >= 251 && safeRank <= 1000) return '☀️';
-    return null;
-  };
 
   const getProgressClass = (rank: number | undefined) => {
     const safeRank = Number.isFinite(rank) ? (rank as number) : -1;
