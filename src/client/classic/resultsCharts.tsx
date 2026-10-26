@@ -41,7 +41,7 @@ export function GuessJourney({
         compact ? 'inline-results-chart min-h-0' : 'rounded-xl bg-gray-50 p-3 dark:bg-gray-800/60'
       }
     >
-      <figcaption className="mb-1 flex items-center justify-between gap-2 text-[11px] leading-4 text-gray-500 dark:text-gray-400">
+      <figcaption className="mb-1 flex items-center justify-between gap-2 text-[11px] leading-4 text-gray-600 dark:text-gray-300">
         <span className="font-semibold">Your Guess Journey</span>
         <span>
           {guesses.length} {guesses.length === 1 ? 'Guess' : 'Guesses'} · Closer ↑

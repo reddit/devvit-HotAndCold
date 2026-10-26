@@ -134,7 +134,8 @@ export function SoundPreferences() {
       )}
       <p className="text-xs text-gray-500 dark:text-gray-400">
         Music follows your best guess: Exploration → ☀️ Stage Select (Top 1,000) → 🔥 Boss Fight
-        (Top 250). Colder guesses keep your current track playing.
+        (Top 250). Colder guesses keep your current track playing. A win ends with a short fanfare
+        and applause, then silence.
       </p>
       <div className="space-y-2">
         {(['music', 'effects', 'motion'] as const).map((key) => (
@@ -142,8 +143,8 @@ export function SoundPreferences() {
             {
               {
                 music: 'Background Music',
-                effects: 'Hotter / Colder Sounds',
-                motion: 'Gentle Guess Animations',
+                effects: 'Sound Effects',
+                motion: 'Temperature Colors and Animations',
               }[key]
             }
             <input
@@ -203,8 +204,8 @@ export function SoundPreferences() {
         <GuessTemperature {...temperatureFeedback} contained />
       </div>
       <p className="text-xs text-gray-500">
-        A subtle tint stays between guesses, with a gentle pulse for each change. Reduced motion
-        keeps the tint still.
+        The tint stays between guesses, with a gentle pulse for each change. Very close guesses glow
+        more, wins are fiery, and Give Up results are icy. Reduced motion keeps the tint still.
       </p>
     </div>
   );

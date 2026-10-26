@@ -85,8 +85,8 @@ export function Guesses({
     const safeRank = Number.isFinite(rank) ? (rank as number) : -1;
     // Darken in light mode for readability, keep brighter hues in dark mode
     if (safeRank >= 1000) return 'text-blue-700 dark:text-[#4DE1F2]';
-    if (safeRank >= 250) return 'text-yellow-700 dark:text-[#FED155]';
-    return 'text-red-700 dark:text-[#FE5555]';
+    if (safeRank >= 250) return 'text-yellow-800 dark:text-[#FED155]';
+    return 'text-red-700 dark:text-[#FF8A80]';
   };
 
   // Calculate how many rows can fit within the scrollable list area only

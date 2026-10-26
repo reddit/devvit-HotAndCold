@@ -19,6 +19,7 @@ import { ScrollPanel } from '../shared/scrollNavigation';
 import { userSettings } from './state/userSettings';
 import { InlineResults, InlineResultButtons } from './inlineResults';
 import { GuessJourney, CommunityProgress } from './resultsCharts';
+import { ResultTemperature } from './feedback/temperature';
 
 type LeaderboardEntry = { member: string; score: number };
 
@@ -332,6 +333,7 @@ export function WinPage({ expanded = false }: { expanded?: boolean }) {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-3">
+      <ResultTemperature didWin={didWin} />
       <div className="mx-auto">
         <Tablist
           activeIndex={activeIndex}
@@ -353,7 +355,15 @@ export function WinPage({ expanded = false }: { expanded?: boolean }) {
             <div className="flex flex-col items-center justify-start gap-4">
               <h1 className="text-center text-2xl font-bold text-gray-900 dark:text-white">
                 {didWin ? 'Congratulations!' : 'Nice Try!'} The word was:{' '}
-                <span className="text-[#dd4c4c]">{word?.word ?? '—'}</span>
+                <span
+                  className={
+                    didWin
+                      ? 'text-orange-800 dark:text-orange-200'
+                      : 'text-sky-800 dark:text-sky-200'
+                  }
+                >
+                  {word?.word ?? '—'}
+                </span>
               </h1>
 
               <div className="flex flex-wrap justify-center gap-2">

@@ -28,3 +28,20 @@ warmer.wav and colder.wav
   https://kenney.nl/support confirms attribution is not required.
 
 Music verified 2026-10-26; sound effects verified 2026-10-24.
+
+victory.mp3
+  SEGA Mega Drive/Genesis victory jingle by Spring Spring / Julie Damsgaard, published 2018-10-28
+  https://opengameart.org/content/sega-mega-drivegenesis-victory-jingle
+  Source declares CC0. This is an original FM-synth style jingle, not a recording from a Sega game.
+  Bundled file is the unchanged OpenGameArt MP3 preview encoding:
+  https://opengameart.org/sites/default/files/audio_preview/victory%20jingle.ogg.mp3
+
+applause.wav
+  Short Applauses (10 different takes) by unfa, published 2013-12-19
+  https://freesound.org/people/unfa/sounds/211144/
+  Source declares Creative Commons 0.
+  Source preview: https://cdn.freesound.org/previews/211/211144_1038806-hq.mp3
+  First take excerpt, 0.25–3.75 seconds; mixed to mono, resampled to 22,050 Hz,
+  peak-normalized to 0.85, with 40 ms fade-in and 350 ms fade-out; PCM 16-bit WAV.
+
+Victory assets verified 2026-10-26.

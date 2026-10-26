@@ -334,6 +334,7 @@ it.each([
     );
     await expect.poll(() => Boolean(button('Remind Me to Play Daily'))).toBe(true);
     const summary = container.querySelector<HTMLElement>('[aria-label="Puzzle Results"]')!;
+    expect(summary.querySelector('.temperature-backdrop--victory')).not.toBeNull();
     const bounds = summary.getBoundingClientRect();
     expect(summary.scrollHeight).toBeLessThanOrEqual(summary.clientHeight);
     expect(summary.scrollWidth).toBe(summary.clientWidth);
@@ -385,6 +386,8 @@ it('does not turn a Give Up reveal into a winning point in the journey chart', a
     </div>
   );
   await expect.poll(() => container.textContent).toContain('Nice Try!');
+  expect(container.querySelector('.temperature-backdrop--frozen')).not.toBeNull();
+  expect(container.querySelector('.temperature-backdrop--victory')).toBeNull();
   const chart = container.querySelector('svg[aria-label^="Guess journey"]')!;
   expect(chart.getAttribute('aria-label')).toContain('over 2 guesses. Best rank 4');
   expect(container.textContent).toContain('apple');

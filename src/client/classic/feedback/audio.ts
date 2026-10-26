@@ -25,6 +25,8 @@ export const MUSIC_TRACKS = [
   '/audio/stage-select.mp3',
   '/audio/boss-fight.mp3',
 ] as const;
+export const VICTORY_MUSIC = '/audio/victory.mp3';
+export const VICTORY_APPLAUSE = '/audio/applause.wav';
 const CROSSFADE_SECONDS = 0.6;
 
 type Voice = { source: AudioBufferSourceNode; gain: GainNode };
@@ -54,6 +56,9 @@ export function createGameAudio({
   let generation = 0;
   let cueSequence = 0;
   let level: GuessHeat = 0;
+  let result: 'win' | 'give-up' | null = null;
+  let victoryRequested = false;
+  let victoryStarted = false;
   let settings: AudioPreferences = { music: true, effects: true, motion: true, volume: 0.5 };
   let music: MusicVoice | undefined;
   const musicVoices = new Set<Voice>();
@@ -117,6 +122,7 @@ export function createGameAudio({
       !unlocked ||
       !visible ||
       !settings.music ||
+      result !== null ||
       !audioContext ||
       music?.level === level
     )
@@ -129,6 +135,7 @@ export function createGameAudio({
       !enabled ||
       !visible ||
       !settings.music ||
+      result !== null ||
       generation !== attempt ||
       level !== requested ||
       music?.level === requested
@@ -149,6 +156,38 @@ export function createGameAudio({
       previous.gain.gain.setValueAtTime(previous.gain.gain.value, now);
       previous.gain.gain.linearRampToValueAtTime(0, now + CROSSFADE_SECONDS);
       previous.source.stop(now + CROSSFADE_SECONDS);
+    }
+  };
+
+  const playVictory = async () => {
+    if (!victoryRequested || victoryStarted || !enabled || !unlocked || !visible) return;
+    victoryRequested = false;
+    victoryStarted = true;
+    const attempt = generation;
+    const loaded = await Promise.all(
+      (
+        [
+          { url: VICTORY_MUSIC, kind: 'music', voices: musicVoices, scale: 0.45 },
+          { url: VICTORY_APPLAUSE, kind: 'effects', voices: effectVoices, scale: 0.7 },
+        ] as const
+      ).map(async ({ url, kind, voices, scale }) => {
+        if (!settings[kind]) return null;
+        try {
+          const buffer = await loadBuffer(url);
+          return { buffer, kind, voices, scale };
+        } catch {
+          // Keep results usable if either optional celebration asset is unavailable.
+          return null;
+        }
+      })
+    );
+    if (!enabled || !visible || result !== 'win' || generation !== attempt) return;
+    for (const asset of loaded) {
+      if (!asset || !settings[asset.kind]) continue;
+      const voice = makeVoice(asset.buffer, asset.voices);
+      voice.gain.gain.value = volume(asset.scale);
+      // Start together, once. Returning to the post must never replay a win.
+      voice.source.start();
     }
   };
 
@@ -180,7 +219,8 @@ export function createGameAudio({
         if (!enabled || !visible || generation !== attempt) return false;
         await Promise.all([
           playMusic(),
-          ...(settings.effects
+          playVictory(),
+          ...(settings.effects && result === null
             ? ['warmer', 'colder'].map((direction) =>
                 loadBuffer(`/audio/${direction}.wav`).catch(() => {})
               )
@@ -199,6 +239,7 @@ export function createGameAudio({
     disable() {
       enabled = false;
       generation++;
+      victoryRequested = false;
       stopMusic();
       stopEffects();
     },
@@ -208,6 +249,7 @@ export function createGameAudio({
         music.gain.gain.cancelScheduledValues(audioContext.currentTime);
         music.gain.gain.setValueAtTime(volume(0.3), audioContext.currentTime);
       }
+      if (result === 'win') for (const voice of musicVoices) voice.gain.gain.value = volume(0.45);
       for (const voice of effectVoices) voice.gain.gain.value = volume(0.7);
       if (!settings.music) stopMusic();
       else void playMusic().catch(() => {});
@@ -218,17 +260,28 @@ export function createGameAudio({
       level = next;
       return playMusic().catch(() => {});
     },
+    finish(next: 'win' | 'give-up', celebrate = false) {
+      if (result !== next) {
+        result = next;
+        stopMusic();
+        stopEffects();
+      }
+      // Loading/reopening results is silent. Only a new winning submission celebrates.
+      if (next === 'win' && celebrate && visible && !victoryStarted) victoryRequested = true;
+      return playVictory();
+    },
     setVisible(value: boolean) {
       if (visible === value) return;
       visible = value;
       if (!value) {
         generation++;
+        victoryRequested = false;
         stopMusic();
         stopEffects();
       } else void playMusic().catch(() => {});
     },
     async cue(direction: Temperature) {
-      if (!enabled || !unlocked || !visible || !settings.effects) return;
+      if (!enabled || !unlocked || !visible || !settings.effects || result !== null) return;
       const attempt = generation;
       const sequence = ++cueSequence;
       try {
@@ -237,6 +290,7 @@ export function createGameAudio({
           !enabled ||
           !visible ||
           !settings.effects ||
+          result !== null ||
           attempt !== generation ||
           sequence !== cueSequence
         )

@@ -8,6 +8,7 @@ import { ShareIcon } from './icons';
 import { ScrollPanel } from '../shared/scrollNavigation';
 import { InlineResults, InlineResultButtons } from './inlineResults';
 import { GuessJourney } from './resultsCharts';
+import { ResultTemperature } from './feedback/temperature';
 
 export function WinPageLoggedOut({
   engine,
@@ -98,13 +99,19 @@ export function WinPageLoggedOut({
 
   return (
     <ScrollPanel label="Results">
+      <ResultTemperature didWin={wonLocally} />
       <div className="flex flex-col items-center justify-center gap-6 px-4 py-4 text-center">
         <div className="flex flex-col gap-2">
           <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
             {wonLocally ? 'Congratulations!' : 'Game Over!'}
           </h1>
           <p className="text-xl">
-            The word was: <span className="font-bold text-[#dd4c4c]">{secretWord ?? '...'}</span>
+            The word was:{' '}
+            <span
+              className={`font-bold ${wonLocally ? 'text-orange-800 dark:text-orange-200' : 'text-sky-800 dark:text-sky-200'}`}
+            >
+              {secretWord ?? '...'}
+            </span>
           </p>
           <p className="mt-4 text-lg text-gray-600 dark:text-gray-300">
             Sign up to see the full leaderboard and save your progress.

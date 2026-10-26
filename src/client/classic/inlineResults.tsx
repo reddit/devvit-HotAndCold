@@ -4,6 +4,7 @@ import { openPopup } from './expanded/launch';
 import { ShareIcon } from './icons';
 import { GuessJourney, type JourneyGuess } from './resultsCharts';
 import './inlineResults.css';
+import { ResultTemperature } from './feedback/temperature';
 
 export type ResultStat = {
   label: string;
@@ -29,10 +30,13 @@ export function InlineResults({
       aria-label="Puzzle Results"
       className="inline-results mx-auto min-h-0 w-full max-w-xl flex-1 text-gray-900 dark:text-white"
     >
+      <ResultTemperature didWin={didWin} />
       <div className="inline-results-content">
         <h1 className="inline-results-heading text-center font-bold">
           <span className="block text-base">{didWin ? 'Congratulations!' : 'Nice Try!'}</span>
-          <span className="block text-xl break-words text-orange-700 dark:text-orange-300">
+          <span
+            className={`block text-xl break-words ${didWin ? 'text-orange-800 dark:text-orange-200' : 'text-sky-800 dark:text-sky-200'}`}
+          >
             {word}
           </span>
         </h1>

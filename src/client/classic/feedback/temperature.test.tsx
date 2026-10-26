@@ -4,7 +4,7 @@ import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import '../../index.css';
 import { SoundPreferences } from './controls';
 import { audioPreferences, soundEnabled } from './audio';
-import { TEMPERATURE_FEEDBACK_MS } from './temperature';
+import { GuessTemperature, ResultTemperature, TEMPERATURE_FEEDBACK_MS } from './temperature';
 
 vi.mock('@devvit/web/client', () => ({ context: {}, showToast: () => {} }));
 
@@ -79,4 +79,30 @@ it('lets players turn off the tint while retaining the text feedback', async () 
   expect(badge()).toContain('Colder');
   await advance(TEMPERATURE_FEEDBACK_MS + 1);
   expect(badge()).toBe('');
+});
+
+it('makes fire-tier guesses stronger, with wins and Give Up results strongest and still', async () => {
+  await act(() =>
+    render(<GuessTemperature direction="warmer" sequence={1} rank={251} />, container)
+  );
+  const edgeStrength = () =>
+    Number(getComputedStyle(backdrop()!).getPropertyValue('--temperature-edge'));
+  const warm = edgeStrength();
+  await act(() =>
+    render(<GuessTemperature direction="warmer" sequence={2} rank={250} />, container)
+  );
+  const close = edgeStrength();
+  expect(close).toBeGreaterThan(warm);
+  await act(() => render(<ResultTemperature didWin />, container));
+  const victory = edgeStrength();
+  expect(victory).toBeGreaterThan(close);
+  expect(backdrop()!.getAnimations()).toHaveLength(0);
+  expect(getComputedStyle(backdrop()!).pointerEvents).toBe('none');
+  await act(() => render(<ResultTemperature didWin={false} />, container));
+  expect(edgeStrength()).toBe(victory);
+  expect(backdrop()!.classList.contains('temperature-backdrop--frozen')).toBe(true);
+  await act(() => {
+    audioPreferences.value = { ...audioPreferences.value, motion: false };
+  });
+  expect(backdrop()).toBeNull();
 });

@@ -1,11 +1,46 @@
 import clsx from 'clsx';
 import { useEffect, useRef, useState } from 'preact/hooks';
 import type { Temperature } from './audio';
-import { audioPreferences } from './audio';
+import { audioPreferences, gameAudio } from './audio';
 import './temperature.css';
 import { FlameIcon, SnowflakeIcon } from '../icons';
+import { guessHeat } from '../../shared/guessHeat';
 
 export const TEMPERATURE_FEEDBACK_MS = 1400;
+
+export function ResultTemperature({ didWin }: { didWin: boolean }) {
+  useEffect(() => {
+    void gameAudio.finish(didWin ? 'win' : 'give-up');
+  }, [didWin]);
+  return <TemperatureBackdrop tone={didWin ? 'victory' : 'frozen'} />;
+}
+
+export function TemperatureBackdrop({
+  tone,
+  close = false,
+  contained = false,
+  pulse = false,
+}: {
+  tone: Temperature | 'victory' | 'frozen';
+  close?: boolean;
+  contained?: boolean;
+  pulse?: boolean;
+}) {
+  if (!audioPreferences.value.motion) return null;
+  return (
+    <div
+      aria-hidden="true"
+      className={clsx(
+        'temperature-backdrop',
+        `temperature-backdrop--${tone}`,
+        close && 'temperature-backdrop--close',
+        contained && 'temperature-backdrop--contained',
+        pulse && 'temperature-backdrop--pulse'
+      )}
+      style={pulse ? { animationDuration: `${TEMPERATURE_FEEDBACK_MS}ms` } : undefined}
+    />
+  );
+}
 
 export function useTemperatureFeedback() {
   const [feedback, setFeedback] = useState<{
@@ -31,24 +66,23 @@ export function GuessTemperature({
   sequence,
   showBadge = true,
   contained = false,
+  rank,
 }: {
   direction: Temperature | null;
   sequence: number;
   showBadge?: boolean;
   contained?: boolean;
+  rank?: number | null;
 }) {
   return (
     <>
-      {direction && audioPreferences.value.motion && (
-        <div
+      {direction && (
+        <TemperatureBackdrop
           key={sequence}
-          aria-hidden="true"
-          className={clsx(
-            'temperature-backdrop',
-            `temperature-backdrop--${direction}`,
-            contained && 'temperature-backdrop--contained'
-          )}
-          style={{ animationDuration: `${TEMPERATURE_FEEDBACK_MS}ms` }}
+          tone={direction}
+          close={direction === 'warmer' && guessHeat(rank) === 2}
+          contained={contained}
+          pulse
         />
       )}
       <div

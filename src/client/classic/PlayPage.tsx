@@ -10,7 +10,7 @@ import { openHowToPlay } from './state/howToPlay';
 import { posthog } from '../posthog';
 import { trpc } from '../trpc';
 import { userSettings } from './state/userSettings';
-import { gameAudio, guessTemperature } from './feedback/audio';
+import { gameAudio, guessTemperature, soundEnabled } from './feedback/audio';
 import { GuessTemperature, useTemperatureFeedback } from './feedback/temperature';
 import { GuessActions } from './guessActions';
 import { updateReminders } from './state/reminders';
@@ -223,7 +223,7 @@ export function PlayPage({ engine }: { engine?: GuessEngine }) {
         {itemsArray.length > 0 ? `Guesses: ${itemsArray.length}` : 'Can you guess the secret word?'}
       </h1>
 
-      <GuessTemperature {...temperatureFeedback} />
+      <GuessTemperature {...temperatureFeedback} rank={latest?.rank ?? null} />
 
       <div className="relative mx-auto grid w-full max-w-xl grid-cols-[minmax(0,1fr)_auto] gap-x-2">
         <WordInput
@@ -240,7 +240,9 @@ export function PlayPage({ engine }: { engine?: GuessEngine }) {
             const res = await engine.submit(word);
             if (res.ok) {
               const direction = guessTemperature(previous?.rank, res.rank);
-              if (direction && !before.some((guess) => guess.word === res.word)) {
+              if (res.similarity === 1 && !before.some((guess) => guess.word === res.word)) {
+                void gameAudio.finish('win', soundEnabled.value);
+              } else if (direction && !before.some((guess) => guess.word === res.word)) {
                 void gameAudio.cue(direction);
                 showTemperature(direction);
               }

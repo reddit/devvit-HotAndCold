@@ -3,6 +3,8 @@ import {
   createGameAudio,
   guessTemperature,
   MUSIC_TRACKS,
+  VICTORY_MUSIC,
+  VICTORY_APPLAUSE,
   soundEnabled,
   type AudioPreferences,
 } from './audio';
@@ -243,6 +245,115 @@ it.each(MUSIC_TRACKS)('ships a complete, browser-decodable music track: %s', asy
   expect(buffer.numberOfChannels).toBeGreaterThan(0);
   const samples = buffer.getChannelData(0);
   expect(samples.some((sample) => Math.abs(sample) > 0.05)).toBe(true);
+});
+
+describe('result audio', () => {
+  it('ends the loop with one fanfare and applause, then stays silent on reopening or returning', async () => {
+    const { audio, sources, fetchAudio } = setup();
+    await audio.enable(settings);
+    await audio.cue('warmer');
+    await audio.finish('win', true);
+    expect(sources[0]!.stop).toHaveBeenCalled();
+    expect(sources[1]!.stop).toHaveBeenCalled();
+    expect(sources.slice(2).map((source) => source.buffer)).toEqual([
+      expect.objectContaining({ url: VICTORY_MUSIC }),
+      expect.objectContaining({ url: VICTORY_APPLAUSE }),
+    ]);
+    expect(sources.slice(2).every((source) => !source.loop)).toBe(true);
+    await audio.finish('win');
+    await audio.finish('win', true);
+    await audio.cue('warmer');
+    await audio.setLevel(2);
+    audio.setVisible(false);
+    expect(sources[2]!.stop).toHaveBeenCalled();
+    expect(sources[3]!.stop).toHaveBeenCalled();
+    audio.setVisible(true);
+    audio.disable();
+    await audio.enable(settings);
+    expect(sources).toHaveLength(4);
+    expect(fetchAudio.mock.calls.filter(([url]) => url === VICTORY_MUSIC)).toHaveLength(1);
+  });
+
+  it('keeps Give Up and restored results silent, including after sound is enabled', async () => {
+    for (const outcome of ['win', 'give-up'] as const) {
+      const { audio, sources, fetchAudio } = setup();
+      await audio.finish(outcome);
+      await audio.enable(settings);
+      await audio.cue('colder');
+      expect(sources).toHaveLength(0);
+      expect(fetchAudio).not.toHaveBeenCalledWith(VICTORY_APPLAUSE);
+      expect(fetchAudio).not.toHaveBeenCalledWith(VICTORY_MUSIC);
+    }
+    const { audio, sources } = setup();
+    await audio.enable(settings);
+    await audio.finish('give-up');
+    expect(sources[0]!.stop).toHaveBeenCalled();
+    await audio.setLevel(2);
+    expect(sources).toHaveLength(1);
+  });
+
+  it('honors music and effect switches separately for celebrations', async () => {
+    for (const kind of ['music', 'effects'] as const) {
+      const { audio, sources, fetchAudio } = setup();
+      await audio.enable({ ...settings, music: kind === 'music', effects: kind === 'effects' });
+      await audio.finish('win', true);
+      const chosen = kind === 'music' ? VICTORY_MUSIC : VICTORY_APPLAUSE;
+      const skipped = kind === 'music' ? VICTORY_APPLAUSE : VICTORY_MUSIC;
+      expect(sources.at(-1)!.buffer).toMatchObject({ url: chosen });
+      expect(fetchAudio).not.toHaveBeenCalledWith(skipped);
+      audio.disable();
+      expect(sources.at(-1)!.stop).toHaveBeenCalled();
+    }
+  });
+
+  it('does not let a late looping track or celebration download restart after results or mute', async () => {
+    const { audio, fetchAudio, sources } = setup();
+    await audio.enable(settings);
+    let finish: (data: ArrayBuffer) => void = () => {};
+    fetchAudio.mockImplementationOnce(() => new Promise((resolve) => (finish = resolve)));
+    const pendingTier = audio.setLevel(2);
+    await audio.finish('win', true);
+    finish(new ArrayBuffer(0));
+    await pendingTier;
+    expect(sources).toHaveLength(3);
+    expect(sources.slice(1).every((source) => !source.loop)).toBe(true);
+
+    const other = setup();
+    await other.audio.enable(settings);
+    other.fetchAudio.mockImplementationOnce(() => new Promise((resolve) => (finish = resolve)));
+    const pendingWin = other.audio.finish('win', true);
+    other.audio.disable();
+    finish(new ArrayBuffer(0));
+    await pendingWin;
+    expect(other.sources).toHaveLength(1);
+  });
+
+  it('can celebrate a first-guess win while the original audio unlock is still pending', async () => {
+    const { audio, ctx, sources } = setup();
+    let resume: () => void = () => {};
+    ctx.resume.mockImplementationOnce(() => new Promise<void>((resolve) => (resume = resolve)));
+    const enabling = audio.enable(settings);
+    await audio.finish('win'); // Results may mount before the submission promise resolves.
+    await audio.finish('win', true);
+    expect(sources).toHaveLength(0);
+    resume();
+    expect(await enabling).toBe(true);
+    expect(sources.map((source) => source.buffer)).toEqual([
+      expect.objectContaining({ url: VICTORY_MUSIC }),
+      expect.objectContaining({ url: VICTORY_APPLAUSE }),
+    ]);
+  });
+});
+
+it.each([VICTORY_MUSIC, VICTORY_APPLAUSE])('ships a short, audible one-shot: %s', async (url) => {
+  const response = await fetch(url);
+  expect(response.ok).toBe(true);
+  const buffer = await new OfflineAudioContext(2, 1, 44100).decodeAudioData(
+    await response.arrayBuffer()
+  );
+  expect(buffer.duration).toBeGreaterThan(1);
+  expect(buffer.duration).toBeLessThan(12);
+  expect(buffer.getChannelData(0).some((sample) => Math.abs(sample) > 0.05)).toBe(true);
 });
 
 describe('soundtrack milestone boundaries', () => {
