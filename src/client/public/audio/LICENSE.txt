@@ -20,14 +20,26 @@ stage-select.mp3 and boss-fight.mp3
   https://opengameart.org/sites/default/files/audio_preview/Juhani%20Junkala%20%5BChiptune%20Adventures%5D%203.%20Boss%20Fight.ogg.mp3
   The page and archive's INFO.txt both declare CC0.
 
-warmer.wav and colder.wav
-  Interface Sounds 1.0 by Kenney, published 2020-02-11
-  https://kenney.nl/assets/interface-sounds
-  Original files: Audio/maximize_001.ogg and Audio/minimize_001.ogg
-  Converted to PCM WAV for browser compatibility; no creative edits.
-  https://kenney.nl/support confirms attribution is not required.
+warmer.wav
+  Short-Fireball-Woosh.flac by wjl, published 2015-03-22
+  https://freesound.org/people/wjl/sounds/267887/
+  Source declares Creative Commons 0.
+  Source preview: https://cdn.freesound.org/previews/267/267887_5025429-hq.mp3
+  Full approximately 1.2-second effect; decoded to mono at 22,050 Hz.
 
-Music verified 2026-10-26; sound effects verified 2026-10-24.
+colder.wav
+  Ice spells by bart, published 2009-09-17
+  https://opengameart.org/content/ice-spells
+  Source declares CC0; derived from a public-domain pdsounds recording by Stephan.
+  Source archive: https://opengameart.org/sites/default/files/icespells.zip
+  Original file: ice.wav (the shorter, approximately 1.16-second variant).
+  Mixed to mono and resampled to 22,050 Hz.
+
+  Both temperature effects are loudness-balanced to 0.14 RMS, with soft peak
+  limiting to 0.85, a 5 ms fade-in and a 90 ms fade-out; PCM 16-bit WAV.
+  These replace the earlier Kenney Interface Sounds maximize/minimize placeholders.
+
+Music and temperature effects verified 2026-10-26.
 
 victory.mp3
   SEGA Mega Drive/Genesis victory jingle by Spring Spring / Julie Damsgaard, published 2018-10-28
