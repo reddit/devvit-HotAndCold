@@ -2,6 +2,7 @@ import { defineConfig } from 'vite';
 import preact from '@preact/preset-vite';
 import tailwind from '@tailwindcss/vite';
 import { devvit } from '@devvit/start/vite';
+import { readFileSync } from 'node:fs';
 
 export default defineConfig({
   resolve: {
@@ -12,6 +13,20 @@ export default defineConfig({
     ],
   },
   plugins: [
+    {
+      name: 'inline-loading-splash-styles',
+      transformIndexHtml: {
+        order: 'pre',
+        handler(html) {
+          // The first loading frame must stay centered before external CSS arrives.
+          return html.replace(
+            '<link rel="stylesheet" href="./shared/loadingSplash.css" />',
+            () =>
+              `<style data-loading-splash>${readFileSync(new URL('./src/client/shared/loadingSplash.css', import.meta.url), 'utf8')}</style>`
+          );
+        },
+      },
+    },
     preact(),
     tailwind(),
     devvit({
