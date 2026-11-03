@@ -22,10 +22,8 @@ import { FormattingFlag } from '@devvit/shared-types/richtext/types.js';
 import { omit } from '../shared/omit';
 import { Flairs } from './core/flairs';
 import { Admin } from './core/admin';
-import { makeAnalyticsRouter } from '@devvit/analytics/server/posthog';
 import { Timezones } from './core/timezones';
 import { Notifications } from './core/notifications';
-import { makeClientConfig } from '../shared/makeClientConfig';
 import { CommonWordsAggregator } from './core/commonWordsAggregator';
 import { WORD_DATA_API_PREFIX } from '../shared/wordDataVersion';
 
@@ -594,14 +592,6 @@ const appRouter = router({
 export type AppRouter = typeof appRouter;
 
 const app = express();
-
-// Mount analytics proxy BEFORE any body parsers to avoid mangling raw bodies
-app.use('/api', (...args) => {
-  const isProd = context.subredditName === 'HotAndCold';
-  return makeAnalyticsRouter({
-    posthogKey: makeClientConfig(isProd).POSTHOG_KEY,
-  })(...args);
-});
 
 app.use(express.json());
 

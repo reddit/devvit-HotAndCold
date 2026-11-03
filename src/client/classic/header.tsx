@@ -18,7 +18,6 @@ import { userSettings, toggleLayout, toggleSortType, setReminderOptIn } from './
 import { trpc } from '../trpc';
 import { navigate } from './state/navigation';
 import { resetGuessCache } from '../core/guess';
-import { posthog } from '../posthog';
 import { openExperiments } from './state/experiments';
 import { openArchive } from './state/archive';
 import { getBrowserIanaTimeZone } from '../../shared/timezones';
@@ -88,10 +87,8 @@ export function Header({ engine, isAdmin }: { engine?: GuessEngine; isAdmin: boo
       const res = await trpc.cta.toggleReminder.mutate({ timezone });
       setReminderOptIn(res.newValue);
       if (res.newValue) {
-        posthog.setPersonProperties({ opted_into_reminders: true });
         showToast({ text: 'Subscribed to daily reminders', appearance: 'success' });
       } else {
-        posthog.setPersonProperties({ opted_into_reminders: false });
         showToast({ text: 'Unsubscribed from reminders', appearance: 'neutral' });
       }
       return res.newValue;
@@ -107,17 +104,12 @@ export function Header({ engine, isAdmin }: { engine?: GuessEngine; isAdmin: boo
       <div className="mb-4 flex items-center justify-between" data-layout={layout}>
         <div className="flex h-5 flex-1 gap-2 sm:h-10 sm:gap-4">
           {/* Hardcore logo is not migrated; show mascot CTA next to main logo */}
-          <div
-            onClick={() => {
-              posthog.capture('Game Page Hardcore Logo Clicked');
-            }}
-          >
+          <div>
             <Logo />
           </div>
           <button
             className={cn('flex gap-1', accessStatus === 'inactive' && 'cursor-pointer')}
             onClick={() => {
-              posthog.capture('Game Page Hardcore Psst Clicked');
               // Placeholder for unlock hardcore modal
             }}
             disabled={accessStatus !== 'inactive'}
@@ -135,7 +127,6 @@ export function Header({ engine, isAdmin }: { engine?: GuessEngine; isAdmin: boo
           <IconButton
             type="button"
             onClick={() => {
-              posthog.capture('Game Page How to Play Opened');
               openHowToPlay();
             }}
             icon={<InfoIcon />}
@@ -148,9 +139,6 @@ export function Header({ engine, isAdmin }: { engine?: GuessEngine; isAdmin: boo
               <IconButton
                 type="button"
                 onClick={async () => {
-                  posthog.capture('Game Page Notification Icon Toggled', {
-                    newState: isUserOptedIntoReminders ? 'off' : 'on',
-                  });
                   await toggleReminderShared();
                 }}
                 icon={isUserOptedIntoReminders ? <BellIcon /> : <BellOffIcon />}
@@ -163,7 +151,6 @@ export function Header({ engine, isAdmin }: { engine?: GuessEngine; isAdmin: boo
               <IconButton
                 type="button"
                 onClick={() => {
-                  posthog.capture('Game Page Archive Opened');
                   openArchive();
                 }}
                 icon={<MoreIcon />}
@@ -228,9 +215,6 @@ export function Header({ engine, isAdmin }: { engine?: GuessEngine; isAdmin: boo
               {
                 name: 'Share',
                 action: async () => {
-                  posthog.capture('Game Page Share Clicked', {
-                    challengeNumber,
-                  });
                   try {
                     await showShareSheet({
                       title: 'Hot & Cold',
@@ -250,7 +234,6 @@ export function Header({ engine, isAdmin }: { engine?: GuessEngine; isAdmin: boo
                     {
                       name: 'Experiments',
                       action: async () => {
-                        posthog.capture('Game Page Experiments Opened');
                         openExperiments();
                       },
                     },

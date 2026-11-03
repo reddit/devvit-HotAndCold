@@ -3,7 +3,6 @@ import { trpc } from '../trpc';
 import type { GuessEngine } from '../core/guessEngine';
 import { requireChallengeNumber } from '../requireChallengeNumber';
 import { showShareSheet, showToast } from '@devvit/web/client';
-import { posthog } from '../posthog';
 
 export function WinPageLoggedOut({ engine }: { engine: GuessEngine }) {
   const [secretWord, setSecretWord] = useState<string | null>(null);
@@ -40,10 +39,6 @@ export function WinPageLoggedOut({ engine }: { engine: GuessEngine }) {
   }, [wonLocally, challengeNumber, engine.history.value]);
 
   const shareResults = async () => {
-    posthog.capture('Win Page Logged Out Share Clicked', {
-      challengeNumber,
-      wonLocally,
-    });
     try {
       await showShareSheet({
         title: 'Hot & Cold',

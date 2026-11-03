@@ -191,8 +191,6 @@
     },
     "http": {
       "domains": [
-        "us.i.posthog.com",
-        "us-assets.i.posthog.com",
         "generativelanguage.googleapis.com",
         "raw.githubusercontent.com"
       ],

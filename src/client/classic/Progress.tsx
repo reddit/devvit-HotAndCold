@@ -5,7 +5,6 @@ import { PROGRESS_POLL_TTL_SECONDS } from '../../shared/config';
 import { rankToProgress } from '../../shared/progress';
 import { trpc } from '../trpc';
 import { context } from '@devvit/web/client';
-import { posthog } from '../posthog';
 
 type GroupedPlayers = {
   count: number;
@@ -213,9 +212,6 @@ export function ProgressBar({
       <div
         ref={containerRef}
         className="absolute top-0 left-0 h-full w-full"
-        onClick={() => {
-          posthog.capture('Progress Bar Clicked');
-        }}
       >
         {/* Render individual players */}
         {processed.visiblePlayers.map((item, index) => {
