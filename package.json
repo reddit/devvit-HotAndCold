@@ -17,7 +17,6 @@
     "type-check": "tsc --build"
   },
   "dependencies": {
-    "@devvit/analytics": "0.13.10",
     "@devvit/notifications": "0.13.10",
     "@devvit/shared-types": "0.13.10",
     "@devvit/start": "0.13.10",
@@ -28,7 +27,6 @@
     "clsx": "2.1.1",
     "devvit": "0.13.10",
     "express": "4.19.2",
-    "posthog-js": "1.268.4",
     "preact": "^10.25.3",
     "superjson": "2.2.2",
     "tailwind-merge": "3.3.0",

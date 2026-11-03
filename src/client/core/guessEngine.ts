@@ -1,4 +1,3 @@
-/* eslint-disable no-empty */
 import { signal, batch } from '@preact/signals';
 import { makeGuess, getLetterPreloadOrder, preloadLetterMaps } from './guess';
 import { createLocalStorageSignal } from '../utils/localStorageSignal';
@@ -68,7 +67,6 @@ const isValidWord = (word: string): boolean => /^[a-zA-Z][a-zA-Z'-]*$/.test(word
 // Placeholder: wire to tRPC once server exposes a mutation
 import { trpc } from '../trpc';
 import { markSolvedForCurrentChallenge } from '../classic/state/navigation';
-import { posthog } from '../posthog';
 // import { rankToProgress } from '../../shared/progress';
 
 const submitBatchToServer = async (
@@ -411,15 +409,6 @@ export function createGuessEngine(params: {
             const solvedAt = Number(serverState.solvedAtMs) || now;
             solvedAtMs.value = solvedAt;
             markSolvedForCurrentChallenge(solvedAt);
-            try {
-              posthog.capture('Solved Word', {
-                challengeNumber,
-                word: corrected,
-                rank: Number.isFinite(data.rank) ? (data.rank as number) : null,
-                totalGuesses: history.value.length,
-                solvedAtMs: solvedAt,
-              });
-            } catch {}
           } else {
             // Fallback: mark locally; server will reconcile on next fetch
             solvedAtMs.value = now;
@@ -430,15 +419,6 @@ export function createGuessEngine(params: {
               rank: Number.isFinite(data.rank) ? (data.rank as number) : -1,
               timestamp: now,
             });
-            try {
-              posthog.capture('Solved Word', {
-                challengeNumber,
-                word: corrected,
-                rank: Number.isFinite(data.rank) ? (data.rank as number) : null,
-                totalGuesses: history.value.length,
-                solvedAtMs: now,
-              });
-            } catch {}
           }
         } catch {
           // Network/server error – fallback to optimistic local win and background ensure
@@ -450,15 +430,6 @@ export function createGuessEngine(params: {
             rank: Number.isFinite(data.rank) ? (data.rank as number) : -1,
             timestamp: now,
           });
-          try {
-            posthog.capture('Solved Word', {
-              challengeNumber,
-              word: corrected,
-              rank: Number.isFinite(data.rank) ? (data.rank as number) : null,
-              totalGuesses: history.value.length,
-              solvedAtMs: now,
-            });
-          } catch {}
         }
       }
       return res;

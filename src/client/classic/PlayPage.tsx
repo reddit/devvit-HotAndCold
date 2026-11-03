@@ -7,7 +7,6 @@ import { formatOrdinal } from '../../shared/ordinal';
 import { formatCompactNumber } from '../../shared/formatCompactNumber';
 import { context } from '@devvit/web/client';
 import { openHowToPlay } from './state/howToPlay';
-import { posthog } from '../posthog';
 import { trpc } from '../trpc';
 import { getBrowserIanaTimeZone } from '../../shared/timezones';
 import { setReminderOptIn, userSettings } from './state/userSettings';
@@ -172,10 +171,8 @@ export function PlayPage({ engine }: { engine?: GuessEngine }) {
   async function handleJoinSubreddit() {
     if (!context.userId) return;
     setIsJoinLoading(true);
-    posthog.capture('Game Page Join Subreddit Prompt Clicked');
     try {
       await trpc.cta.joinSubreddit.mutate({});
-      posthog.setPersonProperties({ joined_subreddit: true });
       setHasJoinedSubreddit(true);
       const guessCount = engine ? (engine.history.value ?? []).length : itemsArray.length;
       const nextPrompt = evaluatePrompt({
@@ -196,11 +193,9 @@ export function PlayPage({ engine }: { engine?: GuessEngine }) {
   async function handleEnableReminders() {
     if (!context.userId) return;
     setIsReminderLoading(true);
-    posthog.capture('Game Page Reminder Prompt Clicked');
     try {
       const timezone = getBrowserIanaTimeZone();
       await trpc.cta.setReminder.mutate({ timezone });
-      posthog.setPersonProperties({ opted_into_reminders: true });
       setHasReminders(true);
       setReminderOptIn(true);
       const guessCount = engine ? (engine.history.value ?? []).length : itemsArray.length;
@@ -288,8 +283,6 @@ export function PlayPage({ engine }: { engine?: GuessEngine }) {
               'cursor-pointer rounded-md bg-gray-200 px-4 py-2 text-sm text-black hover:bg-gray-300 dark:bg-gray-700 dark:text-white dark:hover:bg-gray-600'
             }
             onClick={() => {
-              posthog.capture('Game Page How to Play Button Below Input Clicked');
-
               openHowToPlay();
             }}
           >

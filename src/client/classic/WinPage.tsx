@@ -6,7 +6,6 @@ import { GradientBorder } from '../shared/gradientBorder';
 import { cn } from '../utils/cn';
 import { trpc } from '../trpc';
 import { Modal } from '../shared/modal';
-import { posthog } from '../posthog';
 // import { context } from '@devvit/web/client';
 import { requireChallengeNumber } from '../requireChallengeNumber';
 import { getPrettyDuration } from '../../shared/prettyDuration';
@@ -56,15 +55,6 @@ const CallToAction = ({
   const [serverSuffix, setServerSuffix] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!cta) return;
-    posthog.capture('Win Page Call To Action Shown', {
-      didWin,
-      challengeNumber,
-      cta,
-    });
-  }, [cta]);
-
-  useEffect(() => {
     // Always fetch the CTA for this challenge so users can comment even before winning
     void (async () => {
       try {
@@ -101,20 +91,10 @@ const CallToAction = ({
   const doAction = async () => {
     setIsLoading(true);
 
-    posthog.capture('Win Page Call To Action Clicked', {
-      cta,
-    });
-
     try {
       if (cta === 'JOIN_SUBREDDIT') {
-        posthog.setPersonProperties({
-          joined_subreddit: true,
-        });
         await trpc.cta.joinSubreddit.mutate({});
       } else if (cta === 'REMIND_ME_TO_PLAY') {
-        posthog.setPersonProperties({
-          opted_into_reminders: true,
-        });
         const timezone = getBrowserIanaTimeZone();
         await trpc.cta.setReminder.mutate({ timezone });
       } else if (cta === 'COMMENT') {
@@ -136,11 +116,6 @@ const CallToAction = ({
   };
 
   const submitComment = async () => {
-    posthog.capture('Win Page Comment Submit Clicked', {
-      challengeNumber,
-      comment,
-    });
-
     if (!comment.trim()) return;
     setIsLoading(true);
     try {
@@ -163,13 +138,6 @@ const CallToAction = ({
         : 'Share your journey in the thread';
 
   const shareResults = async () => {
-    posthog.capture('Win Page Share Clicked', {
-      challengeNumber,
-      didWin,
-      score: stats.score ?? null,
-      rank: stats.rank ?? null,
-    });
-
     const shareText = didWin
       ? `I solved Hot & Cold #${challengeNumber} in ${stats.timeToSolve}. Can you beat my time?`
       : `Can you solve Hot & Cold #${challengeNumber}?`;
@@ -234,9 +202,6 @@ const CallToAction = ({
               type="button"
               className="rounded-md px-3 py-2 text-sm text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800"
               onClick={() => {
-                posthog.capture('Win Page Comment Cancel Clicked', {
-                  challengeNumber,
-                });
                 setIsCommentOpen(false);
               }}
             >
@@ -366,11 +331,6 @@ export function WinPage() {
         <Tablist
           activeIndex={activeIndex}
           onChange={(index) => {
-            const tabClicked = tabList[index]!.name;
-            posthog.capture('Win Page Tab Clicked', {
-              index,
-              tabClicked,
-            });
             setActiveIndex(index);
           }}
           items={tabList}
@@ -397,7 +357,6 @@ export function WinPage() {
                           type="button"
                           className="cursor-pointer text-inherit underline"
                           onClick={() => {
-                            posthog.capture('Win Page Score Breakdown Clicked');
                             setIsScoreOpen(true);
                           }}
                         >

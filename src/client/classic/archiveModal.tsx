@@ -17,7 +17,6 @@ import {
 import { requireChallengeNumber } from '../requireChallengeNumber';
 import { cn } from '../utils/cn';
 import { formatCompactNumber } from '../../shared/formatCompactNumber';
-import { posthog } from '../posthog';
 import { navigateTo } from '@devvit/web/client';
 
 const STATUS_LABEL: Record<ArchiveChallengeStatus, string> = {
@@ -178,10 +177,6 @@ export function ArchiveModal() {
 
   const handleNavigate = async (entry: ArchiveChallengeSummary) => {
     if (!entry.postUrl) return;
-    posthog.capture('Archive Challenge Selected', {
-      challengeNumber: entry.challengeNumber,
-      status: entry.status,
-    });
     closeArchive();
     await navigateTo(entry.postUrl);
   };
